@@ -1,0 +1,56 @@
+.login {
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 1.2rem;
+  padding: 1.5rem;
+  background:
+    radial-gradient(1100px 500px at 50% -10%, var(--accent-soft), transparent 60%),
+    var(--bg);
+}
+
+.login-card {
+  width: 100%;
+  max-width: 380px;
+  padding: 1.8rem 1.7rem 1.5rem;
+  display: flex;
+  flex-direction: column;
+  gap: 1.15rem;
+}
+
+.brand {
+  display: flex;
+  align-items: center;
+  gap: 0.8rem;
+}
+.brand-mark {
+  width: 44px; height: 44px; flex: none;
+  display: grid; place-items: center;
+  background: var(--accent); color: var(--on-accent);
+  border-radius: 12px; font-size: 1.4rem;
+}
+.brand h1 { margin: 0; font-size: 1.5rem; letter-spacing: -0.02em; }
+.brand h1 span { color: var(--accent); font-weight: 600; }
+.brand p { margin: 0.1rem 0 0; font-size: 0.82rem; color: var(--muted); }
+
+.tabs {
+  display: grid; grid-template-columns: 1fr 1fr;
+  gap: 0.3rem; padding: 0.3rem;
+  background: var(--surface-2); border-radius: var(--radius-sm);
+}
+.tabs button {
+  font: inherit; font-weight: 600; cursor: pointer;
+  border: none; background: transparent; color: var(--ink-soft);
+  padding: 0.5rem; border-radius: 6px;
+}
+.tabs button.active { background: var(--surface); color: var(--accent); box-shadow: var(--shadow); }
+
+form { display: flex; flex-direction: column; gap: 0.9rem; }
+.full { width: 100%; justify-content: center; }
+.error { color: var(--danger); font-size: 0.85rem; margin: -0.2rem 0 0; }
+.hint { font-size: 0.78rem; color: var(--muted); text-align: center; margin: 0.1rem 0 0; }
+.hint code { font-family: var(--mono); background: var(--surface-2); padding: 0.05em 0.35em; border-radius: 4px; }
+
+.foot { font-size: 0.78rem; color: var(--muted); margin: 0; }

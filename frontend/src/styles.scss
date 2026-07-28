@@ -1,0 +1,100 @@
+/* ============================================================================
+   SECAD Lite — tema global (identidad propia: teal, distinta al SECAD azul).
+   ========================================================================== */
+
+:root {
+  --bg:        #f4f7f6;
+  --surface:   #ffffff;
+  --surface-2: #eef3f1;
+  --border:    #dde5e2;
+  --border-2:  #c8d5cf;
+  --ink:       #16201d;
+  --ink-soft:  #46524d;
+  --muted:     #6c7873;
+  --accent:    #0d7d70;
+  --accent-deep:#0a5b52;
+  --accent-soft:#e3f1ee;
+  --on-accent: #ffffff;
+  --danger:    #b4342a;
+  --warn:      #a5620a;
+  --ok:        #0d7d70;
+
+  --sans: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+  --mono: ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+
+  --radius: 12px;
+  --radius-sm: 8px;
+  --shadow: 0 1px 2px rgba(16,32,29,0.06), 0 6px 20px rgba(16,32,29,0.06);
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --bg:        #0d1412;
+    --surface:   #131c19;
+    --surface-2: #1a2521;
+    --border:    #283530;
+    --border-2:  #35443e;
+    --ink:       #e9f1ed;
+    --ink-soft:  #b1c0ba;
+    --muted:     #869590;
+    --accent:    #34b3a4;
+    --accent-deep:#57cabb;
+    --accent-soft:#123029;
+    --on-accent: #06231f;
+    --danger:    #e8776b;
+    --warn:      #e0973f;
+    --ok:        #34b3a4;
+    --shadow: 0 1px 2px rgba(0,0,0,0.3), 0 8px 24px rgba(0,0,0,0.35);
+  }
+}
+
+* { box-sizing: border-box; }
+html, body { height: 100%; }
+body {
+  margin: 0;
+  background: var(--bg);
+  color: var(--ink);
+  font-family: var(--sans);
+  line-height: 1.5;
+  -webkit-font-smoothing: antialiased;
+}
+
+/* Controles base compartidos ------------------------------------------------ */
+.field { display: flex; flex-direction: column; gap: 0.35rem; }
+.field > label { font-size: 0.8rem; font-weight: 600; color: var(--ink-soft); }
+
+input, select, textarea {
+  font: inherit;
+  color: var(--ink);
+  background: var(--surface);
+  border: 1px solid var(--border-2);
+  border-radius: var(--radius-sm);
+  padding: 0.55rem 0.7rem;
+  width: 100%;
+}
+input:focus, select:focus, textarea:focus {
+  outline: none;
+  border-color: var(--accent);
+  box-shadow: 0 0 0 3px var(--accent-soft);
+}
+
+.btn {
+  font: inherit; font-weight: 600; cursor: pointer;
+  border: 1px solid transparent; border-radius: var(--radius-sm);
+  padding: 0.55rem 1rem; display: inline-flex; align-items: center; gap: 0.4rem;
+  background: var(--surface); color: var(--ink); border-color: var(--border-2);
+  transition: filter 0.15s ease, background 0.15s ease;
+}
+.btn:hover { filter: brightness(0.98); }
+.btn:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+.btn--primary { background: var(--accent); color: var(--on-accent); border-color: var(--accent); }
+.btn--primary:hover { background: var(--accent-deep); }
+.btn--ghost { background: transparent; border-color: transparent; color: var(--ink-soft); }
+.btn:disabled { opacity: 0.55; cursor: not-allowed; }
+
+.card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow);
+}

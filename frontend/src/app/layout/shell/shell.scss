@@ -1,0 +1,41 @@
+:host { display: block; min-height: 100vh; }
+
+.topbar {
+  position: sticky; top: 0; z-index: 10;
+  display: flex; align-items: center; gap: 1.5rem;
+  padding: 0.7rem 1.3rem;
+  background: var(--surface);
+  border-bottom: 1px solid var(--border);
+}
+
+.brand { display: flex; align-items: center; gap: 0.55rem; }
+.brand .mark {
+  width: 30px; height: 30px; display: grid; place-items: center;
+  background: var(--accent); color: var(--on-accent); border-radius: 8px; font-size: 1rem;
+}
+.brand strong { font-size: 1.05rem; letter-spacing: -0.01em; }
+.brand span { color: var(--accent); font-weight: 600; }
+
+.nav { display: flex; gap: 0.3rem; }
+.nav a {
+  text-decoration: none; color: var(--ink-soft); font-weight: 600; font-size: 0.9rem;
+  padding: 0.4rem 0.7rem; border-radius: 7px;
+}
+.nav a.active { background: var(--accent-soft); color: var(--accent); }
+
+.user { margin-left: auto; display: flex; align-items: center; gap: 0.8rem; }
+.tenant {
+  font-family: var(--mono); font-size: 0.72rem; text-transform: uppercase; letter-spacing: 0.06em;
+  background: var(--surface-2); color: var(--ink-soft); padding: 0.25rem 0.5rem; border-radius: 6px;
+}
+.who { display: flex; flex-direction: column; line-height: 1.15; text-align: right; }
+.who .name { font-weight: 600; font-size: 0.88rem; }
+.who .tipo { font-size: 0.7rem; color: var(--accent); text-transform: capitalize; }
+.who .tipo.civil { color: var(--warn); }
+
+.content { padding: 1.4rem; max-width: 1080px; margin: 0 auto; }
+
+@media (max-width: 560px) {
+  .topbar { gap: 0.8rem; flex-wrap: wrap; }
+  .who .name { max-width: 90px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+}

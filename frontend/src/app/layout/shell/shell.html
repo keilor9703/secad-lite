@@ -1,0 +1,23 @@
+<header class="topbar">
+  <div class="brand">
+    <span class="mark" aria-hidden="true">◈</span>
+    <strong>SECAD <span>Lite</span></strong>
+  </div>
+
+  <nav class="nav">
+    <a routerLink="/recepcion" routerLinkActive="active">Recepción</a>
+  </nav>
+
+  <div class="user" *ngIf="sesion() as s">
+    <span class="tenant" title="Municipio (tenant)">{{ s.tenant }}</span>
+    <span class="who">
+      <span class="name">{{ s.nombre }}</span>
+      <span class="tipo" [class.civil]="s.tipo === 'civil'">{{ s.tipo }}</span>
+    </span>
+    <button type="button" class="btn btn--ghost" (click)="salir()">Salir</button>
+  </div>
+</header>
+
+<main class="content">
+  <router-outlet />
+</main>

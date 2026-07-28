@@ -1,0 +1,87 @@
+<section class="rec">
+  <header class="rec-head">
+    <div>
+      <h1>Recepción</h1>
+      <p>Bandeja de casos entrantes · multicanal · multi-agencia</p>
+    </div>
+    <button type="button" class="btn btn--primary" (click)="abrirForm()">+ Nuevo caso</button>
+  </header>
+
+  <div class="kpis">
+    <div class="kpi"><span class="n">{{ total() }}</span><span class="l">Total</span></div>
+    <div class="kpi"><span class="n">{{ nuevos() }}</span><span class="l">Nuevos</span></div>
+    <div class="kpi"><span class="n">{{ enGestion() }}</span><span class="l">En gestión</span></div>
+  </div>
+
+  <p class="error" *ngIf="error()">{{ error() }}</p>
+
+  <!-- Formulario de nuevo caso -->
+  <div class="form-panel card" *ngIf="mostrarForm">
+    <h2>Recepcionar caso</h2>
+    <div class="grid">
+      <div class="field">
+        <label>Canal</label>
+        <select [(ngModel)]="form.canal">
+          <option *ngFor="let c of canales" [value]="c">{{ canalIcon(c) }} {{ canalLabel(c) }}</option>
+        </select>
+      </div>
+      <div class="field">
+        <label>Agencia responsable</label>
+        <input [(ngModel)]="form.agencia" placeholder="p. ej. Policía, Tránsito, Bomberos" />
+      </div>
+      <div class="field span2">
+        <label>Título *</label>
+        <input [(ngModel)]="form.titulo" placeholder="Motivo del caso" />
+      </div>
+      <div class="field">
+        <label>Ciudadano *</label>
+        <input [(ngModel)]="form.ciudadano" placeholder="Nombre del reportante" />
+      </div>
+      <div class="field">
+        <label>Teléfono</label>
+        <input [(ngModel)]="form.telefono" placeholder="Opcional" />
+      </div>
+      <div class="field span2">
+        <label>Descripción</label>
+        <textarea [(ngModel)]="form.descripcion" rows="2" placeholder="Detalle (opcional)"></textarea>
+      </div>
+    </div>
+    <div class="form-actions">
+      <button type="button" class="btn btn--ghost" (click)="cerrarForm()">Cancelar</button>
+      <button type="button" class="btn btn--primary" (click)="crear()">Guardar caso</button>
+    </div>
+  </div>
+
+  <!-- Bandeja -->
+  <div class="tbl-wrap card">
+    <table>
+      <thead>
+        <tr>
+          <th>ID</th><th>Canal</th><th>Título</th><th>Ciudadano</th>
+          <th>Agencia</th><th>Estado</th><th>Acciones</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr *ngFor="let c of casos()">
+          <td class="mono">{{ c.id }}</td>
+          <td><span class="canal">{{ canalIcon(c.canal) }} {{ canalLabel(c.canal) }}</span></td>
+          <td class="titulo">{{ c.titulo }}</td>
+          <td>{{ c.ciudadano }}</td>
+          <td>{{ c.agencia }}</td>
+          <td><span class="badge" [attr.data-estado]="c.estado">{{ estadoLabel(c.estado) }}</span></td>
+          <td>
+            <select class="acc" [ngModel]="c.estado" (ngModelChange)="cambiarEstado(c, $event)">
+              <option *ngFor="let e of estados" [value]="e">{{ estadoLabel(e) }}</option>
+            </select>
+          </td>
+        </tr>
+        <tr *ngIf="!cargando() && casos().length === 0">
+          <td colspan="7" class="empty">No hay casos en la bandeja.</td>
+        </tr>
+        <tr *ngIf="cargando()">
+          <td colspan="7" class="empty">Cargando…</td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+</section>
