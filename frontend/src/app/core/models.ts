@@ -25,6 +25,19 @@ export interface CrearCaso {
   agencia?: string;
 }
 
+export type TipoEvento = 'creacion' | 'estado' | 'derivacion' | 'nota';
+
+export interface EventoCaso {
+  id: string;
+  casoId: string;
+  tipo: TipoEvento;
+  descripcion: string;
+  estadoAnterior?: string | null;
+  estadoNuevo?: string | null;
+  autor: string;
+  creadoEn: string;
+}
+
 export interface Sesion {
   token: string;
   usuario: string;

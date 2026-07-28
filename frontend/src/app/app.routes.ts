@@ -10,6 +10,7 @@ export const routes: Routes = [
     children: [
       { path: '', pathMatch: 'full', redirectTo: 'recepcion' },
       { path: 'recepcion', loadComponent: () => import('./pages/recepcion/recepcion').then((m) => m.RecepcionComponent) },
+      { path: 'recepcion/:id', loadComponent: () => import('./pages/detalle/detalle').then((m) => m.DetalleComponent) },
     ],
   },
   { path: '**', redirectTo: '' },

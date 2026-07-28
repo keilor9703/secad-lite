@@ -65,7 +65,7 @@
         <tr *ngFor="let c of casos()">
           <td class="mono" [title]="c.id">{{ c.id.slice(0, 8) }}</td>
           <td><span class="canal">{{ canalIcon(c.canal) }} {{ canalLabel(c.canal) }}</span></td>
-          <td class="titulo">{{ c.titulo }}</td>
+          <td class="titulo"><a [routerLink]="['/recepcion', c.id]">{{ c.titulo }}</a></td>
           <td>{{ c.ciudadano }}</td>
           <td>{{ c.agencia }}</td>
           <td><span class="badge" [attr.data-estado]="c.estado">{{ estadoLabel(c.estado) }}</span></td>

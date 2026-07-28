@@ -1,0 +1,66 @@
+<section class="det">
+  <a routerLink="/recepcion" class="volver">← Volver a la bandeja</a>
+
+  <p class="error" *ngIf="error()">{{ error() }}</p>
+  <p class="cargando" *ngIf="cargando()">Cargando…</p>
+
+  <ng-container *ngIf="caso() as c">
+    <div class="grid">
+      <!-- Ficha del caso -->
+      <div class="ficha card">
+        <div class="ficha-head">
+          <span class="canal">{{ canalIcon(c.canal) }} {{ canalLabel(c.canal) }}</span>
+          <span class="badge" [attr.data-estado]="c.estado">{{ estadoLabel(c.estado) }}</span>
+        </div>
+        <h1>{{ c.titulo }}</h1>
+        <p class="mono id">{{ c.id }}</p>
+
+        <dl class="datos">
+          <div><dt>Ciudadano</dt><dd>{{ c.ciudadano }}</dd></div>
+          <div><dt>Teléfono</dt><dd>{{ c.telefono || '—' }}</dd></div>
+          <div><dt>Agencia</dt><dd>{{ c.agencia }}</dd></div>
+          <div><dt>Recepcionado por</dt><dd>{{ c.creadoPor }}</dd></div>
+          <div><dt>Creado</dt><dd>{{ c.creadoEn | date:'short' }}</dd></div>
+          <div><dt>Actualizado</dt><dd>{{ c.actualizadoEn | date:'short' }}</dd></div>
+        </dl>
+
+        <p class="desc" *ngIf="c.descripcion">{{ c.descripcion }}</p>
+
+        <div class="acciones">
+          <label>Cambiar estado</label>
+          <div class="botones">
+            <button *ngFor="let e of estados" type="button"
+                    class="btn" [class.btn--primary]="e === c.estado"
+                    [disabled]="e === c.estado" (click)="cambiarEstado(e)">
+              {{ estadoLabel(e) }}
+            </button>
+          </div>
+        </div>
+      </div>
+
+      <!-- Bitácora / línea de tiempo -->
+      <div class="bitacora card">
+        <h2>Bitácora</h2>
+
+        <form class="nota-form" (ngSubmit)="agregarNota()">
+          <textarea [(ngModel)]="nota" name="nota" rows="2"
+                    placeholder="Agregar una nota al caso…" maxlength="1000"></textarea>
+          <button type="submit" class="btn btn--primary" [disabled]="guardandoNota || !nota.trim()">
+            {{ guardandoNota ? 'Guardando…' : 'Agregar nota' }}
+          </button>
+        </form>
+
+        <ol class="timeline">
+          <li *ngFor="let ev of eventos()" [attr.data-tipo]="ev.tipo">
+            <span class="dot">{{ eventoIcon(ev.tipo) }}</span>
+            <div class="ev">
+              <p class="ev-desc">{{ ev.descripcion }}</p>
+              <p class="ev-meta">{{ ev.autor }} · {{ ev.creadoEn | date:'short' }}</p>
+            </div>
+          </li>
+          <li class="empty" *ngIf="!cargando() && eventos().length === 0">Sin eventos aún.</li>
+        </ol>
+      </div>
+    </div>
+  </ng-container>
+</section>

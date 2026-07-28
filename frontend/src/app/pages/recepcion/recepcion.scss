@@ -31,6 +31,8 @@ thead th {
 tbody tr:last-child td { border-bottom: none; }
 .mono { font-family: var(--mono); color: var(--ink-soft); }
 .titulo { white-space: normal; min-width: 180px; font-weight: 500; }
+.titulo a { color: var(--accent); text-decoration: none; }
+.titulo a:hover { text-decoration: underline; }
 .canal { white-space: nowrap; }
 .empty { text-align: center; color: var(--muted); padding: 1.5rem; }
 

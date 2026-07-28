@@ -55,6 +55,8 @@ npm start                 # http://localhost:4200
   flujo 2FA institucional cableado vía la librería reutilizable **`@policia/mfa`**.
 - **Recepción**: bandeja de casos **multicanal** (llamada / chat / integración),
   crear caso, cambiar estado y **derivar a otra agencia** (multi-agencia).
+- **Detalle de caso** con **bitácora de auditoría** (línea de tiempo inmutable):
+  creación, cambios de estado, derivaciones y notas, cada evento con autor y fecha.
 - **Persistencia real** en **PostgreSQL pooled** (TypeORM): una sola base aislada
   por columna `tenant`; toda consulta filtra por tenant. Verificado: un token de
   otro municipio ve 0 casos ajenos.
@@ -70,8 +72,7 @@ npm start                 # http://localhost:4200
 - Login **demo** (contraseña `demo`) → integrar directorio institucional real y,
   en la ruta institucional, los endpoints reales del **2FA central** (`@policia/mfa`
   ya está cableado, igual que en SECAD).
-- Falta el canal de **chat** en vivo (WebSocket) y el **detalle de caso** con
-  timeline de auditoría.
+- Falta el canal de **chat** en vivo (WebSocket).
 
 ## Núcleo compartido
 

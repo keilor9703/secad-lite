@@ -2,19 +2,23 @@ import { BadRequestException, Injectable, NotFoundException, OnModuleInit } from
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { CasoEntity } from './caso.entity';
-import { CANALES, ESTADOS } from './caso.model';
+import { EventoCasoEntity, TipoEvento } from './evento.entity';
+import { CANALES, EstadoCaso, ESTADOS } from './caso.model';
 import { CrearCasoDto } from './dto/crear-caso.dto';
 import { CambiarEstadoDto } from './dto/cambiar-estado.dto';
 
 /**
  * Casos persistidos en PostgreSQL. Todo consulta/escribe SIEMPRE acotado por
- * `tenant` (modelo pooled): ningún municipio puede leer/tocar datos de otro.
+ * `tenant` (modelo pooled). Cada acción relevante queda registrada en la bitácora
+ * de auditoría (casos_eventos) para reconstruir la línea de tiempo del caso.
  */
 @Injectable()
 export class CasosService implements OnModuleInit {
   constructor(
     @InjectRepository(CasoEntity)
     private readonly repo: Repository<CasoEntity>,
+    @InjectRepository(EventoCasoEntity)
+    private readonly eventos: Repository<EventoCasoEntity>,
   ) {}
 
   async onModuleInit(): Promise<void> {
@@ -31,34 +35,81 @@ export class CasosService implements OnModuleInit {
     return caso;
   }
 
+  /** Línea de tiempo de un caso (valida antes que el caso pertenezca al tenant). */
+  async listarAuditoria(tenant: string, casoId: string): Promise<EventoCasoEntity[]> {
+    await this.obtener(tenant, casoId);
+    return this.eventos.find({ where: { tenant, casoId }, order: { creadoEn: 'ASC' } });
+  }
+
   async crear(tenant: string, dto: CrearCasoDto, usuario: string): Promise<CasoEntity> {
     if (!dto?.titulo?.trim()) throw new BadRequestException('El título es obligatorio.');
     if (!dto?.ciudadano?.trim()) throw new BadRequestException('El ciudadano es obligatorio.');
     if (!CANALES.includes(dto.canal)) throw new BadRequestException('Canal inválido.');
 
-    const caso = this.repo.create({
-      tenant,
-      canal: dto.canal,
-      titulo: dto.titulo.trim(),
-      descripcion: dto.descripcion?.trim() ?? '',
-      ciudadano: dto.ciudadano.trim(),
-      telefono: dto.telefono?.trim() || null,
-      agencia: dto.agencia?.trim() || 'Central',
-      estado: 'nuevo',
-      creadoPor: usuario,
-    });
-    return this.repo.save(caso);
+    const caso = await this.repo.save(
+      this.repo.create({
+        tenant,
+        canal: dto.canal,
+        titulo: dto.titulo.trim(),
+        descripcion: dto.descripcion?.trim() ?? '',
+        ciudadano: dto.ciudadano.trim(),
+        telefono: dto.telefono?.trim() || null,
+        agencia: dto.agencia?.trim() || 'Central',
+        estado: 'nuevo',
+        creadoPor: usuario,
+      }),
+    );
+    await this.registrar(tenant, caso.id, 'creacion', `Caso recepcionado por ${caso.canal}.`, usuario);
+    return caso;
   }
 
-  async cambiarEstado(tenant: string, id: string, dto: CambiarEstadoDto): Promise<CasoEntity> {
+  async cambiarEstado(tenant: string, id: string, dto: CambiarEstadoDto, usuario: string): Promise<CasoEntity> {
     const caso = await this.obtener(tenant, id);
     if (!ESTADOS.includes(dto.estado)) throw new BadRequestException('Estado inválido.');
     if (dto.estado === 'derivado' && !dto.agencia?.trim()) {
       throw new BadRequestException('Para derivar se requiere la agencia destino.');
     }
+
+    const anterior = caso.estado;
+    const agenciaAnterior = caso.agencia;
     caso.estado = dto.estado;
     if (dto.estado === 'derivado') caso.agencia = dto.agencia!.trim();
-    return this.repo.save(caso);
+    const guardado = await this.repo.save(caso);
+
+    if (dto.estado === 'derivado' && caso.agencia !== agenciaAnterior) {
+      await this.registrar(
+        tenant, id, 'derivacion',
+        `Derivado de ${agenciaAnterior} a ${caso.agencia}.`, usuario, anterior, dto.estado,
+      );
+    } else {
+      await this.registrar(
+        tenant, id, 'estado',
+        `Estado: ${this.label(anterior)} → ${this.label(dto.estado)}.`, usuario, anterior, dto.estado,
+      );
+    }
+    return guardado;
+  }
+
+  async agregarNota(tenant: string, casoId: string, texto: string, usuario: string): Promise<EventoCasoEntity> {
+    await this.obtener(tenant, casoId);
+    const t = texto?.trim();
+    if (!t) throw new BadRequestException('La nota no puede estar vacía.');
+    if (t.length > 1000) throw new BadRequestException('La nota supera los 1000 caracteres.');
+    return this.registrar(tenant, casoId, 'nota', t, usuario);
+  }
+
+  // ---------------------------------------------------------------------------
+  private registrar(
+    tenant: string, casoId: string, tipo: TipoEvento, descripcion: string,
+    autor: string, estadoAnterior?: EstadoCaso, estadoNuevo?: EstadoCaso,
+  ): Promise<EventoCasoEntity> {
+    return this.eventos.save(
+      this.eventos.create({ tenant, casoId, tipo, descripcion, autor, estadoAnterior, estadoNuevo }),
+    );
+  }
+
+  private label(e: EstadoCaso): string {
+    return { nuevo: 'Nuevo', en_gestion: 'En gestión', derivado: 'Derivado', cerrado: 'Cerrado' }[e];
   }
 
   /** Siembra datos de demostración para el tenant 'demo' si aún no tiene casos. */
@@ -72,7 +123,11 @@ export class CasosService implements OnModuleInit {
       { canal: 'integracion', titulo: 'Alarma activada — comercio', ciudadano: 'Sistema Alarmas', agencia: 'Policía', estado: 'nuevo' },
     ];
     for (const b of base) {
-      await this.repo.save(this.repo.create({ ...b, tenant: 'demo', descripcion: '', creadoPor: 'seed' }));
+      const caso = await this.repo.save(this.repo.create({ ...b, tenant: 'demo', descripcion: '', creadoPor: 'seed' }));
+      await this.registrar('demo', caso.id, 'creacion', `Caso recepcionado por ${caso.canal}.`, 'seed');
+      if (b.estado === 'en_gestion') {
+        await this.registrar('demo', caso.id, 'estado', 'Estado: Nuevo → En gestión.', 'seed', 'nuevo', 'en_gestion');
+      }
     }
   }
 }
