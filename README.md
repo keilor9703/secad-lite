@@ -25,7 +25,7 @@ secad-lite/
 
 **0) Base de datos** — con Docker:
 ```bash
-docker compose up -d      # PostgreSQL en 127.0.0.1:5432 (secad/secad/secad_lite)
+docker compose up -d      # PostgreSQL en localhost:5433 (postgres/postgres/secad_lite)
 ```
 O usa tu propio PostgreSQL y ajusta `DATABASE_URL` en `backend/.env`.
 

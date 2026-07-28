@@ -6,15 +6,15 @@ services:
     image: postgres:16-alpine
     container_name: secad-lite-db
     environment:
-      POSTGRES_USER: secad
-      POSTGRES_PASSWORD: secad
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
       POSTGRES_DB: secad_lite
     ports:
-      - "5432:5432"
+      - "5433:5432"
     volumes:
       - secad_lite_pg:/var/lib/postgresql/data
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U secad -d secad_lite"]
+      test: ["CMD-SHELL", "pg_isready -U postgres -d secad_lite"]
       interval: 5s
       timeout: 5s
       retries: 10
