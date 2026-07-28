@@ -1,0 +1,23 @@
+# PostgreSQL local para desarrollo del SECAD Lite.
+#   docker compose up -d
+# Deja la base en 127.0.0.1:5432 con las credenciales del backend/.env.example.
+services:
+  db:
+    image: postgres:16-alpine
+    container_name: secad-lite-db
+    environment:
+      POSTGRES_USER: secad
+      POSTGRES_PASSWORD: secad
+      POSTGRES_DB: secad_lite
+    ports:
+      - "5432:5432"
+    volumes:
+      - secad_lite_pg:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U secad -d secad_lite"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+volumes:
+  secad_lite_pg:

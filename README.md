@@ -19,21 +19,31 @@ secad-lite/
 ## Requisitos
 
 - Node.js 20+ y npm.
+- PostgreSQL 14+ (o Docker, ver abajo).
 
 ## Cómo correrlo (desarrollo)
+
+**0) Base de datos** — con Docker:
+```bash
+docker compose up -d      # PostgreSQL en 127.0.0.1:5432 (secad/secad/secad_lite)
+```
+O usa tu propio PostgreSQL y ajusta `DATABASE_URL` en `backend/.env`.
 
 **1) Backend** (puerto 3000):
 ```bash
 cd backend
+cp .env.example .env      # DATABASE_URL, JWT_SECRET, etc.
 npm install
-npm run start        # http://localhost:3000/api  ·  health: /api/health
+npm run start             # http://localhost:3000/api  ·  health: /api/health
 ```
+El esquema se crea solo al arrancar (TypeORM `synchronize`, solo dev) y se
+siembran datos de demo para el tenant `demo`.
 
 **2) Frontend** (puerto 4200):
 ```bash
 cd frontend
-npm install          # instala también @policia/mfa desde libs/policia-mfa-1.0.0.tgz
-npm start            # http://localhost:4200
+npm install               # instala también @policia/mfa desde libs/policia-mfa-1.0.0.tgz
+npm start                 # http://localhost:4200
 ```
 
 **Credenciales de demo:** cualquier usuario con contraseña `demo`
@@ -45,17 +55,23 @@ npm start            # http://localhost:4200
   flujo 2FA institucional cableado vía la librería reutilizable **`@policia/mfa`**.
 - **Recepción**: bandeja de casos **multicanal** (llamada / chat / integración),
   crear caso, cambiar estado y **derivar a otra agencia** (multi-agencia).
-- **Multitenancy (stub)**: cada petición lleva `X-Tenant-Id`; el backend aísla los
-  datos por tenant (municipio). En producción → PostgreSQL pooled.
+- **Persistencia real** en **PostgreSQL pooled** (TypeORM): una sola base aislada
+  por columna `tenant`; toda consulta filtra por tenant. Verificado: un token de
+  otro municipio ve 0 casos ajenos.
+- **JWT firmados** (`@nestjs/jwt`): guard global obliga token en todas las rutas
+  salvo login y health. El `tenant` viaja en el token, no se puede falsear por
+  header.
 - **Tema e identidad propios** (teal), distintos al SECAD institucional.
 
-## Qué es mock todavía
+## Qué es mock / pendiente todavía
 
-- Persistencia **en memoria** (se reinicia con el backend) → reemplazar por
-  PostgreSQL pooled.
-- Tokens de autenticación **opacos de demo** → reemplazar por JWT firmados.
-- El 2FA está **cableado** pero requiere los endpoints reales de la API 2FA central
-  (igual que en SECAD).
+- Esquema por `synchronize` (dev) → en producción, **migraciones** versionadas y
+  `synchronize: false`.
+- Login **demo** (contraseña `demo`) → integrar directorio institucional real y,
+  en la ruta institucional, los endpoints reales del **2FA central** (`@policia/mfa`
+  ya está cableado, igual que en SECAD).
+- Falta el canal de **chat** en vivo (WebSocket) y el **detalle de caso** con
+  timeline de auditoría.
 
 ## Núcleo compartido
 

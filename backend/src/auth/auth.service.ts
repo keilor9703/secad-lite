@@ -1,53 +1,47 @@
 import { Injectable, UnauthorizedException } from '@nestjs/common';
+import { JwtService } from '@nestjs/jwt';
 import { LoginDto, LoginResult } from './dto/login.dto';
 
+/** Claims que viajan dentro del JWT. */
+export interface JwtPayload {
+  sub: string;
+  tipo: 'institucional' | 'civil';
+  nombre: string;
+  tenant: string;
+}
+
 /**
- * Autenticación (mock del esqueleto). Valida credenciales de demo y emite un
- * token. Mantiene SEPARADOS los dos dominios de identidad del requerimiento:
- *  - institucional: funcionarios de la agencia.
- *  - civil: usuarios de otras agencias / ciudadanía.
- *
- * En producción:
- *  - el login institucional integra el 2FA central (@policia/mfa) y el directorio
- *    de la agencia;
- *  - el login civil usa su propio proveedor de identidad (correo + OTP), nunca el
- *    directorio institucional;
- *  - el token es un JWT firmado. Aquí es un token opaco de demostración.
+ * Autenticación. Valida credenciales (demo) y emite un JWT firmado. Mantiene
+ * SEPARADOS los dos dominios de identidad:
+ *  - institucional: funcionarios de la agencia (en prod integra @policia/mfa).
+ *  - civil: ciudadanía / otras agencias (proveedor de identidad propio).
+ * El `tenant` viaja en el token; los endpoints protegidos lo toman de ahí (no
+ * del header), de modo que no se puede falsear con X-Tenant-Id.
  */
 @Injectable()
 export class AuthService {
-  private issueToken(payload: Record<string, unknown>): string {
-    const body = Buffer.from(JSON.stringify({ ...payload, iat: Date.now() })).toString('base64url');
-    return `lite.${body}`;
-  }
+  constructor(private readonly jwt: JwtService) {}
 
   loginInstitucional(dto: LoginDto, tenant: string): LoginResult {
-    // Demo: cualquier usuario no vacío con contraseña 'demo' entra.
-    if (!dto?.usuario?.trim() || dto?.contrasena !== 'demo') {
-      throw new UnauthorizedException('Credenciales institucionales inválidas (use contraseña "demo").');
-    }
-    const usuario = dto.usuario.trim();
-    return {
-      token: this.issueToken({ sub: usuario, tipo: 'institucional', tenant }),
-      usuario,
-      tipo: 'institucional',
-      nombre: usuario,
-      tenant,
-    };
+    this.validar(dto, 'Credenciales institucionales inválidas');
+    return this.emitir(dto.usuario.trim(), 'institucional', dto.usuario.trim(), tenant);
   }
 
   loginCivil(dto: LoginDto, tenant: string): LoginResult {
-    // Demo: cualquier correo con contraseña 'demo' entra.
-    if (!dto?.usuario?.trim() || dto?.contrasena !== 'demo') {
-      throw new UnauthorizedException('Credenciales de ciudadano inválidas (use contraseña "demo").');
-    }
+    this.validar(dto, 'Credenciales de ciudadano inválidas');
     const usuario = dto.usuario.trim();
-    return {
-      token: this.issueToken({ sub: usuario, tipo: 'civil', tenant }),
-      usuario,
-      tipo: 'civil',
-      nombre: usuario.split('@')[0],
-      tenant,
-    };
+    return this.emitir(usuario, 'civil', usuario.split('@')[0], tenant);
+  }
+
+  private validar(dto: LoginDto, msg: string): void {
+    // Demo: cualquier usuario no vacío con contraseña 'demo'.
+    if (!dto?.usuario?.trim() || dto?.contrasena !== 'demo') {
+      throw new UnauthorizedException(`${msg} (use contraseña "demo").`);
+    }
+  }
+
+  private emitir(sub: string, tipo: 'institucional' | 'civil', nombre: string, tenant: string): LoginResult {
+    const payload: JwtPayload = { sub, tipo, nombre, tenant };
+    return { token: this.jwt.sign(payload), usuario: sub, tipo, nombre, tenant };
   }
 }
