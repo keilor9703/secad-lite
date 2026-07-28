@@ -33,9 +33,13 @@ O usa tu propio PostgreSQL y ajusta `DATABASE_URL` en `backend/.env`.
 ```bash
 cd backend
 cp .env.example .env      # DATABASE_URL, JWT_SECRET, etc.
+                          # Windows PowerShell: Copy-Item .env.example .env
 npm install
 npm run start             # http://localhost:3000/api  ·  health: /api/health
 ```
+> Si al arrancar dice `Falta DATABASE_URL`, es que no creaste el `.env` (paso de
+> arriba). Si dice `SASL: client password must be a string` con una versión vieja,
+> es lo mismo: falta el `.env`.
 El esquema se crea solo al arrancar (TypeORM `synchronize`, solo dev) y se
 siembran datos de demo para el tenant `demo`.
 

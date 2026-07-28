@@ -14,14 +14,24 @@ import { CasosModule } from './casos/casos.module';
     ConfigModule.forRoot({ isGlobal: true }),
     TypeOrmModule.forRootAsync({
       inject: [ConfigService],
-      useFactory: (config: ConfigService) => ({
-        type: 'postgres',
-        url: config.get<string>('DATABASE_URL'),
-        autoLoadEntities: true,
-        // Skeleton: TypeORM crea/actualiza el esquema al arrancar. En producción
-        // se desactiva y se usan migraciones versionadas.
-        synchronize: true,
-      }),
+      useFactory: (config: ConfigService) => {
+        const url = config.get<string>('DATABASE_URL');
+        if (!url) {
+          throw new Error(
+            'Falta DATABASE_URL. Copia backend/.env.example a backend/.env ' +
+              '(en Windows: "Copy-Item .env.example .env") y ajusta la cadena de ' +
+              'conexión, o levanta PostgreSQL con "docker compose up -d" desde la raíz.',
+          );
+        }
+        return {
+          type: 'postgres' as const,
+          url,
+          autoLoadEntities: true,
+          // Skeleton: TypeORM crea/actualiza el esquema al arrancar. En producción
+          // se desactiva y se usan migraciones versionadas.
+          synchronize: true,
+        };
+      },
     }),
     AuthModule,
     CasosModule,
