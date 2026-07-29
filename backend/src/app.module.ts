@@ -7,7 +7,9 @@ import { AppService } from './app.service';
 import { TenantMiddleware } from './common/tenant.middleware';
 import { AuthModule } from './auth/auth.module';
 import { JwtAuthGuard } from './auth/jwt-auth.guard';
+import { RolesGuard } from './auth/roles.guard';
 import { CasosModule } from './casos/casos.module';
+import { UsuariosModule } from './usuarios/usuarios.module';
 
 @Module({
   imports: [
@@ -33,6 +35,7 @@ import { CasosModule } from './casos/casos.module';
         };
       },
     }),
+    UsuariosModule,
     AuthModule,
     CasosModule,
   ],
@@ -41,6 +44,8 @@ import { CasosModule } from './casos/casos.module';
     AppService,
     // JWT obligatorio en todas las rutas salvo las marcadas con @Public().
     { provide: APP_GUARD, useClass: JwtAuthGuard },
+    // Luego, restricción por rol donde haya @Roles().
+    { provide: APP_GUARD, useClass: RolesGuard },
   ],
 })
 export class AppModule implements NestModule {

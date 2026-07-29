@@ -3,6 +3,7 @@ import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { ActivatedRoute, RouterLink } from '@angular/router';
 import { CasosService } from '../../core/casos.service';
+import { AuthService } from '../../core/auth.service';
 import { Canal, Caso, EstadoCaso, EventoCaso, TipoEvento } from '../../core/models';
 
 @Component({
@@ -15,6 +16,10 @@ import { Canal, Caso, EstadoCaso, EventoCaso, TipoEvento } from '../../core/mode
 export class DetalleComponent implements OnInit {
   private route = inject(ActivatedRoute);
   private casosSvc = inject(CasosService);
+  private auth = inject(AuthService);
+
+  /** Supervisor/admin: habilita cerrar y reabrir. */
+  readonly privilegiado = this.auth.privilegiado;
 
   readonly caso = signal<Caso | null>(null);
   readonly eventos = signal<EventoCaso[]>([]);
@@ -69,6 +74,14 @@ export class DetalleComponent implements OnInit {
       next: (ev) => { this.eventos.update((e) => [...e, ev]); this.nota = ''; this.guardandoNota = false; },
       error: () => { this.error.set('No fue posible guardar la nota.'); this.guardandoNota = false; },
     });
+  }
+
+  /** ¿El botón de este estado está vedado para el rol actual? */
+  bloqueado(e: EstadoCaso): boolean {
+    if (this.privilegiado()) return false;
+    if (e === 'cerrado') return true;                 // cerrar
+    if (this.caso()?.estado === 'cerrado') return true; // reabrir (e ya no es 'cerrado' aquí)
+    return false;
   }
 
   // Etiquetas -----------------------------------------------------------------

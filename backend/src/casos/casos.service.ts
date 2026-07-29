@@ -1,9 +1,16 @@
-import { BadRequestException, Injectable, NotFoundException, OnModuleInit } from '@nestjs/common';
+import { BadRequestException, ForbiddenException, Injectable, NotFoundException, OnModuleInit } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { CasoEntity } from './caso.entity';
 import { EventoCasoEntity, TipoEvento } from './evento.entity';
 import { CANALES, EstadoCaso, ESTADOS } from './caso.model';
+import { Rol } from '../usuarios/usuario.entity';
+
+/** Contexto mínimo del actor (subconjunto del JWT) para auditoría y permisos. */
+export interface Actor {
+  sub: string;
+  rol: Rol;
+}
 import { CrearCasoDto } from './dto/crear-caso.dto';
 import { CambiarEstadoDto } from './dto/cambiar-estado.dto';
 
@@ -63,13 +70,23 @@ export class CasosService implements OnModuleInit {
     return caso;
   }
 
-  async cambiarEstado(tenant: string, id: string, dto: CambiarEstadoDto, usuario: string): Promise<CasoEntity> {
+  async cambiarEstado(tenant: string, id: string, dto: CambiarEstadoDto, actor: Actor): Promise<CasoEntity> {
     const caso = await this.obtener(tenant, id);
     if (!ESTADOS.includes(dto.estado)) throw new BadRequestException('Estado inválido.');
     if (dto.estado === 'derivado' && !dto.agencia?.trim()) {
       throw new BadRequestException('Para derivar se requiere la agencia destino.');
     }
 
+    // Cerrar y reabrir son acciones reservadas a supervisor/admin.
+    const privilegiado = actor.rol === 'supervisor' || actor.rol === 'admin';
+    if (dto.estado === 'cerrado' && !privilegiado) {
+      throw new ForbiddenException('Solo un supervisor o admin puede cerrar casos.');
+    }
+    if (caso.estado === 'cerrado' && dto.estado !== 'cerrado' && !privilegiado) {
+      throw new ForbiddenException('Solo un supervisor o admin puede reabrir casos.');
+    }
+
+    const usuario = actor.sub;
     const anterior = caso.estado;
     const agenciaAnterior = caso.agencia;
     caso.estado = dto.estado;

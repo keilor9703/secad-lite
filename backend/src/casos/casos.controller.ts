@@ -54,6 +54,9 @@ export class CasosController {
     @Param('id') id: string,
     @Body() dto: CambiarEstadoDto,
   ) {
-    return this.casos.cambiarEstado(tenant, id, dto, usuario?.sub ?? 'desconocido');
+    return this.casos.cambiarEstado(tenant, id, dto, {
+      sub: usuario?.sub ?? 'desconocido',
+      rol: usuario?.rol ?? 'operador',
+    });
   }
 }

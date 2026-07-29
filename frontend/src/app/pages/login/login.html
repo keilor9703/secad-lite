@@ -39,7 +39,12 @@
         {{ cargando ? 'Ingresando…' : 'Ingresar' }}
       </button>
 
-      <p class="hint">Demo: cualquier usuario con contraseña <code>demo</code>.</p>
+      <p class="hint" *ngIf="modo === 'institucional'">
+        Demo: <code>operador1</code> · <code>supervisor1</code> · <code>admin1</code> (contraseña <code>demo</code>).
+      </p>
+      <p class="hint" *ngIf="modo === 'civil'">
+        Demo: cualquier correo con contraseña <code>demo</code>.
+      </p>
     </form>
   </div>
 

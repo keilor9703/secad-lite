@@ -38,10 +38,13 @@ export interface EventoCaso {
   creadoEn: string;
 }
 
+export type Rol = 'operador' | 'supervisor' | 'admin' | 'ciudadano';
+
 export interface Sesion {
   token: string;
   usuario: string;
   nombre: string;
   tipo: 'institucional' | 'civil';
+  rol: Rol;
   tenant: string;
 }

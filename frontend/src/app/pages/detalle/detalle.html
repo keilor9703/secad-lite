@@ -31,10 +31,13 @@
           <div class="botones">
             <button *ngFor="let e of estados" type="button"
                     class="btn" [class.btn--primary]="e === c.estado"
-                    [disabled]="e === c.estado" (click)="cambiarEstado(e)">
+                    [disabled]="e === c.estado || bloqueado(e)"
+                    [title]="bloqueado(e) ? 'Requiere rol supervisor o admin' : ''"
+                    (click)="cambiarEstado(e)">
               {{ estadoLabel(e) }}
             </button>
           </div>
+          <p class="rol-nota" *ngIf="!privilegiado()">Cerrar y reabrir requieren rol supervisor o admin.</p>
         </div>
       </div>
 

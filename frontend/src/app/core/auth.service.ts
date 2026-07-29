@@ -18,6 +18,11 @@ export class AuthService {
   private readonly _sesion = signal<Sesion | null>(this.leer());
   readonly sesion = this._sesion.asReadonly();
   readonly autenticado = computed(() => this._sesion() !== null);
+  /** Supervisor o admin: puede cerrar / reabrir casos. */
+  readonly privilegiado = computed(() => {
+    const r = this._sesion()?.rol;
+    return r === 'supervisor' || r === 'admin';
+  });
 
   constructor(private http: HttpClient) {}
 
