@@ -1,0 +1,25 @@
+<section class="chat">
+  <div class="chat-card card">
+    <header class="chat-head">
+      <div>
+        <h1>Chat con la central</h1>
+        <p>{{ casoId() ? 'Caso ' + casoId()!.slice(0, 8) + ' — un operador le atenderá.' : 'Escriba su reporte para iniciar.' }}</p>
+      </div>
+      <span class="estado" [class.on]="casoId()">{{ casoId() ? 'En atención' : 'Nuevo' }}</span>
+    </header>
+
+    <div class="mensajes">
+      <p class="vacio" *ngIf="mensajes().length === 0">Cuéntenos qué está pasando.</p>
+      <div *ngFor="let m of mensajes()" class="msg" [class.propio]="m.autorTipo === 'ciudadano'">
+        <span class="autor">{{ m.autorTipo === 'ciudadano' ? 'Usted' : m.autorNombre }}</span>
+        <p class="texto">{{ m.texto }}</p>
+        <span class="hora">{{ m.creadoEn | date:'shortTime' }}</span>
+      </div>
+    </div>
+
+    <form class="entrada" (ngSubmit)="enviar()">
+      <input [(ngModel)]="texto" name="texto" placeholder="Escriba su mensaje…" autocomplete="off" />
+      <button type="submit" class="btn btn--primary" [disabled]="!texto.trim()">Enviar</button>
+    </form>
+  </div>
+</section>

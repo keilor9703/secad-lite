@@ -52,7 +52,7 @@ export class LoginComponent {
           this.mfaChallenge = resp as MfaLoginChallenge;
           return;
         }
-        this.router.navigate(['/recepcion']);
+        this.router.navigate([this.modo === 'civil' ? '/chat' : '/recepcion']);
       },
       error: (e) => {
         this.cargando = false;

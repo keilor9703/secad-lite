@@ -1,10 +1,12 @@
-import { Component, OnInit, inject, signal } from '@angular/core';
+import { Component, OnDestroy, OnInit, inject, signal } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { ActivatedRoute, RouterLink } from '@angular/router';
+import { Subscription } from 'rxjs';
 import { CasosService } from '../../core/casos.service';
 import { AuthService } from '../../core/auth.service';
-import { Canal, Caso, EstadoCaso, EventoCaso, TipoEvento } from '../../core/models';
+import { ChatService } from '../../core/chat.service';
+import { Canal, Caso, EstadoCaso, EventoCaso, MensajeChat, TipoEvento } from '../../core/models';
 
 @Component({
   selector: 'app-detalle',
@@ -13,10 +15,11 @@ import { Canal, Caso, EstadoCaso, EventoCaso, TipoEvento } from '../../core/mode
   templateUrl: './detalle.html',
   styleUrl: './detalle.scss',
 })
-export class DetalleComponent implements OnInit {
+export class DetalleComponent implements OnInit, OnDestroy {
   private route = inject(ActivatedRoute);
   private casosSvc = inject(CasosService);
   private auth = inject(AuthService);
+  private chat = inject(ChatService);
 
   /** Supervisor/admin: habilita cerrar y reabrir. */
   readonly privilegiado = this.auth.privilegiado;
@@ -25,6 +28,11 @@ export class DetalleComponent implements OnInit {
   readonly eventos = signal<EventoCaso[]>([]);
   readonly cargando = signal(true);
   readonly error = signal('');
+
+  // Chat en vivo (solo casos de canal 'chat').
+  readonly chatMensajes = signal<MensajeChat[]>([]);
+  chatTexto = '';
+  private chatSubs: Subscription[] = [];
 
   readonly estados: EstadoCaso[] = ['nuevo', 'en_gestion', 'derivado', 'cerrado'];
 
@@ -37,11 +45,41 @@ export class DetalleComponent implements OnInit {
     this.cargar();
   }
 
+  ngOnDestroy(): void {
+    this.chatSubs.forEach((s) => s.unsubscribe());
+    this.chat.desconectar();
+  }
+
+  /** Conecta el chat en vivo para atender un caso de canal 'chat'. */
+  private iniciarChat(): void {
+    this.chat.conectar();
+    this.chatSubs.push(
+      this.chat.historial$.subscribe(({ casoId, mensajes }) => {
+        if (casoId === this.id) this.chatMensajes.set(mensajes);
+      }),
+      this.chat.mensaje$.subscribe((m) => {
+        if (m.casoId === this.id) this.chatMensajes.update((arr) => [...arr, m]);
+      }),
+    );
+    this.chat.unir(this.id);
+  }
+
+  enviarChat(): void {
+    const t = this.chatTexto.trim();
+    if (!t) return;
+    this.chat.enviar(this.id, t);
+    this.chatTexto = '';
+  }
+
   cargar(): void {
     this.cargando.set(true);
     this.error.set('');
     this.casosSvc.obtener(this.id).subscribe({
-      next: (c) => { this.caso.set(c); this.cargarAuditoria(); },
+      next: (c) => {
+        this.caso.set(c);
+        this.cargarAuditoria();
+        if (c.canal === 'chat' && this.chatSubs.length === 0) this.iniciarChat();
+      },
       error: () => { this.error.set('No fue posible cargar el caso.'); this.cargando.set(false); },
     });
   }

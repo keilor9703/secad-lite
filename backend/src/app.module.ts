@@ -10,6 +10,7 @@ import { JwtAuthGuard } from './auth/jwt-auth.guard';
 import { RolesGuard } from './auth/roles.guard';
 import { CasosModule } from './casos/casos.module';
 import { UsuariosModule } from './usuarios/usuarios.module';
+import { ChatModule } from './chat/chat.module';
 
 @Module({
   imports: [
@@ -38,6 +39,7 @@ import { UsuariosModule } from './usuarios/usuarios.module';
     UsuariosModule,
     AuthModule,
     CasosModule,
+    ChatModule,
   ],
   controllers: [AppController],
   providers: [

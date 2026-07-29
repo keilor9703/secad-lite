@@ -9,5 +9,6 @@ import { EventoCasoEntity } from './evento.entity';
   imports: [TypeOrmModule.forFeature([CasoEntity, EventoCasoEntity])],
   controllers: [CasosController],
   providers: [CasosService],
+  exports: [CasosService],
 })
 export class CasosModule {}

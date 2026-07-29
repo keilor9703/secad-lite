@@ -1,0 +1,27 @@
+.chat { max-width: 620px; margin: 0 auto; }
+.chat-card { display: flex; flex-direction: column; height: 70vh; min-height: 420px; overflow: hidden; }
+
+.chat-head {
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 1rem 1.2rem; border-bottom: 1px solid var(--border);
+}
+.chat-head h1 { margin: 0; font-size: 1.15rem; }
+.chat-head p { margin: 0.2rem 0 0; font-size: 0.82rem; color: var(--muted); }
+.estado { font-size: 0.72rem; font-weight: 600; padding: 0.25rem 0.55rem; border-radius: 999px; background: var(--surface-2); color: var(--muted); }
+.estado.on { background: var(--accent-soft); color: var(--accent); }
+
+.mensajes { flex: 1; overflow-y: auto; padding: 1rem 1.2rem; display: flex; flex-direction: column; gap: 0.6rem; }
+.vacio { color: var(--muted); text-align: center; margin: auto; }
+
+.msg { max-width: 78%; align-self: flex-start; display: flex; flex-direction: column; }
+.msg.propio { align-self: flex-end; align-items: flex-end; }
+.msg .autor { font-size: 0.7rem; color: var(--muted); }
+.msg .texto {
+  margin: 0.1rem 0; padding: 0.5rem 0.75rem; border-radius: 12px;
+  background: var(--surface-2); color: var(--ink);
+}
+.msg.propio .texto { background: var(--accent); color: var(--on-accent); }
+.msg .hora { font-size: 0.68rem; color: var(--muted); }
+
+.entrada { display: flex; gap: 0.5rem; padding: 0.8rem 1.2rem; border-top: 1px solid var(--border); }
+.entrada input { flex: 1; }

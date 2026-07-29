@@ -38,6 +38,15 @@ export interface EventoCaso {
   creadoEn: string;
 }
 
+export interface MensajeChat {
+  id: string;
+  casoId: string;
+  autorTipo: 'ciudadano' | 'operador';
+  autorNombre: string;
+  texto: string;
+  creadoEn: string;
+}
+
 export type Rol = 'operador' | 'supervisor' | 'admin' | 'ciudadano';
 
 export interface Sesion {

@@ -4,8 +4,13 @@
     <strong>SECAD <span>Lite</span></strong>
   </div>
 
-  <nav class="nav">
-    <a routerLink="/recepcion" routerLinkActive="active">Recepción</a>
+  <nav class="nav" *ngIf="sesion() as s">
+    <ng-container *ngIf="s.tipo === 'institucional'; else navCivil">
+      <a routerLink="/recepcion" routerLinkActive="active">Recepción</a>
+    </ng-container>
+    <ng-template #navCivil>
+      <a routerLink="/chat" routerLinkActive="active">Mi chat</a>
+    </ng-template>
   </nav>
 
   <div class="user" *ngIf="sesion() as s">

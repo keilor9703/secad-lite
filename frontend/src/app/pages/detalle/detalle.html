@@ -41,6 +41,24 @@
         </div>
       </div>
 
+      <div class="col-der">
+      <!-- Chat en vivo (solo canal chat) -->
+      <div class="chat-panel card" *ngIf="c.canal === 'chat'">
+        <h2>💬 Chat en vivo</h2>
+        <div class="chat-msgs">
+          <p class="vacio" *ngIf="chatMensajes().length === 0">Sin mensajes aún.</p>
+          <div *ngFor="let m of chatMensajes()" class="cmsg" [class.propio]="m.autorTipo === 'operador'">
+            <span class="autor">{{ m.autorTipo === 'operador' ? m.autorNombre + ' (operador)' : m.autorNombre }}</span>
+            <p class="texto">{{ m.texto }}</p>
+            <span class="hora">{{ m.creadoEn | date:'shortTime' }}</span>
+          </div>
+        </div>
+        <form class="chat-entrada" (ngSubmit)="enviarChat()">
+          <input [(ngModel)]="chatTexto" name="chatTexto" placeholder="Responder al ciudadano…" autocomplete="off" />
+          <button type="submit" class="btn btn--primary" [disabled]="!chatTexto.trim()">Enviar</button>
+        </form>
+      </div>
+
       <!-- Bitácora / línea de tiempo -->
       <div class="bitacora card">
         <h2>Bitácora</h2>
@@ -63,6 +81,7 @@
           </li>
           <li class="empty" *ngIf="!cargando() && eventos().length === 0">Sin eventos aún.</li>
         </ol>
+      </div>
       </div>
     </div>
   </ng-container>

@@ -6,7 +6,10 @@ import { AgregarNotaDto } from './dto/agregar-nota.dto';
 import { Tenant } from '../common/tenant.decorator';
 import { Usuario } from '../common/usuario.decorator';
 import { JwtPayload } from '../auth/auth.service';
+import { Roles } from '../auth/roles.decorator';
 
+// La bandeja y el detalle son de uso interno: solo funcionarios, nunca ciudadanos.
+@Roles('operador', 'supervisor', 'admin')
 @Controller('casos')
 export class CasosController {
   constructor(private readonly casos: CasosService) {}
