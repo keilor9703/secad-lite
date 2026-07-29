@@ -6,8 +6,11 @@
 
   <nav class="nav" *ngIf="sesion() as s">
     <ng-container *ngIf="s.tipo === 'institucional'; else navCivil">
-      <a routerLink="/recepcion" routerLinkActive="active">Recepción</a>
-      <a routerLink="/dashboard" routerLinkActive="active">Panel</a>
+      <ng-container *ngIf="!esSuperadmin()">
+        <a routerLink="/recepcion" routerLinkActive="active">Recepción</a>
+        <a routerLink="/dashboard" routerLinkActive="active">Panel</a>
+      </ng-container>
+      <a *ngIf="esAdmin()" routerLink="/admin" routerLinkActive="active">Administración</a>
     </ng-container>
     <ng-template #navCivil>
       <a routerLink="/chat" routerLinkActive="active">Mi chat</a>
@@ -15,7 +18,7 @@
   </nav>
 
   <div class="user" *ngIf="sesion() as s">
-    <span class="tenant" title="Municipio (tenant)">{{ s.tenant }}</span>
+    <span class="tenant" title="Secad (tenant)">{{ s.tenant || 'global' }}</span>
     <span class="who">
       <span class="name">{{ s.nombre }}</span>
       <span class="tipo" [class.civil]="s.tipo === 'civil'">{{ s.rol }}</span>

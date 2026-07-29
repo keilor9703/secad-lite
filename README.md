@@ -50,13 +50,17 @@ npm install               # instala también @policia/mfa desde libs/policia-mfa
 npm start                 # http://localhost:4200
 ```
 
-**Credenciales de demo:** cualquier usuario con contraseña `demo`
-(pestaña *Funcionario* o *Ciudadano*).
+**Credenciales de demo** (pestaña *Usuario*, contraseña `demo`):
+`superadmin` (global) · `admin1` · `supervisor1` · `operador1` (secad `demo`).
+Pestaña *Ciudadano*: cualquier correo con contraseña `demo`.
 
 ## Qué incluye este esqueleto
 
-- **Login** con dos dominios de identidad separados (institucional / civil) y el
-  flujo 2FA institucional cableado vía la librería reutilizable **`@policia/mfa`**.
+- **Login normal** de usuarios (username único global; el secad se deduce del
+  usuario) + acceso *Ciudadano* aparte para el chat.
+- **Administración**: un **superadmin** global crea **secads** (tenants) y sus
+  usuarios; cada **admin de secad** gestiona solo los usuarios de su secad. Cada
+  usuario queda asociado a un secad.
 - **Recepción**: bandeja de casos **multicanal** (llamada / chat / integración),
   crear caso, cambiar estado y **derivar a otra agencia** (multi-agencia).
 - **Detalle de caso** con **bitácora de auditoría** (línea de tiempo inmutable):
@@ -94,10 +98,10 @@ Para que la app aplique las migraciones sola al arrancar, en `.env`:
 
 ## Qué es mock / pendiente todavía
 
-- Login **demo** (contraseña `demo` para los usuarios sembrados
-  operador1/supervisor1/admin1) → integrar el directorio institucional real y,
-  en la ruta institucional, los endpoints reales del **2FA central**
-  (`@policia/mfa` ya está cableado, igual que en SECAD).
+- Contraseñas **demo** para los usuarios sembrados → en producción se crean con
+  contraseñas reales desde el módulo de administración.
+- 2FA opcional en el login (la librería `@policia/mfa` quedó disponible pero el
+  flujo institucional 2FA no está activo en esta versión).
 
 ## Núcleo compartido
 

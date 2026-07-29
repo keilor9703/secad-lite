@@ -1,0 +1,24 @@
+.admin { display: flex; flex-direction: column; gap: 1.1rem; }
+.admin-head h1 { margin: 0; font-size: 1.5rem; letter-spacing: -0.02em; }
+.admin-head p { margin: 0.2rem 0 0; color: var(--muted); font-size: 0.85rem; }
+.error { color: var(--danger); margin: 0; }
+
+.panel { padding: 1.1rem 1.2rem; display: flex; flex-direction: column; gap: 0.9rem; }
+.panel h2 { margin: 0; font-size: 1.05rem; }
+
+.crear-inline, .crear-usuario { display: flex; flex-wrap: wrap; gap: 0.5rem; align-items: center; }
+.crear-inline input { flex: 1; min-width: 160px; }
+.crear-usuario input, .crear-usuario select { flex: 1; min-width: 120px; width: auto; }
+
+.tbl-wrap { overflow-x: auto; }
+table { border-collapse: collapse; width: 100%; font-size: 0.88rem; }
+th, td { text-align: left; padding: 0.55rem 0.75rem; border-bottom: 1px solid var(--border); white-space: nowrap; }
+thead th { font-size: 0.72rem; text-transform: uppercase; letter-spacing: 0.05em; color: var(--muted); background: var(--surface-2); }
+tbody tr:last-child td { border-bottom: none; }
+.mono { font-family: var(--mono); color: var(--ink-soft); }
+.rol { font-size: 0.78rem; font-weight: 600; text-transform: capitalize; }
+
+.badge { display: inline-block; padding: 0.2rem 0.55rem; border-radius: 999px; font-size: 0.72rem; font-weight: 600; background: var(--surface-2); color: var(--muted); }
+.badge.on { background: var(--accent-soft); color: var(--accent); }
+
+.mini { padding: 0.3rem 0.6rem; font-size: 0.78rem; }

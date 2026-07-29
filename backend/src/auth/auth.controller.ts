@@ -8,14 +8,14 @@ import { Public } from './public.decorator';
 export class AuthController {
   constructor(private readonly auth: AuthService) {}
 
-  /** POST /api/auth/institucional/login — login de funcionarios (público). */
+  /** POST /api/auth/login — usuario del sistema (el secad sale del usuario). */
   @Public()
-  @Post('institucional/login')
-  institucional(@Body() dto: LoginDto, @Tenant() tenant: string) {
-    return this.auth.loginInstitucional(dto, tenant);
+  @Post('login')
+  login(@Body() dto: LoginDto) {
+    return this.auth.login(dto);
   }
 
-  /** POST /api/auth/civil/login — login de ciudadanos / otras agencias (público). */
+  /** POST /api/auth/civil/login — ciudadano (chat); el secad viene del header. */
   @Public()
   @Post('civil/login')
   civil(@Body() dto: LoginDto, @Tenant() tenant: string) {

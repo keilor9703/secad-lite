@@ -1,6 +1,6 @@
 import { Rol } from '../../usuarios/usuario.entity';
 
-/** Credenciales de login (institucional o civil). */
+/** Credenciales de login. */
 export interface LoginDto {
   usuario: string;
   contrasena: string;
@@ -13,5 +13,5 @@ export interface LoginResult {
   tipo: 'institucional' | 'civil';
   nombre: string;
   rol: Rol;
-  tenant: string;
+  tenant: string | null;
 }

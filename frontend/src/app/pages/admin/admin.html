@@ -1,0 +1,69 @@
+<section class="admin">
+  <header class="admin-head">
+    <h1>Administración</h1>
+    <p>{{ esSuperadmin() ? 'Secads (tenants) y usuarios de todo el sistema' : 'Usuarios de su secad' }}</p>
+  </header>
+
+  <p class="error" *ngIf="error()">{{ error() }}</p>
+
+  <!-- Secads: solo superadmin -->
+  <div class="panel card" *ngIf="esSuperadmin()">
+    <h2>Secads</h2>
+    <form class="crear-inline" (ngSubmit)="crearTenant()">
+      <input [(ngModel)]="nuevoTenant.codigo" name="tcod" placeholder="código (p. ej. envigado)" />
+      <input [(ngModel)]="nuevoTenant.nombre" name="tnom" placeholder="Nombre del municipio" />
+      <button type="submit" class="btn btn--primary">Crear secad</button>
+    </form>
+    <div class="tbl-wrap">
+      <table>
+        <thead><tr><th>Código</th><th>Nombre</th><th>Estado</th></tr></thead>
+        <tbody>
+          <tr *ngFor="let t of tenants()">
+            <td class="mono">{{ t.codigo }}</td>
+            <td>{{ t.nombre }}</td>
+            <td><span class="badge" [class.on]="t.activo">{{ t.activo ? 'Activo' : 'Inactivo' }}</span></td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+  <!-- Usuarios -->
+  <div class="panel card">
+    <h2>Usuarios</h2>
+    <form class="crear-usuario" (ngSubmit)="crearUsuario()">
+      <input [(ngModel)]="nuevoUsuario.username" name="uuser" placeholder="usuario" />
+      <input [(ngModel)]="nuevoUsuario.nombre" name="unom" placeholder="Nombre completo" />
+      <input [(ngModel)]="nuevoUsuario.contrasena" name="upass" type="password" placeholder="contraseña" />
+      <select [(ngModel)]="nuevoUsuario.rol" name="urol">
+        <option *ngFor="let r of rolesDisponibles" [value]="r">{{ r }}</option>
+      </select>
+      <select *ngIf="esSuperadmin()" [(ngModel)]="nuevoUsuario.tenant" name="uten">
+        <option value="" disabled>secad…</option>
+        <option *ngFor="let t of tenants()" [value]="t.codigo">{{ t.codigo }}</option>
+      </select>
+      <button type="submit" class="btn btn--primary">Crear usuario</button>
+    </form>
+
+    <div class="tbl-wrap">
+      <table>
+        <thead><tr><th>Usuario</th><th>Nombre</th><th>Rol</th><th>Secad</th><th>Estado</th><th></th></tr></thead>
+        <tbody>
+          <tr *ngFor="let u of usuarios()">
+            <td class="mono">{{ u.username }}</td>
+            <td>{{ u.nombre }}</td>
+            <td><span class="rol">{{ u.rol }}</span></td>
+            <td class="mono">{{ u.tenant || '—' }}</td>
+            <td><span class="badge" [class.on]="u.activo">{{ u.activo ? 'Activo' : 'Inactivo' }}</span></td>
+            <td>
+              <button type="button" class="btn btn--ghost mini"
+                      *ngIf="u.rol !== 'superadmin'" (click)="toggleActivo(u)">
+                {{ u.activo ? 'Desactivar' : 'Activar' }}
+              </button>
+            </td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+</section>

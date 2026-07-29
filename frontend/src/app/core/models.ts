@@ -47,7 +47,7 @@ export interface MensajeChat {
   creadoEn: string;
 }
 
-export type Rol = 'operador' | 'supervisor' | 'admin' | 'ciudadano';
+export type Rol = 'superadmin' | 'admin' | 'supervisor' | 'operador' | 'ciudadano';
 
 export interface Sesion {
   token: string;
@@ -55,5 +55,22 @@ export interface Sesion {
   nombre: string;
   tipo: 'institucional' | 'civil';
   rol: Rol;
-  tenant: string;
+  tenant: string | null;
+}
+
+export interface Tenant {
+  id: string;
+  codigo: string;
+  nombre: string;
+  activo: boolean;
+  creadoEn?: string;
+}
+
+export interface UsuarioAdmin {
+  id: string;
+  username: string;
+  nombre: string;
+  rol: Rol;
+  tenant: string | null;
+  activo: boolean;
 }

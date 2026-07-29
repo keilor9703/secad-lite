@@ -12,6 +12,7 @@ import { CasosModule } from './casos/casos.module';
 import { UsuariosModule } from './usuarios/usuarios.module';
 import { ChatModule } from './chat/chat.module';
 import { MetricasModule } from './metricas/metricas.module';
+import { TenantsModule } from './tenants/tenants.module';
 
 @Module({
   imports: [
@@ -41,6 +42,7 @@ import { MetricasModule } from './metricas/metricas.module';
       },
     }),
     UsuariosModule,
+    TenantsModule,
     AuthModule,
     CasosModule,
     ChatModule,

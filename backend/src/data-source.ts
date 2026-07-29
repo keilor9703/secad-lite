@@ -5,6 +5,7 @@ import { CasoEntity } from './casos/caso.entity';
 import { EventoCasoEntity } from './casos/evento.entity';
 import { UsuarioEntity } from './usuarios/usuario.entity';
 import { MensajeChatEntity } from './chat/mensaje.entity';
+import { TenantEntity } from './tenants/tenant.entity';
 
 config();
 
@@ -16,6 +17,6 @@ config();
 export default new DataSource({
   type: 'postgres',
   url: process.env.DATABASE_URL,
-  entities: [CasoEntity, EventoCasoEntity, UsuarioEntity, MensajeChatEntity],
+  entities: [CasoEntity, EventoCasoEntity, UsuarioEntity, MensajeChatEntity, TenantEntity],
   migrations: ['src/migrations/*.ts'],
 });

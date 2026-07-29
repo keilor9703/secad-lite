@@ -21,14 +21,20 @@ export class AuthService {
   /** Supervisor o admin: puede cerrar / reabrir casos. */
   readonly privilegiado = computed(() => {
     const r = this._sesion()?.rol;
-    return r === 'supervisor' || r === 'admin';
+    return r === 'supervisor' || r === 'admin' || r === 'superadmin';
   });
+  /** Admin o superadmin: accede al módulo de administración. */
+  readonly esAdmin = computed(() => {
+    const r = this._sesion()?.rol;
+    return r === 'admin' || r === 'superadmin';
+  });
+  readonly esSuperadmin = computed(() => this._sesion()?.rol === 'superadmin');
 
   constructor(private http: HttpClient) {}
 
-  loginInstitucional(usuario: string, contrasena: string): Observable<Sesion> {
+  login(usuario: string, contrasena: string): Observable<Sesion> {
     return this.http
-      .post<Sesion>(`${this.base}/auth/institucional/login`, { usuario, contrasena })
+      .post<Sesion>(`${this.base}/auth/login`, { usuario, contrasena })
       .pipe(tap((s) => this.guardar(s)));
   }
 

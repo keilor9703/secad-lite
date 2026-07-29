@@ -2,15 +2,15 @@ import { Component, inject } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { Router } from '@angular/router';
-import { MfaLoginChallenge, PoliciaMfaFlowComponent } from '@policia/mfa';
 import { AuthService } from '../../core/auth.service';
+import { Sesion } from '../../core/models';
 
-type Modo = 'institucional' | 'civil';
+type Modo = 'usuario' | 'ciudadano';
 
 @Component({
   selector: 'app-login',
   standalone: true,
-  imports: [CommonModule, FormsModule, PoliciaMfaFlowComponent],
+  imports: [CommonModule, FormsModule],
   templateUrl: './login.html',
   styleUrl: './login.scss',
 })
@@ -18,14 +18,11 @@ export class LoginComponent {
   private auth = inject(AuthService);
   private router = inject(Router);
 
-  modo: Modo = 'institucional';
+  modo: Modo = 'usuario';
   usuario = '';
   contrasena = '';
   cargando = false;
   error = '';
-
-  /** Reto 2FA (solo ruta institucional). En el mock no se dispara; queda cableado. */
-  mfaChallenge: MfaLoginChallenge | null = null;
 
   setModo(m: Modo): void {
     this.modo = m;
@@ -40,20 +37,12 @@ export class LoginComponent {
     }
     this.cargando = true;
     const flujo =
-      this.modo === 'institucional'
-        ? this.auth.loginInstitucional(this.usuario.trim(), this.contrasena)
+      this.modo === 'usuario'
+        ? this.auth.login(this.usuario.trim(), this.contrasena)
         : this.auth.loginCivil(this.usuario.trim(), this.contrasena);
 
     flujo.subscribe({
-      next: (resp: any) => {
-        this.cargando = false;
-        // Ruta institucional con 2FA: delega en el componente de @policia/mfa.
-        if (resp?.requiresMfa) {
-          this.mfaChallenge = resp as MfaLoginChallenge;
-          return;
-        }
-        this.router.navigate([this.modo === 'civil' ? '/chat' : '/recepcion']);
-      },
+      next: (s) => { this.cargando = false; this.navegar(s); },
       error: (e) => {
         this.cargando = false;
         this.error = e?.error?.message ?? 'No fue posible iniciar sesión.';
@@ -61,9 +50,8 @@ export class LoginComponent {
     });
   }
 
-  onMfaOk(_token: string): void {
-    // En producción: establecer la sesión a partir del token y navegar.
-    this.mfaChallenge = null;
-    this.router.navigate(['/recepcion']);
+  private navegar(s: Sesion): void {
+    if (s.tipo === 'civil') { this.router.navigate(['/chat']); return; }
+    this.router.navigate([s.rol === 'superadmin' ? '/admin' : '/recepcion']);
   }
 }

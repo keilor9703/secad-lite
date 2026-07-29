@@ -15,6 +15,8 @@ export class ShellComponent {
   private router = inject(Router);
 
   readonly sesion = this.auth.sesion;
+  readonly esAdmin = this.auth.esAdmin;
+  readonly esSuperadmin = this.auth.esSuperadmin;
 
   salir(): void {
     this.auth.logout();

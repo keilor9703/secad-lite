@@ -32,8 +32,8 @@ export class ChatGateway implements OnGatewayConnection {
       const token = client.handshake.auth?.token as string;
       const user = this.jwt.verify<JwtPayload>(token);
       client.data.user = user;
-      // Los funcionarios escuchan los chats nuevos de su tenant.
-      if (user.tipo === 'institucional') client.join(`op:${user.tenant}`);
+      // Los funcionarios de un secad escuchan los chats nuevos de su tenant.
+      if (user.tipo === 'institucional' && user.tenant) client.join(`op:${user.tenant}`);
     } catch {
       client.disconnect();
     }
@@ -43,24 +43,29 @@ export class ChatGateway implements OnGatewayConnection {
     return client.data.user as JwtPayload;
   }
 
+  /** Tenant del socket (los participantes del chat siempre tienen secad). */
+  private tenantDe(client: Socket): string {
+    return this.user(client).tenant ?? 'demo';
+  }
+
   /** El ciudadano inicia la conversación: se crea el caso y su sala. */
   @SubscribeMessage('chat:iniciar')
   async iniciar(@ConnectedSocket() client: Socket, @MessageBody() body: { texto: string }) {
     const u = this.user(client);
+    const tenant = this.tenantDe(client);
     if (!body?.texto?.trim()) return { error: 'Mensaje vacío.' };
-    const { caso, mensaje } = await this.chat.iniciar(u.tenant, u.nombre, body.texto, u.sub);
+    const { caso, mensaje } = await this.chat.iniciar(tenant, u.nombre, body.texto, u.sub);
     client.join(`caso:${caso.id}`);
     client.emit('chat:iniciado', { casoId: caso.id, mensaje });
-    this.server.to(`op:${u.tenant}`).emit('chat:nuevo', { caso });
+    this.server.to(`op:${tenant}`).emit('chat:nuevo', { caso });
     return { casoId: caso.id };
   }
 
   /** Un participante (funcionario o el ciudadano) se une a la sala del caso. */
   @SubscribeMessage('chat:unir')
   async unir(@ConnectedSocket() client: Socket, @MessageBody() body: { casoId: string }) {
-    const u = this.user(client);
     client.join(`caso:${body.casoId}`);
-    const mensajes = await this.chat.historial(u.tenant, body.casoId);
+    const mensajes = await this.chat.historial(this.tenantDe(client), body.casoId);
     client.emit('chat:historial', { casoId: body.casoId, mensajes });
   }
 
@@ -70,7 +75,7 @@ export class ChatGateway implements OnGatewayConnection {
     const u = this.user(client);
     if (!body?.texto?.trim()) return;
     const autorTipo = u.tipo === 'civil' ? 'ciudadano' : 'operador';
-    const msg = await this.chat.guardar(u.tenant, body.casoId, autorTipo, u.nombre, body.texto);
+    const msg = await this.chat.guardar(this.tenantDe(client), body.casoId, autorTipo, u.nombre, body.texto);
     this.server.to(`caso:${body.casoId}`).emit('chat:mensaje', msg);
   }
 }

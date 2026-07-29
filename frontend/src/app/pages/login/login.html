@@ -9,21 +9,21 @@
     </div>
 
     <div class="tabs" role="tablist">
-      <button type="button" role="tab" [attr.aria-selected]="modo === 'institucional'"
-              [class.active]="modo === 'institucional'" (click)="setModo('institucional')">
-        Funcionario
+      <button type="button" role="tab" [attr.aria-selected]="modo === 'usuario'"
+              [class.active]="modo === 'usuario'" (click)="setModo('usuario')">
+        Usuario
       </button>
-      <button type="button" role="tab" [attr.aria-selected]="modo === 'civil'"
-              [class.active]="modo === 'civil'" (click)="setModo('civil')">
+      <button type="button" role="tab" [attr.aria-selected]="modo === 'ciudadano'"
+              [class.active]="modo === 'ciudadano'" (click)="setModo('ciudadano')">
         Ciudadano
       </button>
     </div>
 
     <form (ngSubmit)="entrar()">
       <div class="field">
-        <label for="usuario">{{ modo === 'institucional' ? 'Usuario institucional' : 'Correo' }}</label>
+        <label for="usuario">{{ modo === 'usuario' ? 'Usuario' : 'Correo' }}</label>
         <input id="usuario" name="usuario" [(ngModel)]="usuario"
-               [placeholder]="modo === 'institucional' ? 'p. ej. operador1' : 'p. ej. ciudadano@correo.com'"
+               [placeholder]="modo === 'usuario' ? 'p. ej. operador1' : 'p. ej. ciudadano@correo.com'"
                autocomplete="username" />
       </div>
 
@@ -39,10 +39,10 @@
         {{ cargando ? 'Ingresando…' : 'Ingresar' }}
       </button>
 
-      <p class="hint" *ngIf="modo === 'institucional'">
-        Demo: <code>operador1</code> · <code>supervisor1</code> · <code>admin1</code> (contraseña <code>demo</code>).
+      <p class="hint" *ngIf="modo === 'usuario'">
+        Demo: <code>superadmin</code> · <code>admin1</code> · <code>supervisor1</code> · <code>operador1</code> (contraseña <code>demo</code>).
       </p>
-      <p class="hint" *ngIf="modo === 'civil'">
+      <p class="hint" *ngIf="modo === 'ciudadano'">
         Demo: cualquier correo con contraseña <code>demo</code>.
       </p>
     </form>
@@ -50,11 +50,3 @@
 
   <p class="foot">Versión SaaS liviana · multi-agencia · multicanal</p>
 </div>
-
-<!-- Flujo 2FA institucional reutilizado del SECAD (@policia/mfa). -->
-<pmfa-flow
-  [challenge]="mfaChallenge"
-  [usuario]="usuario"
-  (autenticado)="onMfaOk($event)"
-  (cancelado)="mfaChallenge = null">
-</pmfa-flow>

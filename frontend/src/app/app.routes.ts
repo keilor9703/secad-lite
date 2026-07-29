@@ -13,6 +13,7 @@ export const routes: Routes = [
       { path: 'recepcion/:id', loadComponent: () => import('./pages/detalle/detalle').then((m) => m.DetalleComponent) },
       { path: 'chat', loadComponent: () => import('./pages/chat/chat').then((m) => m.ChatComponent) },
       { path: 'dashboard', loadComponent: () => import('./pages/dashboard/dashboard').then((m) => m.DashboardComponent) },
+      { path: 'admin', loadComponent: () => import('./pages/admin/admin').then((m) => m.AdminComponent) },
     ],
   },
   { path: '**', redirectTo: '' },
