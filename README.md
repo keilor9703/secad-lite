@@ -67,16 +67,37 @@ npm start                 # http://localhost:4200
 - **JWT firmados** (`@nestjs/jwt`): guard global obliga token en todas las rutas
   salvo login y health. El `tenant` viaja en el token, no se puede falsear por
   header.
+- **Roles** (operador/supervisor/admin/ciudadano) con `@Roles` + guard: p. ej.
+  solo supervisor/admin cierran o reabren casos; la bandeja es solo para
+  funcionarios.
+- **Chat en vivo** (Socket.IO): el ciudadano abre un chat que crea un caso y
+  conversa con el operador en tiempo real.
+- **Panel de gestión**: métricas de casos por estado, canal y agencia.
 - **Tema e identidad propios** (teal), distintos al SECAD institucional.
+
+## Migraciones (producción)
+
+En dev, `DB_SYNC=true` crea/actualiza el esquema al arrancar. En producción se
+usan **migraciones versionadas** (`backend/src/migrations`):
+
+```bash
+cd backend
+# generar una migración a partir de cambios en las entidades
+npm run migration:generate -- src/migrations/NombreDelCambio
+# aplicar / revertir manualmente
+npm run migration:run
+npm run migration:revert
+```
+
+Para que la app aplique las migraciones sola al arrancar, en `.env`:
+`DB_SYNC=false` y `DB_MIGRATE=true`.
 
 ## Qué es mock / pendiente todavía
 
-- Esquema por `synchronize` (dev) → en producción, **migraciones** versionadas y
-  `synchronize: false`.
-- Login **demo** (contraseña `demo`) → integrar directorio institucional real y,
-  en la ruta institucional, los endpoints reales del **2FA central** (`@policia/mfa`
-  ya está cableado, igual que en SECAD).
-- Falta el canal de **chat** en vivo (WebSocket).
+- Login **demo** (contraseña `demo` para los usuarios sembrados
+  operador1/supervisor1/admin1) → integrar el directorio institucional real y,
+  en la ruta institucional, los endpoints reales del **2FA central**
+  (`@policia/mfa` ya está cableado, igual que en SECAD).
 
 ## Núcleo compartido
 

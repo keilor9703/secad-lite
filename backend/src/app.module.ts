@@ -31,9 +31,12 @@ import { MetricasModule } from './metricas/metricas.module';
           type: 'postgres' as const,
           url,
           autoLoadEntities: true,
-          // Skeleton: TypeORM crea/actualiza el esquema al arrancar. En producción
-          // se desactiva y se usan migraciones versionadas.
-          synchronize: true,
+          // Dev: TypeORM crea/actualiza el esquema al arrancar (DB_SYNC=true por
+          // defecto). Producción: DB_SYNC=false + DB_MIGRATE=true para aplicar
+          // migraciones versionadas de src/migrations al arrancar.
+          synchronize: config.get<string>('DB_SYNC', 'true') === 'true',
+          migrations: ['dist/migrations/*.js'],
+          migrationsRun: config.get<string>('DB_MIGRATE', 'false') === 'true',
         };
       },
     }),
