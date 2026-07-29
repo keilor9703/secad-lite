@@ -36,7 +36,7 @@ export class AdminComponent implements OnInit {
   private cargarTenants(): void {
     this.admin.listarTenants().subscribe({
       next: (t) => this.tenants.set(t),
-      error: () => this.error.set('No fue posible cargar los secads.'),
+      error: () => this.error.set('No fue posible cargar los tenants.'),
     });
   }
 
@@ -50,10 +50,10 @@ export class AdminComponent implements OnInit {
   crearTenant(): void {
     this.error.set('');
     const { codigo, nombre } = this.nuevoTenant;
-    if (!codigo.trim() || !nombre.trim()) { this.error.set('Código y nombre del secad son obligatorios.'); return; }
+    if (!codigo.trim() || !nombre.trim()) { this.error.set('Código y nombre del tenant son obligatorios.'); return; }
     this.admin.crearTenant(codigo.trim(), nombre.trim()).subscribe({
       next: (t) => { this.tenants.update((ts) => [...ts, t]); this.nuevoTenant = { codigo: '', nombre: '' }; },
-      error: (e) => this.error.set(e?.error?.message ?? 'No fue posible crear el secad.'),
+      error: (e) => this.error.set(e?.error?.message ?? 'No fue posible crear el tenant.'),
     });
   }
 
@@ -63,7 +63,7 @@ export class AdminComponent implements OnInit {
     if (!dto.username || !dto.nombre.trim() || !dto.contrasena) {
       this.error.set('Usuario, nombre y contraseña son obligatorios.'); return;
     }
-    if (this.esSuperadmin() && !dto.tenant) { this.error.set('Seleccione el secad del usuario.'); return; }
+    if (this.esSuperadmin() && !dto.tenant) { this.error.set('Seleccione el tenant del usuario.'); return; }
     this.admin.crearUsuario(dto).subscribe({
       next: (u) => { this.usuarios.update((us) => [...us, u]); this.nuevoUsuario = this.usuarioVacio(); },
       error: (e) => this.error.set(e?.error?.message ?? 'No fue posible crear el usuario.'),

@@ -1,4 +1,4 @@
-# PostgreSQL local para desarrollo del SECAD Lite.
+# PostgreSQL local para desarrollo de FALCON CAD.
 #   docker compose up -d
 # Deja la base en 127.0.0.1:5432 con las credenciales del backend/.env.example.
 services:

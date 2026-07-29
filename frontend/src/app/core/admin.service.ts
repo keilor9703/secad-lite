@@ -17,7 +17,7 @@ export class AdminService {
   private http = inject(HttpClient);
   private readonly base = environment.apiBaseUrl;
 
-  // Secads (solo superadmin)
+  // Tenants (solo superadmin)
   listarTenants(): Observable<Tenant[]> {
     return this.http.get<Tenant[]>(`${this.base}/tenants`);
   }

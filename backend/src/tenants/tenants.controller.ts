@@ -2,7 +2,7 @@ import { Body, Controller, Get, Param, Patch, Post } from '@nestjs/common';
 import { CrearTenantDto, TenantsService } from './tenants.service';
 import { Roles } from '../auth/roles.decorator';
 
-// Solo el superadmin gestiona los secads.
+// Solo el superadmin gestiona los tenants.
 @Roles('superadmin')
 @Controller('tenants')
 export class TenantsController {

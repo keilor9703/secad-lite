@@ -32,7 +32,7 @@ export class ChatGateway implements OnGatewayConnection {
       const token = client.handshake.auth?.token as string;
       const user = this.jwt.verify<JwtPayload>(token);
       client.data.user = user;
-      // Los funcionarios de un secad escuchan los chats nuevos de su tenant.
+      // Los funcionarios de un tenant escuchan los chats nuevos de su tenant.
       if (user.tipo === 'institucional' && user.tenant) client.join(`op:${user.tenant}`);
     } catch {
       client.disconnect();
@@ -43,7 +43,7 @@ export class ChatGateway implements OnGatewayConnection {
     return client.data.user as JwtPayload;
   }
 
-  /** Tenant del socket (los participantes del chat siempre tienen secad). */
+  /** Tenant del socket (los participantes del chat siempre tienen tenant). */
   private tenantDe(client: Socket): string {
     return this.user(client).tenant ?? 'demo';
   }

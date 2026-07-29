@@ -1,15 +1,15 @@
 import { Column, CreateDateColumn, Entity, Index, PrimaryGeneratedColumn } from 'typeorm';
 
 /**
- * Un "secad": la instancia de un municipio/organización. Es el tenant del modelo
- * multi-inquilino. Cada usuario queda asociado a un secad por su `codigo`.
+ * Un tenant: la instancia de un municipio/organización en el modelo
+ * multi-inquilino. Cada usuario queda asociado a un tenant por su `codigo`.
  */
 @Entity({ name: 'tenants' })
 export class TenantEntity {
   @PrimaryGeneratedColumn('uuid')
   id!: string;
 
-  /** Código corto y único del secad (p. ej. "demo", "envigado"). */
+  /** Código corto y único del tenant (p. ej. "demo", "envigado"). */
   @Index({ unique: true })
   @Column({ type: 'varchar', length: 64 })
   codigo!: string;

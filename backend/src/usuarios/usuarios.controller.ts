@@ -4,7 +4,7 @@ import { Roles } from '../auth/roles.decorator';
 import { Usuario } from '../common/usuario.decorator';
 import { JwtPayload } from '../auth/auth.service';
 
-// Gestión de usuarios: admin (su secad) y superadmin (todos).
+// Gestión de usuarios: admin (su tenant) y superadmin (todos).
 @Roles('admin', 'superadmin')
 @Controller('usuarios')
 export class UsuariosController {

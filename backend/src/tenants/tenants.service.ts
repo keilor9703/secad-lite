@@ -8,7 +8,7 @@ export interface CrearTenantDto {
   nombre: string;
 }
 
-/** Gestión de secads (tenants). Solo el superadmin la usa. */
+/** Gestión de tenants (instancias). Solo el superadmin la usa. */
 @Injectable()
 export class TenantsService implements OnModuleInit {
   constructor(
@@ -33,14 +33,14 @@ export class TenantsService implements OnModuleInit {
       throw new BadRequestException('El código solo admite minúsculas, números y guiones (2-64).');
     }
     if (await this.repo.findOne({ where: { codigo } })) {
-      throw new ConflictException('Ya existe un secad con ese código.');
+      throw new ConflictException('Ya existe un tenant con ese código.');
     }
     return this.repo.save(this.repo.create({ codigo, nombre: dto.nombre.trim(), activo: true }));
   }
 
   async cambiarActivo(id: string, activo: boolean): Promise<TenantEntity> {
     const t = await this.repo.findOne({ where: { id } });
-    if (!t) throw new NotFoundException('Secad no encontrado.');
+    if (!t) throw new NotFoundException('Tenant no encontrado.');
     t.activo = activo;
     return this.repo.save(t);
   }

@@ -16,10 +16,10 @@ export interface JwtPayload {
 
 /**
  * Autenticación.
- *  - login: usuario del sistema (username único global); el secad y el rol salen
+ *  - login: usuario del sistema (username único global); el tenant y el rol salen
  *    del registro del usuario. Validado contra la tabla con bcrypt.
  *  - loginCivil: ciudadano, autoservicio liviano para el chat (rol 'ciudadano');
- *    el secad se toma del header X-Tenant-Id.
+ *    el tenant se toma del header X-Tenant-Id.
  * El `tenant` y el `rol` viajan en el JWT; los endpoints protegidos los toman de
  * ahí, no del header, de modo que no se pueden falsear.
  */

@@ -4,12 +4,11 @@ import { Observable, tap } from 'rxjs';
 import { environment } from '../../environments/environment';
 import { Sesion } from './models';
 
-const STORAGE_KEY = 'secadlite_sesion';
+const STORAGE_KEY = 'falconcad_sesion';
 
 /**
- * Autenticación del SECAD Lite. Mantiene la sesión en localStorage y expone
- * dos flujos separados: institucional y civil. En producción, el institucional
- * integra el 2FA de @policia/mfa.
+ * Autenticación del FALCON CAD. Mantiene la sesión en localStorage y expone dos
+ * flujos: `login` (usuario del sistema) y `loginCivil` (ciudadano, para el chat).
  */
 @Injectable({ providedIn: 'root' })
 export class AuthService {

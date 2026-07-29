@@ -1,7 +1,7 @@
 <header class="topbar">
   <div class="brand">
     <span class="mark" aria-hidden="true">◈</span>
-    <strong>SECAD <span>Lite</span></strong>
+    <strong>FALCON <span>CAD</span></strong>
   </div>
 
   <nav class="nav" *ngIf="sesion() as s">
@@ -18,7 +18,7 @@
   </nav>
 
   <div class="user" *ngIf="sesion() as s">
-    <span class="tenant" title="Secad (tenant)">{{ s.tenant || 'global' }}</span>
+    <span class="tenant" title="Tenant (instancia)">{{ s.tenant || 'global' }}</span>
     <span class="who">
       <span class="name">{{ s.nombre }}</span>
       <span class="tipo" [class.civil]="s.tipo === 'civil'">{{ s.rol }}</span>

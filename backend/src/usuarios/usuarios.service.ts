@@ -38,8 +38,8 @@ export interface ActualizarUsuarioDto {
 
 /**
  * Directorio de usuarios (PostgreSQL, bcrypt). El `username` es único global; el
- * secad (tenant) se deduce del usuario. La gestión (crear/editar) está acotada
- * por rol: el superadmin gobierna todos los secads; el admin, solo el suyo.
+ * tenant se deduce del usuario. La gestión (crear/editar) está acotada
+ * por rol: el superadmin gobierna todos los tenants; el admin, solo el suyo.
  */
 @Injectable()
 export class UsuariosService implements OnModuleInit {
@@ -65,7 +65,7 @@ export class UsuariosService implements OnModuleInit {
 
   // --- Gestión (admin / superadmin) -----------------------------------------
 
-  /** Superadmin ve todos; un admin ve solo los de su secad. */
+  /** Superadmin ve todos; un admin ve solo los de su tenant. */
   async listar(actor: Actor): Promise<UsuarioDto[]> {
     const where = actor.rol === 'superadmin' ? {} : { tenant: actor.tenant ?? '' };
     const usuarios = await this.repo.find({ where, order: { username: 'ASC' } });
@@ -100,7 +100,7 @@ export class UsuariosService implements OnModuleInit {
     const u = await this.repo.findOne({ where: { id } });
     if (!u) throw new NotFoundException('Usuario no encontrado.');
     if (actor.rol !== 'superadmin' && u.tenant !== actor.tenant) {
-      throw new ForbiddenException('No puede gestionar usuarios de otro secad.');
+      throw new ForbiddenException('No puede gestionar usuarios de otro tenant.');
     }
     if (dto.rol) u.rol = this.resolverAmbito(actor, dto.rol, u.tenant ?? undefined).rol;
     if (dto.nombre?.trim()) u.nombre = dto.nombre.trim();
@@ -113,15 +113,15 @@ export class UsuariosService implements OnModuleInit {
    * Valida el rol/tenant que el actor intenta asignar y devuelve los efectivos.
    *  - superadmin: cualquier rol; si no es superadmin, exige tenant.
    *  - admin: solo roles asignables (no admin-de-nadie-más ni superadmin) y
-   *    siempre dentro de su propio secad.
+   *    siempre dentro de su propio tenant.
    */
   private resolverAmbito(actor: Actor, rol: Rol, tenant?: string | null): { rol: Rol; tenant: string | null } {
     if (actor.rol === 'superadmin') {
       if (rol === 'superadmin') return { rol, tenant: null };
-      if (!tenant?.trim()) throw new BadRequestException('Debe indicar el secad del usuario.');
+      if (!tenant?.trim()) throw new BadRequestException('Debe indicar el tenant del usuario.');
       return { rol, tenant: tenant.trim() };
     }
-    // admin de secad
+    // admin de tenant
     if (!ROLES_ASIGNABLES.includes(rol)) {
       throw new ForbiddenException('No puede asignar ese rol.');
     }
@@ -133,7 +133,7 @@ export class UsuariosService implements OnModuleInit {
   }
 
   /**
-   * Siembra el superadmin global y los usuarios demo del secad 'demo'. Idempotente:
+   * Siembra el superadmin global y los usuarios demo del tenant 'demo'. Idempotente:
    * en una base ya existente agrega solo lo que falte (p. ej. el superadmin).
    */
   private async seed(): Promise<void> {

@@ -1,18 +1,18 @@
 <section class="admin">
   <header class="admin-head">
     <h1>Administración</h1>
-    <p>{{ esSuperadmin() ? 'Secads (tenants) y usuarios de todo el sistema' : 'Usuarios de su secad' }}</p>
+    <p>{{ esSuperadmin() ? 'Tenants (instancias) y usuarios de todo el sistema' : 'Usuarios de su tenant' }}</p>
   </header>
 
   <p class="error" *ngIf="error()">{{ error() }}</p>
 
-  <!-- Secads: solo superadmin -->
+  <!-- Tenants: solo superadmin -->
   <div class="panel card" *ngIf="esSuperadmin()">
-    <h2>Secads</h2>
+    <h2>Tenants</h2>
     <form class="crear-inline" (ngSubmit)="crearTenant()">
       <input [(ngModel)]="nuevoTenant.codigo" name="tcod" placeholder="código (p. ej. envigado)" />
       <input [(ngModel)]="nuevoTenant.nombre" name="tnom" placeholder="Nombre del municipio" />
-      <button type="submit" class="btn btn--primary">Crear secad</button>
+      <button type="submit" class="btn btn--primary">Crear tenant</button>
     </form>
     <div class="tbl-wrap">
       <table>
@@ -39,7 +39,7 @@
         <option *ngFor="let r of rolesDisponibles" [value]="r">{{ r }}</option>
       </select>
       <select *ngIf="esSuperadmin()" [(ngModel)]="nuevoUsuario.tenant" name="uten">
-        <option value="" disabled>secad…</option>
+        <option value="" disabled>tenant…</option>
         <option *ngFor="let t of tenants()" [value]="t.codigo">{{ t.codigo }}</option>
       </select>
       <button type="submit" class="btn btn--primary">Crear usuario</button>
@@ -47,7 +47,7 @@
 
     <div class="tbl-wrap">
       <table>
-        <thead><tr><th>Usuario</th><th>Nombre</th><th>Rol</th><th>Secad</th><th>Estado</th><th></th></tr></thead>
+        <thead><tr><th>Usuario</th><th>Nombre</th><th>Rol</th><th>Tenant</th><th>Estado</th><th></th></tr></thead>
         <tbody>
           <tr *ngFor="let u of usuarios()">
             <td class="mono">{{ u.username }}</td>
