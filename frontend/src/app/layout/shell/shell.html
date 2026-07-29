@@ -7,6 +7,7 @@
   <nav class="nav" *ngIf="sesion() as s">
     <ng-container *ngIf="s.tipo === 'institucional'; else navCivil">
       <a routerLink="/recepcion" routerLinkActive="active">Recepción</a>
+      <a routerLink="/dashboard" routerLinkActive="active">Panel</a>
     </ng-container>
     <ng-template #navCivil>
       <a routerLink="/chat" routerLinkActive="active">Mi chat</a>

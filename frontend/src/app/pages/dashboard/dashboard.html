@@ -1,0 +1,44 @@
+<section class="dash">
+  <header class="dash-head">
+    <h1>Panel de gestión</h1>
+    <p>Indicadores de casos del municipio</p>
+  </header>
+
+  <p class="error" *ngIf="error()">{{ error() }}</p>
+  <p class="cargando" *ngIf="cargando()">Cargando…</p>
+
+  <ng-container *ngIf="resumen() as r">
+    <!-- KPIs por estado -->
+    <div class="kpis">
+      <div class="kpi total"><span class="n">{{ r.total }}</span><span class="l">Total</span></div>
+      <div class="kpi" *ngFor="let b of porEstado()"><span class="n">{{ b.valor }}</span><span class="l">{{ b.etiqueta }}</span></div>
+    </div>
+
+    <div class="cols">
+      <!-- Por canal -->
+      <div class="panel card">
+        <h2>Casos por canal</h2>
+        <div class="barras">
+          <div class="fila" *ngFor="let b of porCanal()">
+            <span class="cap">{{ b.etiqueta }}</span>
+            <div class="track"><div class="fill" [style.width.%]="pct(b.valor, porCanal())" [attr.data-clave]="b.clave"></div></div>
+            <span class="val">{{ b.valor }}</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- Por agencia -->
+      <div class="panel card">
+        <h2>Casos por agencia</h2>
+        <div class="barras">
+          <p class="vacio" *ngIf="r.porAgencia.length === 0">Sin datos.</p>
+          <div class="fila" *ngFor="let a of r.porAgencia">
+            <span class="cap">{{ a.agencia }}</span>
+            <div class="track"><div class="fill ag" [style.width.%]="(a.total / maxAgencia()) * 100"></div></div>
+            <span class="val">{{ a.total }}</span>
+          </div>
+        </div>
+      </div>
+    </div>
+  </ng-container>
+</section>

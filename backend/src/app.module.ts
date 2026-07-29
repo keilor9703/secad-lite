@@ -11,6 +11,7 @@ import { RolesGuard } from './auth/roles.guard';
 import { CasosModule } from './casos/casos.module';
 import { UsuariosModule } from './usuarios/usuarios.module';
 import { ChatModule } from './chat/chat.module';
+import { MetricasModule } from './metricas/metricas.module';
 
 @Module({
   imports: [
@@ -40,6 +41,7 @@ import { ChatModule } from './chat/chat.module';
     AuthModule,
     CasosModule,
     ChatModule,
+    MetricasModule,
   ],
   controllers: [AppController],
   providers: [

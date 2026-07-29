@@ -1,0 +1,37 @@
+.dash { display: flex; flex-direction: column; gap: 1.1rem; }
+.dash-head h1 { margin: 0; font-size: 1.5rem; letter-spacing: -0.02em; }
+.dash-head p { margin: 0.2rem 0 0; color: var(--muted); font-size: 0.85rem; }
+.error { color: var(--danger); margin: 0; }
+.cargando { color: var(--muted); margin: 0; }
+
+.kpis { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 0.7rem; }
+@media (max-width: 640px) { .kpis { grid-template-columns: repeat(2, 1fr); } }
+.kpi {
+  background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius);
+  padding: 0.8rem 1rem; display: flex; flex-direction: column;
+}
+.kpi .n { font-size: 1.6rem; font-weight: 700; color: var(--ink); font-variant-numeric: tabular-nums; }
+.kpi .l { font-size: 0.74rem; color: var(--muted); text-transform: uppercase; letter-spacing: 0.05em; }
+.kpi.total .n { color: var(--accent); }
+
+.cols { display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; }
+@media (max-width: 720px) { .cols { grid-template-columns: 1fr; } }
+.panel { padding: 1.1rem 1.2rem; }
+.panel h2 { margin: 0 0 0.9rem; font-size: 1.02rem; }
+
+.barras { display: flex; flex-direction: column; gap: 0.6rem; }
+.vacio { color: var(--muted); margin: 0; }
+.fila { display: grid; grid-template-columns: 90px 1fr 34px; align-items: center; gap: 0.6rem; }
+.cap { font-size: 0.82rem; color: var(--ink-soft); }
+.track { height: 12px; background: var(--surface-2); border-radius: 999px; overflow: hidden; }
+.fill { height: 100%; border-radius: 999px; background: var(--accent); min-width: 3px; transition: width 0.3s ease; }
+.fill.ag { background: var(--accent-deep); }
+.fill[data-clave="llamada"] { background: #0d7d70; }
+.fill[data-clave="chat"] { background: #3550b4; }
+.fill[data-clave="integracion"] { background: #a5620a; }
+.val { font-size: 0.85rem; font-weight: 600; text-align: right; font-variant-numeric: tabular-nums; }
+
+@media (prefers-color-scheme: dark) {
+  .fill[data-clave="chat"] { background: #8fa6e6; }
+  .fill[data-clave="integracion"] { background: #e0973f; }
+}
