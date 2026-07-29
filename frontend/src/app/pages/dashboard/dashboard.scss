@@ -4,7 +4,7 @@
 .error { color: var(--danger); margin: 0; }
 .cargando { color: var(--muted); margin: 0; }
 
-.kpis { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 0.7rem; }
+.kpis { display: grid; grid-template-columns: repeat(6, minmax(0, 1fr)); gap: 0.7rem; }
 @media (max-width: 640px) { .kpis { grid-template-columns: repeat(2, 1fr); } }
 .kpi {
   background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius);

@@ -1,0 +1,43 @@
+<section class="recursos">
+  <header class="rec-head">
+    <h1>Recursos</h1>
+    <p>Flota operativa y disponibilidad</p>
+  </header>
+
+  <p class="error" *ngIf="error()">{{ error() }}</p>
+
+  <div class="panel card" *ngIf="gestiona()">
+    <h2>Nuevo recurso</h2>
+    <form class="crear" (ngSubmit)="crear()">
+      <input [(ngModel)]="nuevo.codigo" name="codigo" placeholder="código (P-03)" />
+      <input [(ngModel)]="nuevo.nombre" name="nombre" placeholder="Nombre" />
+      <select [(ngModel)]="nuevo.tipo" name="tipo">
+        <option *ngFor="let t of tipos" [value]="t">{{ t }}</option>
+      </select>
+      <input [(ngModel)]="nuevo.agencia" name="agencia" placeholder="agencia (Policía)" />
+      <button type="submit" class="btn btn--primary">Crear</button>
+    </form>
+  </div>
+
+  <div class="panel card">
+    <div class="tbl-wrap">
+      <table>
+        <thead><tr><th>Código</th><th>Nombre</th><th>Tipo</th><th>Agencia</th><th>Estado</th><th *ngIf="gestiona()"></th></tr></thead>
+        <tbody>
+          <tr *ngFor="let r of recursos()">
+            <td class="mono">{{ r.codigo }}</td>
+            <td>{{ r.nombre }}</td>
+            <td class="cap">{{ r.tipo }}</td>
+            <td>{{ r.agencia }}</td>
+            <td><span class="rbadge" [attr.data-estado]="r.estado">{{ estadoLabel(r.estado) }}</span></td>
+            <td *ngIf="gestiona()">
+              <button type="button" class="btn btn--ghost mini" *ngIf="puedeToggle(r)" (click)="toggleServicio(r)">
+                {{ r.estado === 'fuera_servicio' ? 'Poner en servicio' : 'Fuera de servicio' }}
+              </button>
+            </td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+</section>

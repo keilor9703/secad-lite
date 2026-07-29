@@ -13,6 +13,7 @@ import { UsuariosModule } from './usuarios/usuarios.module';
 import { ChatModule } from './chat/chat.module';
 import { MetricasModule } from './metricas/metricas.module';
 import { TenantsModule } from './tenants/tenants.module';
+import { DespachoModule } from './despacho/despacho.module';
 
 @Module({
   imports: [
@@ -47,6 +48,7 @@ import { TenantsModule } from './tenants/tenants.module';
     CasosModule,
     ChatModule,
     MetricasModule,
+    DespachoModule,
   ],
   controllers: [AppController],
   providers: [

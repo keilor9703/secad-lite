@@ -6,7 +6,8 @@ import { Subscription } from 'rxjs';
 import { CasosService } from '../../core/casos.service';
 import { AuthService } from '../../core/auth.service';
 import { ChatService } from '../../core/chat.service';
-import { Canal, Caso, EstadoCaso, EventoCaso, MensajeChat, TipoEvento } from '../../core/models';
+import { DespachoService } from '../../core/despacho.service';
+import { Asignacion, Canal, Caso, EstadoAsignacion, EstadoCaso, EventoCaso, MensajeChat, Recurso, TipoEvento } from '../../core/models';
 
 @Component({
   selector: 'app-detalle',
@@ -20,9 +21,15 @@ export class DetalleComponent implements OnInit, OnDestroy {
   private casosSvc = inject(CasosService);
   private auth = inject(AuthService);
   private chat = inject(ChatService);
+  private despachoSvc = inject(DespachoService);
 
   /** Supervisor/admin: habilita cerrar y reabrir. */
   readonly privilegiado = this.auth.privilegiado;
+
+  // Despacho
+  readonly asignaciones = signal<Asignacion[]>([]);
+  readonly disponibles = signal<Recurso[]>([]);
+  recursoSel = '';
 
   readonly caso = signal<Caso | null>(null);
   readonly eventos = signal<EventoCaso[]>([]);
@@ -78,6 +85,7 @@ export class DetalleComponent implements OnInit, OnDestroy {
       next: (c) => {
         this.caso.set(c);
         this.cargarAuditoria();
+        this.cargarDespacho();
         if (c.canal === 'chat' && this.chatSubs.length === 0) this.iniciarChat();
       },
       error: () => { this.error.set('No fue posible cargar el caso.'); this.cargando.set(false); },
@@ -104,6 +112,50 @@ export class DetalleComponent implements OnInit, OnDestroy {
     });
   }
 
+  // Despacho -----------------------------------------------------------------
+  private cargarDespacho(): void {
+    this.despachoSvc.asignaciones(this.id).subscribe({ next: (a) => this.asignaciones.set(a) });
+    this.despachoSvc.disponibles().subscribe({ next: (r) => this.disponibles.set(r) });
+  }
+
+  despachar(): void {
+    if (!this.recursoSel) return;
+    this.despachoSvc.despachar(this.id, this.recursoSel).subscribe({
+      next: () => { this.recursoSel = ''; this.refrescarTrasDespacho(); },
+      error: (e) => this.error.set(e?.error?.message ?? 'No fue posible despachar el recurso.'),
+    });
+  }
+
+  avanzar(a: Asignacion, estado: EstadoAsignacion): void {
+    let motivo: string | undefined;
+    if (estado === 'cancelada') {
+      const m = window.prompt('Motivo de la cancelación:');
+      if (!m?.trim()) return;
+      motivo = m.trim();
+    }
+    this.despachoSvc.cambiarEstado(a.id, estado, motivo).subscribe({
+      next: () => this.refrescarTrasDespacho(),
+      error: (e) => this.error.set(e?.error?.message ?? 'No fue posible actualizar el despacho.'),
+    });
+  }
+
+  private refrescarTrasDespacho(): void {
+    this.cargarDespacho();
+    this.cargarAuditoria();
+    this.casosSvc.obtener(this.id).subscribe({ next: (c) => this.caso.set(c) });
+  }
+
+  /** Siguientes fases posibles del despacho de un recurso (excluye cancelar). */
+  siguientes(a: Asignacion): EstadoAsignacion[] {
+    return ({ asignado: ['en_ruta', 'en_sitio'], en_ruta: ['en_sitio'], en_sitio: ['finalizada'], finalizada: [], cancelada: [] } as Record<EstadoAsignacion, EstadoAsignacion[]>)[a.estado];
+  }
+  activa(a: Asignacion): boolean {
+    return a.estado === 'asignado' || a.estado === 'en_ruta' || a.estado === 'en_sitio';
+  }
+  estadoAsigLabel(e: EstadoAsignacion): string {
+    return { asignado: 'Asignado', en_ruta: 'En ruta', en_sitio: 'En sitio', finalizada: 'Finalizada', cancelada: 'Cancelada' }[e];
+  }
+
   agregarNota(): void {
     const t = this.nota.trim();
     if (!t) return;
@@ -124,7 +176,7 @@ export class DetalleComponent implements OnInit, OnDestroy {
 
   // Etiquetas -----------------------------------------------------------------
   estadoLabel(e: EstadoCaso | string): string {
-    return ({ nuevo: 'Nuevo', en_gestion: 'En gestión', derivado: 'Derivado', cerrado: 'Cerrado' } as Record<string, string>)[e] ?? e;
+    return ({ nuevo: 'Nuevo', en_gestion: 'En gestión', despachado: 'Despachado', derivado: 'Derivado', cerrado: 'Cerrado' } as Record<string, string>)[e] ?? e;
   }
   canalLabel(c: Canal): string {
     return { llamada: 'Llamada', chat: 'Chat', integracion: 'Integración' }[c];
@@ -133,6 +185,6 @@ export class DetalleComponent implements OnInit, OnDestroy {
     return { llamada: '📞', chat: '💬', integracion: '🔌' }[c];
   }
   eventoIcon(t: TipoEvento): string {
-    return { creacion: '🟢', estado: '🔁', derivacion: '➡️', nota: '📝' }[t];
+    return { creacion: '🟢', estado: '🔁', derivacion: '➡️', nota: '📝', despacho: '🚓' }[t];
   }
 }

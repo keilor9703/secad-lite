@@ -8,6 +8,7 @@
     <ng-container *ngIf="s.tipo === 'institucional'; else navCivil">
       <ng-container *ngIf="!esSuperadmin()">
         <a routerLink="/recepcion" routerLinkActive="active">Recepción</a>
+        <a routerLink="/recursos" routerLinkActive="active">Recursos</a>
         <a routerLink="/dashboard" routerLinkActive="active">Panel</a>
       </ng-container>
       <a *ngIf="esAdmin()" routerLink="/admin" routerLinkActive="active">Administración</a>

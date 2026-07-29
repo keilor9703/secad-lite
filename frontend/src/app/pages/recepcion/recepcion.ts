@@ -20,7 +20,7 @@ export class RecepcionComponent implements OnInit {
   readonly error = signal('');
 
   readonly canales: Canal[] = ['llamada', 'chat', 'integracion'];
-  readonly estados: EstadoCaso[] = ['nuevo', 'en_gestion', 'derivado', 'cerrado'];
+  readonly estados: EstadoCaso[] = ['nuevo', 'en_gestion', 'despachado', 'derivado', 'cerrado'];
 
   readonly total = computed(() => this.casos().length);
   readonly nuevos = computed(() => this.casos().filter((c) => c.estado === 'nuevo').length);
@@ -77,7 +77,7 @@ export class RecepcionComponent implements OnInit {
     return { llamada: '📞', chat: '💬', integracion: '🔌' }[c];
   }
   estadoLabel(e: EstadoCaso): string {
-    return { nuevo: 'Nuevo', en_gestion: 'En gestión', derivado: 'Derivado', cerrado: 'Cerrado' }[e];
+    return { nuevo: 'Nuevo', en_gestion: 'En gestión', despachado: 'Despachado', derivado: 'Derivado', cerrado: 'Cerrado' }[e];
   }
 
   private formVacio(): CrearCaso {

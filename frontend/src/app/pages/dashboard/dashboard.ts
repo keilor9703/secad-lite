@@ -19,7 +19,7 @@ export class DashboardComponent implements OnInit {
   readonly error = signal('');
 
   private readonly estadoLabels: Record<string, string> = {
-    nuevo: 'Nuevo', en_gestion: 'En gestión', derivado: 'Derivado', cerrado: 'Cerrado',
+    nuevo: 'Nuevo', en_gestion: 'En gestión', despachado: 'Despachado', derivado: 'Derivado', cerrado: 'Cerrado',
   };
   private readonly canalLabels: Record<string, string> = {
     llamada: 'Llamada', chat: 'Chat', integracion: 'Integración',

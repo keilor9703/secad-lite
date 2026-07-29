@@ -29,6 +29,7 @@
 }
 .badge[data-estado="nuevo"]      { background: var(--accent-soft); color: var(--accent); }
 .badge[data-estado="en_gestion"] { background: #fff4e0; color: #a5620a; }
+.badge[data-estado="despachado"] { background: #e6f7f4; color: #0a5b52; }
 .badge[data-estado="derivado"]   { background: #e7edff; color: #3550b4; }
 .badge[data-estado="cerrado"]    { background: var(--surface-2); color: var(--muted); }
 @media (prefers-color-scheme: dark) {
@@ -37,6 +38,32 @@
 }
 
 .col-der { display: flex; flex-direction: column; gap: 1rem; }
+
+.despacho-panel { padding: 1.2rem 1.3rem; display: flex; flex-direction: column; gap: 0.7rem; }
+.despacho-panel h2 { margin: 0; font-size: 1.05rem; }
+.despachar-form { display: flex; gap: 0.5rem; }
+.despachar-form select { flex: 1; }
+.despacho-panel .vacio { color: var(--muted); margin: 0; }
+.asig-list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 0.6rem; }
+.asig-list li { border: 1px solid var(--border); border-radius: var(--radius-sm); padding: 0.5rem 0.7rem; }
+.asig-head { display: flex; align-items: center; justify-content: space-between; gap: 0.5rem; }
+.asig-acc { display: flex; flex-wrap: wrap; gap: 0.35rem; margin-top: 0.45rem; }
+.asig-acc .mini { padding: 0.28rem 0.55rem; font-size: 0.78rem; }
+.asig-motivo { margin: 0.4rem 0 0; font-size: 0.78rem; color: var(--muted); }
+.asig-badge {
+  display: inline-block; padding: 0.18rem 0.5rem; border-radius: 999px;
+  font-size: 0.72rem; font-weight: 600; background: var(--surface-2); color: var(--ink-soft);
+}
+.asig-badge[data-estado="asignado"]  { background: #e7edff; color: #3550b4; }
+.asig-badge[data-estado="en_ruta"]   { background: #fff4e0; color: #a5620a; }
+.asig-badge[data-estado="en_sitio"]  { background: var(--accent-soft); color: var(--accent); }
+.asig-badge[data-estado="finalizada"]{ background: var(--surface-2); color: var(--muted); }
+.asig-badge[data-estado="cancelada"] { background: #fbe6e4; color: #b4342a; }
+@media (prefers-color-scheme: dark) {
+  .asig-badge[data-estado="asignado"] { background: #1a2740; color: #8fa6e6; }
+  .asig-badge[data-estado="en_ruta"]  { background: #33270f; color: #e0973f; }
+  .asig-badge[data-estado="cancelada"]{ background: #3a1f1c; color: #e8776b; }
+}
 
 .chat-panel { padding: 1.2rem 1.3rem; display: flex; flex-direction: column; gap: 0.7rem; }
 .chat-panel h2 { margin: 0; font-size: 1.05rem; }

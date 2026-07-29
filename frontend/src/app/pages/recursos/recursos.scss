@@ -1,0 +1,29 @@
+.recursos { display: flex; flex-direction: column; gap: 1.1rem; }
+.rec-head h1 { margin: 0; font-size: 1.5rem; letter-spacing: -0.02em; }
+.rec-head p { margin: 0.2rem 0 0; color: var(--muted); font-size: 0.85rem; }
+.error { color: var(--danger); margin: 0; }
+
+.panel { padding: 1.1rem 1.2rem; display: flex; flex-direction: column; gap: 0.9rem; }
+.panel h2 { margin: 0; font-size: 1.05rem; }
+.crear { display: flex; flex-wrap: wrap; gap: 0.5rem; align-items: center; }
+.crear input, .crear select { flex: 1; min-width: 120px; width: auto; }
+
+.tbl-wrap { overflow-x: auto; }
+table { border-collapse: collapse; width: 100%; font-size: 0.88rem; }
+th, td { text-align: left; padding: 0.55rem 0.75rem; border-bottom: 1px solid var(--border); white-space: nowrap; }
+thead th { font-size: 0.72rem; text-transform: uppercase; letter-spacing: 0.05em; color: var(--muted); background: var(--surface-2); }
+tbody tr:last-child td { border-bottom: none; }
+.mono { font-family: var(--mono); color: var(--ink-soft); }
+.cap { text-transform: capitalize; }
+.mini { padding: 0.3rem 0.6rem; font-size: 0.78rem; }
+
+.rbadge { display: inline-block; padding: 0.2rem 0.55rem; border-radius: 999px; font-size: 0.72rem; font-weight: 600; background: var(--surface-2); color: var(--ink-soft); }
+.rbadge[data-estado="disponible"]     { background: var(--accent-soft); color: var(--accent); }
+.rbadge[data-estado="asignado"]       { background: #e7edff; color: #3550b4; }
+.rbadge[data-estado="en_ruta"]        { background: #fff4e0; color: #a5620a; }
+.rbadge[data-estado="en_sitio"]       { background: #e6f7f4; color: #0a5b52; }
+.rbadge[data-estado="fuera_servicio"] { background: var(--surface-2); color: var(--muted); }
+@media (prefers-color-scheme: dark) {
+  .rbadge[data-estado="asignado"] { background: #1a2740; color: #8fa6e6; }
+  .rbadge[data-estado="en_ruta"]  { background: #33270f; color: #e0973f; }
+}

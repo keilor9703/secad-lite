@@ -43,6 +43,7 @@ tbody tr:last-child td { border-bottom: none; }
 }
 .badge[data-estado="nuevo"]      { background: var(--accent-soft); color: var(--accent); }
 .badge[data-estado="en_gestion"] { background: #fff4e0; color: #a5620a; }
+.badge[data-estado="despachado"] { background: #e6f7f4; color: #0a5b52; }
 .badge[data-estado="derivado"]   { background: #e7edff; color: #3550b4; }
 .badge[data-estado="cerrado"]    { background: var(--surface-2); color: var(--muted); }
 

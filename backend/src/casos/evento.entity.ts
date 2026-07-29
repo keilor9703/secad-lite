@@ -1,9 +1,9 @@
 import { Column, CreateDateColumn, Entity, Index, PrimaryGeneratedColumn } from 'typeorm';
 
 /** Tipo de evento en la bitácora de un caso. */
-export type TipoEvento = 'creacion' | 'estado' | 'derivacion' | 'nota';
+export type TipoEvento = 'creacion' | 'estado' | 'derivacion' | 'nota' | 'despacho';
 
-export const TIPOS_EVENTO: TipoEvento[] = ['creacion', 'estado', 'derivacion', 'nota'];
+export const TIPOS_EVENTO: TipoEvento[] = ['creacion', 'estado', 'derivacion', 'nota', 'despacho'];
 
 /**
  * Bitácora de auditoría de un caso: una fila por acción (creación, cambio de

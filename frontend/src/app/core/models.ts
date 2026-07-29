@@ -1,5 +1,5 @@
 export type Canal = 'llamada' | 'chat' | 'integracion';
-export type EstadoCaso = 'nuevo' | 'en_gestion' | 'derivado' | 'cerrado';
+export type EstadoCaso = 'nuevo' | 'en_gestion' | 'despachado' | 'derivado' | 'cerrado';
 
 export interface Caso {
   id: string;
@@ -25,7 +25,35 @@ export interface CrearCaso {
   agencia?: string;
 }
 
-export type TipoEvento = 'creacion' | 'estado' | 'derivacion' | 'nota';
+export type TipoRecurso = 'patrulla' | 'ambulancia' | 'maquina' | 'moto' | 'otro';
+export type EstadoRecurso = 'disponible' | 'asignado' | 'en_ruta' | 'en_sitio' | 'fuera_servicio';
+
+export interface Recurso {
+  id: string;
+  codigo: string;
+  nombre: string;
+  tipo: TipoRecurso;
+  agencia: string;
+  estado: EstadoRecurso;
+  activo: boolean;
+}
+
+export type EstadoAsignacion = 'asignado' | 'en_ruta' | 'en_sitio' | 'finalizada' | 'cancelada';
+
+export interface Asignacion {
+  id: string;
+  casoId: string;
+  recursoId: string;
+  recursoCodigo: string;
+  recursoNombre: string;
+  estado: EstadoAsignacion;
+  asignadoPor: string;
+  motivo?: string | null;
+  creadoEn: string;
+  actualizadoEn: string;
+}
+
+export type TipoEvento = 'creacion' | 'estado' | 'derivacion' | 'nota' | 'despacho';
 
 export interface EventoCaso {
   id: string;

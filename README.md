@@ -66,6 +66,10 @@ Pestaña *Ciudadano*: cualquier correo con contraseña `demo`.
   usuario queda asociado a un tenant.
 - **Recepción**: bandeja de casos **multicanal** (llamada / chat / integración),
   crear caso, cambiar estado y **derivar a otra agencia** (multi-agencia).
+- **Despacho** (núcleo CAD): flota de **recursos/unidades** con disponibilidad,
+  **asignación** a un caso y ciclo **asignado → en ruta → en sitio →
+  finalizada/cancelada**, con el recurso y el caso (`despachado`) sincronizados y
+  cada paso en la bitácora.
 - **Detalle de caso** con **bitácora de auditoría** (línea de tiempo inmutable):
   creación, cambios de estado, derivaciones y notas, cada evento con autor y fecha.
 - **Persistencia** en **PostgreSQL pooled** (TypeORM): una sola base aislada por

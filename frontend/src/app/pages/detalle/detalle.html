@@ -42,6 +42,32 @@
       </div>
 
       <div class="col-der">
+      <!-- Despacho de recursos -->
+      <div class="despacho-panel card">
+        <h2>🚓 Despacho</h2>
+        <div class="despachar-form" *ngIf="c.estado !== 'cerrado'">
+          <select [(ngModel)]="recursoSel" name="recursoSel">
+            <option value="" disabled>Recurso disponible…</option>
+            <option *ngFor="let r of disponibles()" [value]="r.id">{{ r.codigo }} · {{ r.nombre }} ({{ r.agencia }})</option>
+          </select>
+          <button type="button" class="btn btn--primary" [disabled]="!recursoSel" (click)="despachar()">Despachar</button>
+        </div>
+        <p class="vacio" *ngIf="asignaciones().length === 0">Sin recursos despachados.</p>
+        <ul class="asig-list">
+          <li *ngFor="let a of asignaciones()">
+            <div class="asig-head">
+              <span class="mono">{{ a.recursoCodigo }} · {{ a.recursoNombre }}</span>
+              <span class="asig-badge" [attr.data-estado]="a.estado">{{ estadoAsigLabel(a.estado) }}</span>
+            </div>
+            <div class="asig-acc" *ngIf="activa(a)">
+              <button *ngFor="let e of siguientes(a)" type="button" class="btn mini" (click)="avanzar(a, e)">{{ estadoAsigLabel(e) }}</button>
+              <button type="button" class="btn mini btn--ghost" (click)="avanzar(a, 'cancelada')">Cancelar</button>
+            </div>
+            <p class="asig-motivo" *ngIf="a.motivo">Motivo: {{ a.motivo }}</p>
+          </li>
+        </ul>
+      </div>
+
       <!-- Chat en vivo (solo canal chat) -->
       <div class="chat-panel card" *ngIf="c.canal === 'chat'">
         <h2>💬 Chat en vivo</h2>

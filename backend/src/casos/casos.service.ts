@@ -126,7 +126,7 @@ export class CasosService implements OnModuleInit {
   }
 
   private label(e: EstadoCaso): string {
-    return { nuevo: 'Nuevo', en_gestion: 'En gestión', derivado: 'Derivado', cerrado: 'Cerrado' }[e];
+    return { nuevo: 'Nuevo', en_gestion: 'En gestión', despachado: 'Despachado', derivado: 'Derivado', cerrado: 'Cerrado' }[e];
   }
 
   /** Siembra datos de demostración para el tenant 'demo' si aún no tiene casos. */
