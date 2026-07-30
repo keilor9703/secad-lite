@@ -98,10 +98,10 @@ export class RecursosService implements OnModuleInit {
   private async seed(): Promise<void> {
     if (await this.repo.count({ where: { tenant: 'demo' } })) return;
     const demo: Array<Partial<RecursoEntity>> = [
-      { codigo: 'P-01', nombre: 'Patrulla 01', tipo: 'patrulla', agencia: 'Policía' },
-      { codigo: 'P-02', nombre: 'Patrulla 02', tipo: 'patrulla', agencia: 'Policía' },
-      { codigo: 'AMB-1', nombre: 'Ambulancia 1', tipo: 'ambulancia', agencia: 'Salud' },
-      { codigo: 'M-1', nombre: 'Máquina 1', tipo: 'maquina', agencia: 'Bomberos' },
+      { codigo: 'P-01', nombre: 'Patrulla 01', tipo: 'patrulla', agencia: 'Policía', lat: 4.6580, lng: -74.0940 },
+      { codigo: 'P-02', nombre: 'Patrulla 02', tipo: 'patrulla', agencia: 'Policía', lat: 4.5709, lng: -74.0970 },
+      { codigo: 'AMB-1', nombre: 'Ambulancia 1', tipo: 'ambulancia', agencia: 'Salud', lat: 4.6300, lng: -74.0700 },
+      { codigo: 'M-1', nombre: 'Máquina 1', tipo: 'maquina', agencia: 'Bomberos', lat: 4.6100, lng: -74.0820 },
     ];
     for (const r of demo) {
       await this.repo.save(this.repo.create({ ...r, tenant: 'demo', estado: 'disponible', activo: true }));

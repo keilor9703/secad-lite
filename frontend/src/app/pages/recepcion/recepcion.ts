@@ -81,6 +81,6 @@ export class RecepcionComponent implements OnInit {
   }
 
   private formVacio(): CrearCaso {
-    return { canal: 'llamada', titulo: '', descripcion: '', ciudadano: '', telefono: '', agencia: '' };
+    return { canal: 'llamada', titulo: '', descripcion: '', ciudadano: '', telefono: '', agencia: '', lat: null, lng: null };
   }
 }

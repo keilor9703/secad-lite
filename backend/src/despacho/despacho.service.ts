@@ -109,7 +109,70 @@ export class DespachoService {
     return todas.filter((x) => ESTADOS_ASIGNACION_ACTIVOS.includes(x.estado));
   }
 
+  /**
+   * Libera automáticamente los recursos aún comprometidos con un caso: finaliza
+   * sus asignaciones activas y devuelve cada recurso a 'disponible'. Se invoca al
+   * cerrar el caso, dejando traza por cada recurso liberado.
+   */
+  async liberarCaso(tenant: string, casoId: string, autor: string): Promise<void> {
+    const activas = await this.activasDe(tenant, casoId);
+    for (const a of activas) {
+      a.estado = 'finalizada';
+      await this.asignaciones.save(a);
+      const recurso = await this.recursosSvc.obtener(tenant, a.recursoId).catch(() => null);
+      if (recurso) await this.recursosSvc.setEstado(recurso, 'disponible');
+      await this.auditar(tenant, casoId, `Caso cerrado — recurso ${a.recursoCodigo} liberado automáticamente.`, autor);
+    }
+  }
+
+  /**
+   * Sugiere recursos disponibles ordenados por cercanía al caso: distancia
+   * lineal (Haversine) + ETA estimado a 40 km/h. Si el caso o el recurso no
+   * tienen coordenadas, la distancia queda en null y esos recursos van al final.
+   */
+  async recursosSugeridos(tenant: string, casoId: string): Promise<RecursoSugerido[]> {
+    const caso = await this.casos.findOne({ where: { tenant, id: casoId } });
+    if (!caso) throw new NotFoundException('Caso no encontrado.');
+    const disponibles = await this.recursosSvc.disponibles(tenant);
+    const conCoords = typeof caso.lat === 'number' && typeof caso.lng === 'number';
+
+    const sugeridos: RecursoSugerido[] = disponibles.map((recurso) => {
+      if (!conCoords || typeof recurso.lat !== 'number' || typeof recurso.lng !== 'number') {
+        return { recurso, distanciaKm: null, etaMin: null };
+      }
+      const distanciaKm = haversineKm(caso.lat!, caso.lng!, recurso.lat, recurso.lng);
+      const etaMin = Math.max(1, Math.round((distanciaKm / 40) * 60));
+      return { recurso, distanciaKm: Math.round(distanciaKm * 100) / 100, etaMin };
+    });
+
+    sugeridos.sort((a, b) => {
+      if (a.distanciaKm === null) return b.distanciaKm === null ? 0 : 1;
+      if (b.distanciaKm === null) return -1;
+      return a.distanciaKm - b.distanciaKm;
+    });
+    return sugeridos;
+  }
+
   private auditar(tenant: string, casoId: string, descripcion: string, autor: string): Promise<EventoCasoEntity> {
     return this.eventos.save(this.eventos.create({ tenant, casoId, tipo: 'despacho', descripcion, autor }));
   }
+}
+
+/** Recurso disponible con su cercanía estimada al caso. */
+export interface RecursoSugerido {
+  recurso: RecursoEntity;
+  distanciaKm: number | null;
+  etaMin: number | null;
+}
+
+/** Distancia en kilómetros entre dos puntos (fórmula de Haversine). */
+function haversineKm(lat1: number, lng1: number, lat2: number, lng2: number): number {
+  const R = 6371; // radio terrestre (km)
+  const rad = (d: number) => (d * Math.PI) / 180;
+  const dLat = rad(lat2 - lat1);
+  const dLng = rad(lng2 - lng1);
+  const a =
+    Math.sin(dLat / 2) ** 2 +
+    Math.cos(rad(lat1)) * Math.cos(rad(lat2)) * Math.sin(dLng / 2) ** 2;
+  return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
 }

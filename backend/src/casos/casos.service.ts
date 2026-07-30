@@ -5,6 +5,7 @@ import { CasoEntity } from './caso.entity';
 import { EventoCasoEntity, TipoEvento } from './evento.entity';
 import { CANALES, EstadoCaso, ESTADOS } from './caso.model';
 import { Rol } from '../usuarios/usuario.entity';
+import { DespachoService } from '../despacho/despacho.service';
 
 /** Contexto mínimo del actor (subconjunto del JWT) para auditoría y permisos. */
 export interface Actor {
@@ -26,6 +27,7 @@ export class CasosService implements OnModuleInit {
     private readonly repo: Repository<CasoEntity>,
     @InjectRepository(EventoCasoEntity)
     private readonly eventos: Repository<EventoCasoEntity>,
+    private readonly despacho: DespachoService,
   ) {}
 
   async onModuleInit(): Promise<void> {
@@ -62,6 +64,8 @@ export class CasosService implements OnModuleInit {
         ciudadano: dto.ciudadano.trim(),
         telefono: dto.telefono?.trim() || null,
         agencia: dto.agencia?.trim() || 'Central',
+        lat: typeof dto.lat === 'number' ? dto.lat : null,
+        lng: typeof dto.lng === 'number' ? dto.lng : null,
         estado: 'nuevo',
         creadoPor: usuario,
       }),
@@ -92,6 +96,11 @@ export class CasosService implements OnModuleInit {
     caso.estado = dto.estado;
     if (dto.estado === 'derivado') caso.agencia = dto.agencia!.trim();
     const guardado = await this.repo.save(caso);
+
+    // Al cerrar, se liberan automáticamente los recursos aún comprometidos.
+    if (dto.estado === 'cerrado' && anterior !== 'cerrado') {
+      await this.despacho.liberarCaso(tenant, id, usuario);
+    }
 
     if (dto.estado === 'derivado' && caso.agencia !== agenciaAnterior) {
       await this.registrar(

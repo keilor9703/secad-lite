@@ -7,4 +7,6 @@ export interface CrearCasoDto {
   ciudadano: string;
   telefono?: string;
   agencia?: string;
+  lat?: number;
+  lng?: number;
 }

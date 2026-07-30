@@ -18,6 +18,12 @@ export class DespachoController {
     return this.despacho.listar(tenant, casoId);
   }
 
+  /** GET /api/casos/:id/recursos-sugeridos — disponibles por cercanía + ETA. */
+  @Get('casos/:id/recursos-sugeridos')
+  recursosSugeridos(@Tenant() tenant: string, @Param('id') casoId: string) {
+    return this.despacho.recursosSugeridos(tenant, casoId);
+  }
+
   /** POST /api/casos/:id/asignaciones — despachar un recurso al caso. */
   @Post('casos/:id/asignaciones')
   asignar(

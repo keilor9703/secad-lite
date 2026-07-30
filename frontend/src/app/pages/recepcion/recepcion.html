@@ -41,6 +41,14 @@
         <label>Teléfono</label>
         <input [(ngModel)]="form.telefono" placeholder="Opcional" />
       </div>
+      <div class="field">
+        <label>Latitud</label>
+        <input type="number" step="any" [(ngModel)]="form.lat" placeholder="Opcional — despacho por cercanía" />
+      </div>
+      <div class="field">
+        <label>Longitud</label>
+        <input type="number" step="any" [(ngModel)]="form.lng" placeholder="Opcional" />
+      </div>
       <div class="field span2">
         <label>Descripción</label>
         <textarea [(ngModel)]="form.descripcion" rows="2" placeholder="Detalle (opcional)"></textarea>

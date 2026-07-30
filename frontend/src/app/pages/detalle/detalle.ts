@@ -7,7 +7,7 @@ import { CasosService } from '../../core/casos.service';
 import { AuthService } from '../../core/auth.service';
 import { ChatService } from '../../core/chat.service';
 import { DespachoService } from '../../core/despacho.service';
-import { Asignacion, Canal, Caso, EstadoAsignacion, EstadoCaso, EventoCaso, MensajeChat, Recurso, TipoEvento } from '../../core/models';
+import { Asignacion, Canal, Caso, EstadoAsignacion, EstadoCaso, EventoCaso, MensajeChat, RecursoSugerido, TipoEvento } from '../../core/models';
 
 @Component({
   selector: 'app-detalle',
@@ -28,7 +28,7 @@ export class DetalleComponent implements OnInit, OnDestroy {
 
   // Despacho
   readonly asignaciones = signal<Asignacion[]>([]);
-  readonly disponibles = signal<Recurso[]>([]);
+  readonly sugeridos = signal<RecursoSugerido[]>([]);
   recursoSel = '';
 
   readonly caso = signal<Caso | null>(null);
@@ -106,8 +106,12 @@ export class DetalleComponent implements OnInit, OnDestroy {
       if (!dest?.trim()) return;
       agencia = dest.trim();
     }
+    if (estado === 'cerrado' && this.asignaciones().some((a) => this.activa(a))
+        && !window.confirm('El caso tiene recursos en atención. Al cerrar se liberarán automáticamente. ¿Continuar?')) {
+      return;
+    }
     this.casosSvc.cambiarEstado(this.id, estado, agencia).subscribe({
-      next: (c) => { this.caso.set(c); this.cargarAuditoria(); },
+      next: (c) => { this.caso.set(c); this.cargarAuditoria(); this.cargarDespacho(); },
       error: () => this.error.set('No fue posible actualizar el estado.'),
     });
   }
@@ -115,7 +119,7 @@ export class DetalleComponent implements OnInit, OnDestroy {
   // Despacho -----------------------------------------------------------------
   private cargarDespacho(): void {
     this.despachoSvc.asignaciones(this.id).subscribe({ next: (a) => this.asignaciones.set(a) });
-    this.despachoSvc.disponibles().subscribe({ next: (r) => this.disponibles.set(r) });
+    this.despachoSvc.recursosSugeridos(this.id).subscribe({ next: (s) => this.sugeridos.set(s) });
   }
 
   despachar(): void {

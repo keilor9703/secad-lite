@@ -34,6 +34,13 @@ export class CasoEntity {
   @Column({ type: 'varchar', length: 80, default: 'Central' })
   agencia!: string;
 
+  /** Ubicación del incidente (para asignación de recursos por cercanía). */
+  @Column({ type: 'double precision', nullable: true })
+  lat?: number | null;
+
+  @Column({ type: 'double precision', nullable: true })
+  lng?: number | null;
+
   @Column({ type: 'varchar', length: 20, default: 'nuevo' })
   estado!: EstadoCaso;
 
