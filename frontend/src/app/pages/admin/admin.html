@@ -61,6 +61,51 @@
     </div>
   </div>
 
+  <!-- Integración: WhatsApp -->
+  <div class="panel card" *ngIf="!esSuperadmin() && waConfig() as wcfg">
+    <h2>🟢 Integración — WhatsApp (Cloud API)</h2>
+    <p class="pbx-hint">Configure el webhook de su app de Meta con la URL y el <em>verify token</em>
+      de abajo, y registre aquí el <code>phone_number_id</code> del número y su token de acceso.</p>
+
+    <div class="pbx-field">
+      <label>URL del webhook</label>
+      <div class="pbx-row">
+        <input class="mono" [value]="waWebhookUrl" readonly />
+        <button type="button" class="btn btn--ghost mini" (click)="copiar(waWebhookUrl, 'waurl')">
+          {{ copiado === 'waurl' ? '¡Copiado!' : 'Copiar' }}
+        </button>
+      </div>
+    </div>
+
+    <div class="pbx-field">
+      <label>Verify token</label>
+      <div class="pbx-row">
+        <input class="mono" [value]="wcfg.verifyToken" readonly />
+        <button type="button" class="btn btn--ghost mini" (click)="copiar(wcfg.verifyToken, 'wavt')">
+          {{ copiado === 'wavt' ? '¡Copiado!' : 'Copiar' }}
+        </button>
+      </div>
+    </div>
+
+    <div class="pbx-field">
+      <label>phone_number_id</label>
+      <div class="pbx-row">
+        <input class="mono" [(ngModel)]="waPhoneNumberId" name="waPid" placeholder="p. ej. 109999888" />
+      </div>
+    </div>
+
+    <div class="pbx-field">
+      <label>Token de acceso {{ wcfg.tokenConfigurado ? '(configurado — deje vacío para conservarlo)' : '' }}</label>
+      <div class="pbx-row">
+        <input class="mono" [(ngModel)]="waAccessToken" name="waTok" type="password" placeholder="Bearer token de Meta" />
+        <button type="button" class="btn btn--primary mini" [disabled]="waGuardando" (click)="guardarWa()">
+          {{ waGuardando ? 'Guardando…' : 'Guardar' }}
+        </button>
+      </div>
+      <p class="pbx-warn" *ngIf="waOk()">Configuración de WhatsApp guardada.</p>
+    </div>
+  </div>
+
   <!-- Usuarios -->
   <div class="panel card">
     <h2>Usuarios</h2>

@@ -87,6 +87,24 @@
         </form>
       </div>
 
+      <!-- Conversación WhatsApp (solo canal whatsapp) -->
+      <div class="chat-panel card" *ngIf="c.canal === 'whatsapp'">
+        <h2>🟢 WhatsApp</h2>
+        <p class="error" *ngIf="waError()">{{ waError() }}</p>
+        <div class="chat-msgs">
+          <p class="vacio" *ngIf="waMensajes().length === 0">Sin mensajes aún.</p>
+          <div *ngFor="let m of waMensajes()" class="cmsg" [class.propio]="m.autorTipo === 'operador'">
+            <span class="autor">{{ m.autorTipo === 'operador' ? m.autorNombre + ' (operador)' : m.autorNombre }}</span>
+            <p class="texto">{{ m.texto }}</p>
+            <span class="hora">{{ m.creadoEn | date:'shortTime' }}</span>
+          </div>
+        </div>
+        <form class="chat-entrada" (ngSubmit)="responderWhatsapp()" *ngIf="c.estado !== 'cerrado'">
+          <input [(ngModel)]="waTexto" name="waTexto" placeholder="Responder por WhatsApp…" autocomplete="off" />
+          <button type="submit" class="btn btn--primary" [disabled]="waEnviando || !waTexto.trim()">Enviar</button>
+        </form>
+      </div>
+
       <!-- Bitácora / línea de tiempo -->
       <div class="bitacora card">
         <h2>Bitácora</h2>

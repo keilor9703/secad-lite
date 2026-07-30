@@ -7,6 +7,7 @@ import { CasosService } from '../../core/casos.service';
 import { AuthService } from '../../core/auth.service';
 import { ChatService } from '../../core/chat.service';
 import { DespachoService } from '../../core/despacho.service';
+import { WhatsappService } from '../../core/whatsapp.service';
 import { Asignacion, Canal, Caso, EstadoAsignacion, EstadoCaso, EventoCaso, MensajeChat, RecursoSugerido, TipoEvento } from '../../core/models';
 
 @Component({
@@ -22,6 +23,7 @@ export class DetalleComponent implements OnInit, OnDestroy {
   private auth = inject(AuthService);
   private chat = inject(ChatService);
   private despachoSvc = inject(DespachoService);
+  private whatsappSvc = inject(WhatsappService);
 
   /** Supervisor/admin: habilita cerrar y reabrir. */
   readonly privilegiado = this.auth.privilegiado;
@@ -41,6 +43,13 @@ export class DetalleComponent implements OnInit, OnDestroy {
   chatTexto = '';
   private chatSubs: Subscription[] = [];
 
+  // Conversación WhatsApp (solo casos de canal 'whatsapp').
+  readonly waMensajes = signal<MensajeChat[]>([]);
+  waTexto = '';
+  waEnviando = false;
+  readonly waError = signal('');
+  private waPoll?: ReturnType<typeof setInterval>;
+
   readonly estados: EstadoCaso[] = ['nuevo', 'en_gestion', 'derivado', 'cerrado'];
 
   nota = '';
@@ -55,6 +64,28 @@ export class DetalleComponent implements OnInit, OnDestroy {
   ngOnDestroy(): void {
     this.chatSubs.forEach((s) => s.unsubscribe());
     this.chat.desconectar();
+    if (this.waPoll) clearInterval(this.waPoll);
+  }
+
+  // WhatsApp -----------------------------------------------------------------
+  private iniciarWhatsapp(): void {
+    this.cargarWhatsapp();
+    this.waPoll = setInterval(() => { if (!document.hidden) this.cargarWhatsapp(); }, 4000);
+  }
+
+  private cargarWhatsapp(): void {
+    this.whatsappSvc.mensajes(this.id).subscribe({ next: (m) => this.waMensajes.set(m), error: () => {} });
+  }
+
+  responderWhatsapp(): void {
+    const t = this.waTexto.trim();
+    if (!t) return;
+    this.waEnviando = true;
+    this.waError.set('');
+    this.whatsappSvc.responder(this.id, t).subscribe({
+      next: (m) => { this.waMensajes.update((arr) => [...arr, m]); this.waTexto = ''; this.waEnviando = false; },
+      error: (e) => { this.waEnviando = false; this.waError.set(e?.error?.message ?? 'No fue posible enviar la respuesta.'); },
+    });
   }
 
   /** Conecta el chat en vivo para atender un caso de canal 'chat'. */
@@ -87,6 +118,7 @@ export class DetalleComponent implements OnInit, OnDestroy {
         this.cargarAuditoria();
         this.cargarDespacho();
         if (c.canal === 'chat' && this.chatSubs.length === 0) this.iniciarChat();
+        if (c.canal === 'whatsapp' && !this.waPoll) this.iniciarWhatsapp();
       },
       error: () => { this.error.set('No fue posible cargar el caso.'); this.cargando.set(false); },
     });
@@ -183,10 +215,10 @@ export class DetalleComponent implements OnInit, OnDestroy {
     return ({ nuevo: 'Nuevo', en_gestion: 'En gestión', despachado: 'Despachado', derivado: 'Derivado', cerrado: 'Cerrado' } as Record<string, string>)[e] ?? e;
   }
   canalLabel(c: Canal): string {
-    return { llamada: 'Llamada', chat: 'Chat', integracion: 'Integración' }[c];
+    return { llamada: 'Llamada', chat: 'Chat', whatsapp: 'WhatsApp', integracion: 'Integración' }[c];
   }
   canalIcon(c: Canal): string {
-    return { llamada: '📞', chat: '💬', integracion: '🔌' }[c];
+    return { llamada: '📞', chat: '💬', whatsapp: '🟢', integracion: '🔌' }[c];
   }
   eventoIcon(t: TipoEvento): string {
     return { creacion: '🟢', estado: '🔁', derivacion: '➡️', nota: '📝', despacho: '🚓' }[t];

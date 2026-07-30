@@ -71,10 +71,10 @@ export class RecepcionComponent implements OnInit {
 
   // Etiquetas -----------------------------------------------------------------
   canalLabel(c: Canal): string {
-    return { llamada: 'Llamada', chat: 'Chat', integracion: 'Integración' }[c];
+    return { llamada: 'Llamada', chat: 'Chat', whatsapp: 'WhatsApp', integracion: 'Integración' }[c];
   }
   canalIcon(c: Canal): string {
-    return { llamada: '📞', chat: '💬', integracion: '🔌' }[c];
+    return { llamada: '📞', chat: '💬', whatsapp: '🟢', integracion: '🔌' }[c];
   }
   estadoLabel(e: EstadoCaso): string {
     return { nuevo: 'Nuevo', en_gestion: 'En gestión', despachado: 'Despachado', derivado: 'Derivado', cerrado: 'Cerrado' }[e];

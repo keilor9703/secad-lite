@@ -4,7 +4,8 @@ import { FormsModule } from '@angular/forms';
 import { AdminService, CrearUsuario } from '../../core/admin.service';
 import { AuthService } from '../../core/auth.service';
 import { PbxService } from '../../core/pbx.service';
-import { PbxConfig, Rol, Tenant, UsuarioAdmin } from '../../core/models';
+import { WhatsappService } from '../../core/whatsapp.service';
+import { PbxConfig, Rol, Tenant, UsuarioAdmin, WhatsappConfig } from '../../core/models';
 
 @Component({
   selector: 'app-admin',
@@ -17,6 +18,7 @@ export class AdminComponent implements OnInit {
   private admin = inject(AdminService);
   private auth = inject(AuthService);
   private pbx = inject(PbxService);
+  private wa = inject(WhatsappService);
 
   readonly esSuperadmin = this.auth.esSuperadmin;
 
@@ -31,6 +33,13 @@ export class AdminComponent implements OnInit {
   readonly mostrarKey = signal(false);
   copiado = '';
 
+  // Integración WhatsApp
+  readonly waConfig = signal<WhatsappConfig | null>(null);
+  waPhoneNumberId = '';
+  waAccessToken = '';
+  waGuardando = false;
+  readonly waOk = signal(false);
+
   // Formularios
   nuevoTenant = { codigo: '', nombre: '' };
   nuevoUsuario: CrearUsuario = this.usuarioVacio();
@@ -38,11 +47,33 @@ export class AdminComponent implements OnInit {
   ngOnInit(): void {
     this.cargarUsuarios();
     if (this.esSuperadmin()) this.cargarTenants();
-    else this.cargarPbx();
+    else { this.cargarPbx(); this.cargarWa(); }
   }
 
   private cargarPbx(): void {
     this.pbx.config().subscribe({ next: (c) => this.pbxConfig.set(c), error: () => {} });
+  }
+
+  private cargarWa(): void {
+    this.wa.config().subscribe({
+      next: (c) => { this.waConfig.set(c); this.waPhoneNumberId = c.phoneNumberId ?? ''; },
+      error: () => {},
+    });
+  }
+
+  get waWebhookUrl(): string {
+    const c = this.waConfig();
+    return c ? this.wa.webhookUrl(c.webhookPath) : '';
+  }
+
+  guardarWa(): void {
+    this.waGuardando = true;
+    this.waOk.set(false);
+    this.error.set('');
+    this.wa.guardarConfig(this.waPhoneNumberId.trim(), this.waAccessToken.trim() || undefined).subscribe({
+      next: (c) => { this.waConfig.set(c); this.waAccessToken = ''; this.waGuardando = false; this.waOk.set(true); },
+      error: (e) => { this.waGuardando = false; this.error.set(e?.error?.message ?? 'No fue posible guardar la configuración de WhatsApp.'); },
+    });
   }
 
   get webhookUrl(): string {

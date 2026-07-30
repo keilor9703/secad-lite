@@ -1,4 +1,4 @@
-export type Canal = 'llamada' | 'chat' | 'integracion';
+export type Canal = 'llamada' | 'chat' | 'whatsapp' | 'integracion';
 export type EstadoCaso = 'nuevo' | 'en_gestion' | 'despachado' | 'derivado' | 'cerrado';
 
 export interface Caso {
@@ -47,6 +47,13 @@ export interface Llamada {
 
 export interface PbxConfig {
   apiKey: string;
+  webhookPath: string;
+}
+
+export interface WhatsappConfig {
+  phoneNumberId: string | null;
+  tokenConfigurado: boolean;
+  verifyToken: string;
   webhookPath: string;
 }
 
