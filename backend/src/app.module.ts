@@ -15,6 +15,7 @@ import { MetricasModule } from './metricas/metricas.module';
 import { TenantsModule } from './tenants/tenants.module';
 import { DespachoModule } from './despacho/despacho.module';
 import { PbxModule } from './pbx/pbx.module';
+import { WhatsappModule } from './whatsapp/whatsapp.module';
 
 @Module({
   imports: [
@@ -51,6 +52,7 @@ import { PbxModule } from './pbx/pbx.module';
     MetricasModule,
     DespachoModule,
     PbxModule,
+    WhatsappModule,
   ],
   controllers: [AppController],
   providers: [

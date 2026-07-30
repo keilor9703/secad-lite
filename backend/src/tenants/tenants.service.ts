@@ -74,6 +74,36 @@ export class TenantsService implements OnModuleInit {
     return t.apiKey;
   }
 
+  /** Resuelve un tenant por su phone_number_id de WhatsApp (enrutamiento entrante). */
+  porWaPhoneNumberId(phoneNumberId: string): Promise<TenantEntity | null> {
+    if (!phoneNumberId?.trim()) return Promise.resolve(null);
+    return this.repo.findOne({ where: { waPhoneNumberId: phoneNumberId.trim() } });
+  }
+
+  /** Configuración WhatsApp del tenant (el token nunca se devuelve, solo si está puesto). */
+  async getWaConfig(codigo: string): Promise<{ phoneNumberId: string | null; tokenConfigurado: boolean }> {
+    const t = await this.porCodigo(codigo);
+    if (!t) throw new NotFoundException('Tenant no encontrado.');
+    return { phoneNumberId: t.waPhoneNumberId ?? null, tokenConfigurado: !!t.waAccessToken };
+  }
+
+  /** Guarda la configuración WhatsApp del tenant. El token solo se actualiza si viene. */
+  async setWaConfig(codigo: string, phoneNumberId?: string, accessToken?: string): Promise<{ phoneNumberId: string | null; tokenConfigurado: boolean }> {
+    const t = await this.porCodigo(codigo);
+    if (!t) throw new NotFoundException('Tenant no encontrado.');
+    if (phoneNumberId !== undefined) {
+      const pid = phoneNumberId.trim() || null;
+      if (pid) {
+        const ya = await this.repo.findOne({ where: { waPhoneNumberId: pid } });
+        if (ya && ya.id !== t.id) throw new ConflictException('Ese phone_number_id ya está asignado a otro tenant.');
+      }
+      t.waPhoneNumberId = pid;
+    }
+    if (accessToken !== undefined && accessToken.trim()) t.waAccessToken = accessToken.trim();
+    await this.repo.save(t);
+    return { phoneNumberId: t.waPhoneNumberId ?? null, tokenConfigurado: !!t.waAccessToken };
+  }
+
   /** Rota (regenera) la API key del tenant. */
   async rotarApiKey(codigo: string): Promise<string> {
     const t = await this.porCodigo(codigo);

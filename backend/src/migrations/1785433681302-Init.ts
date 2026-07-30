@@ -1,7 +1,7 @@
 import { MigrationInterface, QueryRunner } from "typeorm";
 
-export class Init1785419699393 implements MigrationInterface {
-    name = 'Init1785419699393'
+export class Init1785433681302 implements MigrationInterface {
+    name = 'Init1785433681302'
 
     public async up(queryRunner: QueryRunner): Promise<void> {
         await queryRunner.query(`CREATE EXTENSION IF NOT EXISTS "uuid-ossp"`);
@@ -14,9 +14,10 @@ export class Init1785419699393 implements MigrationInterface {
         await queryRunner.query(`CREATE UNIQUE INDEX "IDX_9f78cfde576fc28f279e2b7a9c" ON "usuarios" ("username") `);
         await queryRunner.query(`CREATE TABLE "casos_mensajes" ("id" uuid NOT NULL DEFAULT uuid_generate_v4(), "tenant" character varying(64) NOT NULL, "casoId" uuid NOT NULL, "autorTipo" character varying(20) NOT NULL, "autorNombre" character varying(120) NOT NULL, "texto" text NOT NULL, "creadoEn" TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT now(), CONSTRAINT "PK_eeb79a3640990416dd0fe8f8a60" PRIMARY KEY ("id"))`);
         await queryRunner.query(`CREATE INDEX "IDX_839c3988f6a5d34fc5220328f3" ON "casos_mensajes" ("tenant", "casoId", "creadoEn") `);
-        await queryRunner.query(`CREATE TABLE "tenants" ("id" uuid NOT NULL DEFAULT uuid_generate_v4(), "codigo" character varying(64) NOT NULL, "nombre" character varying(160) NOT NULL, "apiKey" character varying(80), "activo" boolean NOT NULL DEFAULT true, "creadoEn" TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT now(), CONSTRAINT "PK_53be67a04681c66b87ee27c9321" PRIMARY KEY ("id"))`);
+        await queryRunner.query(`CREATE TABLE "tenants" ("id" uuid NOT NULL DEFAULT uuid_generate_v4(), "codigo" character varying(64) NOT NULL, "nombre" character varying(160) NOT NULL, "apiKey" character varying(80), "waPhoneNumberId" character varying(40), "waAccessToken" character varying(400), "activo" boolean NOT NULL DEFAULT true, "creadoEn" TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT now(), CONSTRAINT "PK_53be67a04681c66b87ee27c9321" PRIMARY KEY ("id"))`);
         await queryRunner.query(`CREATE UNIQUE INDEX "IDX_7f300745cb2da34b4b9bc45157" ON "tenants" ("codigo") `);
         await queryRunner.query(`CREATE UNIQUE INDEX "IDX_30dec5cd2d1f58a2682a9c77bb" ON "tenants" ("apiKey") `);
+        await queryRunner.query(`CREATE UNIQUE INDEX "IDX_7afc257bd8680b6562a358a440" ON "tenants" ("waPhoneNumberId") `);
         await queryRunner.query(`CREATE TABLE "recursos" ("id" uuid NOT NULL DEFAULT uuid_generate_v4(), "tenant" character varying(64) NOT NULL, "codigo" character varying(32) NOT NULL, "nombre" character varying(120) NOT NULL, "tipo" character varying(20) NOT NULL DEFAULT 'patrulla', "agencia" character varying(80) NOT NULL DEFAULT 'Central', "estado" character varying(20) NOT NULL DEFAULT 'disponible', "lat" double precision, "lng" double precision, "activo" boolean NOT NULL DEFAULT true, CONSTRAINT "PK_5a0d9a8e3adc0a5c2961159930a" PRIMARY KEY ("id"))`);
         await queryRunner.query(`CREATE UNIQUE INDEX "IDX_537435aaa4246b904325667807" ON "recursos" ("tenant", "codigo") `);
         await queryRunner.query(`CREATE INDEX "IDX_4e477718cf51454e5966b0cabf" ON "recursos" ("tenant", "estado") `);
@@ -36,6 +37,7 @@ export class Init1785419699393 implements MigrationInterface {
         await queryRunner.query(`DROP INDEX "public"."IDX_4e477718cf51454e5966b0cabf"`);
         await queryRunner.query(`DROP INDEX "public"."IDX_537435aaa4246b904325667807"`);
         await queryRunner.query(`DROP TABLE "recursos"`);
+        await queryRunner.query(`DROP INDEX "public"."IDX_7afc257bd8680b6562a358a440"`);
         await queryRunner.query(`DROP INDEX "public"."IDX_30dec5cd2d1f58a2682a9c77bb"`);
         await queryRunner.query(`DROP INDEX "public"."IDX_7f300745cb2da34b4b9bc45157"`);
         await queryRunner.query(`DROP TABLE "tenants"`);

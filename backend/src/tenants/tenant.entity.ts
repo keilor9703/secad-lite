@@ -25,6 +25,15 @@ export class TenantEntity {
   @Column({ type: 'varchar', length: 80, nullable: true })
   apiKey?: string | null;
 
+  /** WhatsApp Cloud API: phone_number_id (enruta los mensajes entrantes al tenant). */
+  @Index({ unique: true })
+  @Column({ type: 'varchar', length: 40, nullable: true })
+  waPhoneNumberId?: string | null;
+
+  /** WhatsApp Cloud API: token de acceso para enviar respuestas (secreto). */
+  @Column({ type: 'varchar', length: 400, nullable: true })
+  waAccessToken?: string | null;
+
   @Column({ type: 'boolean', default: true })
   activo!: boolean;
 
