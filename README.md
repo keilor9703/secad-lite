@@ -90,7 +90,28 @@ Pestaña *Ciudadano*: cualquier correo con contraseña `demo`.
   `/pbx`) y el operador las **atiende** con *screen-pop* (crea o enlaza el caso
   con el teléfono del llamante). El admin del tenant ve/rota su API key y la URL
   del webhook en **Administración**.
+- **Integración con WhatsApp (Cloud API de Meta)**: la central de WhatsApp llama
+  a un **webhook** (`GET` verificación · `POST` mensajes); cada mensaje **crea o
+  continúa** un caso (canal `whatsapp`) del mismo número con su conversación, y
+  el operador **responde** desde el detalle (se envía a Meta con el token del
+  tenant). Configurable en **Administración**.
 - **Tema e identidad propios** (teal).
+
+## Integración con WhatsApp (Cloud API de Meta)
+
+Se registra una app de Meta apuntando el webhook a FALCON CAD; el
+`phone_number_id` del número enruta cada mensaje al tenant:
+
+```
+GET  /api/whatsapp/webhook   # verificación de Meta (hub.verify_token = WHATSAPP_VERIFY_TOKEN)
+POST /api/whatsapp/webhook   # mensajes entrantes (payload Cloud API); crea/continúa el caso
+```
+
+El operador atiende el caso `whatsapp` desde su detalle: ve la conversación y
+**responde** (`POST /api/whatsapp/casos/:id/responder`), que guarda el mensaje y
+lo envía por la Graph API con el token del tenant. El `phone_number_id`, el token
+y el *verify token* se configuran en **Administración** (rol admin) ·
+`GET/PUT /api/whatsapp/config`.
 
 ## Integración con la planta telefónica (PBX)
 
