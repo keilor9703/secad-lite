@@ -1,0 +1,40 @@
+import { OnGatewayConnection, WebSocketGateway, WebSocketServer } from '@nestjs/websockets';
+import { OnModuleInit } from '@nestjs/common';
+import { Server, Socket } from 'socket.io';
+import { JwtService } from '@nestjs/jwt';
+import { PbxService } from './pbx.service';
+import { JwtPayload } from '../auth/auth.service';
+
+/**
+ * Empuja las llamadas entrantes a los operadores en tiempo real (Socket.IO,
+ * namespace /pbx). Autentica el handshake con el JWT; cada funcionario se une a
+ * la sala de su tenant y recibe `llamada:entrante` / `llamada:cambio`.
+ */
+@WebSocketGateway({ namespace: '/pbx', cors: { origin: true } })
+export class PbxGateway implements OnGatewayConnection, OnModuleInit {
+  @WebSocketServer() server!: Server;
+
+  constructor(
+    private readonly jwt: JwtService,
+    private readonly pbx: PbxService,
+  ) {}
+
+  onModuleInit(): void {
+    // Reenvía los cambios de la cola a la sala del tenant correspondiente.
+    this.pbx.eventos$.subscribe(({ tenant, tipo, llamada }) => {
+      this.server.to(`op:${tenant}`).emit(tipo === 'entrante' ? 'llamada:entrante' : 'llamada:cambio', llamada);
+    });
+  }
+
+  handleConnection(client: Socket): void {
+    try {
+      const token = client.handshake.auth?.token as string;
+      const user = this.jwt.verify<JwtPayload>(token);
+      client.data.user = user;
+      if (user.tipo === 'institucional' && user.tenant) client.join(`op:${user.tenant}`);
+      else client.disconnect();
+    } catch {
+      client.disconnect();
+    }
+  }
+}

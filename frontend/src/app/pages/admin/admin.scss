@@ -22,3 +22,12 @@ tbody tr:last-child td { border-bottom: none; }
 .badge.on { background: var(--accent-soft); color: var(--accent); }
 
 .mini { padding: 0.3rem 0.6rem; font-size: 0.78rem; }
+
+/* Integración PBX */
+.pbx-hint { color: var(--muted); font-size: 0.85rem; margin: 0 0 0.8rem; line-height: 1.5; }
+.pbx-hint code { background: var(--surface-2); padding: 0.05rem 0.3rem; border-radius: 4px; font-size: 0.82em; }
+.pbx-field { margin-top: 0.7rem; }
+.pbx-field > label { font-size: 0.72rem; text-transform: uppercase; letter-spacing: 0.04em; color: var(--muted); }
+.pbx-row { display: flex; gap: 0.4rem; margin-top: 0.3rem; flex-wrap: wrap; }
+.pbx-row input { flex: 1; min-width: 220px; }
+.pbx-warn { color: var(--muted); font-size: 0.76rem; margin: 0.35rem 0 0; }

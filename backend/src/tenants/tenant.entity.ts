@@ -17,6 +17,14 @@ export class TenantEntity {
   @Column({ type: 'varchar', length: 160 })
   nombre!: string;
 
+  /**
+   * Clave de API del tenant para integraciones entrantes (webhook de la planta
+   * telefónica, API de terceros). Secreta; se puede rotar desde administración.
+   */
+  @Index({ unique: true })
+  @Column({ type: 'varchar', length: 80, nullable: true })
+  apiKey?: string | null;
+
   @Column({ type: 'boolean', default: true })
   activo!: boolean;
 

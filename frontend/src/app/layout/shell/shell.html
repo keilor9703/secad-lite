@@ -8,6 +8,10 @@
     <ng-container *ngIf="s.tipo === 'institucional'; else navCivil">
       <ng-container *ngIf="!esSuperadmin()">
         <a routerLink="/recepcion" routerLinkActive="active">Recepción</a>
+        <a routerLink="/llamadas" routerLinkActive="active" class="nav-llamadas">
+          Llamadas
+          <span class="ring-badge" *ngIf="sonando().length">{{ sonando().length }}</span>
+        </a>
         <a routerLink="/recursos" routerLinkActive="active">Recursos</a>
         <a routerLink="/dashboard" routerLinkActive="active">Panel</a>
       </ng-container>

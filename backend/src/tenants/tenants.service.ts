@@ -1,6 +1,7 @@
 import { BadRequestException, ConflictException, Injectable, NotFoundException, OnModuleInit } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository } from 'typeorm';
+import { IsNull, Repository } from 'typeorm';
+import { randomBytes } from 'crypto';
 import { TenantEntity } from './tenant.entity';
 
 export interface CrearTenantDto {
@@ -18,7 +19,15 @@ export class TenantsService implements OnModuleInit {
 
   async onModuleInit(): Promise<void> {
     if (!(await this.repo.count())) {
-      await this.repo.save(this.repo.create({ codigo: 'demo', nombre: 'Municipio Demo', activo: true }));
+      await this.repo.save(
+        this.repo.create({ codigo: 'demo', nombre: 'Municipio Demo', activo: true, apiKey: this.generarApiKey() }),
+      );
+    }
+    // Backfill: cualquier tenant existente sin API key recibe una.
+    const sinKey = await this.repo.find({ where: { apiKey: IsNull() } });
+    for (const t of sinKey) {
+      t.apiKey = this.generarApiKey();
+      await this.repo.save(t);
     }
   }
 
@@ -35,7 +44,9 @@ export class TenantsService implements OnModuleInit {
     if (await this.repo.findOne({ where: { codigo } })) {
       throw new ConflictException('Ya existe un tenant con ese código.');
     }
-    return this.repo.save(this.repo.create({ codigo, nombre: dto.nombre.trim(), activo: true }));
+    return this.repo.save(
+      this.repo.create({ codigo, nombre: dto.nombre.trim(), activo: true, apiKey: this.generarApiKey() }),
+    );
   }
 
   async cambiarActivo(id: string, activo: boolean): Promise<TenantEntity> {
@@ -43,5 +54,36 @@ export class TenantsService implements OnModuleInit {
     if (!t) throw new NotFoundException('Tenant no encontrado.');
     t.activo = activo;
     return this.repo.save(t);
+  }
+
+  /** Resuelve un tenant por su API key (integraciones entrantes). */
+  async porApiKey(apiKey: string): Promise<TenantEntity | null> {
+    if (!apiKey?.trim()) return null;
+    return this.repo.findOne({ where: { apiKey: apiKey.trim() } });
+  }
+
+  porCodigo(codigo: string): Promise<TenantEntity | null> {
+    return this.repo.findOne({ where: { codigo } });
+  }
+
+  /** Devuelve (creando si falta) la API key del tenant indicado por su código. */
+  async apiKeyDe(codigo: string): Promise<string> {
+    const t = await this.porCodigo(codigo);
+    if (!t) throw new NotFoundException('Tenant no encontrado.');
+    if (!t.apiKey) { t.apiKey = this.generarApiKey(); await this.repo.save(t); }
+    return t.apiKey;
+  }
+
+  /** Rota (regenera) la API key del tenant. */
+  async rotarApiKey(codigo: string): Promise<string> {
+    const t = await this.porCodigo(codigo);
+    if (!t) throw new NotFoundException('Tenant no encontrado.');
+    t.apiKey = this.generarApiKey();
+    await this.repo.save(t);
+    return t.apiKey;
+  }
+
+  private generarApiKey(): string {
+    return 'fk_' + randomBytes(24).toString('hex');
   }
 }

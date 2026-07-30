@@ -14,6 +14,7 @@ import { ChatModule } from './chat/chat.module';
 import { MetricasModule } from './metricas/metricas.module';
 import { TenantsModule } from './tenants/tenants.module';
 import { DespachoModule } from './despacho/despacho.module';
+import { PbxModule } from './pbx/pbx.module';
 
 @Module({
   imports: [
@@ -49,6 +50,7 @@ import { DespachoModule } from './despacho/despacho.module';
     ChatModule,
     MetricasModule,
     DespachoModule,
+    PbxModule,
   ],
   controllers: [AppController],
   providers: [

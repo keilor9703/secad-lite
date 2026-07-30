@@ -11,6 +11,7 @@ export const routes: Routes = [
       { path: '', pathMatch: 'full', redirectTo: 'recepcion' },
       { path: 'recepcion', loadComponent: () => import('./pages/recepcion/recepcion').then((m) => m.RecepcionComponent) },
       { path: 'recepcion/:id', loadComponent: () => import('./pages/detalle/detalle').then((m) => m.DetalleComponent) },
+      { path: 'llamadas', loadComponent: () => import('./pages/llamadas/llamadas').then((m) => m.LlamadasComponent) },
       { path: 'chat', loadComponent: () => import('./pages/chat/chat').then((m) => m.ChatComponent) },
       { path: 'dashboard', loadComponent: () => import('./pages/dashboard/dashboard').then((m) => m.DashboardComponent) },
       { path: 'recursos', loadComponent: () => import('./pages/recursos/recursos').then((m) => m.RecursosComponent) },

@@ -29,6 +29,27 @@ export interface CrearCaso {
   lng?: number | null;
 }
 
+// --- PBX / planta telefónica ---
+export type EstadoLlamada = 'sonando' | 'atendida' | 'perdida' | 'finalizada';
+
+export interface Llamada {
+  id: string;
+  tenant: string;
+  callId?: string | null;
+  numero: string;
+  numeroDestino?: string | null;
+  estado: EstadoLlamada;
+  casoId?: string | null;
+  atendidaPor?: string | null;
+  creadoEn: string;
+  actualizadoEn: string;
+}
+
+export interface PbxConfig {
+  apiKey: string;
+  webhookPath: string;
+}
+
 export type TipoRecurso = 'patrulla' | 'ambulancia' | 'maquina' | 'moto' | 'otro';
 export type EstadoRecurso = 'disponible' | 'asignado' | 'en_ruta' | 'en_sitio' | 'fuera_servicio';
 

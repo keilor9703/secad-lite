@@ -8,6 +8,7 @@ import { MensajeChatEntity } from './chat/mensaje.entity';
 import { TenantEntity } from './tenants/tenant.entity';
 import { RecursoEntity } from './despacho/recurso.entity';
 import { AsignacionEntity } from './despacho/asignacion.entity';
+import { LlamadaEntity } from './pbx/llamada.entity';
 
 config();
 
@@ -19,6 +20,6 @@ config();
 export default new DataSource({
   type: 'postgres',
   url: process.env.DATABASE_URL,
-  entities: [CasoEntity, EventoCasoEntity, UsuarioEntity, MensajeChatEntity, TenantEntity, RecursoEntity, AsignacionEntity],
+  entities: [CasoEntity, EventoCasoEntity, UsuarioEntity, MensajeChatEntity, TenantEntity, RecursoEntity, AsignacionEntity, LlamadaEntity],
   migrations: ['src/migrations/*.ts'],
 });

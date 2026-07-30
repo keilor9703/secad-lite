@@ -84,7 +84,29 @@ Pestaña *Ciudadano*: cualquier correo con contraseña `demo`.
 - **Chat en vivo** (Socket.IO): el ciudadano abre un chat que crea un caso y
   conversa con el operador en tiempo real.
 - **Panel de gestión**: métricas de casos por estado, canal y agencia.
+- **Integración con planta telefónica (PBX)**: la central llama a un **webhook**
+  (`POST /api/pbx/webhook`) autenticado con la **API key del tenant** (header
+  `x-api-key`); las llamadas entran a una **cola en vivo** (Socket.IO, namespace
+  `/pbx`) y el operador las **atiende** con *screen-pop* (crea o enlaza el caso
+  con el teléfono del llamante). El admin del tenant ve/rota su API key y la URL
+  del webhook en **Administración**.
 - **Tema e identidad propios** (teal).
+
+## Integración con la planta telefónica (PBX)
+
+La central telefónica notifica a FALCON CAD por webhook:
+
+```
+POST /api/pbx/webhook        Header: x-api-key: <API key del tenant>
+# al timbrar
+{ "evento": "entrante", "numero": "3001234567", "callId": "abc-123", "numeroDestino": "123" }
+# al colgar (perdida si no se atendió, finalizada si sí)
+{ "evento": "colgada", "callId": "abc-123" }
+```
+
+Los funcionarios ven la cola en **Llamadas** (badge de timbrado en la barra) y
+al **Atender** saltan al caso. La API key se obtiene/rota en **Administración**
+(rol admin) o vía `GET /api/pbx/config` · `POST /api/pbx/config/rotar`.
 
 ## Migraciones (producción)
 

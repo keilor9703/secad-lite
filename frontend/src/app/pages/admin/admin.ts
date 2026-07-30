@@ -3,7 +3,8 @@ import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { AdminService, CrearUsuario } from '../../core/admin.service';
 import { AuthService } from '../../core/auth.service';
-import { Rol, Tenant, UsuarioAdmin } from '../../core/models';
+import { PbxService } from '../../core/pbx.service';
+import { PbxConfig, Rol, Tenant, UsuarioAdmin } from '../../core/models';
 
 @Component({
   selector: 'app-admin',
@@ -15,6 +16,7 @@ import { Rol, Tenant, UsuarioAdmin } from '../../core/models';
 export class AdminComponent implements OnInit {
   private admin = inject(AdminService);
   private auth = inject(AuthService);
+  private pbx = inject(PbxService);
 
   readonly esSuperadmin = this.auth.esSuperadmin;
 
@@ -24,6 +26,11 @@ export class AdminComponent implements OnInit {
 
   readonly rolesDisponibles: Rol[] = ['admin', 'supervisor', 'operador'];
 
+  // Integración PBX (planta telefónica)
+  readonly pbxConfig = signal<PbxConfig | null>(null);
+  readonly mostrarKey = signal(false);
+  copiado = '';
+
   // Formularios
   nuevoTenant = { codigo: '', nombre: '' };
   nuevoUsuario: CrearUsuario = this.usuarioVacio();
@@ -31,6 +38,31 @@ export class AdminComponent implements OnInit {
   ngOnInit(): void {
     this.cargarUsuarios();
     if (this.esSuperadmin()) this.cargarTenants();
+    else this.cargarPbx();
+  }
+
+  private cargarPbx(): void {
+    this.pbx.config().subscribe({ next: (c) => this.pbxConfig.set(c), error: () => {} });
+  }
+
+  get webhookUrl(): string {
+    const c = this.pbxConfig();
+    return c ? this.pbx.webhookUrl(c.webhookPath) : '';
+  }
+
+  rotarPbx(): void {
+    if (!window.confirm('Al rotar la clave, la PBX dejará de funcionar hasta actualizarla. ¿Continuar?')) return;
+    this.pbx.rotarKey().subscribe({
+      next: (c) => { this.pbxConfig.set(c); this.mostrarKey.set(true); },
+      error: (e) => this.error.set(e?.error?.message ?? 'No fue posible rotar la clave.'),
+    });
+  }
+
+  copiar(texto: string, que: string): void {
+    navigator.clipboard?.writeText(texto).then(() => {
+      this.copiado = que;
+      setTimeout(() => { if (this.copiado === que) this.copiado = ''; }, 1500);
+    }).catch(() => {});
   }
 
   private cargarTenants(): void {
