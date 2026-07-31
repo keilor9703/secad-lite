@@ -4,10 +4,10 @@ import { EstadoAsignacion } from './asignacion.entity';
 import { Tenant } from '../common/tenant.decorator';
 import { Usuario } from '../common/usuario.decorator';
 import { JwtPayload } from '../auth/auth.service';
-import { Roles } from '../auth/roles.decorator';
+import { Permisos } from '../auth/permisos.decorator';
 
-// Despacho: cualquier funcionario puede despachar y hacer avanzar recursos.
-@Roles('operador', 'supervisor', 'admin')
+// Despacho: ver requiere despacho.ver; despachar/mover requiere despacho.asignar.
+@Permisos('despacho.ver')
 @Controller()
 export class DespachoController {
   constructor(private readonly despacho: DespachoService) {}
@@ -25,6 +25,7 @@ export class DespachoController {
   }
 
   /** POST /api/casos/:id/asignaciones — despachar un recurso al caso. */
+  @Permisos('despacho.asignar')
   @Post('casos/:id/asignaciones')
   asignar(
     @Tenant() tenant: string,
@@ -36,6 +37,7 @@ export class DespachoController {
   }
 
   /** PATCH /api/asignaciones/:id/estado — avanzar/cerrar el despacho. */
+  @Permisos('despacho.asignar')
   @Patch('asignaciones/:id/estado')
   cambiarEstado(
     @Tenant() tenant: string,

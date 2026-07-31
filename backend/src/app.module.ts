@@ -8,6 +8,8 @@ import { TenantMiddleware } from './common/tenant.middleware';
 import { AuthModule } from './auth/auth.module';
 import { JwtAuthGuard } from './auth/jwt-auth.guard';
 import { RolesGuard } from './auth/roles.guard';
+import { PermisosGuard } from './auth/permisos.guard';
+import { RolesModule } from './roles/roles.module';
 import { CasosModule } from './casos/casos.module';
 import { UsuariosModule } from './usuarios/usuarios.module';
 import { ChatModule } from './chat/chat.module';
@@ -46,6 +48,7 @@ import { WhatsappModule } from './whatsapp/whatsapp.module';
     }),
     UsuariosModule,
     TenantsModule,
+    RolesModule,
     AuthModule,
     CasosModule,
     ChatModule,
@@ -59,8 +62,10 @@ import { WhatsappModule } from './whatsapp/whatsapp.module';
     AppService,
     // JWT obligatorio en todas las rutas salvo las marcadas con @Public().
     { provide: APP_GUARD, useClass: JwtAuthGuard },
-    // Luego, restricción por rol donde haya @Roles().
+    // Luego, restricción por rol reservado donde haya @Roles().
     { provide: APP_GUARD, useClass: RolesGuard },
+    // Y por permiso (RBAC dinámico) donde haya @Permisos().
+    { provide: APP_GUARD, useClass: PermisosGuard },
   ],
 })
 export class AppModule implements NestModule {

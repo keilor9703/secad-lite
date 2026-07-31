@@ -1,10 +1,10 @@
 import { Controller, Get } from '@nestjs/common';
 import { MetricasService } from './metricas.service';
 import { Tenant } from '../common/tenant.decorator';
-import { Roles } from '../auth/roles.decorator';
+import { Permisos } from '../auth/permisos.decorator';
 
-// Métricas de gestión: uso interno de funcionarios.
-@Roles('operador', 'supervisor', 'admin')
+// Métricas de gestión: requiere el permiso metricas.ver.
+@Permisos('metricas.ver')
 @Controller('metricas')
 export class MetricasController {
   constructor(private readonly metricas: MetricasService) {}

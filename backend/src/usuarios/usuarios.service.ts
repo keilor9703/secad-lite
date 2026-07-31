@@ -2,12 +2,13 @@ import { BadRequestException, ConflictException, ForbiddenException, Injectable,
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import * as bcrypt from 'bcryptjs';
-import { Rol, ROLES_ASIGNABLES, UsuarioEntity } from './usuario.entity';
+import { UsuarioEntity } from './usuario.entity';
+import { RolesService } from '../roles/roles.service';
 
 /** Contexto del actor autenticado (subconjunto del JWT). */
 export interface Actor {
   sub: string;
-  rol: Rol;
+  rol: string;
   tenant?: string | null;
 }
 
@@ -16,7 +17,7 @@ export interface UsuarioDto {
   id: string;
   username: string;
   nombre: string;
-  rol: Rol;
+  rol: string;
   tenant: string | null;
   activo: boolean;
 }
@@ -25,27 +26,29 @@ export interface CrearUsuarioDto {
   username: string;
   nombre: string;
   contrasena: string;
-  rol: Rol;
+  rol: string;
   tenant?: string;
 }
 
 export interface ActualizarUsuarioDto {
   nombre?: string;
-  rol?: Rol;
+  rol?: string;
   activo?: boolean;
   contrasena?: string;
 }
 
 /**
  * Directorio de usuarios (PostgreSQL, bcrypt). El `username` es único global; el
- * tenant se deduce del usuario. La gestión (crear/editar) está acotada
- * por rol: el superadmin gobierna todos los tenants; el admin, solo el suyo.
+ * tenant se deduce del usuario. La gestión está acotada por ámbito: el
+ * superadmin gobierna todos los tenants; el admin, solo el suyo. El rol que se
+ * asigna debe existir en el tenant (RBAC dinámico, ver RolesService).
  */
 @Injectable()
 export class UsuariosService implements OnModuleInit {
   constructor(
     @InjectRepository(UsuarioEntity)
     private readonly repo: Repository<UsuarioEntity>,
+    private readonly roles: RolesService,
   ) {}
 
   async onModuleInit(): Promise<void> {
@@ -63,9 +66,9 @@ export class UsuariosService implements OnModuleInit {
     return (await bcrypt.compare(contrasena, u.passwordHash)) ? u : null;
   }
 
-  // --- Gestión (admin / superadmin) -----------------------------------------
+  // --- Gestión (usuarios.gestionar) -----------------------------------------
 
-  /** Superadmin ve todos; un admin ve solo los de su tenant. */
+  /** Superadmin ve todos; los demás ven solo los de su tenant. */
   async listar(actor: Actor): Promise<UsuarioDto[]> {
     const where = actor.rol === 'superadmin' ? {} : { tenant: actor.tenant ?? '' };
     const usuarios = await this.repo.find({ where, order: { username: 'ASC' } });
@@ -77,7 +80,7 @@ export class UsuariosService implements OnModuleInit {
     if (!username || !dto.contrasena || !dto.nombre?.trim()) {
       throw new BadRequestException('Usuario, nombre y contraseña son obligatorios.');
     }
-    const { rol, tenant } = this.resolverAmbito(actor, dto.rol, dto.tenant);
+    const { rol, tenant } = await this.resolverAmbito(actor, dto.rol, dto.tenant);
 
     if (await this.repo.findOne({ where: { username } })) {
       throw new ConflictException('Ese nombre de usuario ya existe.');
@@ -102,7 +105,7 @@ export class UsuariosService implements OnModuleInit {
     if (actor.rol !== 'superadmin' && u.tenant !== actor.tenant) {
       throw new ForbiddenException('No puede gestionar usuarios de otro tenant.');
     }
-    if (dto.rol) u.rol = this.resolverAmbito(actor, dto.rol, u.tenant ?? undefined).rol;
+    if (dto.rol) u.rol = (await this.resolverAmbito(actor, dto.rol, u.tenant ?? undefined)).rol;
     if (dto.nombre?.trim()) u.nombre = dto.nombre.trim();
     if (typeof dto.activo === 'boolean') u.activo = dto.activo;
     if (dto.contrasena) u.passwordHash = await bcrypt.hash(dto.contrasena, 10);
@@ -111,21 +114,24 @@ export class UsuariosService implements OnModuleInit {
 
   /**
    * Valida el rol/tenant que el actor intenta asignar y devuelve los efectivos.
-   *  - superadmin: cualquier rol; si no es superadmin, exige tenant.
-   *  - admin: solo roles asignables (no admin-de-nadie-más ni superadmin) y
-   *    siempre dentro de su propio tenant.
+   *  - superadmin: 'superadmin' (sin tenant) o cualquier rol existente del tenant.
+   *  - resto: cualquier rol existente de su propio tenant (nunca superadmin).
    */
-  private resolverAmbito(actor: Actor, rol: Rol, tenant?: string | null): { rol: Rol; tenant: string | null } {
+  private async resolverAmbito(actor: Actor, rol: string, tenant?: string | null): Promise<{ rol: string; tenant: string | null }> {
     if (actor.rol === 'superadmin') {
       if (rol === 'superadmin') return { rol, tenant: null };
       if (!tenant?.trim()) throw new BadRequestException('Debe indicar el tenant del usuario.');
+      if (!(await this.roles.existe(tenant.trim(), rol))) {
+        throw new BadRequestException('Ese rol no existe en el tenant.');
+      }
       return { rol, tenant: tenant.trim() };
     }
-    // admin de tenant
-    if (!ROLES_ASIGNABLES.includes(rol)) {
+    if (rol === 'superadmin') throw new ForbiddenException('No puede asignar el rol superadmin.');
+    const t = actor.tenant ?? '';
+    if (!(await this.roles.existe(t, rol))) {
       throw new ForbiddenException('No puede asignar ese rol.');
     }
-    return { rol, tenant: actor.tenant ?? '' };
+    return { rol, tenant: t };
   }
 
   private aDto(u: UsuarioEntity): UsuarioDto {
@@ -133,8 +139,8 @@ export class UsuariosService implements OnModuleInit {
   }
 
   /**
-   * Siembra el superadmin global y los usuarios demo del tenant 'demo'. Idempotente:
-   * en una base ya existente agrega solo lo que falte (p. ej. el superadmin).
+   * Siembra el superadmin global y los usuarios demo del tenant 'demo'.
+   * Idempotente: en una base existente agrega solo lo que falte.
    */
   private async seed(): Promise<void> {
     const hash = await bcrypt.hash('demo', 10);

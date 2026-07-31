@@ -4,13 +4,13 @@ import { Repository } from 'typeorm';
 import { CasoEntity } from './caso.entity';
 import { EventoCasoEntity, TipoEvento } from './evento.entity';
 import { CANALES, EstadoCaso, ESTADOS } from './caso.model';
-import { Rol } from '../usuarios/usuario.entity';
 import { DespachoService } from '../despacho/despacho.service';
 
 /** Contexto mínimo del actor (subconjunto del JWT) para auditoría y permisos. */
 export interface Actor {
   sub: string;
-  rol: Rol;
+  rol: string;
+  permisos: string[];
 }
 import { CrearCasoDto } from './dto/crear-caso.dto';
 import { CambiarEstadoDto } from './dto/cambiar-estado.dto';
@@ -81,13 +81,13 @@ export class CasosService implements OnModuleInit {
       throw new BadRequestException('Para derivar se requiere la agencia destino.');
     }
 
-    // Cerrar y reabrir son acciones reservadas a supervisor/admin.
-    const privilegiado = actor.rol === 'supervisor' || actor.rol === 'admin';
-    if (dto.estado === 'cerrado' && !privilegiado) {
-      throw new ForbiddenException('Solo un supervisor o admin puede cerrar casos.');
+    // Cerrar y reabrir requieren el permiso casos.cerrar (superadmin siempre).
+    const puedeCerrar = actor.rol === 'superadmin' || actor.permisos.includes('casos.cerrar');
+    if (dto.estado === 'cerrado' && !puedeCerrar) {
+      throw new ForbiddenException('No tiene permiso para cerrar casos.');
     }
-    if (caso.estado === 'cerrado' && dto.estado !== 'cerrado' && !privilegiado) {
-      throw new ForbiddenException('Solo un supervisor o admin puede reabrir casos.');
+    if (caso.estado === 'cerrado' && dto.estado !== 'cerrado' && !puedeCerrar) {
+      throw new ForbiddenException('No tiene permiso para reabrir casos.');
     }
 
     const usuario = actor.sub;

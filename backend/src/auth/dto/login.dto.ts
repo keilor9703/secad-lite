@@ -1,5 +1,3 @@
-import { Rol } from '../../usuarios/usuario.entity';
-
 /** Credenciales de login. */
 export interface LoginDto {
   usuario: string;
@@ -12,6 +10,7 @@ export interface LoginResult {
   usuario: string;
   tipo: 'institucional' | 'civil';
   nombre: string;
-  rol: Rol;
+  rol: string;
+  permisos: string[];
   tenant: string | null;
 }

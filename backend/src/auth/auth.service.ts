@@ -2,7 +2,7 @@ import { Injectable, UnauthorizedException } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
 import { LoginDto, LoginResult } from './dto/login.dto';
 import { UsuariosService } from '../usuarios/usuarios.service';
-import { Rol } from '../usuarios/usuario.entity';
+import { RolesService } from '../roles/roles.service';
 
 /** Claims que viajan dentro del JWT. */
 export interface JwtPayload {
@@ -10,24 +10,24 @@ export interface JwtPayload {
   /** 'institucional' = usuario del sistema (staff); 'civil' = ciudadano (chat). */
   tipo: 'institucional' | 'civil';
   nombre: string;
-  rol: Rol;
+  /** Código del rol (dinámico por tenant); 'superadmin'/'ciudadano' son reservados. */
+  rol: string;
+  /** Permisos efectivos del rol al momento del login (RBAC dinámico). */
+  permisos: string[];
   tenant: string | null;
 }
 
 /**
- * Autenticación.
- *  - login: usuario del sistema (username único global); el tenant y el rol salen
- *    del registro del usuario. Validado contra la tabla con bcrypt.
- *  - loginCivil: ciudadano, autoservicio liviano para el chat (rol 'ciudadano');
- *    el tenant se toma del header X-Tenant-Id.
- * El `tenant` y el `rol` viajan en el JWT; los endpoints protegidos los toman de
- * ahí, no del header, de modo que no se pueden falsear.
+ * Autenticación. El `tenant`, el `rol` y sus `permisos` viajan en el JWT; los
+ * endpoints protegidos los toman de ahí, no del header, de modo que no se
+ * pueden falsear.
  */
 @Injectable()
 export class AuthService {
   constructor(
     private readonly jwt: JwtService,
     private readonly usuarios: UsuariosService,
+    private readonly roles: RolesService,
   ) {}
 
   async login(dto: LoginDto): Promise<LoginResult> {
@@ -36,7 +36,8 @@ export class AuthService {
     }
     const u = await this.usuarios.validar(dto.usuario.trim(), dto.contrasena);
     if (!u) throw new UnauthorizedException('Credenciales inválidas.');
-    return this.emitir(u.username, 'institucional', u.nombre, u.rol, u.tenant ?? null);
+    const permisos = await this.roles.permisosDe(u.tenant ?? null, u.rol);
+    return this.emitir(u.username, 'institucional', u.nombre, u.rol, u.tenant ?? null, permisos);
   }
 
   loginCivil(dto: LoginDto, tenant: string): LoginResult {
@@ -45,17 +46,18 @@ export class AuthService {
       throw new UnauthorizedException('Credenciales de ciudadano inválidas (use contraseña "demo").');
     }
     const usuario = dto.usuario.trim();
-    return this.emitir(usuario, 'civil', usuario.split('@')[0], 'ciudadano', tenant);
+    return this.emitir(usuario, 'civil', usuario.split('@')[0], 'ciudadano', tenant, []);
   }
 
   private emitir(
     sub: string,
     tipo: 'institucional' | 'civil',
     nombre: string,
-    rol: Rol,
+    rol: string,
     tenant: string | null,
+    permisos: string[],
   ): LoginResult {
-    const payload: JwtPayload = { sub, tipo, nombre, rol, tenant };
-    return { token: this.jwt.sign(payload), usuario: sub, tipo, nombre, rol, tenant };
+    const payload: JwtPayload = { sub, tipo, nombre, rol, permisos, tenant };
+    return { token: this.jwt.sign(payload), usuario: sub, tipo, nombre, rol, permisos, tenant };
   }
 }

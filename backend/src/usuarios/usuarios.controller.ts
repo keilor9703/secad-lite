@@ -1,11 +1,11 @@
 import { Body, Controller, Get, Param, Patch, Post } from '@nestjs/common';
 import { ActualizarUsuarioDto, CrearUsuarioDto, UsuariosService } from './usuarios.service';
-import { Roles } from '../auth/roles.decorator';
+import { Permisos } from '../auth/permisos.decorator';
 import { Usuario } from '../common/usuario.decorator';
 import { JwtPayload } from '../auth/auth.service';
 
-// Gestión de usuarios: admin (su tenant) y superadmin (todos).
-@Roles('admin', 'superadmin')
+// Gestión de usuarios: requiere el permiso usuarios.gestionar (superadmin siempre).
+@Permisos('usuarios.gestionar')
 @Controller('usuarios')
 export class UsuariosController {
   constructor(private readonly usuarios: UsuariosService) {}

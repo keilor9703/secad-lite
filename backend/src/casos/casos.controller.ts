@@ -6,10 +6,10 @@ import { AgregarNotaDto } from './dto/agregar-nota.dto';
 import { Tenant } from '../common/tenant.decorator';
 import { Usuario } from '../common/usuario.decorator';
 import { JwtPayload } from '../auth/auth.service';
-import { Roles } from '../auth/roles.decorator';
+import { Permisos } from '../auth/permisos.decorator';
 
-// La bandeja y el detalle son de uso interno: solo funcionarios, nunca ciudadanos.
-@Roles('operador', 'supervisor', 'admin')
+// La bandeja y el detalle son de uso interno: gobernado por permisos del rol.
+@Permisos('casos.ver')
 @Controller('casos')
 export class CasosController {
   constructor(private readonly casos: CasosService) {}
@@ -33,12 +33,14 @@ export class CasosController {
   }
 
   /** POST /api/casos — recepcionar un caso nuevo (creador tomado del JWT). */
+  @Permisos('casos.crear')
   @Post()
   crear(@Tenant() tenant: string, @Usuario() usuario: JwtPayload, @Body() dto: CrearCasoDto) {
     return this.casos.crear(tenant, dto, usuario?.sub ?? 'desconocido');
   }
 
   /** POST /api/casos/:id/notas — agregar una nota a la bitácora. */
+  @Permisos('casos.gestionar')
   @Post(':id/notas')
   agregarNota(
     @Tenant() tenant: string,
@@ -50,6 +52,7 @@ export class CasosController {
   }
 
   /** PATCH /api/casos/:id/estado — avanzar el ciclo de vida / derivar. */
+  @Permisos('casos.gestionar')
   @Patch(':id/estado')
   cambiarEstado(
     @Tenant() tenant: string,
@@ -60,6 +63,7 @@ export class CasosController {
     return this.casos.cambiarEstado(tenant, id, dto, {
       sub: usuario?.sub ?? 'desconocido',
       rol: usuario?.rol ?? 'operador',
+      permisos: usuario?.permisos ?? [],
     });
   }
 }

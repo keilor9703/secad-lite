@@ -3,7 +3,7 @@ import { ConfigService } from '@nestjs/config';
 import { WhatsappService } from './whatsapp.service';
 import { TenantsService } from '../tenants/tenants.service';
 import { Public } from '../auth/public.decorator';
-import { Roles } from '../auth/roles.decorator';
+import { Permisos } from '../auth/permisos.decorator';
 import { Tenant } from '../common/tenant.decorator';
 import { Usuario } from '../common/usuario.decorator';
 import { JwtPayload } from '../auth/auth.service';
@@ -41,16 +41,16 @@ export class WhatsappController {
     return { received: true };
   }
 
-  /** GET /api/whatsapp/config — estado de la integración (supervisor/admin). */
-  @Roles('supervisor', 'admin')
+  /** GET /api/whatsapp/config — estado de la integración. */
+  @Permisos('whatsapp.configurar')
   @Get('config')
   async getConfig(@Tenant() tenant: string) {
     const cfg = await this.tenants.getWaConfig(tenant);
     return { ...cfg, verifyToken: this.verifyToken, webhookPath: '/api/whatsapp/webhook' };
   }
 
-  /** PUT /api/whatsapp/config — configurar phone_number_id y token (admin). */
-  @Roles('admin')
+  /** PUT /api/whatsapp/config — configurar phone_number_id y token. */
+  @Permisos('whatsapp.configurar')
   @Put('config')
   async setConfig(@Tenant() tenant: string, @Body() dto: { phoneNumberId?: string; accessToken?: string }) {
     const cfg = await this.tenants.setWaConfig(tenant, dto?.phoneNumberId, dto?.accessToken);
@@ -58,14 +58,14 @@ export class WhatsappController {
   }
 
   /** GET /api/whatsapp/casos/:id/mensajes — conversación del caso. */
-  @Roles('operador', 'supervisor', 'admin')
+  @Permisos('whatsapp.responder')
   @Get('casos/:id/mensajes')
   mensajes(@Tenant() tenant: string, @Param('id') id: string) {
     return this.wa.historial(tenant, id);
   }
 
   /** POST /api/whatsapp/casos/:id/responder — el operador responde al ciudadano. */
-  @Roles('operador', 'supervisor', 'admin')
+  @Permisos('whatsapp.responder')
   @Post('casos/:id/responder')
   responder(@Tenant() tenant: string, @Usuario() usuario: JwtPayload, @Param('id') id: string, @Body() dto: { texto: string }) {
     return this.wa.responder(tenant, id, dto?.texto, usuario?.sub ?? 'operador');

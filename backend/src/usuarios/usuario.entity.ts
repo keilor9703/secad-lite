@@ -1,20 +1,17 @@
 import { Column, Entity, Index, PrimaryGeneratedColumn } from 'typeorm';
 
 /**
- * Rol del usuario. `superadmin` es global (gestiona tenants y todos los usuarios);
- * el resto opera dentro de su tenant. `ciudadano` es autoservicio para el chat.
+ * Código de rol. Con el RBAC dinámico los roles viven en la tabla `roles` por
+ * tenant; aquí solo queda el alias de tipo. 'superadmin' (global) y 'ciudadano'
+ * (acceso civil del chat) son códigos reservados.
  */
-export type Rol = 'superadmin' | 'admin' | 'supervisor' | 'operador' | 'ciudadano';
-
-export const ROLES: Rol[] = ['superadmin', 'admin', 'supervisor', 'operador', 'ciudadano'];
-/** Roles que un admin de tenant puede asignar (nunca superadmin). */
-export const ROLES_ASIGNABLES: Rol[] = ['admin', 'supervisor', 'operador'];
+export type Rol = string;
 
 /**
- * Usuario del sistema. El `username` es único a nivel global (el tenant se deduce
- * del usuario al iniciar sesión). Cada usuario está asociado a un tenant por
- * `tenant` (código del tenant); el superadmin no tiene tenant (tenant nulo).
- * La contraseña se guarda hasheada con bcrypt, nunca en claro.
+ * Usuario del sistema. El `username` es único a nivel global (el tenant se
+ * deduce del usuario al iniciar sesión). Cada usuario está asociado a un tenant
+ * por `tenant` (código); el superadmin no tiene tenant (nulo). La contraseña se
+ * guarda hasheada con bcrypt, nunca en claro.
  */
 @Entity({ name: 'usuarios' })
 export class UsuarioEntity {
@@ -35,8 +32,9 @@ export class UsuarioEntity {
   @Column({ type: 'varchar', length: 120 })
   nombre!: string;
 
-  @Column({ type: 'varchar', length: 20, default: 'operador' })
-  rol!: Rol;
+  /** Código del rol (dinámico por tenant, ver RolesService). */
+  @Column({ type: 'varchar', length: 40, default: 'operador' })
+  rol!: string;
 
   @Column({ type: 'boolean', default: true })
   activo!: boolean;
