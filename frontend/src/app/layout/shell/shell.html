@@ -6,7 +6,7 @@
 
   <nav class="nav" *ngIf="sesion() as s">
     <ng-container *ngIf="s.tipo === 'institucional'; else navCivil">
-      <ng-container *ngIf="!esSuperadmin()">
+      <ng-container *ngIf="operativoVisible()">
         <a routerLink="/recepcion" routerLinkActive="active">Recepción</a>
         <a routerLink="/llamadas" routerLinkActive="active" class="nav-llamadas">
           Llamadas
@@ -23,7 +23,16 @@
   </nav>
 
   <div class="user" *ngIf="sesion() as s">
-    <span class="tenant" title="Tenant (instancia)">{{ s.tenant || 'global' }}</span>
+    <label class="tenant-sel" *ngIf="esSuperadmin(); else tenantFijo" title="Tenant en gestión">
+      <select [value]="tenantCtx()" (change)="cambiarTenant($any($event.target).value)"
+              aria-label="Tenant en gestión">
+        <option value="" disabled>tenant…</option>
+        <option *ngFor="let t of tenants()" [value]="t.codigo">{{ t.codigo }}</option>
+      </select>
+    </label>
+    <ng-template #tenantFijo>
+      <span class="tenant" title="Tenant (instancia)">{{ s.tenant || 'global' }}</span>
+    </ng-template>
     <span class="who">
       <span class="name">{{ s.nombre }}</span>
       <span class="tipo" [class.civil]="s.tipo === 'civil'">{{ s.rol }}</span>

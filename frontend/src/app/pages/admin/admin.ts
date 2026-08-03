@@ -1,4 +1,4 @@
-import { Component, OnInit, computed, inject, signal } from '@angular/core';
+import { Component, OnInit, computed, effect, inject, signal } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { AdminService, CrearUsuario } from '../../core/admin.service';
@@ -37,11 +37,10 @@ export class AdminComponent implements OnInit {
   readonly usuarios = signal<UsuarioAdmin[]>([]);
   readonly error = signal('');
 
-  /**
-   * Tenant sobre el que trabaja el superadmin: los roles son por tenant y él no
-   * pertenece a ninguno, así que debe elegir uno para ver y editar su matriz.
-   */
-  readonly tenantCtx = signal('');
+  /** Tenant en gestión (lo elige el superadmin en la barra superior). */
+  readonly tenantCtx = this.auth.tenantCtx;
+  /** Tenant efectivo de la sesión: el propio, o el que el superadmin gestiona. */
+  readonly tenantActivo = this.auth.tenantActivo;
 
   // Roles y permisos (RBAC dinámico)
   readonly catalogo = signal<PermisoDef[]>([]);
@@ -91,32 +90,35 @@ export class AdminComponent implements OnInit {
   nuevoTenant = { codigo: '', nombre: '' };
   nuevoUsuario: CrearUsuario = this.usuarioVacio();
 
+  constructor() {
+    // Todo lo que es propio de un tenant (roles, integraciones, entidades) se
+    // recarga solo cuando cambia el tenant en gestión desde la barra superior.
+    effect(() => {
+      const tenant = this.tenantActivo();
+      this.roles.set([]);
+      this.sucios.set(new Set());
+      this.rolesOk.set(false);
+      this.entidades.set([]);
+      this.pbxConfig.set(null);
+      this.waConfig.set(null);
+      this.nuevoUsuario.tenant = tenant ?? '';
+      if (!tenant) return;
+      if (this.gestionaRoles()) this.cargarRoles();
+      this.cargarPbx();
+      this.cargarWa();
+      if (this.gestionaEntidades) this.cargarEntidades();
+    });
+  }
+
   ngOnInit(): void {
     this.cargarUsuarios();
     if (this.gestionaRoles()) {
       this.rolesSvc.catalogo().subscribe({ next: (c) => this.catalogo.set(c), error: () => {} });
     }
-    if (this.esSuperadmin()) {
-      this.cargarTenants();
-    } else {
-      this.cargarPbx();
-      this.cargarWa();
-      if (this.gestionaRoles()) this.cargarRoles();
-      if (this.gestionaEntidades) this.cargarEntidades();
-    }
+    if (this.esSuperadmin()) this.cargarTenants();
   }
 
   // --- Roles y permisos -------------------------------------------------------
-
-  /** Cambia el tenant en gestión (superadmin) y recarga su matriz de roles. */
-  cambiarTenantCtx(codigo: string): void {
-    this.tenantCtx.set(codigo);
-    this.nuevoUsuario.tenant = codigo;
-    this.roles.set([]);
-    this.sucios.set(new Set());
-    this.rolesOk.set(false);
-    if (codigo) this.cargarRoles();
-  }
 
   /** ¿Se puede cambiar el rol de este usuario desde la tabla? */
   puedeEditarRolDe(u: UsuarioAdmin): boolean {
@@ -124,14 +126,8 @@ export class AdminComponent implements OnInit {
     return this.esSuperadmin() ? u.tenant === this.tenantCtx() : true;
   }
 
-  /** Tenant que se manda al API: solo el superadmin lo especifica. */
-  private tenantRoles(): string | undefined {
-    return this.esSuperadmin() ? this.tenantCtx() || undefined : undefined;
-  }
-
   private cargarRoles(): void {
-    if (this.esSuperadmin() && !this.tenantCtx()) return;
-    this.rolesSvc.listar(this.tenantRoles()).subscribe({ next: (r) => this.roles.set(r), error: () => {} });
+    this.rolesSvc.listar().subscribe({ next: (r) => this.roles.set(r), error: () => {} });
   }
 
   tiene(rol: RolTenant, clave: string): boolean {
@@ -153,7 +149,7 @@ export class AdminComponent implements OnInit {
     this.error.set('');
     let restantes = pendientes.length;
     for (const rol of pendientes) {
-      this.rolesSvc.actualizar(rol.id, { permisos: rol.permisos }, this.tenantRoles()).subscribe({
+      this.rolesSvc.actualizar(rol.id, { permisos: rol.permisos }).subscribe({
         next: (act) => {
           this.roles.update((rs) => rs.map((r) => (r.id === act.id ? act : r)));
           this.sucios.update((s) => { const n = new Set(s); n.delete(act.id); return n; });
@@ -171,7 +167,7 @@ export class AdminComponent implements OnInit {
     const nombre = this.nuevoRol.trim();
     if (!nombre) return;
     this.error.set('');
-    this.rolesSvc.crear(nombre, [], this.tenantRoles()).subscribe({
+    this.rolesSvc.crear(nombre, []).subscribe({
       next: (r) => { this.roles.update((rs) => [...rs, r]); this.nuevoRol = ''; },
       error: (e) => this.error.set(e?.error?.message ?? 'No fue posible crear el rol.'),
     });
@@ -180,7 +176,7 @@ export class AdminComponent implements OnInit {
   eliminarRol(rol: RolTenant): void {
     if (!window.confirm(`¿Eliminar el rol "${rol.nombre}"?`)) return;
     this.error.set('');
-    this.rolesSvc.eliminar(rol.id, this.tenantRoles()).subscribe({
+    this.rolesSvc.eliminar(rol.id).subscribe({
       next: () => this.roles.update((rs) => rs.filter((r) => r.id !== rol.id)),
       error: (e) => this.error.set(e?.error?.message ?? 'No fue posible eliminar el rol.'),
     });
@@ -277,11 +273,7 @@ export class AdminComponent implements OnInit {
   // --- Tenants y usuarios -----------------------------------------------------
   private cargarTenants(): void {
     this.admin.listarTenants().subscribe({
-      next: (t) => {
-        this.tenants.set(t);
-        // Arranca sobre el primer tenant para que la matriz no aparezca vacía.
-        if (!this.tenantCtx() && t.length) this.cambiarTenantCtx(t[0].codigo);
-      },
+      next: (t) => this.tenants.set(t),
       error: () => this.error.set('No fue posible cargar los tenants.'),
     });
   }

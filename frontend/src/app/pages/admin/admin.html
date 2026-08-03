@@ -2,13 +2,8 @@
   <header class="admin-head">
     <h1>Administración</h1>
     <p>{{ esSuperadmin() ? 'Tenants (instancias) y usuarios de todo el sistema' : 'Usuarios, roles e integraciones de su tenant' }}</p>
-    <label class="ctx-tenant" *ngIf="esSuperadmin()">
-      <span>Tenant en gestión</span>
-      <select [value]="tenantCtx()" (change)="cambiarTenantCtx($any($event.target).value)">
-        <option value="" disabled>seleccione…</option>
-        <option *ngFor="let t of tenants()" [value]="t.codigo">{{ t.codigo }}</option>
-      </select>
-    </label>
+    <p class="ctx-nota" *ngIf="esSuperadmin()">Trabajando sobre
+      <strong>{{ tenantCtx() || 'ningún tenant' }}</strong> — cámbielo en la barra superior.</p>
   </header>
 
   <p class="error" *ngIf="error()">{{ error() }}</p>
@@ -41,7 +36,7 @@
     <p class="pbx-hint">Cree roles a medida y marque en la matriz qué puede hacer cada uno.
       Los roles de sistema (Administrador, Supervisor, Operador) se pueden ajustar pero no eliminar.
       <ng-container *ngIf="esSuperadmin()">Los roles son propios de cada tenant: cambie el
-      <strong>tenant en gestión</strong> arriba para editar los de otra instancia.</ng-container></p>
+      <strong>tenant en gestión</strong> en la barra superior para editar los de otra instancia.</ng-container></p>
 
     <form class="crear-inline" (ngSubmit)="crearRol()">
       <input [(ngModel)]="nuevoRol" name="nrol" placeholder="Nombre del nuevo rol (p. ej. Despachador)" />
@@ -87,7 +82,7 @@
   </div>
 
   <!-- Integración: planta telefónica (PBX) -->
-  <div class="panel card" *ngIf="!esSuperadmin() && pbxConfig() as cfg">
+  <div class="panel card" *ngIf="pbxConfig() as cfg">
     <h2>📞 Integración — Planta telefónica (PBX)</h2>
     <p class="pbx-hint">Configure su central para que envíe un <code>POST</code> al webhook con el
       header <code>x-api-key</code>. Al timbrar: <code>{{ '{' }}"evento":"entrante","numero":"3001234567","callId":"..."{{ '}' }}</code>;
@@ -120,7 +115,7 @@
   </div>
 
   <!-- Integración: WhatsApp -->
-  <div class="panel card" *ngIf="!esSuperadmin() && waConfig() as wcfg">
+  <div class="panel card" *ngIf="waConfig() as wcfg">
     <h2>🟢 Integración — WhatsApp (Cloud API)</h2>
     <p class="pbx-hint">Configure el webhook de su app de Meta con la URL y el <em>verify token</em>
       de abajo, y registre aquí el <code>phone_number_id</code> del número y su token de acceso.</p>
@@ -165,7 +160,7 @@
   </div>
 
   <!-- Entidades externas (API entrante) -->
-  <div class="panel card" *ngIf="!esSuperadmin() && gestionaEntidades">
+  <div class="panel card" *ngIf="gestionaEntidades && !!tenantActivo()">
     <h2>🔌 Entidades externas — API entrante</h2>
     <p class="pbx-hint">Registre las entidades (bomberos, salud, alarmas, apps...) autorizadas a
       <strong>radicar casos</strong>. Cada una recibe su propia API key y envía un
@@ -221,11 +216,7 @@
       <select [(ngModel)]="nuevoUsuario.rol" name="urol">
         <option *ngFor="let r of rolesDisponibles()" [value]="r">{{ r }}</option>
       </select>
-      <select *ngIf="esSuperadmin()" [ngModel]="nuevoUsuario.tenant" name="uten"
-              (ngModelChange)="cambiarTenantCtx($event)">
-        <option value="" disabled>tenant…</option>
-        <option *ngFor="let t of tenants()" [value]="t.codigo">{{ t.codigo }}</option>
-      </select>
+      <span class="ctx-tag" *ngIf="esSuperadmin()" title="Tenant en gestión">{{ tenantCtx() || '—' }}</span>
       <button type="submit" class="btn btn--primary">Crear usuario</button>
     </form>
 

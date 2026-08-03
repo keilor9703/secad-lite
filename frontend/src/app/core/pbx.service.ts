@@ -34,11 +34,20 @@ export class PbxService {
     this.recargar();
     if (this.socket?.connected) return;
     this.socket = io(`${this.wsBase}/pbx`, {
-      auth: { token: this.auth.token },
+      // El superadmin no tiene tenant propio: indica cuál escucha.
+      auth: { token: this.auth.token, tenant: this.auth.tenantActivo() },
       transports: ['websocket', 'polling'],
     });
     this.socket.on('llamada:entrante', (l: Llamada) => { this.upsert(l); this.ultimaEntrante.set(l); });
     this.socket.on('llamada:cambio', (l: Llamada) => this.upsert(l));
+  }
+
+  /** Reabre la cola tras cambiar de tenant en gestión (superadmin). */
+  reconectar(): void {
+    this.desconectar();
+    this.llamadas.set([]);
+    this.ultimaEntrante.set(null);
+    this.conectar();
   }
 
   desconectar(): void {
