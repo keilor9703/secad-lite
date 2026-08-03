@@ -1,10 +1,14 @@
 import { Injectable, inject } from '@angular/core';
-import { HttpClient } from '@angular/common/http';
+import { HttpClient, HttpParams } from '@angular/common/http';
 import { Observable } from 'rxjs';
 import { environment } from '../../environments/environment';
 import { PermisoDef, RolTenant } from './models';
 
-/** Gestión de roles y permisos del tenant (RBAC dinámico). */
+/**
+ * Gestión de roles y permisos del tenant (RBAC dinámico). El `tenant` solo lo
+ * envía el superadmin (que no pertenece a ninguno y elige sobre cuál trabaja);
+ * para el resto el backend usa el del token y lo ignora.
+ */
 @Injectable({ providedIn: 'root' })
 export class RolesService {
   private http = inject(HttpClient);
@@ -15,19 +19,23 @@ export class RolesService {
     return this.http.get<PermisoDef[]>(`${this.base}/catalogo`);
   }
 
-  listar(): Observable<RolTenant[]> {
-    return this.http.get<RolTenant[]>(this.base);
+  listar(tenant?: string): Observable<RolTenant[]> {
+    return this.http.get<RolTenant[]>(this.base, this.opts(tenant));
   }
 
-  crear(nombre: string, permisos: string[]): Observable<RolTenant> {
-    return this.http.post<RolTenant>(this.base, { nombre, permisos });
+  crear(nombre: string, permisos: string[], tenant?: string): Observable<RolTenant> {
+    return this.http.post<RolTenant>(this.base, { nombre, permisos }, this.opts(tenant));
   }
 
-  actualizar(id: string, cambios: { nombre?: string; permisos?: string[] }): Observable<RolTenant> {
-    return this.http.patch<RolTenant>(`${this.base}/${id}`, cambios);
+  actualizar(id: string, cambios: { nombre?: string; permisos?: string[] }, tenant?: string): Observable<RolTenant> {
+    return this.http.patch<RolTenant>(`${this.base}/${id}`, cambios, this.opts(tenant));
   }
 
-  eliminar(id: string): Observable<{ ok: true }> {
-    return this.http.delete<{ ok: true }>(`${this.base}/${id}`);
+  eliminar(id: string, tenant?: string): Observable<{ ok: true }> {
+    return this.http.delete<{ ok: true }>(`${this.base}/${id}`, this.opts(tenant));
+  }
+
+  private opts(tenant?: string): { params?: HttpParams } {
+    return tenant ? { params: new HttpParams().set('tenant', tenant) } : {};
   }
 }

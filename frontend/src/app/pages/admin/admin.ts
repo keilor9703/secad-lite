@@ -37,6 +37,12 @@ export class AdminComponent implements OnInit {
   readonly usuarios = signal<UsuarioAdmin[]>([]);
   readonly error = signal('');
 
+  /**
+   * Tenant sobre el que trabaja el superadmin: los roles son por tenant y él no
+   * pertenece a ninguno, así que debe elegir uno para ver y editar su matriz.
+   */
+  readonly tenantCtx = signal('');
+
   // Roles y permisos (RBAC dinámico)
   readonly catalogo = signal<PermisoDef[]>([]);
   readonly roles = signal<RolTenant[]>([]);
@@ -51,6 +57,8 @@ export class AdminComponent implements OnInit {
   });
   private readonly sucios = signal<Set<string>>(new Set());
   readonly haySucios = computed(() => this.sucios().size > 0);
+  /** El superadmin ve la matriz solo cuando ya eligió un tenant. */
+  readonly puedeVerMatriz = computed(() => this.gestionaRoles() && (!this.esSuperadmin() || !!this.tenantCtx()));
   nuevoRol = '';
   guardandoRoles = false;
   readonly rolesOk = signal(false);
@@ -85,8 +93,12 @@ export class AdminComponent implements OnInit {
 
   ngOnInit(): void {
     this.cargarUsuarios();
-    if (this.esSuperadmin()) this.cargarTenants();
-    else {
+    if (this.gestionaRoles()) {
+      this.rolesSvc.catalogo().subscribe({ next: (c) => this.catalogo.set(c), error: () => {} });
+    }
+    if (this.esSuperadmin()) {
+      this.cargarTenants();
+    } else {
       this.cargarPbx();
       this.cargarWa();
       if (this.gestionaRoles()) this.cargarRoles();
@@ -95,9 +107,31 @@ export class AdminComponent implements OnInit {
   }
 
   // --- Roles y permisos -------------------------------------------------------
+
+  /** Cambia el tenant en gestión (superadmin) y recarga su matriz de roles. */
+  cambiarTenantCtx(codigo: string): void {
+    this.tenantCtx.set(codigo);
+    this.nuevoUsuario.tenant = codigo;
+    this.roles.set([]);
+    this.sucios.set(new Set());
+    this.rolesOk.set(false);
+    if (codigo) this.cargarRoles();
+  }
+
+  /** ¿Se puede cambiar el rol de este usuario desde la tabla? */
+  puedeEditarRolDe(u: UsuarioAdmin): boolean {
+    if (u.rol === 'superadmin' || !u.tenant) return false;
+    return this.esSuperadmin() ? u.tenant === this.tenantCtx() : true;
+  }
+
+  /** Tenant que se manda al API: solo el superadmin lo especifica. */
+  private tenantRoles(): string | undefined {
+    return this.esSuperadmin() ? this.tenantCtx() || undefined : undefined;
+  }
+
   private cargarRoles(): void {
-    this.rolesSvc.catalogo().subscribe({ next: (c) => this.catalogo.set(c), error: () => {} });
-    this.rolesSvc.listar().subscribe({ next: (r) => this.roles.set(r), error: () => {} });
+    if (this.esSuperadmin() && !this.tenantCtx()) return;
+    this.rolesSvc.listar(this.tenantRoles()).subscribe({ next: (r) => this.roles.set(r), error: () => {} });
   }
 
   tiene(rol: RolTenant, clave: string): boolean {
@@ -119,7 +153,7 @@ export class AdminComponent implements OnInit {
     this.error.set('');
     let restantes = pendientes.length;
     for (const rol of pendientes) {
-      this.rolesSvc.actualizar(rol.id, { permisos: rol.permisos }).subscribe({
+      this.rolesSvc.actualizar(rol.id, { permisos: rol.permisos }, this.tenantRoles()).subscribe({
         next: (act) => {
           this.roles.update((rs) => rs.map((r) => (r.id === act.id ? act : r)));
           this.sucios.update((s) => { const n = new Set(s); n.delete(act.id); return n; });
@@ -137,7 +171,7 @@ export class AdminComponent implements OnInit {
     const nombre = this.nuevoRol.trim();
     if (!nombre) return;
     this.error.set('');
-    this.rolesSvc.crear(nombre, []).subscribe({
+    this.rolesSvc.crear(nombre, [], this.tenantRoles()).subscribe({
       next: (r) => { this.roles.update((rs) => [...rs, r]); this.nuevoRol = ''; },
       error: (e) => this.error.set(e?.error?.message ?? 'No fue posible crear el rol.'),
     });
@@ -146,7 +180,7 @@ export class AdminComponent implements OnInit {
   eliminarRol(rol: RolTenant): void {
     if (!window.confirm(`¿Eliminar el rol "${rol.nombre}"?`)) return;
     this.error.set('');
-    this.rolesSvc.eliminar(rol.id).subscribe({
+    this.rolesSvc.eliminar(rol.id, this.tenantRoles()).subscribe({
       next: () => this.roles.update((rs) => rs.filter((r) => r.id !== rol.id)),
       error: (e) => this.error.set(e?.error?.message ?? 'No fue posible eliminar el rol.'),
     });
@@ -243,7 +277,11 @@ export class AdminComponent implements OnInit {
   // --- Tenants y usuarios -----------------------------------------------------
   private cargarTenants(): void {
     this.admin.listarTenants().subscribe({
-      next: (t) => this.tenants.set(t),
+      next: (t) => {
+        this.tenants.set(t);
+        // Arranca sobre el primer tenant para que la matriz no aparezca vacía.
+        if (!this.tenantCtx() && t.length) this.cambiarTenantCtx(t[0].codigo);
+      },
       error: () => this.error.set('No fue posible cargar los tenants.'),
     });
   }
@@ -294,6 +332,6 @@ export class AdminComponent implements OnInit {
   }
 
   private usuarioVacio(): CrearUsuario {
-    return { username: '', nombre: '', contrasena: '', rol: 'operador', tenant: '' };
+    return { username: '', nombre: '', contrasena: '', rol: 'operador', tenant: this.tenantCtx() };
   }
 }

@@ -2,6 +2,13 @@
   <header class="admin-head">
     <h1>Administración</h1>
     <p>{{ esSuperadmin() ? 'Tenants (instancias) y usuarios de todo el sistema' : 'Usuarios, roles e integraciones de su tenant' }}</p>
+    <label class="ctx-tenant" *ngIf="esSuperadmin()">
+      <span>Tenant en gestión</span>
+      <select [value]="tenantCtx()" (change)="cambiarTenantCtx($any($event.target).value)">
+        <option value="" disabled>seleccione…</option>
+        <option *ngFor="let t of tenants()" [value]="t.codigo">{{ t.codigo }}</option>
+      </select>
+    </label>
   </header>
 
   <p class="error" *ngIf="error()">{{ error() }}</p>
@@ -29,10 +36,12 @@
   </div>
 
   <!-- Roles y permisos (RBAC dinámico) -->
-  <div class="panel card" *ngIf="!esSuperadmin() && gestionaRoles()">
-    <h2>🛡️ Roles y permisos</h2>
+  <div class="panel card" *ngIf="puedeVerMatriz()">
+    <h2>🛡️ Roles y permisos<span class="ctx-tag" *ngIf="esSuperadmin()">{{ tenantCtx() }}</span></h2>
     <p class="pbx-hint">Cree roles a medida y marque en la matriz qué puede hacer cada uno.
-      Los roles de sistema (Administrador, Supervisor, Operador) se pueden ajustar pero no eliminar.</p>
+      Los roles de sistema (Administrador, Supervisor, Operador) se pueden ajustar pero no eliminar.
+      <ng-container *ngIf="esSuperadmin()">Los roles son propios de cada tenant: cambie el
+      <strong>tenant en gestión</strong> arriba para editar los de otra instancia.</ng-container></p>
 
     <form class="crear-inline" (ngSubmit)="crearRol()">
       <input [(ngModel)]="nuevoRol" name="nrol" placeholder="Nombre del nuevo rol (p. ej. Despachador)" />
@@ -212,7 +221,8 @@
       <select [(ngModel)]="nuevoUsuario.rol" name="urol">
         <option *ngFor="let r of rolesDisponibles()" [value]="r">{{ r }}</option>
       </select>
-      <select *ngIf="esSuperadmin()" [(ngModel)]="nuevoUsuario.tenant" name="uten">
+      <select *ngIf="esSuperadmin()" [ngModel]="nuevoUsuario.tenant" name="uten"
+              (ngModelChange)="cambiarTenantCtx($event)">
         <option value="" disabled>tenant…</option>
         <option *ngFor="let t of tenants()" [value]="t.codigo">{{ t.codigo }}</option>
       </select>
@@ -227,7 +237,7 @@
             <td class="mono">{{ u.username }}</td>
             <td>{{ u.nombre }}</td>
             <td>
-              <select *ngIf="!esSuperadmin() && u.rol !== 'superadmin'; else rolPlano" class="acc"
+              <select *ngIf="puedeEditarRolDe(u); else rolPlano" class="acc"
                       [ngModel]="u.rol" (ngModelChange)="cambiarRolUsuario(u, $event)">
                 <option *ngFor="let r of rolesDisponibles()" [value]="r">{{ r }}</option>
               </select>

@@ -107,6 +107,14 @@ export class UsuariosService implements OnModuleInit {
     if (actor.rol !== 'superadmin' && u.tenant !== actor.tenant) {
       throw new ForbiddenException('No puede gestionar usuarios de otro tenant.');
     }
+    if (u.rol === 'superadmin') {
+      // La cuenta superadmin es la llave maestra: degradarla o desactivarla deja
+      // el sistema sin nadie que pueda entrar a Administración.
+      if (dto.rol && dto.rol !== 'superadmin') {
+        throw new ForbiddenException('No se puede cambiar el rol del superadmin.');
+      }
+      if (dto.activo === false) throw new ForbiddenException('No se puede desactivar al superadmin.');
+    }
     if (dto.rol) u.rol = (await this.resolverAmbito(actor, dto.rol, u.tenant ?? undefined)).rol;
     if (dto.nombre?.trim()) u.nombre = dto.nombre.trim();
     if (typeof dto.activo === 'boolean') u.activo = dto.activo;
@@ -141,6 +149,24 @@ export class UsuariosService implements OnModuleInit {
   }
 
   /**
+   * Restaura la cuenta `superadmin` si su rol o su tenant quedaron desviados
+   * (edición manual en la base, importación de datos, migración a medias). Sin
+   * el rol reservado no resuelve permisos: pierde el acceso a Administración y
+   * recibe 403 en todo, sin forma de arreglarlo desde la interfaz.
+   */
+  private async repararSuperadmin(): Promise<void> {
+    const u = await this.repo.findOne({ where: { username: 'superadmin' } });
+    if (!u) return;
+    if (u.rol === 'superadmin' && u.tenant === null && u.activo) return;
+    const antes = `rol=${u.rol} tenant=${u.tenant ?? 'null'} activo=${u.activo}`;
+    u.rol = 'superadmin';
+    u.tenant = null;
+    u.activo = true;
+    await this.repo.save(u);
+    this.logger.warn(`Cuenta superadmin restaurada a sus valores reservados (estaba con ${antes}).`);
+  }
+
+  /**
    * Siembra el superadmin global y los usuarios demo del tenant 'demo'.
    * Idempotente por `username` (la llave única real de la tabla): en una base
    * existente agrega solo lo que falte, y un fallo del seed no impide arrancar.
@@ -154,6 +180,7 @@ export class UsuariosService implements OnModuleInit {
       };
 
       await asegurar({ username: 'superadmin', nombre: 'Super Administrador', rol: 'superadmin', tenant: null });
+      await this.repararSuperadmin();
 
       if (!(await this.repo.findOne({ where: { tenant: 'demo' } }))) {
         await asegurar({ username: 'admin1', nombre: 'Administrador', rol: 'admin', tenant: 'demo' });
