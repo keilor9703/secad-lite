@@ -78,9 +78,11 @@ Pestaña *Ciudadano*: cualquier correo con contraseña `demo`.
 - **JWT firmados** (`@nestjs/jwt`): guard global obliga token en todas las rutas
   salvo login y health. El `tenant` viaja en el token, no se puede falsear por
   header.
-- **Roles** (superadmin/admin/supervisor/operador/ciudadano) con `@Roles` + guard:
-  p. ej. solo supervisor/admin cierran o reabren casos; la bandeja es solo para
-  funcionarios.
+- **Roles y permisos dinámicos (RBAC)**: catálogo fijo de permisos verificados
+  en código (`@Permisos` + guard) y **roles por tenant** editables desde la
+  **matriz de permisos** en Administración (crear roles a medida, marcar qué
+  puede hacer cada uno); `superadmin` y `ciudadano` son reservados. Los permisos
+  se emiten en el JWT al iniciar sesión.
 - **Chat en vivo** (Socket.IO): el ciudadano abre un chat que crea un caso y
   conversa con el operador en tiempo real.
 - **Panel de gestión**: métricas de casos por estado, canal y agencia.
@@ -95,6 +97,10 @@ Pestaña *Ciudadano*: cualquier correo con contraseña `demo`.
   continúa** un caso (canal `whatsapp`) del mismo número con su conversación, y
   el operador **responde** desde el detalle (se envía a Meta con el token del
   tenant). Configurable en **Administración**.
+- **API entrante para entidades externas**: entidades registradas (alarmas
+  monitoreadas, otras centrales, apps municipales) **radican casos** por API REST
+  con su propia **API key** (`ek_…`, revocable/rotable por entidad) y consultan
+  el estado **solo de sus casos**. Gestión en **Administración**.
 - **Tema e identidad propios** (teal).
 
 ## Integración con WhatsApp (Cloud API de Meta)
@@ -128,6 +134,27 @@ POST /api/pbx/webhook        Header: x-api-key: <API key del tenant>
 Los funcionarios ven la cola en **Llamadas** (badge de timbrado en la barra) y
 al **Atender** saltan al caso. La API key se obtiene/rota en **Administración**
 (rol admin) o vía `GET /api/pbx/config` · `POST /api/pbx/config/rotar`.
+
+## API entrante (entidades externas)
+
+Una entidad externa (central de alarmas, otra agencia, una app municipal) se
+registra en **Administración → Entidades externas** y recibe una **API key
+propia** (`ek_…`). Con ella radica casos y consulta su estado:
+
+```
+POST /api/integracion/casos      Header: x-api-key: <API key de la entidad>
+{ "titulo": "Alarma activada sede norte", "descripcion": "Sensor de humo",
+  "referencia": "ACME-77", "telefono": "3001112233",
+  "agencia": "Bomberos", "lat": 4.65, "lng": -74.05 }
+# → { "casoId": "…", "estado": "nuevo", ... }
+
+GET  /api/integracion/casos/:id  Header: x-api-key: <API key de la entidad>
+# → estado actual; solo casos radicados por esa entidad (404 en otro caso)
+```
+
+El caso entra a la bandeja con canal `integracion`, autor `entidad:<nombre>` y
+la referencia externa en la descripción. Cada key se **rota o desactiva** por
+entidad sin afectar a las demás (permiso `entidades.gestionar`).
 
 ## Migraciones (producción)
 
