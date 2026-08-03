@@ -31,7 +31,11 @@ export class PbxGateway implements OnGatewayConnection, OnModuleInit {
       const token = client.handshake.auth?.token as string;
       const user = this.jwt.verify<JwtPayload>(token);
       client.data.user = user;
-      if (user.tipo === 'institucional' && user.tenant) client.join(`op:${user.tenant}`);
+      // El superadmin no tiene tenant propio: escucha el que tenga en gestión.
+      const tenant = user.rol === 'superadmin'
+        ? (client.handshake.auth?.tenant as string | undefined)?.trim()
+        : user.tenant;
+      if (user.tipo === 'institucional' && tenant) client.join(`op:${tenant}`);
       else client.disconnect();
     } catch {
       client.disconnect();
