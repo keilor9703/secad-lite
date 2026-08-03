@@ -1,7 +1,7 @@
 <section class="admin">
   <header class="admin-head">
     <h1>Administración</h1>
-    <p>{{ esSuperadmin() ? 'Tenants (instancias) y usuarios de todo el sistema' : 'Usuarios de su tenant' }}</p>
+    <p>{{ esSuperadmin() ? 'Tenants (instancias) y usuarios de todo el sistema' : 'Usuarios, roles e integraciones de su tenant' }}</p>
   </header>
 
   <p class="error" *ngIf="error()">{{ error() }}</p>
@@ -25,6 +25,55 @@
           </tr>
         </tbody>
       </table>
+    </div>
+  </div>
+
+  <!-- Roles y permisos (RBAC dinámico) -->
+  <div class="panel card" *ngIf="!esSuperadmin() && gestionaRoles()">
+    <h2>🛡️ Roles y permisos</h2>
+    <p class="pbx-hint">Cree roles a medida y marque en la matriz qué puede hacer cada uno.
+      Los roles de sistema (Administrador, Supervisor, Operador) se pueden ajustar pero no eliminar.</p>
+
+    <form class="crear-inline" (ngSubmit)="crearRol()">
+      <input [(ngModel)]="nuevoRol" name="nrol" placeholder="Nombre del nuevo rol (p. ej. Despachador)" />
+      <button type="submit" class="btn btn--primary" [disabled]="!nuevoRol.trim()">Crear rol</button>
+    </form>
+
+    <div class="tbl-wrap matriz-wrap" *ngIf="roles().length && catalogo().length">
+      <table class="matriz">
+        <thead>
+          <tr>
+            <th class="permiso-col">Permiso</th>
+            <th *ngFor="let r of roles()" class="rol-col">
+              <div class="rol-head">
+                <span>{{ r.nombre }}</span>
+                <span class="rol-tag" *ngIf="r.esSistema">sistema</span>
+                <button *ngIf="!r.esSistema" type="button" class="btn btn--ghost mini"
+                        title="Eliminar rol" (click)="eliminarRol(r)">✕</button>
+              </div>
+            </th>
+          </tr>
+        </thead>
+        <tbody>
+          <ng-container *ngFor="let g of grupos()">
+            <tr class="grupo-row"><td [attr.colspan]="roles().length + 1">{{ g.grupo }}</td></tr>
+            <tr *ngFor="let p of g.permisos">
+              <td class="permiso-col" [title]="p.clave">{{ p.etiqueta }}</td>
+              <td *ngFor="let r of roles()" class="check-col">
+                <input type="checkbox" [checked]="tiene(r, p.clave)" (change)="toggle(r, p.clave)"
+                       [attr.aria-label]="r.nombre + ': ' + p.etiqueta" />
+              </td>
+            </tr>
+          </ng-container>
+        </tbody>
+      </table>
+    </div>
+
+    <div class="matriz-acciones">
+      <span class="pbx-warn" *ngIf="rolesOk()">Permisos guardados. Los usuarios los verán al volver a iniciar sesión.</span>
+      <button type="button" class="btn btn--primary" [disabled]="!haySucios() || guardandoRoles" (click)="guardarRoles()">
+        {{ guardandoRoles ? 'Guardando…' : 'Guardar cambios' }}
+      </button>
     </div>
   </div>
 
@@ -114,7 +163,7 @@
       <input [(ngModel)]="nuevoUsuario.nombre" name="unom" placeholder="Nombre completo" />
       <input [(ngModel)]="nuevoUsuario.contrasena" name="upass" type="password" placeholder="contraseña" />
       <select [(ngModel)]="nuevoUsuario.rol" name="urol">
-        <option *ngFor="let r of rolesDisponibles" [value]="r">{{ r }}</option>
+        <option *ngFor="let r of rolesDisponibles()" [value]="r">{{ r }}</option>
       </select>
       <select *ngIf="esSuperadmin()" [(ngModel)]="nuevoUsuario.tenant" name="uten">
         <option value="" disabled>tenant…</option>
@@ -130,7 +179,13 @@
           <tr *ngFor="let u of usuarios()">
             <td class="mono">{{ u.username }}</td>
             <td>{{ u.nombre }}</td>
-            <td><span class="rol">{{ u.rol }}</span></td>
+            <td>
+              <select *ngIf="!esSuperadmin() && u.rol !== 'superadmin'; else rolPlano" class="acc"
+                      [ngModel]="u.rol" (ngModelChange)="cambiarRolUsuario(u, $event)">
+                <option *ngFor="let r of rolesDisponibles()" [value]="r">{{ r }}</option>
+              </select>
+              <ng-template #rolPlano><span class="rol">{{ u.rol }}</span></ng-template>
+            </td>
             <td class="mono">{{ u.tenant || '—' }}</td>
             <td><span class="badge" [class.on]="u.activo">{{ u.activo ? 'Activo' : 'Inactivo' }}</span></td>
             <td>

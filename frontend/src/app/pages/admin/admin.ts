@@ -1,11 +1,17 @@
-import { Component, OnInit, inject, signal } from '@angular/core';
+import { Component, OnInit, computed, inject, signal } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { AdminService, CrearUsuario } from '../../core/admin.service';
 import { AuthService } from '../../core/auth.service';
 import { PbxService } from '../../core/pbx.service';
 import { WhatsappService } from '../../core/whatsapp.service';
-import { PbxConfig, Rol, Tenant, UsuarioAdmin, WhatsappConfig } from '../../core/models';
+import { RolesService } from '../../core/roles.service';
+import { PbxConfig, PermisoDef, RolTenant, Tenant, UsuarioAdmin, WhatsappConfig } from '../../core/models';
+
+interface GrupoPermisos {
+  grupo: string;
+  permisos: PermisoDef[];
+}
 
 @Component({
   selector: 'app-admin',
@@ -19,14 +25,39 @@ export class AdminComponent implements OnInit {
   private auth = inject(AuthService);
   private pbx = inject(PbxService);
   private wa = inject(WhatsappService);
+  private rolesSvc = inject(RolesService);
 
   readonly esSuperadmin = this.auth.esSuperadmin;
+  readonly gestionaRoles = this.auth.gestionaRoles;
 
   readonly tenants = signal<Tenant[]>([]);
   readonly usuarios = signal<UsuarioAdmin[]>([]);
   readonly error = signal('');
 
-  readonly rolesDisponibles: Rol[] = ['admin', 'supervisor', 'operador'];
+  // Roles y permisos (RBAC dinámico)
+  readonly catalogo = signal<PermisoDef[]>([]);
+  readonly roles = signal<RolTenant[]>([]);
+  readonly grupos = computed<GrupoPermisos[]>(() => {
+    const out: GrupoPermisos[] = [];
+    for (const p of this.catalogo()) {
+      const g = out.find((x) => x.grupo === p.grupo);
+      if (g) g.permisos.push(p);
+      else out.push({ grupo: p.grupo, permisos: [p] });
+    }
+    return out;
+  });
+  private readonly sucios = signal<Set<string>>(new Set());
+  readonly haySucios = computed(() => this.sucios().size > 0);
+  nuevoRol = '';
+  guardandoRoles = false;
+  readonly rolesOk = signal(false);
+
+  /** Roles asignables en el formulario de usuario (códigos del tenant). */
+  readonly rolesDisponibles = computed<string[]>(() => {
+    const r = this.roles();
+    if (r.length) return r.map((x) => x.codigo);
+    return ['admin', 'supervisor', 'operador'];
+  });
 
   // Integración PBX (planta telefónica)
   readonly pbxConfig = signal<PbxConfig | null>(null);
@@ -47,9 +78,72 @@ export class AdminComponent implements OnInit {
   ngOnInit(): void {
     this.cargarUsuarios();
     if (this.esSuperadmin()) this.cargarTenants();
-    else { this.cargarPbx(); this.cargarWa(); }
+    else {
+      this.cargarPbx();
+      this.cargarWa();
+      if (this.gestionaRoles()) this.cargarRoles();
+    }
   }
 
+  // --- Roles y permisos -------------------------------------------------------
+  private cargarRoles(): void {
+    this.rolesSvc.catalogo().subscribe({ next: (c) => this.catalogo.set(c), error: () => {} });
+    this.rolesSvc.listar().subscribe({ next: (r) => this.roles.set(r), error: () => {} });
+  }
+
+  tiene(rol: RolTenant, clave: string): boolean {
+    return rol.permisos?.includes(clave) ?? false;
+  }
+
+  toggle(rol: RolTenant, clave: string): void {
+    const tiene = this.tiene(rol, clave);
+    const permisos = tiene ? rol.permisos.filter((p) => p !== clave) : [...(rol.permisos ?? []), clave];
+    this.roles.update((rs) => rs.map((r) => (r.id === rol.id ? { ...r, permisos } : r)));
+    this.sucios.update((s) => new Set(s).add(rol.id));
+    this.rolesOk.set(false);
+  }
+
+  guardarRoles(): void {
+    const pendientes = this.roles().filter((r) => this.sucios().has(r.id));
+    if (!pendientes.length) return;
+    this.guardandoRoles = true;
+    this.error.set('');
+    let restantes = pendientes.length;
+    for (const rol of pendientes) {
+      this.rolesSvc.actualizar(rol.id, { permisos: rol.permisos }).subscribe({
+        next: (act) => {
+          this.roles.update((rs) => rs.map((r) => (r.id === act.id ? act : r)));
+          this.sucios.update((s) => { const n = new Set(s); n.delete(act.id); return n; });
+          if (--restantes === 0) { this.guardandoRoles = false; this.rolesOk.set(true); }
+        },
+        error: (e) => {
+          this.guardandoRoles = false;
+          this.error.set(e?.error?.message ?? 'No fue posible guardar los permisos.');
+        },
+      });
+    }
+  }
+
+  crearRol(): void {
+    const nombre = this.nuevoRol.trim();
+    if (!nombre) return;
+    this.error.set('');
+    this.rolesSvc.crear(nombre, []).subscribe({
+      next: (r) => { this.roles.update((rs) => [...rs, r]); this.nuevoRol = ''; },
+      error: (e) => this.error.set(e?.error?.message ?? 'No fue posible crear el rol.'),
+    });
+  }
+
+  eliminarRol(rol: RolTenant): void {
+    if (!window.confirm(`¿Eliminar el rol "${rol.nombre}"?`)) return;
+    this.error.set('');
+    this.rolesSvc.eliminar(rol.id).subscribe({
+      next: () => this.roles.update((rs) => rs.filter((r) => r.id !== rol.id)),
+      error: (e) => this.error.set(e?.error?.message ?? 'No fue posible eliminar el rol.'),
+    });
+  }
+
+  // --- Integraciones ----------------------------------------------------------
   private cargarPbx(): void {
     this.pbx.config().subscribe({ next: (c) => this.pbxConfig.set(c), error: () => {} });
   }
@@ -96,6 +190,7 @@ export class AdminComponent implements OnInit {
     }).catch(() => {});
   }
 
+  // --- Tenants y usuarios -----------------------------------------------------
   private cargarTenants(): void {
     this.admin.listarTenants().subscribe({
       next: (t) => this.tenants.set(t),
@@ -137,6 +232,14 @@ export class AdminComponent implements OnInit {
     this.admin.cambiarActivo(u.id, !u.activo).subscribe({
       next: (act) => this.usuarios.update((us) => us.map((x) => (x.id === act.id ? act : x))),
       error: () => this.error.set('No fue posible actualizar el usuario.'),
+    });
+  }
+
+  cambiarRolUsuario(u: UsuarioAdmin, rol: string): void {
+    if (!rol || rol === u.rol) return;
+    this.admin.cambiarRol(u.id, rol).subscribe({
+      next: (act) => this.usuarios.update((us) => us.map((x) => (x.id === act.id ? act : x))),
+      error: (e) => this.error.set(e?.error?.message ?? 'No fue posible cambiar el rol.'),
     });
   }
 

@@ -7,8 +7,9 @@ import { Sesion } from './models';
 const STORAGE_KEY = 'falconcad_sesion';
 
 /**
- * Autenticación del FALCON CAD. Mantiene la sesión en localStorage y expone dos
- * flujos: `login` (usuario del sistema) y `loginCivil` (ciudadano, para el chat).
+ * Autenticación de FALCON CAD. Mantiene la sesión en localStorage. El backend
+ * emite en el login el rol y sus permisos efectivos (RBAC dinámico); los
+ * computed de autorización de la UI se derivan de esos permisos.
  */
 @Injectable({ providedIn: 'root' })
 export class AuthService {
@@ -17,19 +18,22 @@ export class AuthService {
   private readonly _sesion = signal<Sesion | null>(this.leer());
   readonly sesion = this._sesion.asReadonly();
   readonly autenticado = computed(() => this._sesion() !== null);
-  /** Supervisor o admin: puede cerrar / reabrir casos. */
-  readonly privilegiado = computed(() => {
-    const r = this._sesion()?.rol;
-    return r === 'supervisor' || r === 'admin' || r === 'superadmin';
-  });
-  /** Admin o superadmin: accede al módulo de administración. */
-  readonly esAdmin = computed(() => {
-    const r = this._sesion()?.rol;
-    return r === 'admin' || r === 'superadmin';
-  });
+  /** Puede cerrar / reabrir casos (permiso casos.cerrar). */
+  readonly privilegiado = computed(() => this.permiso('casos.cerrar'));
+  /** Accede al módulo de administración. */
+  readonly esAdmin = computed(() =>
+    this.permiso('usuarios.gestionar') || this.permiso('roles.gestionar'),
+  );
   readonly esSuperadmin = computed(() => this._sesion()?.rol === 'superadmin');
+  /** Puede gestionar roles y permisos. */
+  readonly gestionaRoles = computed(() => this.permiso('roles.gestionar'));
 
   constructor(private http: HttpClient) {}
+
+  /** ¿La sesión actual tiene el permiso? (superadmin los tiene todos). */
+  tienePermiso(clave: string): boolean {
+    return this.permiso(clave);
+  }
 
   login(usuario: string, contrasena: string): Observable<Sesion> {
     return this.http
@@ -50,6 +54,13 @@ export class AuthService {
 
   get token(): string | null {
     return this._sesion()?.token ?? null;
+  }
+
+  private permiso(clave: string): boolean {
+    const s = this._sesion();
+    if (!s) return false;
+    if (s.rol === 'superadmin') return true;
+    return (s.permisos ?? []).includes(clave);
   }
 
   private guardar(s: Sesion): void {

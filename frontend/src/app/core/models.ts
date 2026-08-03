@@ -116,7 +116,11 @@ export interface MensajeChat {
   creadoEn: string;
 }
 
-export type Rol = 'superadmin' | 'admin' | 'supervisor' | 'operador' | 'ciudadano';
+/**
+ * Código de rol. Con el RBAC dinámico los roles viven por tenant en el backend;
+ * 'superadmin' (global) y 'ciudadano' (acceso civil) son reservados.
+ */
+export type Rol = string;
 
 export interface Sesion {
   token: string;
@@ -124,6 +128,8 @@ export interface Sesion {
   nombre: string;
   tipo: 'institucional' | 'civil';
   rol: Rol;
+  /** Permisos efectivos del rol (RBAC dinámico), emitidos en el login. */
+  permisos?: string[];
   tenant: string | null;
 }
 
@@ -142,4 +148,21 @@ export interface UsuarioAdmin {
   rol: Rol;
   tenant: string | null;
   activo: boolean;
+}
+
+// --- RBAC dinámico (roles y permisos por tenant) ---
+export interface PermisoDef {
+  clave: string;
+  etiqueta: string;
+  grupo: string;
+}
+
+export interface RolTenant {
+  id: string;
+  tenant: string;
+  codigo: string;
+  nombre: string;
+  permisos: string[];
+  esSistema: boolean;
+  creadoEn?: string;
 }

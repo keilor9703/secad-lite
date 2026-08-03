@@ -31,3 +31,22 @@ tbody tr:last-child td { border-bottom: none; }
 .pbx-row { display: flex; gap: 0.4rem; margin-top: 0.3rem; flex-wrap: wrap; }
 .pbx-row input { flex: 1; min-width: 220px; }
 .pbx-warn { color: var(--muted); font-size: 0.76rem; margin: 0.35rem 0 0; }
+
+/* Matriz de roles y permisos */
+.matriz-wrap { overflow-x: auto; margin-top: 0.8rem; }
+.matriz { width: 100%; border-collapse: collapse; }
+.matriz th, .matriz td { padding: 0.45rem 0.6rem; border-bottom: 1px solid var(--border-2); font-size: 0.86rem; }
+.matriz .permiso-col { text-align: left; min-width: 220px; }
+.matriz .rol-col { text-align: center; min-width: 110px; }
+.matriz .check-col { text-align: center; }
+.matriz .check-col input { width: 16px; height: 16px; accent-color: var(--accent); cursor: pointer; }
+.matriz .grupo-row td {
+  background: var(--surface-2); font-weight: 700; font-size: 0.72rem;
+  text-transform: uppercase; letter-spacing: 0.05em; color: var(--muted);
+}
+.rol-head { display: inline-flex; align-items: center; gap: 0.35rem; }
+.rol-tag {
+  font-size: 0.62rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.04em;
+  background: var(--accent-soft); color: var(--accent); border-radius: 999px; padding: 0.1rem 0.4rem;
+}
+.matriz-acciones { display: flex; justify-content: flex-end; align-items: center; gap: 0.8rem; margin-top: 0.7rem; }

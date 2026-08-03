@@ -2,13 +2,14 @@ import { Injectable, inject } from '@angular/core';
 import { HttpClient } from '@angular/common/http';
 import { Observable } from 'rxjs';
 import { environment } from '../../environments/environment';
-import { Rol, Tenant, UsuarioAdmin } from './models';
+import { Tenant, UsuarioAdmin } from './models';
 
 export interface CrearUsuario {
   username: string;
   nombre: string;
   contrasena: string;
-  rol: Rol;
+  /** Código del rol (dinámico por tenant). */
+  rol: string;
   tenant?: string;
 }
 
@@ -25,7 +26,7 @@ export class AdminService {
     return this.http.post<Tenant>(`${this.base}/tenants`, { codigo, nombre });
   }
 
-  // Usuarios (admin / superadmin)
+  // Usuarios (permiso usuarios.gestionar)
   listarUsuarios(): Observable<UsuarioAdmin[]> {
     return this.http.get<UsuarioAdmin[]>(`${this.base}/usuarios`);
   }
@@ -34,5 +35,8 @@ export class AdminService {
   }
   cambiarActivo(id: string, activo: boolean): Observable<UsuarioAdmin> {
     return this.http.patch<UsuarioAdmin>(`${this.base}/usuarios/${id}`, { activo });
+  }
+  cambiarRol(id: string, rol: string): Observable<UsuarioAdmin> {
+    return this.http.patch<UsuarioAdmin>(`${this.base}/usuarios/${id}`, { rol });
   }
 }
