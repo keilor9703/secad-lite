@@ -1,4 +1,4 @@
-import { BadRequestException, ConflictException, ForbiddenException, Injectable, NotFoundException, OnModuleInit } from '@nestjs/common';
+import { BadRequestException, ConflictException, ForbiddenException, Injectable, Logger, NotFoundException, OnModuleInit } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import * as bcrypt from 'bcryptjs';
@@ -45,6 +45,8 @@ export interface ActualizarUsuarioDto {
  */
 @Injectable()
 export class UsuariosService implements OnModuleInit {
+  private readonly logger = new Logger(UsuariosService.name);
+
   constructor(
     @InjectRepository(UsuarioEntity)
     private readonly repo: Repository<UsuarioEntity>,
@@ -140,24 +142,26 @@ export class UsuariosService implements OnModuleInit {
 
   /**
    * Siembra el superadmin global y los usuarios demo del tenant 'demo'.
-   * Idempotente: en una base existente agrega solo lo que falte.
+   * Idempotente por `username` (la llave única real de la tabla): en una base
+   * existente agrega solo lo que falte, y un fallo del seed no impide arrancar.
    */
   private async seed(): Promise<void> {
-    const hash = await bcrypt.hash('demo', 10);
+    try {
+      const hash = await bcrypt.hash('demo', 10);
+      const asegurar = async (f: Partial<UsuarioEntity>) => {
+        if (await this.repo.findOne({ where: { username: f.username } })) return;
+        await this.repo.save(this.repo.create({ ...f, passwordHash: hash, activo: true }));
+      };
 
-    if (!(await this.repo.findOne({ where: { rol: 'superadmin' } }))) {
-      await this.repo.save(
-        this.repo.create({ username: 'superadmin', nombre: 'Super Administrador', rol: 'superadmin', tenant: null, passwordHash: hash, activo: true }),
-      );
-    }
+      await asegurar({ username: 'superadmin', nombre: 'Super Administrador', rol: 'superadmin', tenant: null });
 
-    if (!(await this.repo.findOne({ where: { tenant: 'demo' } }))) {
-      const demo: Array<Partial<UsuarioEntity>> = [
-        { username: 'admin1', nombre: 'Administrador', rol: 'admin', tenant: 'demo' },
-        { username: 'supervisor1', nombre: 'Supervisor Uno', rol: 'supervisor', tenant: 'demo' },
-        { username: 'operador1', nombre: 'Operador Uno', rol: 'operador', tenant: 'demo' },
-      ];
-      for (const f of demo) await this.repo.save(this.repo.create({ ...f, passwordHash: hash, activo: true }));
+      if (!(await this.repo.findOne({ where: { tenant: 'demo' } }))) {
+        await asegurar({ username: 'admin1', nombre: 'Administrador', rol: 'admin', tenant: 'demo' });
+        await asegurar({ username: 'supervisor1', nombre: 'Supervisor Uno', rol: 'supervisor', tenant: 'demo' });
+        await asegurar({ username: 'operador1', nombre: 'Operador Uno', rol: 'operador', tenant: 'demo' });
+      }
+    } catch (e) {
+      this.logger.warn(`Seed de usuarios demo omitido: ${(e as Error).message}`);
     }
   }
 }
