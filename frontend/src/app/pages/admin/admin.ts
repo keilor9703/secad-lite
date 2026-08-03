@@ -6,7 +6,8 @@ import { AuthService } from '../../core/auth.service';
 import { PbxService } from '../../core/pbx.service';
 import { WhatsappService } from '../../core/whatsapp.service';
 import { RolesService } from '../../core/roles.service';
-import { PbxConfig, PermisoDef, RolTenant, Tenant, UsuarioAdmin, WhatsappConfig } from '../../core/models';
+import { EntidadesService } from '../../core/entidades.service';
+import { EntidadExterna, PbxConfig, PermisoDef, RolTenant, Tenant, UsuarioAdmin, WhatsappConfig } from '../../core/models';
 
 interface GrupoPermisos {
   grupo: string;
@@ -26,9 +27,11 @@ export class AdminComponent implements OnInit {
   private pbx = inject(PbxService);
   private wa = inject(WhatsappService);
   private rolesSvc = inject(RolesService);
+  private entidadesSvc = inject(EntidadesService);
 
   readonly esSuperadmin = this.auth.esSuperadmin;
   readonly gestionaRoles = this.auth.gestionaRoles;
+  readonly gestionaEntidades = this.auth.tienePermiso('entidades.gestionar');
 
   readonly tenants = signal<Tenant[]>([]);
   readonly usuarios = signal<UsuarioAdmin[]>([]);
@@ -59,6 +62,11 @@ export class AdminComponent implements OnInit {
     return ['admin', 'supervisor', 'operador'];
   });
 
+  // Entidades externas (API entrante)
+  readonly entidades = signal<EntidadExterna[]>([]);
+  readonly keyVisible = signal<string | null>(null);
+  nuevaEntidad = { nombre: '', agencia: '' };
+
   // Integración PBX (planta telefónica)
   readonly pbxConfig = signal<PbxConfig | null>(null);
   readonly mostrarKey = signal(false);
@@ -82,6 +90,7 @@ export class AdminComponent implements OnInit {
       this.cargarPbx();
       this.cargarWa();
       if (this.gestionaRoles()) this.cargarRoles();
+      if (this.gestionaEntidades) this.cargarEntidades();
     }
   }
 
@@ -140,6 +149,47 @@ export class AdminComponent implements OnInit {
     this.rolesSvc.eliminar(rol.id).subscribe({
       next: () => this.roles.update((rs) => rs.filter((r) => r.id !== rol.id)),
       error: (e) => this.error.set(e?.error?.message ?? 'No fue posible eliminar el rol.'),
+    });
+  }
+
+  // --- Entidades externas (API entrante) -------------------------------------
+  get integracionUrl(): string {
+    return this.entidadesSvc.endpointUrl();
+  }
+
+  private cargarEntidades(): void {
+    this.entidadesSvc.listar().subscribe({ next: (e) => this.entidades.set(e), error: () => {} });
+  }
+
+  crearEntidad(): void {
+    const nombre = this.nuevaEntidad.nombre.trim();
+    if (!nombre) return;
+    this.error.set('');
+    this.entidadesSvc.crear(nombre, this.nuevaEntidad.agencia.trim() || undefined).subscribe({
+      next: (e) => {
+        this.entidades.update((es) => [...es, e]);
+        this.nuevaEntidad = { nombre: '', agencia: '' };
+        this.keyVisible.set(e.id);
+      },
+      error: (e) => this.error.set(e?.error?.message ?? 'No fue posible crear la entidad.'),
+    });
+  }
+
+  toggleEntidad(e: EntidadExterna): void {
+    this.entidadesSvc.actualizar(e.id, { activa: !e.activa }).subscribe({
+      next: (act) => this.entidades.update((es) => es.map((x) => (x.id === act.id ? act : x))),
+      error: (err) => this.error.set(err?.error?.message ?? 'No fue posible actualizar la entidad.'),
+    });
+  }
+
+  rotarEntidad(e: EntidadExterna): void {
+    if (!window.confirm(`Al rotar la clave, "${e.nombre}" dejará de poder radicar casos hasta actualizarla. ¿Continuar?`)) return;
+    this.entidadesSvc.rotar(e.id).subscribe({
+      next: (act) => {
+        this.entidades.update((es) => es.map((x) => (x.id === act.id ? act : x)));
+        this.keyVisible.set(act.id);
+      },
+      error: (err) => this.error.set(err?.error?.message ?? 'No fue posible rotar la clave.'),
     });
   }
 

@@ -150,6 +150,17 @@ export interface UsuarioAdmin {
   activo: boolean;
 }
 
+// --- API entrante (entidades externas) ---
+export interface EntidadExterna {
+  id: string;
+  tenant: string;
+  nombre: string;
+  agencia: string;
+  apiKey: string;
+  activa: boolean;
+  creadoEn?: string;
+}
+
 // --- RBAC dinámico (roles y permisos por tenant) ---
 export interface PermisoDef {
   clave: string;

@@ -50,3 +50,8 @@ tbody tr:last-child td { border-bottom: none; }
   background: var(--accent-soft); color: var(--accent); border-radius: 999px; padding: 0.1rem 0.4rem;
 }
 .matriz-acciones { display: flex; justify-content: flex-end; align-items: center; gap: 0.8rem; margin-top: 0.7rem; }
+
+/* Entidades externas (API entrante) */
+.ent-key { display: flex; align-items: center; gap: 0.35rem; flex-wrap: wrap; }
+.ent-key span { font-size: 0.8rem; }
+.vacio { color: var(--muted); margin: 0.6rem 0 0; font-size: 0.88rem; }
