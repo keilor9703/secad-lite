@@ -7,7 +7,11 @@ import { PbxService } from '../../core/pbx.service';
 import { WhatsappService } from '../../core/whatsapp.service';
 import { RolesService } from '../../core/roles.service';
 import { EntidadesService } from '../../core/entidades.service';
-import { EntidadExterna, PbxConfig, PermisoDef, RolTenant, Tenant, UsuarioAdmin, WhatsappConfig } from '../../core/models';
+import { CatalogosService } from '../../core/catalogos.service';
+import {
+  Agencia, CanalAtencion, CodigoCaso, EntidadExterna, PbxConfig, PermisoDef, PrioridadCaso,
+  RolTenant, Tenant, TipoAgencia, UsuarioAdmin, WhatsappConfig,
+} from '../../core/models';
 
 interface GrupoPermisos {
   grupo: string;
@@ -28,10 +32,12 @@ export class AdminComponent implements OnInit {
   private wa = inject(WhatsappService);
   private rolesSvc = inject(RolesService);
   private entidadesSvc = inject(EntidadesService);
+  private catalogosSvc = inject(CatalogosService);
 
   readonly esSuperadmin = this.auth.esSuperadmin;
   readonly gestionaRoles = this.auth.gestionaRoles;
   readonly gestionaEntidades = this.auth.tienePermiso('entidades.gestionar');
+  readonly gestionaCatalogos = this.auth.tienePermiso('catalogos.gestionar');
 
   readonly tenants = signal<Tenant[]>([]);
   readonly usuarios = signal<UsuarioAdmin[]>([]);
@@ -88,7 +94,17 @@ export class AdminComponent implements OnInit {
 
   // Formularios
   nuevoTenant = { codigo: '', nombre: '' };
-  nuevoUsuario: CrearUsuario = this.usuarioVacio();
+  // Catálogos operativos (agencias, canales de atención, códigos de caso)
+  readonly agencias = signal<Agencia[]>([]);
+  readonly canales = signal<CanalAtencion[]>([]);
+  readonly codigos = signal<CodigoCaso[]>([]);
+  readonly tiposAgencia: TipoAgencia[] = ['policia', 'bomberos', 'salud', 'transito', 'gestion_riesgo', 'otra'];
+  readonly prioridades: PrioridadCaso[] = ['alta', 'media', 'baja'];
+  nuevaAgencia = { codigo: '', nombre: '', tipo: 'otra' as TipoAgencia };
+  nuevoCanal: Record<string, { codigo: string; nombre: string }> = {};
+  nuevoCodigo = { codigo: '', descripcion: '', prioridad: 'media' as PrioridadCaso, agenciaSugeridaId: '' };
+
+    nuevoUsuario: CrearUsuario = this.usuarioVacio();
 
   constructor() {
     // Todo lo que es propio de un tenant (roles, integraciones, entidades) se
@@ -99,6 +115,9 @@ export class AdminComponent implements OnInit {
       this.sucios.set(new Set());
       this.rolesOk.set(false);
       this.entidades.set([]);
+      this.agencias.set([]);
+      this.canales.set([]);
+      this.codigos.set([]);
       this.pbxConfig.set(null);
       this.waConfig.set(null);
       this.nuevoUsuario.tenant = tenant ?? '';
@@ -107,6 +126,7 @@ export class AdminComponent implements OnInit {
       this.cargarPbx();
       this.cargarWa();
       if (this.gestionaEntidades) this.cargarEntidades();
+      this.cargarCatalogos();
     });
   }
 
@@ -270,6 +290,110 @@ export class AdminComponent implements OnInit {
     }).catch(() => {});
   }
 
+  // --- Catálogos: agencias, canales y códigos de caso -------------------------
+
+  /** Canales de una agencia (para agruparlos bajo ella). */
+  canalesDe(agenciaId: string): CanalAtencion[] {
+    return this.canales().filter((c) => c.agenciaId === agenciaId);
+  }
+
+  nombreAgencia(id: string | null | undefined): string {
+    return this.agencias().find((a) => a.id === id)?.nombre ?? '—';
+  }
+
+  /** Nombres de los canales indicados, para mostrarlos en la tabla de usuarios. */
+  nombresCanales(ids: string[]): string {
+    if (!ids?.length) return '—';
+    const nombres = this.canales().filter((c) => ids.includes(c.id)).map((c) => c.codigo);
+    return nombres.length ? nombres.join(', ') : '—';
+  }
+
+  private cargarCatalogos(): void {
+    this.catalogosSvc.agencias().subscribe({ next: (a) => this.agencias.set(a), error: () => {} });
+    this.catalogosSvc.canales().subscribe({ next: (c) => this.canales.set(c), error: () => {} });
+    this.catalogosSvc.codigos().subscribe({ next: (c) => this.codigos.set(c), error: () => {} });
+  }
+
+  crearAgencia(): void {
+    this.error.set('');
+    const { codigo, nombre, tipo } = this.nuevaAgencia;
+    if (!codigo.trim() || !nombre.trim()) { this.error.set('Código y nombre de la agencia son obligatorios.'); return; }
+    this.catalogosSvc.crearAgencia({ codigo: codigo.trim(), nombre: nombre.trim(), tipo }).subscribe({
+      next: (a) => { this.agencias.update((as) => [...as, a]); this.nuevaAgencia = { codigo: '', nombre: '', tipo: 'otra' }; },
+      error: (e) => this.error.set(e?.error?.message ?? 'No fue posible crear la agencia.'),
+    });
+  }
+
+  alternarAgencia(a: Agencia): void {
+    this.catalogosSvc.actualizarAgencia(a.id, { activo: !a.activo }).subscribe({
+      next: (act) => {
+        this.agencias.update((as) => as.map((x) => (x.id === act.id ? act : x)));
+        // Desactivar una agencia arrastra sus canales: recargarlos evita mostrarlos activos.
+        if (!act.activo) this.catalogosSvc.canales().subscribe({ next: (c) => this.canales.set(c), error: () => {} });
+      },
+      error: (e) => this.error.set(e?.error?.message ?? 'No fue posible actualizar la agencia.'),
+    });
+  }
+
+  crearCanal(agencia: Agencia): void {
+    this.error.set('');
+    const dato = this.nuevoCanal[agencia.id] ?? { codigo: '', nombre: '' };
+    if (!dato.codigo.trim() || !dato.nombre.trim()) { this.error.set('Código y nombre del canal son obligatorios.'); return; }
+    this.catalogosSvc.crearCanal({ agenciaId: agencia.id, codigo: dato.codigo.trim(), nombre: dato.nombre.trim() }).subscribe({
+      next: (c) => { this.canales.update((cs) => [...cs, c]); this.nuevoCanal[agencia.id] = { codigo: '', nombre: '' }; },
+      error: (e) => this.error.set(e?.error?.message ?? 'No fue posible crear el canal.'),
+    });
+  }
+
+  alternarCanal(c: CanalAtencion): void {
+    this.catalogosSvc.actualizarCanal(c.id, { activo: !c.activo }).subscribe({
+      next: (act) => this.canales.update((cs) => cs.map((x) => (x.id === act.id ? act : x))),
+      error: (e) => this.error.set(e?.error?.message ?? 'No fue posible actualizar el canal.'),
+    });
+  }
+
+  crearCodigo(): void {
+    this.error.set('');
+    const { codigo, descripcion, prioridad, agenciaSugeridaId } = this.nuevoCodigo;
+    if (!codigo.trim() || !descripcion.trim()) { this.error.set('Código y descripción son obligatorios.'); return; }
+    this.catalogosSvc.crearCodigo({
+      codigo: codigo.trim(), descripcion: descripcion.trim(), prioridad,
+      agenciaSugeridaId: agenciaSugeridaId || null,
+    }).subscribe({
+      next: (c) => {
+        this.codigos.update((cs) => [...cs, c]);
+        this.nuevoCodigo = { codigo: '', descripcion: '', prioridad: 'media', agenciaSugeridaId: '' };
+      },
+      error: (e) => this.error.set(e?.error?.message ?? 'No fue posible crear el código de caso.'),
+    });
+  }
+
+  alternarCodigo(c: CodigoCaso): void {
+    this.catalogosSvc.actualizarCodigo(c.id, { activo: !c.activo }).subscribe({
+      next: (act) => this.codigos.update((cs) => cs.map((x) => (x.id === act.id ? act : x))),
+      error: (e) => this.error.set(e?.error?.message ?? 'No fue posible actualizar el código.'),
+    });
+  }
+
+  // --- Adscripción del usuario (agencia + canales) ----------------------------
+
+  /** Al cambiar de agencia se descartan los canales, que son de la anterior. */
+  cambiarAgenciaNuevo(agenciaId: string): void {
+    this.nuevoUsuario.agenciaId = agenciaId || null;
+    this.nuevoUsuario.canales = [];
+  }
+
+  canalMarcado(id: string): boolean {
+    return (this.nuevoUsuario.canales ?? []).includes(id);
+  }
+
+  alternarCanalNuevo(id: string): void {
+    const actuales = this.nuevoUsuario.canales ?? [];
+    this.nuevoUsuario.canales = actuales.includes(id)
+      ? actuales.filter((c) => c !== id)
+      : [...actuales, id];
+  }
+
   // --- Tenants y usuarios -----------------------------------------------------
   private cargarTenants(): void {
     this.admin.listarTenants().subscribe({
@@ -324,6 +448,6 @@ export class AdminComponent implements OnInit {
   }
 
   private usuarioVacio(): CrearUsuario {
-    return { username: '', nombre: '', contrasena: '', rol: 'operador', tenant: this.tenantCtx() };
+    return { username: '', nombre: '', contrasena: '', rol: 'operador', tenant: this.tenantCtx(), agenciaId: null, canales: [] };
   }
 }

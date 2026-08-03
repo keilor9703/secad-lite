@@ -116,6 +116,46 @@ export interface MensajeChat {
   creadoEn: string;
 }
 
+/** Naturaleza de la agencia; agrupa y da ícono en los tableros. */
+export type TipoAgencia = 'policia' | 'bomberos' | 'salud' | 'transito' | 'gestion_riesgo' | 'otra';
+
+/** Entidad que atiende casos dentro del secad (policía, bomberos, salud…). */
+export interface Agencia {
+  id: string;
+  tenant: string;
+  codigo: string;
+  nombre: string;
+  tipo: TipoAgencia;
+  telefono?: string | null;
+  activo: boolean;
+}
+
+/**
+ * Canal de atención: la cola de despacho dentro de una agencia. No confundir
+ * con el canal de ENTRADA del caso (`Canal`), que es el medio por el que llegó.
+ */
+export interface CanalAtencion {
+  id: string;
+  tenant: string;
+  agenciaId: string;
+  codigo: string;
+  nombre: string;
+  activo: boolean;
+}
+
+export type PrioridadCaso = 'alta' | 'media' | 'baja';
+
+/** Tipificación del caso: código corto, descripción y prioridad sugerida. */
+export interface CodigoCaso {
+  id: string;
+  tenant: string;
+  codigo: string;
+  descripcion: string;
+  prioridad: PrioridadCaso;
+  agenciaSugeridaId?: string | null;
+  activo: boolean;
+}
+
 /**
  * Código de rol. Con el RBAC dinámico los roles viven por tenant en el backend;
  * 'superadmin' (global) y 'ciudadano' (acceso civil) son reservados.
@@ -131,6 +171,8 @@ export interface Sesion {
   /** Permisos efectivos del rol (RBAC dinámico), emitidos en el login. */
   permisos?: string[];
   tenant: string | null;
+  /** Agencia a la que pertenece el funcionario (agencias.id). */
+  agencia?: string | null;
 }
 
 export interface Tenant {
@@ -148,6 +190,9 @@ export interface UsuarioAdmin {
   rol: Rol;
   tenant: string | null;
   activo: boolean;
+  /** Agencia del funcionario y canales de atención que cubre. */
+  agenciaId: string | null;
+  canales: string[];
 }
 
 // --- API entrante (entidades externas) ---

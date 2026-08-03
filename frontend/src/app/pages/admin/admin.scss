@@ -64,3 +64,27 @@ tbody tr:last-child td { border-bottom: none; }
   font-family: var(--mono); font-size: 0.72rem; font-weight: 600;
   background: var(--accent-soft); color: var(--accent); vertical-align: middle;
 }
+
+/* Catálogos: agencias, sus canales y códigos de caso. */
+.crear-inline.sub { margin-top: 0.4rem; }
+.agencia { border: 1px solid var(--border); border-radius: var(--radius-sm); padding: 0.7rem 0.9rem; margin-top: 0.7rem; }
+.agencia.off { opacity: 0.55; }
+.agencia-head { display: flex; align-items: center; gap: 0.6rem; flex-wrap: wrap; }
+.ag-cod { font-size: 0.78rem; color: var(--accent); }
+.canal-list { list-style: none; margin: 0.5rem 0 0; padding: 0; display: flex; flex-direction: column; gap: 0.25rem; }
+.canal-list li { display: flex; align-items: center; gap: 0.5rem; font-size: 0.88rem; }
+.canal-list li.off { opacity: 0.5; text-decoration: line-through; }
+.vacio-inline { color: var(--muted); font-size: 0.82rem; }
+
+.canales-pick { display: flex; align-items: center; gap: 0.5rem; flex-wrap: wrap; margin-top: 0.5rem; }
+.canales-lbl { font-size: 0.8rem; color: var(--ink-soft); font-weight: 600; }
+.chip { display: inline-flex; align-items: center; gap: 0.35rem; font-size: 0.82rem;
+        border: 1px solid var(--border-2); border-radius: 999px; padding: 0.2rem 0.6rem; cursor: pointer; }
+.chip input { width: auto; }
+.chip.off { opacity: 0.5; }
+
+.prio { font-size: 0.74rem; font-weight: 600; padding: 0.1rem 0.45rem; border-radius: 999px;
+        background: var(--surface-2); color: var(--muted); text-transform: capitalize; }
+.prio[data-prio="alta"]  { background: var(--tag-danger-bg); color: var(--tag-danger-fg); }
+.prio[data-prio="media"] { background: var(--tag-warn-bg);   color: var(--tag-warn-fg); }
+.prio[data-prio="baja"]  { background: var(--tag-ok-bg);     color: var(--tag-ok-fg); }

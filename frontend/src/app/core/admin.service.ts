@@ -11,6 +11,10 @@ export interface CrearUsuario {
   /** Código del rol (dinámico por tenant). */
   rol: string;
   tenant?: string;
+  /** Agencia a la que se adscribe (agencias.id). */
+  agenciaId?: string | null;
+  /** Canales de atención que cubrirá, todos de esa agencia. */
+  canales?: string[];
 }
 
 @Injectable({ providedIn: 'root' })
@@ -35,6 +39,9 @@ export class AdminService {
   }
   cambiarActivo(id: string, activo: boolean): Observable<UsuarioAdmin> {
     return this.http.patch<UsuarioAdmin>(`${this.base}/usuarios/${id}`, { activo });
+  }
+  cambiarAdscripcion(id: string, agenciaId: string | null, canales: string[]): Observable<UsuarioAdmin> {
+    return this.http.patch<UsuarioAdmin>(`${this.base}/usuarios/${id}`, { agenciaId, canales });
   }
   cambiarRol(id: string, rol: string): Observable<UsuarioAdmin> {
     return this.http.patch<UsuarioAdmin>(`${this.base}/usuarios/${id}`, { rol });
