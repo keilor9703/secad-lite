@@ -15,6 +15,8 @@ export interface JwtPayload {
   /** Permisos efectivos del rol al momento del login (RBAC dinámico). */
   permisos: string[];
   tenant: string | null;
+  /** Agencia del funcionario (agencias.id); origen de los casos que recepciona. */
+  agencia?: string | null;
 }
 
 /**
@@ -37,7 +39,7 @@ export class AuthService {
     const u = await this.usuarios.validar(dto.usuario.trim(), dto.contrasena);
     if (!u) throw new UnauthorizedException('Credenciales inválidas.');
     const permisos = await this.roles.permisosDe(u.tenant ?? null, u.rol);
-    return this.emitir(u.username, 'institucional', u.nombre, u.rol, u.tenant ?? null, permisos);
+    return this.emitir(u.username, 'institucional', u.nombre, u.rol, u.tenant ?? null, permisos, u.agenciaId ?? null);
   }
 
   loginCivil(dto: LoginDto, tenant: string): LoginResult {
@@ -56,8 +58,9 @@ export class AuthService {
     rol: string,
     tenant: string | null,
     permisos: string[],
+    agencia: string | null = null,
   ): LoginResult {
-    const payload: JwtPayload = { sub, tipo, nombre, rol, permisos, tenant };
-    return { token: this.jwt.sign(payload), usuario: sub, tipo, nombre, rol, permisos, tenant };
+    const payload: JwtPayload = { sub, tipo, nombre, rol, permisos, tenant, agencia };
+    return { token: this.jwt.sign(payload), usuario: sub, tipo, nombre, rol, permisos, tenant, agencia };
   }
 }

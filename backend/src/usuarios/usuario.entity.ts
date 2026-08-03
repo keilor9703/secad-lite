@@ -36,6 +36,22 @@ export class UsuarioEntity {
   @Column({ type: 'varchar', length: 40, default: 'operador' })
   rol!: string;
 
+  /**
+   * Agencia (entidad) a la que pertenece el funcionario — agencias.id. Es la
+   * que queda como origen de todo caso que recepcione. Nula para el superadmin
+   * y para los ciudadanos.
+   */
+  @Column({ type: 'uuid', nullable: true })
+  agenciaId?: string | null;
+
+  /**
+   * Canales de atención asignados (canales.id). Determinan qué casos ve en su
+   * bandeja de despacho. Se guardan como lista simple: son pocos por usuario y
+   * el resto del modelo tampoco usa relaciones.
+   */
+  @Column({ type: 'simple-array', nullable: true })
+  canales?: string[] | null;
+
   @Column({ type: 'boolean', default: true })
   activo!: boolean;
 }

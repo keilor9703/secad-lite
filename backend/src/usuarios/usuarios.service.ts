@@ -4,6 +4,7 @@ import { Repository } from 'typeorm';
 import * as bcrypt from 'bcryptjs';
 import { UsuarioEntity } from './usuario.entity';
 import { RolesService } from '../roles/roles.service';
+import { CatalogosService } from '../catalogos/catalogos.service';
 
 /** Contexto del actor autenticado (subconjunto del JWT). */
 export interface Actor {
@@ -20,6 +21,10 @@ export interface UsuarioDto {
   rol: string;
   tenant: string | null;
   activo: boolean;
+  /** Agencia a la que pertenece (agencias.id). */
+  agenciaId: string | null;
+  /** Canales de atención asignados (canales.id). */
+  canales: string[];
 }
 
 export interface CrearUsuarioDto {
@@ -28,6 +33,8 @@ export interface CrearUsuarioDto {
   contrasena: string;
   rol: string;
   tenant?: string;
+  agenciaId?: string | null;
+  canales?: string[];
 }
 
 export interface ActualizarUsuarioDto {
@@ -35,6 +42,8 @@ export interface ActualizarUsuarioDto {
   rol?: string;
   activo?: boolean;
   contrasena?: string;
+  agenciaId?: string | null;
+  canales?: string[];
 }
 
 /**
@@ -51,6 +60,7 @@ export class UsuariosService implements OnModuleInit {
     @InjectRepository(UsuarioEntity)
     private readonly repo: Repository<UsuarioEntity>,
     private readonly roles: RolesService,
+    private readonly catalogos: CatalogosService,
   ) {}
 
   async onModuleInit(): Promise<void> {
@@ -88,6 +98,8 @@ export class UsuariosService implements OnModuleInit {
       throw new ConflictException('Ese nombre de usuario ya existe.');
     }
 
+    const { agenciaId, canales } = await this.resolverAdscripcion(tenant, dto.agenciaId, dto.canales);
+
     const u = await this.repo.save(
       this.repo.create({
         username,
@@ -95,6 +107,8 @@ export class UsuariosService implements OnModuleInit {
         passwordHash: await bcrypt.hash(dto.contrasena, 10),
         rol,
         tenant,
+        agenciaId,
+        canales,
         activo: true,
       }),
     );
@@ -119,6 +133,15 @@ export class UsuariosService implements OnModuleInit {
     if (dto.nombre?.trim()) u.nombre = dto.nombre.trim();
     if (typeof dto.activo === 'boolean') u.activo = dto.activo;
     if (dto.contrasena) u.passwordHash = await bcrypt.hash(dto.contrasena, 10);
+    if (dto.agenciaId !== undefined || dto.canales !== undefined) {
+      const adscripcion = await this.resolverAdscripcion(
+        u.tenant ?? null,
+        dto.agenciaId !== undefined ? dto.agenciaId : u.agenciaId,
+        dto.canales !== undefined ? dto.canales : u.canales ?? [],
+      );
+      u.agenciaId = adscripcion.agenciaId;
+      u.canales = adscripcion.canales;
+    }
     return this.aDto(await this.repo.save(u));
   }
 
@@ -144,8 +167,28 @@ export class UsuariosService implements OnModuleInit {
     return { rol, tenant: t };
   }
 
+  /**
+   * Valida la agencia y los canales del funcionario: ambos deben existir en su
+   * secad, y los canales deben pertenecer a su agencia — un funcionario solo
+   * atiende las colas de la entidad de la que hace parte.
+   */
+  private async resolverAdscripcion(
+    tenant: string | null,
+    agenciaId?: string | null,
+    canales?: string[] | null,
+  ): Promise<{ agenciaId: string | null; canales: string[] }> {
+    if (!tenant || !agenciaId) return { agenciaId: null, canales: [] };
+    const agencia = await this.catalogos.agenciaDe(tenant, agenciaId);
+    const validos = await this.catalogos.validarCanales(tenant, canales ?? [], agencia.id);
+    return { agenciaId: agencia.id, canales: validos.map((c) => c.id) };
+  }
+
   private aDto(u: UsuarioEntity): UsuarioDto {
-    return { id: u.id, username: u.username, nombre: u.nombre, rol: u.rol, tenant: u.tenant ?? null, activo: u.activo };
+    return {
+      id: u.id, username: u.username, nombre: u.nombre, rol: u.rol,
+      tenant: u.tenant ?? null, activo: u.activo,
+      agenciaId: u.agenciaId ?? null, canales: u.canales ?? [],
+    };
   }
 
   /**

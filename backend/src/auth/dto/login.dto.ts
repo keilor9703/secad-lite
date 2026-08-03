@@ -13,4 +13,6 @@ export interface LoginResult {
   rol: string;
   permisos: string[];
   tenant: string | null;
+  /** Agencia del funcionario (agencias.id); nula para superadmin y ciudadanos. */
+  agencia?: string | null;
 }

@@ -24,6 +24,7 @@ export const PERMISOS: PermisoDef[] = [
   { clave: 'whatsapp.configurar', etiqueta: 'Configurar WhatsApp',                      grupo: 'Integraciones' },
   { clave: 'entidades.gestionar', etiqueta: 'Gestionar entidades externas (API)',      grupo: 'Integraciones' },
   { clave: 'metricas.ver',        etiqueta: 'Ver el panel de gestión',                  grupo: 'Gestión' },
+  { clave: 'catalogos.gestionar', etiqueta: 'Gestionar agencias, canales y códigos', grupo: 'Administración' },
   { clave: 'usuarios.gestionar',  etiqueta: 'Gestionar usuarios',                       grupo: 'Administración' },
   { clave: 'roles.gestionar',     etiqueta: 'Gestionar roles y permisos',               grupo: 'Administración' },
 ];

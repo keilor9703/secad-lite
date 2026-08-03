@@ -10,6 +10,7 @@ import { JwtAuthGuard } from './auth/jwt-auth.guard';
 import { RolesGuard } from './auth/roles.guard';
 import { PermisosGuard } from './auth/permisos.guard';
 import { RolesModule } from './roles/roles.module';
+import { CatalogosModule } from './catalogos/catalogos.module';
 import { CasosModule } from './casos/casos.module';
 import { UsuariosModule } from './usuarios/usuarios.module';
 import { ChatModule } from './chat/chat.module';
@@ -50,6 +51,7 @@ import { IntegracionModule } from './integracion/integracion.module';
     UsuariosModule,
     TenantsModule,
     RolesModule,
+    CatalogosModule,
     AuthModule,
     CasosModule,
     ChatModule,
