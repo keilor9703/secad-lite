@@ -1,5 +1,6 @@
-import { Component, OnInit, computed, inject, signal } from '@angular/core';
+import { Component, computed, effect, inject, signal } from '@angular/core';
 import { CommonModule } from '@angular/common';
+import { AuthService } from '../../core/auth.service';
 import { MetricasService, Resumen } from '../../core/metricas.service';
 
 interface Barra { etiqueta: string; valor: number; clave: string; }
@@ -11,8 +12,9 @@ interface Barra { etiqueta: string; valor: number; clave: string; }
   templateUrl: './dashboard.html',
   styleUrl: './dashboard.scss',
 })
-export class DashboardComponent implements OnInit {
+export class DashboardComponent {
   private metricas = inject(MetricasService);
+  private auth = inject(AuthService);
 
   readonly resumen = signal<Resumen | null>(null);
   readonly cargando = signal(true);
@@ -29,7 +31,17 @@ export class DashboardComponent implements OnInit {
   readonly porCanal = computed<Barra[]>(() => this.aBarras(this.resumen()?.porCanal, this.canalLabels));
   readonly maxAgencia = computed(() => Math.max(1, ...(this.resumen()?.porAgencia ?? []).map((a) => a.total)));
 
-  ngOnInit(): void {
+  constructor() {
+    // Las métricas son del tenant activo (ver RecepcionComponent).
+    effect(() => {
+      this.auth.tenantActivo();
+      this.cargar();
+    });
+  }
+
+  private cargar(): void {
+    this.cargando.set(true);
+    this.error.set('');
     this.metricas.resumen().subscribe({
       next: (r) => { this.resumen.set(r); this.cargando.set(false); },
       error: () => { this.error.set('No fue posible cargar las métricas.'); this.cargando.set(false); },

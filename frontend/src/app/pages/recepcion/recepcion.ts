@@ -1,8 +1,9 @@
-import { Component, OnInit, computed, inject, signal } from '@angular/core';
+import { Component, computed, effect, inject, signal } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { RouterLink } from '@angular/router';
 import { CasosService } from '../../core/casos.service';
+import { AuthService } from '../../core/auth.service';
 import { Canal, Caso, CrearCaso, EstadoCaso } from '../../core/models';
 
 @Component({
@@ -12,8 +13,9 @@ import { Canal, Caso, CrearCaso, EstadoCaso } from '../../core/models';
   templateUrl: './recepcion.html',
   styleUrl: './recepcion.scss',
 })
-export class RecepcionComponent implements OnInit {
+export class RecepcionComponent {
   private casosSvc = inject(CasosService);
+  private auth = inject(AuthService);
 
   readonly casos = signal<Caso[]>([]);
   readonly cargando = signal(false);
@@ -29,8 +31,13 @@ export class RecepcionComponent implements OnInit {
   mostrarForm = false;
   form: CrearCaso = this.formVacio();
 
-  ngOnInit(): void {
-    this.cargar();
+  constructor() {
+    // La bandeja es del tenant activo: si el superadmin cambia de instancia,
+    // se recarga sola con los casos de la nueva.
+    effect(() => {
+      this.auth.tenantActivo();
+      this.cargar();
+    });
   }
 
   cargar(): void {

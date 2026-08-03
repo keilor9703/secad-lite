@@ -59,9 +59,10 @@ export class ShellComponent implements OnInit {
     this.auth.setTenantCtx(codigo);
     this.pbx.reconectar();
     if (!recargarVista) return;
-    // Rehace la ruta actual para que la página vuelva a pedir sus datos.
-    const url = this.router.url;
-    this.router.navigateByUrl('/', { skipLocationChange: true }).then(() => this.router.navigateByUrl(url));
+    // Cada página se recarga sola al cambiar el tenant activo; solo el detalle
+    // de un caso queda huérfano (su id es de la otra instancia), así que desde
+    // ahí se vuelve a la bandeja.
+    if (/^\/recepcion\/.+/.test(this.router.url)) this.router.navigateByUrl('/recepcion');
   }
 
   salir(): void {

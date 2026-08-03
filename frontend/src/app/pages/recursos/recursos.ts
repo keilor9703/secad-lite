@@ -1,4 +1,4 @@
-import { Component, OnInit, inject, signal } from '@angular/core';
+import { Component, effect, inject, signal } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { CrearRecurso, DespachoService } from '../../core/despacho.service';
@@ -13,7 +13,7 @@ import { EstadoRecurso, Recurso, TipoRecurso } from '../../core/models';
   templateUrl: './recursos.html',
   styleUrl: './recursos.scss',
 })
-export class RecursosComponent implements OnInit {
+export class RecursosComponent {
   private despacho = inject(DespachoService);
   private auth = inject(AuthService);
 
@@ -26,8 +26,12 @@ export class RecursosComponent implements OnInit {
 
   nuevo: CrearRecurso = this.vacio();
 
-  ngOnInit(): void {
-    this.cargar();
+  constructor() {
+    // La flota es del tenant activo (ver RecepcionComponent).
+    effect(() => {
+      this.auth.tenantActivo();
+      this.cargar();
+    });
   }
 
   private cargar(): void {
