@@ -28,15 +28,10 @@
   font-size: 0.74rem; font-weight: 600; background: var(--surface-2); color: var(--ink-soft);
 }
 .badge[data-estado="nuevo"]      { background: var(--accent-soft); color: var(--accent); }
-.badge[data-estado="en_gestion"] { background: #fff4e0; color: #a5620a; }
-.badge[data-estado="despachado"] { background: #e6f7f4; color: #0a5b52; }
-.badge[data-estado="derivado"]   { background: #e7edff; color: #3550b4; }
+.badge[data-estado="en_gestion"] { background: var(--tag-warn-bg); color: var(--tag-warn-fg); }
+.badge[data-estado="despachado"] { background: var(--tag-teal-bg); color: var(--tag-teal-fg); }
+.badge[data-estado="derivado"]   { background: var(--tag-info-bg); color: var(--tag-info-fg); }
 .badge[data-estado="cerrado"]    { background: var(--surface-2); color: var(--muted); }
-@media (prefers-color-scheme: dark) {
-  .badge[data-estado="en_gestion"] { background: #33270f; color: #e0973f; }
-  .badge[data-estado="derivado"]   { background: #1a2740; color: #8fa6e6; }
-}
-
 .col-der { display: flex; flex-direction: column; gap: 1rem; }
 
 .despacho-panel { padding: 1.2rem 1.3rem; display: flex; flex-direction: column; gap: 0.7rem; }
@@ -54,17 +49,11 @@
   display: inline-block; padding: 0.18rem 0.5rem; border-radius: 999px;
   font-size: 0.72rem; font-weight: 600; background: var(--surface-2); color: var(--ink-soft);
 }
-.asig-badge[data-estado="asignado"]  { background: #e7edff; color: #3550b4; }
-.asig-badge[data-estado="en_ruta"]   { background: #fff4e0; color: #a5620a; }
+.asig-badge[data-estado="asignado"]  { background: var(--tag-info-bg); color: var(--tag-info-fg); }
+.asig-badge[data-estado="en_ruta"]   { background: var(--tag-warn-bg); color: var(--tag-warn-fg); }
 .asig-badge[data-estado="en_sitio"]  { background: var(--accent-soft); color: var(--accent); }
 .asig-badge[data-estado="finalizada"]{ background: var(--surface-2); color: var(--muted); }
-.asig-badge[data-estado="cancelada"] { background: #fbe6e4; color: #b4342a; }
-@media (prefers-color-scheme: dark) {
-  .asig-badge[data-estado="asignado"] { background: #1a2740; color: #8fa6e6; }
-  .asig-badge[data-estado="en_ruta"]  { background: #33270f; color: #e0973f; }
-  .asig-badge[data-estado="cancelada"]{ background: #3a1f1c; color: #e8776b; }
-}
-
+.asig-badge[data-estado="cancelada"] { background: var(--tag-danger-bg); color: var(--tag-danger-fg); }
 .chat-panel { padding: 1.2rem 1.3rem; display: flex; flex-direction: column; gap: 0.7rem; }
 .chat-panel h2 { margin: 0; font-size: 1.05rem; }
 .chat-msgs { display: flex; flex-direction: column; gap: 0.5rem; max-height: 260px; overflow-y: auto; }

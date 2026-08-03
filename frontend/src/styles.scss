@@ -2,7 +2,42 @@
    FALCON CAD — tema global (identidad propia: teal).
    ========================================================================== */
 
+/**
+ * Paleta oscura. Se aplica cuando el usuario la elige explícitamente
+ * (`data-tema="oscuro"` en <html>) o cuando deja el tema "según el sistema" y
+ * este está en oscuro. Vive en un mixin para no duplicar la lista de variables.
+ */
+@mixin tema-oscuro {
+  color-scheme: dark;
+  --bg:        #0d1412;
+  --surface:   #131c19;
+  --surface-2: #1a2521;
+  --border:    #283530;
+  --border-2:  #35443e;
+  --ink:       #e9f1ed;
+  --ink-soft:  #b1c0ba;
+  --muted:     #869590;
+  --accent:    #34b3a4;
+  --accent-deep:#57cabb;
+  --accent-soft:#123029;
+  --on-accent: #06231f;
+  --danger:    #e8776b;
+  --warn:      #e0973f;
+  --ok:        #34b3a4;
+  --shadow: 0 1px 2px rgba(0,0,0,0.3), 0 8px 24px rgba(0,0,0,0.35);
+
+  --tag-info-bg:   #1a2740;  --tag-info-fg:   #8fa6e6;
+  --tag-warn-bg:   #33270f;  --tag-warn-fg:   #e0973f;
+  --tag-ok-bg:     #10331f;  --tag-ok-fg:     #57c483;
+  --tag-teal-bg:   #123029;  --tag-teal-fg:   #57cabb;
+  --tag-danger-bg: #3a1f1c;  --tag-danger-fg: #e8776b;
+  --serie-teal:  #34b3a4;
+  --serie-azul:  #8fa6e6;
+  --serie-ambar: #e0973f;
+}
+
 :root {
+  color-scheme: light;
   --bg:        #f4f7f6;
   --surface:   #ffffff;
   --surface-2: #eef3f1;
@@ -25,28 +60,25 @@
   --radius: 12px;
   --radius-sm: 8px;
   --shadow: 0 1px 2px rgba(16,32,29,0.06), 0 6px 20px rgba(16,32,29,0.06);
+
+  /* Etiquetas de estado: un par fondo/texto por familia de color, para que las
+     páginas no repitan literales ni necesiten su propia consulta de tema. */
+  --tag-info-bg:   #e7edff;  --tag-info-fg:   #3550b4;
+  --tag-warn-bg:   #fff4e0;  --tag-warn-fg:   #a5620a;
+  --tag-ok-bg:     #e6f6ec;  --tag-ok-fg:     #1c7a44;
+  --tag-teal-bg:   #e6f7f4;  --tag-teal-fg:   #0a5b52;
+  --tag-danger-bg: #fbe6e4;  --tag-danger-fg: #b4342a;
+  --serie-teal:  #0d7d70;
+  --serie-azul:  #3550b4;
+  --serie-ambar: #a5620a;
 }
 
+/* Sin elección explícita del usuario, manda el sistema. */
 @media (prefers-color-scheme: dark) {
-  :root {
-    --bg:        #0d1412;
-    --surface:   #131c19;
-    --surface-2: #1a2521;
-    --border:    #283530;
-    --border-2:  #35443e;
-    --ink:       #e9f1ed;
-    --ink-soft:  #b1c0ba;
-    --muted:     #869590;
-    --accent:    #34b3a4;
-    --accent-deep:#57cabb;
-    --accent-soft:#123029;
-    --on-accent: #06231f;
-    --danger:    #e8776b;
-    --warn:      #e0973f;
-    --ok:        #34b3a4;
-    --shadow: 0 1px 2px rgba(0,0,0,0.3), 0 8px 24px rgba(0,0,0,0.35);
-  }
+  :root:not([data-tema='claro']) { @include tema-oscuro; }
 }
+/* Elección explícita: gana siempre sobre el sistema. */
+:root[data-tema='oscuro'] { @include tema-oscuro; }
 
 * { box-sizing: border-box; }
 html, body { height: 100%; }

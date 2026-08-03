@@ -26,12 +26,8 @@
 .track { height: 12px; background: var(--surface-2); border-radius: 999px; overflow: hidden; }
 .fill { height: 100%; border-radius: 999px; background: var(--accent); min-width: 3px; transition: width 0.3s ease; }
 .fill.ag { background: var(--accent-deep); }
-.fill[data-clave="llamada"] { background: #0d7d70; }
-.fill[data-clave="chat"] { background: #3550b4; }
-.fill[data-clave="integracion"] { background: #a5620a; }
+.fill[data-clave="llamada"] { background: var(--serie-teal); }
+.fill[data-clave="chat"] { background: var(--serie-azul); }
+.fill[data-clave="integracion"] { background: var(--serie-ambar); }
 .val { font-size: 0.85rem; font-weight: 600; text-align: right; font-variant-numeric: tabular-nums; }
 
-@media (prefers-color-scheme: dark) {
-  .fill[data-clave="chat"] { background: #8fa6e6; }
-  .fill[data-clave="integracion"] { background: #e0973f; }
-}

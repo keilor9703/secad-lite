@@ -19,11 +19,7 @@ tbody tr:last-child td { border-bottom: none; }
 
 .rbadge { display: inline-block; padding: 0.2rem 0.55rem; border-radius: 999px; font-size: 0.72rem; font-weight: 600; background: var(--surface-2); color: var(--ink-soft); }
 .rbadge[data-estado="disponible"]     { background: var(--accent-soft); color: var(--accent); }
-.rbadge[data-estado="asignado"]       { background: #e7edff; color: #3550b4; }
-.rbadge[data-estado="en_ruta"]        { background: #fff4e0; color: #a5620a; }
-.rbadge[data-estado="en_sitio"]       { background: #e6f7f4; color: #0a5b52; }
+.rbadge[data-estado="asignado"]       { background: var(--tag-info-bg); color: var(--tag-info-fg); }
+.rbadge[data-estado="en_ruta"]        { background: var(--tag-warn-bg); color: var(--tag-warn-fg); }
+.rbadge[data-estado="en_sitio"]       { background: var(--tag-teal-bg); color: var(--tag-teal-fg); }
 .rbadge[data-estado="fuera_servicio"] { background: var(--surface-2); color: var(--muted); }
-@media (prefers-color-scheme: dark) {
-  .rbadge[data-estado="asignado"] { background: #1a2740; color: #8fa6e6; }
-  .rbadge[data-estado="en_ruta"]  { background: #33270f; color: #e0973f; }
-}

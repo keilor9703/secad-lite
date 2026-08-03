@@ -6,10 +6,9 @@
 .vacio { color: var(--muted); background: var(--surface); border: 1px dashed var(--border-2); border-radius: var(--radius-sm); padding: 1rem; margin: 0; }
 
 .badge-sonando {
-  background: #e6f6ec; color: #1c7a44; font-weight: 700; font-size: 0.82rem;
+  background: var(--tag-ok-bg); color: var(--tag-ok-fg); font-weight: 700; font-size: 0.82rem;
   padding: 0.3rem 0.7rem; border-radius: 999px;
 }
-@media (prefers-color-scheme: dark) { .badge-sonando { background: #10331f; color: #57c483; } }
 
 .entrantes { display: flex; flex-direction: column; gap: 0.6rem; }
 .call-card {
@@ -33,10 +32,6 @@
 
 .badge { display: inline-block; padding: 0.15rem 0.5rem; border-radius: 999px; font-size: 0.74rem; font-weight: 600; background: var(--surface-2); color: var(--ink-soft); }
 .badge[data-estado="sonando"]    { background: var(--accent-soft); color: var(--accent); }
-.badge[data-estado="atendida"]   { background: #e6f6ec; color: #1c7a44; }
-.badge[data-estado="perdida"]    { background: #fde8e8; color: #b42318; }
+.badge[data-estado="atendida"]   { background: var(--tag-ok-bg); color: var(--tag-ok-fg); }
+.badge[data-estado="perdida"]    { background: var(--tag-danger-bg); color: var(--tag-danger-fg); }
 .badge[data-estado="finalizada"] { background: var(--surface-2); color: var(--muted); }
-@media (prefers-color-scheme: dark) {
-  .badge[data-estado="atendida"] { background: #10331f; color: #57c483; }
-  .badge[data-estado="perdida"]  { background: #3a1815; color: #e88; }
-}

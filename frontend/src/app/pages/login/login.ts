@@ -4,13 +4,14 @@ import { FormsModule } from '@angular/forms';
 import { Router } from '@angular/router';
 import { AuthService } from '../../core/auth.service';
 import { Sesion } from '../../core/models';
+import { TemaToggleComponent } from '../../shared/tema-toggle/tema-toggle';
 
 type Modo = 'usuario' | 'ciudadano';
 
 @Component({
   selector: 'app-login',
   standalone: true,
-  imports: [CommonModule, FormsModule],
+  imports: [CommonModule, FormsModule, TemaToggleComponent],
   templateUrl: './login.html',
   styleUrl: './login.scss',
 })

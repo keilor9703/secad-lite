@@ -54,3 +54,5 @@ form { display: flex; flex-direction: column; gap: 0.9rem; }
 .hint code { font-family: var(--mono); background: var(--surface-2); padding: 0.05em 0.35em; border-radius: 4px; }
 
 .foot { font-size: 0.78rem; color: var(--muted); margin: 0; }
+
+.tema-fila { display: flex; justify-content: flex-end; margin-bottom: -0.4rem; }

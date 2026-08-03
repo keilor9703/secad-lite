@@ -37,6 +37,7 @@
       <span class="name">{{ s.nombre }}</span>
       <span class="tipo" [class.civil]="s.tipo === 'civil'">{{ s.rol }}</span>
     </span>
+    <app-tema-toggle />
     <button type="button" class="btn btn--ghost" (click)="salir()">Salir</button>
   </div>
 </header>
