@@ -41,6 +41,10 @@ export class CasoEntity {
   @Column({ type: 'double precision', nullable: true })
   lng?: number | null;
 
+  /** Entidad externa que radicó el caso por la API entrante (si aplica). */
+  @Column({ type: 'uuid', nullable: true })
+  entidadId?: string | null;
+
   @Column({ type: 'varchar', length: 20, default: 'nuevo' })
   estado!: EstadoCaso;
 

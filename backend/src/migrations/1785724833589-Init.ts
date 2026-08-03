@@ -1,11 +1,11 @@
 import { MigrationInterface, QueryRunner } from "typeorm";
 
-export class Init1785724382083 implements MigrationInterface {
-    name = 'Init1785724382083'
+export class Init1785724833589 implements MigrationInterface {
+    name = 'Init1785724833589'
 
     public async up(queryRunner: QueryRunner): Promise<void> {
         await queryRunner.query(`CREATE EXTENSION IF NOT EXISTS "uuid-ossp"`);
-        await queryRunner.query(`CREATE TABLE "casos" ("id" uuid NOT NULL DEFAULT uuid_generate_v4(), "tenant" character varying(64) NOT NULL, "canal" character varying(20) NOT NULL, "titulo" character varying(160) NOT NULL, "descripcion" text NOT NULL DEFAULT '', "ciudadano" character varying(120) NOT NULL, "telefono" character varying(40), "agencia" character varying(80) NOT NULL DEFAULT 'Central', "lat" double precision, "lng" double precision, "estado" character varying(20) NOT NULL DEFAULT 'nuevo', "creadoPor" character varying(120) NOT NULL, "creadoEn" TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT now(), "actualizadoEn" TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT now(), CONSTRAINT "PK_e53891d55a545d106d0c71d2155" PRIMARY KEY ("id"))`);
+        await queryRunner.query(`CREATE TABLE "casos" ("id" uuid NOT NULL DEFAULT uuid_generate_v4(), "tenant" character varying(64) NOT NULL, "canal" character varying(20) NOT NULL, "titulo" character varying(160) NOT NULL, "descripcion" text NOT NULL DEFAULT '', "ciudadano" character varying(120) NOT NULL, "telefono" character varying(40), "agencia" character varying(80) NOT NULL DEFAULT 'Central', "lat" double precision, "lng" double precision, "entidadId" uuid, "estado" character varying(20) NOT NULL DEFAULT 'nuevo', "creadoPor" character varying(120) NOT NULL, "creadoEn" TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT now(), "actualizadoEn" TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT now(), CONSTRAINT "PK_e53891d55a545d106d0c71d2155" PRIMARY KEY ("id"))`);
         await queryRunner.query(`CREATE INDEX "IDX_d9e9a5ae2ac38dc25cb071017b" ON "casos" ("tenant") `);
         await queryRunner.query(`CREATE INDEX "IDX_13d2bb8641e98d8b8b275d7d8f" ON "casos" ("tenant", "estado") `);
         await queryRunner.query(`CREATE TABLE "casos_eventos" ("id" uuid NOT NULL DEFAULT uuid_generate_v4(), "tenant" character varying(64) NOT NULL, "casoId" uuid NOT NULL, "tipo" character varying(20) NOT NULL, "descripcion" text NOT NULL, "estadoAnterior" character varying(20), "estadoNuevo" character varying(20), "autor" character varying(120) NOT NULL, "creadoEn" TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT now(), CONSTRAINT "PK_ef2d9bd71fecc436dc846902901" PRIMARY KEY ("id"))`);
@@ -28,9 +28,15 @@ export class Init1785724382083 implements MigrationInterface {
         await queryRunner.query(`CREATE INDEX "IDX_066cfbf0de4fa2ae041cd31a61" ON "llamadas" ("tenant", "estado") `);
         await queryRunner.query(`CREATE TABLE "roles" ("id" uuid NOT NULL DEFAULT uuid_generate_v4(), "tenant" character varying(64) NOT NULL, "codigo" character varying(40) NOT NULL, "nombre" character varying(80) NOT NULL, "permisos" text, "esSistema" boolean NOT NULL DEFAULT false, "creadoEn" TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT now(), CONSTRAINT "PK_c1433d71a4838793a49dcad46ab" PRIMARY KEY ("id"))`);
         await queryRunner.query(`CREATE UNIQUE INDEX "IDX_a4a3e2c74ae3eed8b33a456061" ON "roles" ("tenant", "codigo") `);
+        await queryRunner.query(`CREATE TABLE "entidades" ("id" uuid NOT NULL DEFAULT uuid_generate_v4(), "tenant" character varying(64) NOT NULL, "nombre" character varying(120) NOT NULL, "agencia" character varying(80) NOT NULL DEFAULT 'Central', "apiKey" character varying(80) NOT NULL, "activa" boolean NOT NULL DEFAULT true, "creadoEn" TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT now(), CONSTRAINT "PK_4ceb23ee98193c241ee43c95111" PRIMARY KEY ("id"))`);
+        await queryRunner.query(`CREATE UNIQUE INDEX "IDX_2bfbe42133076174f899dbad98" ON "entidades" ("apiKey") `);
+        await queryRunner.query(`CREATE UNIQUE INDEX "IDX_f67af99d8b36855bbbfe80df1f" ON "entidades" ("tenant", "nombre") `);
     }
 
     public async down(queryRunner: QueryRunner): Promise<void> {
+        await queryRunner.query(`DROP INDEX "public"."IDX_f67af99d8b36855bbbfe80df1f"`);
+        await queryRunner.query(`DROP INDEX "public"."IDX_2bfbe42133076174f899dbad98"`);
+        await queryRunner.query(`DROP TABLE "entidades"`);
         await queryRunner.query(`DROP INDEX "public"."IDX_a4a3e2c74ae3eed8b33a456061"`);
         await queryRunner.query(`DROP TABLE "roles"`);
         await queryRunner.query(`DROP INDEX "public"."IDX_066cfbf0de4fa2ae041cd31a61"`);

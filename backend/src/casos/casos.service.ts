@@ -66,6 +66,7 @@ export class CasosService implements OnModuleInit {
         agencia: dto.agencia?.trim() || 'Central',
         lat: typeof dto.lat === 'number' ? dto.lat : null,
         lng: typeof dto.lng === 'number' ? dto.lng : null,
+        entidadId: dto.entidadId ?? null,
         estado: 'nuevo',
         creadoPor: usuario,
       }),

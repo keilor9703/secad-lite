@@ -18,6 +18,7 @@ import { TenantsModule } from './tenants/tenants.module';
 import { DespachoModule } from './despacho/despacho.module';
 import { PbxModule } from './pbx/pbx.module';
 import { WhatsappModule } from './whatsapp/whatsapp.module';
+import { IntegracionModule } from './integracion/integracion.module';
 
 @Module({
   imports: [
@@ -56,6 +57,7 @@ import { WhatsappModule } from './whatsapp/whatsapp.module';
     DespachoModule,
     PbxModule,
     WhatsappModule,
+    IntegracionModule,
   ],
   controllers: [AppController],
   providers: [
