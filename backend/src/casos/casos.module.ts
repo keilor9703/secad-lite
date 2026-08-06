@@ -6,9 +6,10 @@ import { CasoEntity } from './caso.entity';
 import { EventoCasoEntity } from './evento.entity';
 import { DespachoModule } from '../despacho/despacho.module';
 import { CatalogosModule } from '../catalogos/catalogos.module';
+import { UsuariosModule } from '../usuarios/usuarios.module';
 
 @Module({
-  imports: [TypeOrmModule.forFeature([CasoEntity, EventoCasoEntity]), DespachoModule, CatalogosModule],
+  imports: [TypeOrmModule.forFeature([CasoEntity, EventoCasoEntity]), DespachoModule, CatalogosModule, UsuariosModule],
   controllers: [CasosController],
   providers: [CasosService],
   exports: [CasosService],

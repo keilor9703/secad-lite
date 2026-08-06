@@ -17,6 +17,7 @@ export interface Actor {
 }
 import { CrearCasoDto } from './dto/crear-caso.dto';
 import { CambiarEstadoDto } from './dto/cambiar-estado.dto';
+import { RemitirDto } from './dto/remitir.dto';
 
 /**
  * Casos persistidos en PostgreSQL. Todo consulta/escribe SIEMPRE acotado por
@@ -38,8 +39,17 @@ export class CasosService implements OnModuleInit {
     await this.seed();
   }
 
-  listar(tenant: string): Promise<CasoEntity[]> {
-    return this.repo.find({ where: { tenant }, order: { creadoEn: 'DESC' } });
+  /**
+   * Bandeja del secad. Con `canalesDelFuncionario` se acota a los casos
+   * enviados a esas colas — es la vista de despacho: cada entidad ve lo suyo.
+   * El filtrado se hace en memoria porque `canales` se guarda como lista simple
+   * y el volumen de un secad lite no lo justifica en SQL.
+   */
+  async listar(tenant: string, canalesDelFuncionario?: string[]): Promise<CasoEntity[]> {
+    const casos = await this.repo.find({ where: { tenant }, order: { creadoEn: 'DESC' } });
+    if (!canalesDelFuncionario) return casos;
+    const mios = new Set(canalesDelFuncionario);
+    return casos.filter((c) => (c.canales ?? []).some((id) => mios.has(id)));
   }
 
   async obtener(tenant: string, id: string): Promise<CasoEntity> {
@@ -123,6 +133,37 @@ export class CasosService implements OnModuleInit {
     const responsable = await this.catalogos.agenciaDe(tenant, id);
     const canales = await this.catalogos.validarCanales(tenant, dto.canales ?? [], responsable.id);
     return { responsable, canales };
+  }
+
+  /**
+   * Remite el caso a canales de atención: los suma a los actuales (gestión
+   * conjunta) o los reemplaza (traslado a otra entidad). Queda en la bitácora
+   * con el motivo, para saber por qué cambió de manos.
+   */
+  async remitir(tenant: string, id: string, dto: RemitirDto, usuario: string): Promise<CasoEntity> {
+    const caso = await this.obtener(tenant, id);
+    if (caso.estado === 'cerrado') throw new BadRequestException('El caso está cerrado.');
+    if (!dto?.canales?.length) throw new BadRequestException('Indique al menos un canal destino.');
+
+    const destinoId = dto.agenciaResponsableId ?? caso.agenciaResponsableId;
+    if (!destinoId) throw new BadRequestException('Indique la agencia destino.');
+    const agencia = await this.catalogos.agenciaDe(tenant, destinoId);
+    const canales = await this.catalogos.validarCanales(tenant, dto.canales, agencia.id);
+
+    const previos = caso.canales ?? [];
+    const agenciaPrevia = caso.agencia;
+    caso.canales = dto.exclusivo
+      ? canales.map((c) => c.id)
+      : [...new Set([...previos, ...canales.map((c) => c.id)])];
+    caso.agenciaResponsableId = agencia.id;
+    caso.agencia = agencia.nombre;
+    const guardado = await this.repo.save(caso);
+
+    const codigos = canales.map((c) => c.codigo).join(', ');
+    const modo = dto.exclusivo ? `Trasladado de ${agenciaPrevia} a` : 'Remitido además a';
+    const motivo = dto.observacion?.trim() ? ` Motivo: ${dto.observacion.trim()}` : '';
+    await this.registrar(tenant, id, 'derivacion', `${modo} ${agencia.nombre} (${codigos}).${motivo}`, usuario);
+    return guardado;
   }
 
   async cambiarEstado(tenant: string, id: string, dto: CambiarEstadoDto, actor: Actor): Promise<CasoEntity> {
