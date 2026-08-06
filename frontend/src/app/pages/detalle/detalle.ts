@@ -5,10 +5,14 @@ import { ActivatedRoute, RouterLink } from '@angular/router';
 import { Subscription } from 'rxjs';
 import { CasosService } from '../../core/casos.service';
 import { AuthService } from '../../core/auth.service';
+import { CatalogosService } from '../../core/catalogos.service';
 import { ChatService } from '../../core/chat.service';
 import { DespachoService } from '../../core/despacho.service';
 import { WhatsappService } from '../../core/whatsapp.service';
-import { Asignacion, Canal, Caso, EstadoAsignacion, EstadoCaso, EventoCaso, MensajeChat, RecursoSugerido, TipoEvento } from '../../core/models';
+import {
+  Agencia, Asignacion, Canal, CanalAtencion, Caso, EstadoAsignacion, EstadoCaso, EventoCaso,
+  MensajeChat, RecursoSugerido, TipoEvento,
+} from '../../core/models';
 
 @Component({
   selector: 'app-detalle',
@@ -23,6 +27,7 @@ export class DetalleComponent implements OnInit, OnDestroy {
   private auth = inject(AuthService);
   private chat = inject(ChatService);
   private despachoSvc = inject(DespachoService);
+  private catalogos = inject(CatalogosService);
   private whatsappSvc = inject(WhatsappService);
 
   /** Supervisor/admin: habilita cerrar y reabrir. */
@@ -34,6 +39,9 @@ export class DetalleComponent implements OnInit, OnDestroy {
   recursoSel = '';
 
   readonly caso = signal<Caso | null>(null);
+  /** Catálogos para traducir los ids de agencia y canal a nombres. */
+  private readonly agencias = signal<Agencia[]>([]);
+  private readonly canalesAtencion = signal<CanalAtencion[]>([]);
   readonly eventos = signal<EventoCaso[]>([]);
   readonly cargando = signal(true);
   readonly error = signal('');
@@ -59,6 +67,25 @@ export class DetalleComponent implements OnInit, OnDestroy {
   ngOnInit(): void {
     this.id = this.route.snapshot.paramMap.get('id') ?? '';
     this.cargar();
+    this.catalogos.agencias().subscribe({ next: (a) => this.agencias.set(a), error: () => {} });
+    this.catalogos.canales().subscribe({ next: (c) => this.canalesAtencion.set(c), error: () => {} });
+  }
+
+  /** Nombre de la agencia; los casos antiguos no la tienen. */
+  nombreAgencia(id: string | null | undefined): string {
+    if (!id) return '—';
+    return this.agencias().find((a) => a.id === id)?.nombre ?? '—';
+  }
+
+  /** Nombre del canal de atención al que se envió el caso. */
+  nombreCanal(id: string): string {
+    const c = this.canalesAtencion().find((x) => x.id === id);
+    return c ? `${c.codigo} · ${c.nombre}` : id.slice(0, 8);
+  }
+
+  /** Une dirección, barrio y ciudad omitiendo lo que no se diligenció. */
+  ubicacionTexto(c: Caso): string {
+    return [c.direccion, c.barrio, c.ciudad].filter((p) => p?.trim()).join(', ') || 'Sin dirección';
   }
 
   ngOnDestroy(): void {

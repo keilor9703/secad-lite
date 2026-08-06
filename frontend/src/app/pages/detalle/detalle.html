@@ -16,13 +16,31 @@
         <p class="mono id">{{ c.id }}</p>
 
         <dl class="datos">
-          <div><dt>Ciudadano</dt><dd>{{ c.ciudadano }}</dd></div>
+          <div *ngIf="c.codigoCaso"><dt>Código de caso</dt><dd class="mono">{{ c.codigoCaso }}</dd></div>
+          <div><dt>Prioridad</dt><dd><span class="prio" [attr.data-prio]="c.prioridad">{{ c.prioridad || 'media' }}</span></dd></div>
+          <div><dt>Quien reporta</dt><dd>{{ c.ciudadano }}</dd></div>
           <div><dt>Teléfono</dt><dd>{{ c.telefono || '—' }}</dd></div>
-          <div><dt>Agencia</dt><dd>{{ c.agencia }}</dd></div>
+          <div *ngIf="c.direccionLlamante"><dt>Dirección del llamante</dt><dd>{{ c.direccionLlamante }}</dd></div>
+          <div><dt>Entidad de origen</dt><dd>{{ nombreAgencia(c.agenciaOrigenId) }}</dd></div>
+          <div><dt>Agencia responsable</dt><dd>{{ c.agencia }}</dd></div>
           <div><dt>Recepcionado por</dt><dd>{{ c.creadoPor }}</dd></div>
           <div><dt>Creado</dt><dd>{{ c.creadoEn | date:'short' }}</dd></div>
           <div><dt>Actualizado</dt><dd>{{ c.actualizadoEn | date:'short' }}</dd></div>
         </dl>
+
+        <!-- Ubicación y canales: lo que se capturó en recepción. -->
+        <div class="ubic" *ngIf="c.direccion || c.barrio || c.ciudad || c.lat">
+          <span class="ubic-lbl">📍 Ubicación</span>
+          <span>{{ ubicacionTexto(c) }}</span>
+          <a *ngIf="c.lat && c.lng" class="mono coord"
+             [href]="'https://www.openstreetmap.org/?mlat=' + c.lat + '&mlon=' + c.lng + '#map=17/' + c.lat + '/' + c.lng"
+             target="_blank" rel="noopener">{{ c.lat }}, {{ c.lng }}</a>
+        </div>
+
+        <div class="canales-caso" *ngIf="(c.canales || []).length">
+          <span class="ubic-lbl">Canales de atención</span>
+          <span class="chip-ro" *ngFor="let id of c.canales">{{ nombreCanal(id) }}</span>
+        </div>
 
         <p class="desc" *ngIf="c.descripcion">{{ c.descripcion }}</p>
 

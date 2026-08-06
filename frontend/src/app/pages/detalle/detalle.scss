@@ -87,3 +87,20 @@
 .timeline .ev-desc { margin: 0.25rem 0 0; }
 .timeline .ev-meta { margin: 0.1rem 0 0; font-size: 0.75rem; color: var(--muted); }
 .timeline .empty { color: var(--muted); padding: 0.5rem 0; }
+
+/* Ubicación y canales capturados en recepción. */
+.ubic, .canales-caso {
+  display: flex; align-items: center; gap: 0.5rem; flex-wrap: wrap;
+  margin-top: 0.7rem; font-size: 0.88rem;
+}
+.ubic-lbl { font-size: 0.78rem; font-weight: 700; text-transform: uppercase;
+            letter-spacing: 0.05em; color: var(--muted); }
+.ubic .coord { font-size: 0.78rem; color: var(--accent); text-decoration: none; }
+.ubic .coord:hover { text-decoration: underline; }
+.chip-ro { font-size: 0.78rem; border: 1px solid var(--border-2); border-radius: 999px;
+           padding: 0.12rem 0.55rem; background: var(--surface-2); }
+.prio { font-size: 0.74rem; font-weight: 600; padding: 0.1rem 0.45rem; border-radius: 999px;
+        background: var(--surface-2); color: var(--muted); text-transform: capitalize; }
+.prio[data-prio="alta"]  { background: var(--tag-danger-bg); color: var(--tag-danger-fg); }
+.prio[data-prio="media"] { background: var(--tag-warn-bg);   color: var(--tag-warn-fg); }
+.prio[data-prio="baja"]  { background: var(--tag-ok-bg);     color: var(--tag-ok-fg); }
