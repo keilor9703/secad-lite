@@ -6,11 +6,12 @@ import { AdminService } from '../../core/admin.service';
 import { PbxService } from '../../core/pbx.service';
 import { Tenant } from '../../core/models';
 import { TemaToggleComponent } from '../../shared/tema-toggle/tema-toggle';
+import { LogoComponent } from '../../shared/logo/logo';
 
 @Component({
   selector: 'app-shell',
   standalone: true,
-  imports: [CommonModule, RouterOutlet, RouterLink, RouterLinkActive, TemaToggleComponent],
+  imports: [CommonModule, RouterOutlet, RouterLink, RouterLinkActive, TemaToggleComponent, LogoComponent],
   templateUrl: './shell.html',
   styleUrl: './shell.scss',
 })

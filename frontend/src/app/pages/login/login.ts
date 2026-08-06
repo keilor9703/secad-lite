@@ -5,13 +5,14 @@ import { Router } from '@angular/router';
 import { AuthService } from '../../core/auth.service';
 import { Sesion } from '../../core/models';
 import { TemaToggleComponent } from '../../shared/tema-toggle/tema-toggle';
+import { LogoComponent } from '../../shared/logo/logo';
 
 type Modo = 'usuario' | 'ciudadano';
 
 @Component({
   selector: 'app-login',
   standalone: true,
-  imports: [CommonModule, FormsModule, TemaToggleComponent],
+  imports: [CommonModule, FormsModule, TemaToggleComponent, LogoComponent],
   templateUrl: './login.html',
   styleUrl: './login.scss',
 })

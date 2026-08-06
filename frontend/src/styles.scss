@@ -9,50 +9,50 @@
  */
 @mixin tema-oscuro {
   color-scheme: dark;
-  --bg:        #0d1412;
-  --surface:   #131c19;
-  --surface-2: #1a2521;
-  --border:    #283530;
-  --border-2:  #35443e;
-  --ink:       #e9f1ed;
-  --ink-soft:  #b1c0ba;
-  --muted:     #869590;
-  --accent:    #34b3a4;
-  --accent-deep:#57cabb;
-  --accent-soft:#123029;
-  --on-accent: #06231f;
+  --bg:        #0b1622;
+  --surface:   #10202f;
+  --surface-2: #172b3d;
+  --border:    #24394d;
+  --border-2:  #33495e;
+  --ink:       #e8f1f7;
+  --ink-soft:  #afc1d0;
+  --muted:     #8397a8;
+  --accent:    #3fd3e2;
+  --accent-deep:#7cedf3;
+  --accent-soft:#0d3340;
+  --on-accent: #04222b;
   --danger:    #e8776b;
   --warn:      #e0973f;
-  --ok:        #34b3a4;
+  --ok:        #3fd3e2;
   --shadow: 0 1px 2px rgba(0,0,0,0.3), 0 8px 24px rgba(0,0,0,0.35);
 
   --tag-info-bg:   #1a2740;  --tag-info-fg:   #8fa6e6;
   --tag-warn-bg:   #33270f;  --tag-warn-fg:   #e0973f;
   --tag-ok-bg:     #10331f;  --tag-ok-fg:     #57c483;
-  --tag-teal-bg:   #123029;  --tag-teal-fg:   #57cabb;
+  --tag-teal-bg:   #0d3340;  --tag-teal-fg:   #7cedf3;
   --tag-danger-bg: #3a1f1c;  --tag-danger-fg: #e8776b;
-  --serie-teal:  #34b3a4;
+  --serie-teal:  #3fd3e2;
   --serie-azul:  #8fa6e6;
   --serie-ambar: #e0973f;
 }
 
 :root {
   color-scheme: light;
-  --bg:        #f4f7f6;
+  --bg:        #f3f6f9;
   --surface:   #ffffff;
-  --surface-2: #eef3f1;
-  --border:    #dde5e2;
-  --border-2:  #c8d5cf;
-  --ink:       #16201d;
-  --ink-soft:  #46524d;
-  --muted:     #6c7873;
-  --accent:    #0d7d70;
-  --accent-deep:#0a5b52;
-  --accent-soft:#e3f1ee;
+  --surface-2: #edf2f7;
+  --border:    #dce5ee;
+  --border-2:  #c6d3e0;
+  --ink:       #102639;
+  --ink-soft:  #42566b;
+  --muted:     #6a7d90;
+  --accent:    #0c7e92;
+  --accent-deep:#0a6273;
+  --accent-soft:#e1f4f8;
   --on-accent: #ffffff;
   --danger:    #b4342a;
   --warn:      #a5620a;
-  --ok:        #0d7d70;
+  --ok:        #0c7e92;
 
   --sans: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
   --mono: ui-monospace, "SF Mono", Menlo, Consolas, monospace;
@@ -66,9 +66,9 @@
   --tag-info-bg:   #e7edff;  --tag-info-fg:   #3550b4;
   --tag-warn-bg:   #fff4e0;  --tag-warn-fg:   #a5620a;
   --tag-ok-bg:     #e6f6ec;  --tag-ok-fg:     #1c7a44;
-  --tag-teal-bg:   #e6f7f4;  --tag-teal-fg:   #0a5b52;
+  --tag-teal-bg:   #e1f4f8;  --tag-teal-fg:   #0a6273;
   --tag-danger-bg: #fbe6e4;  --tag-danger-fg: #b4342a;
-  --serie-teal:  #0d7d70;
+  --serie-teal:  #0c7e92;
   --serie-azul:  #3550b4;
   --serie-ambar: #a5620a;
 }
