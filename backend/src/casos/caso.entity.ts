@@ -99,6 +99,24 @@ export class CasoEntity {
   @Column({ type: 'varchar', length: 20, default: 'nuevo' })
   estado!: EstadoCaso;
 
+  // --- Reapertura ------------------------------------------------------------
+
+  /**
+   * Un caso cerrado solo lo reabre quien tenga esa autorización. Quien lo cerró
+   * deja aquí su solicitud para que un supervisor la resuelva.
+   */
+  @Column({ type: 'boolean', default: false })
+  reaperturaSolicitada!: boolean;
+
+  @Column({ type: 'text', nullable: true })
+  reaperturaMotivo?: string | null;
+
+  @Column({ type: 'varchar', length: 120, nullable: true })
+  reaperturaSolicitadaPor?: string | null;
+
+  @Column({ type: 'timestamptz', nullable: true })
+  reaperturaSolicitadaEn?: Date | null;
+
   @Column({ type: 'varchar', length: 120 })
   creadoPor!: string;
 

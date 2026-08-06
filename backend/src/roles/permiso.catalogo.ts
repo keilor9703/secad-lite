@@ -12,8 +12,10 @@ export interface PermisoDef {
 export const PERMISOS: PermisoDef[] = [
   { clave: 'casos.ver',           etiqueta: 'Ver casos (bandeja y detalle)',            grupo: 'Casos' },
   { clave: 'casos.crear',         etiqueta: 'Recepcionar casos',                        grupo: 'Casos' },
+  { clave: 'casos.ver_todos',     etiqueta: 'Ver todos los casos del secad (supervisión)', grupo: 'Casos' },
   { clave: 'casos.gestionar',     etiqueta: 'Gestionar casos (estado, notas, derivar)', grupo: 'Casos' },
-  { clave: 'casos.cerrar',        etiqueta: 'Cerrar y reabrir casos',                   grupo: 'Casos' },
+  { clave: 'casos.cerrar',        etiqueta: 'Cerrar casos',                             grupo: 'Casos' },
+  { clave: 'casos.reabrir',       etiqueta: 'Autorizar la reapertura de un caso cerrado', grupo: 'Casos' },
   { clave: 'despacho.ver',        etiqueta: 'Ver despacho de recursos',                 grupo: 'Despacho' },
   { clave: 'despacho.asignar',    etiqueta: 'Despachar y mover recursos',               grupo: 'Despacho' },
   { clave: 'recursos.ver',        etiqueta: 'Ver flota de recursos',                    grupo: 'Recursos' },

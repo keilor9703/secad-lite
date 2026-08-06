@@ -7,11 +7,16 @@ import { CANALES, EstadoCaso, ESTADOS, PRIORIDADES } from './caso.model';
 import { CatalogosService } from '../catalogos/catalogos.service';
 import { DespachoService } from '../despacho/despacho.service';
 
-/** Contexto mínimo del actor (subconjunto del JWT) para auditoría y permisos. */
+/**
+ * Quién actúa. `permisos` son los VIGENTES (resueltos contra la base por
+ * PermisosGuard), no los del token. `canales` son las colas que atiende, y
+ * definen qué casos puede siquiera ver.
+ */
 export interface Actor {
   sub: string;
   rol: string;
   permisos: string[];
+  canales?: string[];
   /** Agencia del funcionario; queda como origen de lo que recepcione. */
   agencia?: string | null;
 }
@@ -45,22 +50,39 @@ export class CasosService implements OnModuleInit {
    * El filtrado se hace en memoria porque `canales` se guarda como lista simple
    * y el volumen de un secad lite no lo justifica en SQL.
    */
-  async listar(tenant: string, canalesDelFuncionario?: string[]): Promise<CasoEntity[]> {
+  async listar(tenant: string, actor: Actor): Promise<CasoEntity[]> {
     const casos = await this.repo.find({ where: { tenant }, order: { creadoEn: 'DESC' } });
-    if (!canalesDelFuncionario) return casos;
-    const mios = new Set(canalesDelFuncionario);
-    return casos.filter((c) => (c.canales ?? []).some((id) => mios.has(id)));
+    return casos.filter((c) => this.alcanza(c, actor));
   }
 
-  async obtener(tenant: string, id: string): Promise<CasoEntity> {
+  /**
+   * ¿Este funcionario puede ver este caso?
+   *
+   * Con `casos.ver_todos` (supervisión) sí, siempre. Sin él, solo lo que esté
+   * en alguna de sus colas o lo que él mismo recepcionó — un despachador de un
+   * canal no tiene por qué ver lo de los demás canales.
+   */
+  private alcanza(caso: CasoEntity, actor: Actor): boolean {
+    if (actor.rol === 'superadmin' || actor.permisos.includes('casos.ver_todos')) return true;
+    if (caso.creadoPor === actor.sub) return true;
+    const mios = new Set(actor.canales ?? []);
+    return (caso.canales ?? []).some((id) => mios.has(id));
+  }
+
+  /**
+   * Caso por id. Con `actor` se verifica además el alcance: un caso fuera de
+   * sus canales se responde como inexistente, para no revelar que existe.
+   */
+  async obtener(tenant: string, id: string, actor?: Actor): Promise<CasoEntity> {
     const caso = await this.repo.findOne({ where: { tenant, id } });
     if (!caso) throw new NotFoundException('Caso no encontrado.');
+    if (actor && !this.alcanza(caso, actor)) throw new NotFoundException('Caso no encontrado.');
     return caso;
   }
 
   /** Línea de tiempo de un caso (valida antes que el caso pertenezca al tenant). */
-  async listarAuditoria(tenant: string, casoId: string): Promise<EventoCasoEntity[]> {
-    await this.obtener(tenant, casoId);
+  async listarAuditoria(tenant: string, casoId: string, actor?: Actor): Promise<EventoCasoEntity[]> {
+    await this.obtener(tenant, casoId, actor);
     return this.eventos.find({ where: { tenant, casoId }, order: { creadoEn: 'ASC' } });
   }
 
@@ -166,6 +188,55 @@ export class CasosService implements OnModuleInit {
     return guardado;
   }
 
+  /**
+   * Deja constancia de que se necesita reabrir un caso cerrado. No lo reabre:
+   * solo registra la solicitud y su motivo para que un supervisor decida.
+   */
+  async solicitarReapertura(tenant: string, id: string, motivo: string, actor: Actor): Promise<CasoEntity> {
+    const caso = await this.obtener(tenant, id, actor);
+    if (caso.estado !== 'cerrado') throw new BadRequestException('El caso no está cerrado.');
+    if (!motivo?.trim()) throw new BadRequestException('Explique por qué debe reabrirse.');
+    if (caso.reaperturaSolicitada) throw new BadRequestException('Ya hay una solicitud pendiente para este caso.');
+
+    caso.reaperturaSolicitada = true;
+    caso.reaperturaMotivo = motivo.trim();
+    caso.reaperturaSolicitadaPor = actor.sub;
+    caso.reaperturaSolicitadaEn = new Date();
+    const guardado = await this.repo.save(caso);
+    await this.registrar(tenant, id, 'nota', `Solicitud de reapertura: ${motivo.trim()}`, actor.sub);
+    return guardado;
+  }
+
+  /**
+   * Reapertura autorizada. Exige el permiso casos.reabrir y un motivo, que
+   * queda en la bitácora: es la constancia de quién autorizó y por qué.
+   */
+  async reabrir(tenant: string, id: string, motivo: string, estado: EstadoCaso, actor: Actor): Promise<CasoEntity> {
+    if (actor.rol !== 'superadmin' && !actor.permisos.includes('casos.reabrir')) {
+      throw new ForbiddenException('No tiene autorización para reabrir casos.');
+    }
+    const caso = await this.obtener(tenant, id, actor);
+    if (caso.estado !== 'cerrado') throw new BadRequestException('El caso no está cerrado.');
+    if (!motivo?.trim()) throw new BadRequestException('Escriba la observación de la reapertura.');
+    if (estado === 'cerrado' || !ESTADOS.includes(estado)) throw new BadRequestException('Estado de reapertura inválido.');
+
+    const solicitud = caso.reaperturaSolicitada
+      ? ` Atiende la solicitud de ${caso.reaperturaSolicitadaPor}: ${caso.reaperturaMotivo}`
+      : '';
+    caso.estado = estado;
+    caso.reaperturaSolicitada = false;
+    caso.reaperturaMotivo = null;
+    caso.reaperturaSolicitadaPor = null;
+    caso.reaperturaSolicitadaEn = null;
+    const guardado = await this.repo.save(caso);
+    await this.registrar(
+      tenant, id, 'estado',
+      `Reabierto por ${actor.sub}. Observación: ${motivo.trim()}.${solicitud}`,
+      actor.sub, 'cerrado', estado,
+    );
+    return guardado;
+  }
+
   async cambiarEstado(tenant: string, id: string, dto: CambiarEstadoDto, actor: Actor): Promise<CasoEntity> {
     const caso = await this.obtener(tenant, id);
     if (!ESTADOS.includes(dto.estado)) throw new BadRequestException('Estado inválido.');
@@ -173,13 +244,16 @@ export class CasosService implements OnModuleInit {
       throw new BadRequestException('Para derivar se requiere la agencia destino.');
     }
 
-    // Cerrar y reabrir requieren el permiso casos.cerrar (superadmin siempre).
-    const puedeCerrar = actor.rol === 'superadmin' || actor.permisos.includes('casos.cerrar');
-    if (dto.estado === 'cerrado' && !puedeCerrar) {
+    // Cerrar y reabrir son permisos distintos: quien cierra un caso no puede
+    // deshacerlo por su cuenta, tiene que pedirle la reapertura a un supervisor.
+    const puede = (p: string) => actor.rol === 'superadmin' || actor.permisos.includes(p);
+    if (dto.estado === 'cerrado' && !puede('casos.cerrar')) {
       throw new ForbiddenException('No tiene permiso para cerrar casos.');
     }
-    if (caso.estado === 'cerrado' && dto.estado !== 'cerrado' && !puedeCerrar) {
-      throw new ForbiddenException('No tiene permiso para reabrir casos.');
+    if (caso.estado === 'cerrado' && dto.estado !== 'cerrado' && !puede('casos.reabrir')) {
+      throw new ForbiddenException(
+        'Un caso cerrado solo lo reabre quien tenga esa autorización. Solicite la reapertura a un supervisor.',
+      );
     }
 
     const usuario = actor.sub;
