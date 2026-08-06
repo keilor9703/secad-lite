@@ -103,6 +103,33 @@ export class AdminComponent implements OnInit {
   nuevaAgencia = { codigo: '', nombre: '', tipo: 'otra' as TipoAgencia };
   nuevoCanal: Record<string, { codigo: string; nombre: string }> = {};
   nuevoCodigo = { codigo: '', descripcion: '', prioridad: 'media' as PrioridadCaso, agenciaSugeridaId: '' };
+  /**
+   * Búsqueda dentro del catálogo de códigos. Un listado oficial trae cientos o
+   * miles: se filtra por código o descripción y se muestra una tanda, para no
+   * pintar toda la tabla de una vez.
+   */
+  filtroCodigo = '';
+  readonly filtroCodigoSig = signal('');
+  private readonly TOPE_CODIGOS = 100;
+  readonly codigosFiltrados = computed(() => {
+    const q = this.filtroCodigoSig().trim().toLowerCase();
+    const todos = this.codigos();
+    if (!q) return todos.slice(0, this.TOPE_CODIGOS);
+    return todos
+      .filter((c) => c.codigo.toLowerCase().includes(q) || c.descripcion.toLowerCase().includes(q))
+      .slice(0, this.TOPE_CODIGOS);
+  });
+  readonly codigosCoincidentes = computed(() => {
+    const q = this.filtroCodigoSig().trim().toLowerCase();
+    const todos = this.codigos();
+    if (!q) return todos.length;
+    return todos.filter((c) => c.codigo.toLowerCase().includes(q) || c.descripcion.toLowerCase().includes(q)).length;
+  });
+
+  buscarCodigo(texto: string): void {
+    this.filtroCodigo = texto;
+    this.filtroCodigoSig.set(texto);
+  }
 
     nuevoUsuario: CrearUsuario = this.usuarioVacio();
 

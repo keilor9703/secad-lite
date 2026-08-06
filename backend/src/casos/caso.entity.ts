@@ -8,6 +8,9 @@ import { Canal, EstadoCaso, PrioridadCaso } from './caso.model';
  */
 @Entity({ name: 'casos' })
 @Index(['tenant', 'estado'])
+// Índice parcial: la referencia es única dentro del secad, pero solo aplica a
+// los casos importados (el resto la deja nula).
+@Index(['tenant', 'referenciaExterna'], { unique: true, where: '"referenciaExterna" IS NOT NULL' })
 export class CasoEntity {
   @PrimaryGeneratedColumn('uuid')
   id!: string;
@@ -46,6 +49,14 @@ export class CasoEntity {
   entidadId?: string | null;
 
   // --- Tipificación (código de caso) -----------------------------------------
+
+  /**
+   * Identificador del caso en el sistema de origen (número de llamada, radicado…).
+   * Solo lo traen los casos importados y es lo que hace repetible la carga: una
+   * segunda pasada del mismo archivo no vuelve a insertarlos.
+   */
+  @Column({ type: 'varchar', length: 64, nullable: true })
+  referenciaExterna?: string | null;
 
   /** Código de caso digitado en recepción (codigos_caso.codigo). */
   @Column({ type: 'varchar', length: 16, nullable: true })

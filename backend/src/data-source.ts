@@ -11,6 +11,9 @@ import { AsignacionEntity } from './despacho/asignacion.entity';
 import { LlamadaEntity } from './pbx/llamada.entity';
 import { RolEntity } from './roles/rol.entity';
 import { EntidadEntity } from './integracion/entidad.entity';
+import { AgenciaEntity } from './catalogos/agencia.entity';
+import { CanalEntity } from './catalogos/canal.entity';
+import { CodigoCasoEntity } from './catalogos/codigo-caso.entity';
 
 config();
 
@@ -22,6 +25,6 @@ config();
 export default new DataSource({
   type: 'postgres',
   url: process.env.DATABASE_URL,
-  entities: [CasoEntity, EventoCasoEntity, UsuarioEntity, MensajeChatEntity, TenantEntity, RecursoEntity, AsignacionEntity, LlamadaEntity, RolEntity, EntidadEntity],
+  entities: [CasoEntity, EventoCasoEntity, UsuarioEntity, MensajeChatEntity, TenantEntity, RecursoEntity, AsignacionEntity, LlamadaEntity, RolEntity, EntidadEntity, AgenciaEntity, CanalEntity, CodigoCasoEntity],
   migrations: ['src/migrations/*.ts'],
 });

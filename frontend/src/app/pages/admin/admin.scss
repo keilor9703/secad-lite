@@ -88,3 +88,9 @@ tbody tr:last-child td { border-bottom: none; }
 .prio[data-prio="alta"]  { background: var(--tag-danger-bg); color: var(--tag-danger-fg); }
 .prio[data-prio="media"] { background: var(--tag-warn-bg);   color: var(--tag-warn-fg); }
 .prio[data-prio="baja"]  { background: var(--tag-ok-bg);     color: var(--tag-ok-fg); }
+
+/* Búsqueda dentro de catálogos largos (códigos de caso). */
+.buscador { display: flex; align-items: center; gap: 0.6rem; margin: 0.6rem 0 0.2rem; }
+.buscador input { flex: 1; max-width: 420px; }
+.buscador .conteo { font-size: 0.8rem; color: var(--muted); font-family: var(--mono); }
+.tope { margin: 0.5rem 0 0; font-size: 0.8rem; color: var(--muted); }

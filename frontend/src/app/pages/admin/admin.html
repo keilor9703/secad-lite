@@ -270,11 +270,17 @@
       <button type="submit" class="btn btn--primary">Crear código</button>
     </form>
 
+    <div class="buscador">
+      <input [ngModel]="filtroCodigo" name="fcodq" (ngModelChange)="buscarCodigo($event)"
+             placeholder="Buscar por código o descripción…" aria-label="Buscar código de caso" />
+      <span class="conteo">{{ codigosCoincidentes() }} de {{ codigos().length }}</span>
+    </div>
+
     <div class="tbl-wrap">
       <table>
         <thead><tr><th>Código</th><th>Descripción</th><th>Prioridad</th><th>Agencia sugerida</th><th>Estado</th><th></th></tr></thead>
         <tbody>
-          <tr *ngFor="let c of codigos()">
+          <tr *ngFor="let c of codigosFiltrados()">
             <td class="mono">{{ c.codigo }}</td>
             <td>{{ c.descripcion }}</td>
             <td><span class="prio" [attr.data-prio]="c.prioridad">{{ c.prioridad }}</span></td>
@@ -288,6 +294,9 @@
           </tr>
         </tbody>
       </table>
+      <p class="tope" *ngIf="codigosCoincidentes() > codigosFiltrados().length">
+        Mostrando {{ codigosFiltrados().length }} de {{ codigosCoincidentes() }} — afine la búsqueda para ver el resto.
+      </p>
     </div>
   </div>
 
