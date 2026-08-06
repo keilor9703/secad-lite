@@ -204,11 +204,22 @@ export interface Sesion {
   agencia?: string | null;
 }
 
+export type PlanTenant = 'basico' | 'estandar' | 'avanzado';
+export type EstadoSuscripcion = 'prueba' | 'activa' | 'suspendida';
+
+/** Instancia contratada del servicio, con su estado comercial. */
 export interface Tenant {
   id: string;
   codigo: string;
   nombre: string;
   activo: boolean;
+  plan?: PlanTenant;
+  suscripcion?: EstadoSuscripcion;
+  /** Fecha ISO hasta la que está pagado (aaaa-mm-dd). */
+  vence?: string | null;
+  motivoBloqueo?: string | null;
+  /** Integraciones habilitadas: pbx, whatsapp, api. */
+  integraciones?: string[] | null;
   creadoEn?: string;
 }
 

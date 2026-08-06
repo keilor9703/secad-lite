@@ -15,7 +15,10 @@
         <a routerLink="/recursos" *ngIf="puedeVerRecursos()" routerLinkActive="active">Recursos</a>
         <a routerLink="/dashboard" *ngIf="puedeVerPanel()" routerLinkActive="active">Panel</a>
       </ng-container>
+      <a *ngIf="puedeVerCatalogos()" routerLink="/catalogos" routerLinkActive="active">Catálogos</a>
       <a *ngIf="esAdmin()" routerLink="/admin" routerLinkActive="active">Administración</a>
+      <!-- Solo el dueño de la plataforma: instancias, suscripciones y módulos. -->
+      <a *ngIf="esSuperadmin()" routerLink="/plataforma" routerLinkActive="active">Plataforma</a>
     </ng-container>
     <ng-template #navCivil>
       <a routerLink="/chat" routerLinkActive="active">Mi chat</a>

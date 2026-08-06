@@ -1,0 +1,41 @@
+.plat { display: flex; flex-direction: column; gap: 1rem; }
+.plat-head h1 { margin: 0; font-size: 1.3rem; }
+.plat-head p { margin: 0.2rem 0 0; color: var(--muted); font-size: 0.85rem; }
+.error { color: var(--danger); margin: 0; }
+
+.kpis { display: grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); gap: 0.8rem; }
+.kpi { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius);
+       padding: 0.8rem 1rem; display: flex; flex-direction: column; }
+.kpi .n { font-size: 1.6rem; font-weight: 700; color: var(--accent); }
+.kpi .l { font-size: 0.72rem; text-transform: uppercase; letter-spacing: 0.06em; color: var(--muted); }
+
+.panel, .tenant { padding: 1.1rem 1.2rem; display: flex; flex-direction: column; gap: 0.7rem; }
+.panel h2, .tenant h2 { margin: 0; font-size: 1.05rem; }
+.hint { margin: 0; color: var(--muted); font-size: 0.85rem; }
+.crear-inline { display: flex; gap: 0.5rem; flex-wrap: wrap; }
+.crear-inline input { width: auto; flex: 1; min-width: 160px; }
+
+.t-head { display: flex; align-items: flex-start; justify-content: space-between; gap: 1rem; flex-wrap: wrap; }
+.cod { font-size: 0.8rem; color: var(--accent); }
+.t-sub { margin: 0.2rem 0 0; font-size: 0.8rem; color: var(--muted); }
+.mono { font-family: var(--mono); }
+
+.situacion { font-size: 0.78rem; font-weight: 700; padding: 0.2rem 0.6rem; border-radius: 999px; }
+.situacion[data-estado="bien"]  { background: var(--tag-ok-bg);     color: var(--tag-ok-fg); }
+.situacion[data-estado="aviso"] { background: var(--tag-warn-bg);   color: var(--tag-warn-fg); }
+.situacion[data-estado="mala"]  { background: var(--tag-danger-bg); color: var(--tag-danger-fg); }
+
+.motivo { margin: 0; font-size: 0.85rem; padding: 0.5rem 0.7rem; border-radius: var(--radius-sm);
+          background: var(--tag-danger-bg); color: var(--tag-danger-fg); }
+
+.t-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); gap: 0.7rem; }
+.campo { display: flex; flex-direction: column; gap: 0.25rem; }
+.campo > span { font-size: 0.78rem; font-weight: 600; color: var(--ink-soft); }
+
+.integraciones { display: flex; align-items: center; gap: 0.5rem; flex-wrap: wrap; }
+.integraciones .lbl { font-size: 0.78rem; font-weight: 600; color: var(--ink-soft); }
+.chip { display: inline-flex; align-items: center; gap: 0.35rem; font-size: 0.82rem; cursor: pointer;
+        border: 1px solid var(--border-2); border-radius: 999px; padding: 0.2rem 0.6rem; }
+.chip input { width: auto; }
+
+.t-acciones { display: flex; justify-content: flex-end; gap: 0.5rem; }

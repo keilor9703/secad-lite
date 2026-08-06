@@ -26,6 +26,10 @@ export class AdminService {
   listarTenants(): Observable<Tenant[]> {
     return this.http.get<Tenant[]>(`${this.base}/tenants`);
   }
+  /** Suscripción, bloqueo e integraciones (solo el dueño de la plataforma). */
+  actualizarTenant(id: string, cambios: Partial<Tenant>): Observable<Tenant> {
+    return this.http.patch<Tenant>(`${this.base}/tenants/${id}`, cambios);
+  }
   crearTenant(codigo: string, nombre: string): Observable<Tenant> {
     return this.http.post<Tenant>(`${this.base}/tenants`, { codigo, nombre });
   }

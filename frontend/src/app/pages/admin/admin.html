@@ -1,34 +1,12 @@
 <section class="admin">
   <header class="admin-head">
     <h1>Administración</h1>
-    <p>{{ esSuperadmin() ? 'Tenants (instancias) y usuarios de todo el sistema' : 'Usuarios, roles e integraciones de su tenant' }}</p>
+    <p>Cuentas, roles e integraciones de esta instancia.</p>
     <p class="ctx-nota" *ngIf="esSuperadmin()">Trabajando sobre
       <strong>{{ tenantCtx() || 'ningún tenant' }}</strong> — cámbielo en la barra superior.</p>
   </header>
 
   <p class="error" *ngIf="error()">{{ error() }}</p>
-
-  <!-- Tenants: solo superadmin -->
-  <div class="panel card" *ngIf="esSuperadmin()">
-    <h2>Tenants</h2>
-    <form class="crear-inline" (ngSubmit)="crearTenant()">
-      <input [(ngModel)]="nuevoTenant.codigo" name="tcod" placeholder="código (p. ej. envigado)" />
-      <input [(ngModel)]="nuevoTenant.nombre" name="tnom" placeholder="Nombre del municipio" />
-      <button type="submit" class="btn btn--primary">Crear tenant</button>
-    </form>
-    <div class="tbl-wrap">
-      <table>
-        <thead><tr><th>Código</th><th>Nombre</th><th>Estado</th></tr></thead>
-        <tbody>
-          <tr *ngFor="let t of tenants()">
-            <td class="mono">{{ t.codigo }}</td>
-            <td>{{ t.nombre }}</td>
-            <td><span class="badge" [class.on]="t.activo">{{ t.activo ? 'Activo' : 'Inactivo' }}</span></td>
-          </tr>
-        </tbody>
-      </table>
-    </div>
-  </div>
 
   <!-- Roles y permisos (RBAC dinámico) -->
   <div class="panel card" *ngIf="puedeVerMatriz()">
@@ -204,100 +182,6 @@
       </table>
     </div>
     <p class="vacio" *ngIf="!entidades().length">Aún no hay entidades registradas.</p>
-  </div>
-
-  <!-- Agencias y sus canales de atención -->
-  <div class="panel card" *ngIf="gestionaCatalogos && !!tenantActivo()">
-    <h2>🏢 Agencias y canales de atención<span class="ctx-tag" *ngIf="esSuperadmin()">{{ tenantCtx() }}</span></h2>
-    <p class="pbx-hint">Las agencias son las entidades que atienden casos. Cada una tiene sus
-      canales de atención (la cola por la que despacha), y a ellos se adscriben los funcionarios.</p>
-
-    <form class="crear-inline" (ngSubmit)="crearAgencia()">
-      <input [(ngModel)]="nuevaAgencia.codigo" name="acod" placeholder="código (p. ej. POLICIA)" />
-      <input [(ngModel)]="nuevaAgencia.nombre" name="anom" placeholder="Nombre de la agencia" />
-      <select [(ngModel)]="nuevaAgencia.tipo" name="atip">
-        <option *ngFor="let t of tiposAgencia" [value]="t">{{ t }}</option>
-      </select>
-      <button type="submit" class="btn btn--primary">Crear agencia</button>
-    </form>
-
-    <div class="agencia" *ngFor="let a of agencias()" [class.off]="!a.activo">
-      <div class="agencia-head">
-        <span class="ag-cod mono">{{ a.codigo }}</span>
-        <strong>{{ a.nombre }}</strong>
-        <span class="rol">{{ a.tipo }}</span>
-        <button type="button" class="btn btn--ghost mini" (click)="alternarAgencia(a)">
-          {{ a.activo ? 'Desactivar' : 'Activar' }}
-        </button>
-      </div>
-      <ul class="canal-list">
-        <li *ngFor="let c of canalesDe(a.id)" [class.off]="!c.activo">
-          <span class="mono">{{ c.codigo }}</span> · {{ c.nombre }}
-          <button type="button" class="btn btn--ghost mini" (click)="alternarCanal(c)">
-            {{ c.activo ? 'Desactivar' : 'Activar' }}
-          </button>
-        </li>
-        <li class="vacio-inline" *ngIf="!canalesDe(a.id).length">Sin canales todavía.</li>
-      </ul>
-      <form class="crear-inline sub" (ngSubmit)="crearCanal(a)">
-        <input [ngModel]="(nuevoCanal[a.id] || {}).codigo" name="ccod{{ a.id }}"
-               (ngModelChange)="nuevoCanal[a.id] = { codigo: $event, nombre: (nuevoCanal[a.id] || {}).nombre || '' }"
-               placeholder="código canal" />
-        <input [ngModel]="(nuevoCanal[a.id] || {}).nombre" name="cnom{{ a.id }}"
-               (ngModelChange)="nuevoCanal[a.id] = { codigo: (nuevoCanal[a.id] || {}).codigo || '', nombre: $event }"
-               placeholder="Nombre del canal" />
-        <button type="submit" class="btn btn--ghost mini">Agregar canal</button>
-      </form>
-    </div>
-  </div>
-
-  <!-- Códigos de caso (tipificación) -->
-  <div class="panel card" *ngIf="gestionaCatalogos && !!tenantActivo()">
-    <h2>🏷️ Códigos de caso<span class="ctx-tag" *ngIf="esSuperadmin()">{{ tenantCtx() }}</span></h2>
-    <p class="pbx-hint">La tipificación que el operador digita al recepcionar. Cada código trae su
-      prioridad y la agencia que suele atenderlo, para preseleccionarlas en el formulario.</p>
-
-    <form class="crear-inline" (ngSubmit)="crearCodigo()">
-      <input [(ngModel)]="nuevoCodigo.codigo" name="kcod" placeholder="código (p. ej. 105)" />
-      <input [(ngModel)]="nuevoCodigo.descripcion" name="kdes" placeholder="Descripción del caso" />
-      <select [(ngModel)]="nuevoCodigo.prioridad" name="kpri">
-        <option *ngFor="let p of prioridades" [value]="p">{{ p }}</option>
-      </select>
-      <select [(ngModel)]="nuevoCodigo.agenciaSugeridaId" name="kag">
-        <option value="">— agencia sugerida —</option>
-        <option *ngFor="let a of agencias()" [value]="a.id">{{ a.nombre }}</option>
-      </select>
-      <button type="submit" class="btn btn--primary">Crear código</button>
-    </form>
-
-    <div class="buscador">
-      <input [ngModel]="filtroCodigo" name="fcodq" (ngModelChange)="buscarCodigo($event)"
-             placeholder="Buscar por código o descripción…" aria-label="Buscar código de caso" />
-      <span class="conteo">{{ codigosCoincidentes() }} de {{ codigos().length }}</span>
-    </div>
-
-    <div class="tbl-wrap">
-      <table>
-        <thead><tr><th>Código</th><th>Descripción</th><th>Prioridad</th><th>Agencia sugerida</th><th>Estado</th><th></th></tr></thead>
-        <tbody>
-          <tr *ngFor="let c of codigosFiltrados()">
-            <td class="mono">{{ c.codigo }}</td>
-            <td>{{ c.descripcion }}</td>
-            <td><span class="prio" [attr.data-prio]="c.prioridad">{{ c.prioridad }}</span></td>
-            <td>{{ nombreAgencia(c.agenciaSugeridaId) }}</td>
-            <td><span class="badge" [class.on]="c.activo">{{ c.activo ? 'Activo' : 'Inactivo' }}</span></td>
-            <td>
-              <button type="button" class="btn btn--ghost mini" (click)="alternarCodigo(c)">
-                {{ c.activo ? 'Desactivar' : 'Activar' }}
-              </button>
-            </td>
-          </tr>
-        </tbody>
-      </table>
-      <p class="tope" *ngIf="codigosCoincidentes() > codigosFiltrados().length">
-        Mostrando {{ codigosFiltrados().length }} de {{ codigosCoincidentes() }} — afine la búsqueda para ver el resto.
-      </p>
-    </div>
   </div>
 
   <!-- Usuarios -->

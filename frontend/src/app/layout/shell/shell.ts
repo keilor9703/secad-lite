@@ -28,6 +28,7 @@ export class ShellComponent implements OnInit {
   readonly puedeVerLlamadas = computed(() => this.auth.tienePermiso('pbx.usar'));
   readonly puedeVerRecursos = computed(() => this.auth.tienePermiso('recursos.ver'));
   readonly puedeVerPanel = computed(() => this.auth.tienePermiso('metricas.ver'));
+  readonly puedeVerCatalogos = computed(() => this.auth.tienePermiso('catalogos.gestionar'));
   readonly esSuperadmin = this.auth.esSuperadmin;
   readonly tenantCtx = this.auth.tenantCtx;
   /** Instancias disponibles para el selector del superadmin. */

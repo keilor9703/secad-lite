@@ -1,0 +1,102 @@
+<section class="cat">
+  <header class="cat-head">
+    <h1>Catálogos operativos</h1>
+    <p>Las entidades que atienden, sus canales de despacho y la tipificación de casos.</p>
+    <p class="ctx-nota" *ngIf="esSuperadmin()">Instancia en gestión:
+      <strong>{{ tenantCtx() || 'ninguna' }}</strong> — cámbiela en la barra superior.</p>
+  </header>
+
+  <p class="error" *ngIf="error()">{{ error() }}</p>
+
+  <div class="panel card">
+    <h2>🏢 Agencias y canales de atención</h2>
+    <p class="hint">Cada agencia tiene sus canales, que son las colas por las que despacha.
+      A esos canales se adscriben los funcionarios y a ellos se envían los casos.</p>
+
+    <form class="crear-inline" (ngSubmit)="crearAgencia()" *ngIf="puedeEditar()">
+      <input [(ngModel)]="nuevaAgencia.codigo" name="acod" placeholder="código (p. ej. POLICIA)" />
+      <input [(ngModel)]="nuevaAgencia.nombre" name="anom" placeholder="Nombre de la agencia" />
+      <select [(ngModel)]="nuevaAgencia.tipo" name="atip">
+        <option *ngFor="let t of tiposAgencia" [value]="t">{{ t }}</option>
+      </select>
+      <button type="submit" class="btn btn--primary">Crear agencia</button>
+    </form>
+
+    <div class="agencia" *ngFor="let a of agencias()" [class.off]="!a.activo">
+      <div class="agencia-head">
+        <span class="ag-cod mono">{{ a.codigo }}</span>
+        <strong>{{ a.nombre }}</strong>
+        <span class="rol">{{ a.tipo }}</span>
+        <button type="button" class="btn btn--ghost mini" *ngIf="puedeEditar()" (click)="alternarAgencia(a)">
+          {{ a.activo ? 'Desactivar' : 'Activar' }}
+        </button>
+      </div>
+      <ul class="canal-list">
+        <li *ngFor="let c of canalesDe(a.id)" [class.off]="!c.activo">
+          <span class="mono">{{ c.codigo }}</span> · {{ c.nombre }}
+          <button type="button" class="btn btn--ghost mini" *ngIf="puedeEditar()" (click)="alternarCanal(c)">
+            {{ c.activo ? 'Desactivar' : 'Activar' }}
+          </button>
+        </li>
+        <li class="vacio-inline" *ngIf="!canalesDe(a.id).length">Sin canales todavía.</li>
+      </ul>
+      <form class="crear-inline sub" (ngSubmit)="crearCanal(a)" *ngIf="puedeEditar()">
+        <input [ngModel]="(nuevoCanal[a.id] || {}).codigo" name="ccod{{ a.id }}"
+               (ngModelChange)="nuevoCanal[a.id] = { codigo: $event, nombre: (nuevoCanal[a.id] || {}).nombre || '' }"
+               placeholder="código canal" />
+        <input [ngModel]="(nuevoCanal[a.id] || {}).nombre" name="cnom{{ a.id }}"
+               (ngModelChange)="nuevoCanal[a.id] = { codigo: (nuevoCanal[a.id] || {}).codigo || '', nombre: $event }"
+               placeholder="Nombre del canal" />
+        <button type="submit" class="btn btn--ghost mini">Agregar canal</button>
+      </form>
+    </div>
+  </div>
+
+  <div class="panel card">
+    <h2>🏷️ Códigos de caso</h2>
+    <p class="hint">La tipificación que el operador digita al recepcionar. Cada código trae su
+      prioridad y la agencia que suele atenderlo, para preseleccionarlas en el formulario.</p>
+
+    <form class="crear-inline" (ngSubmit)="crearCodigo()" *ngIf="puedeEditar()">
+      <input [(ngModel)]="nuevoCodigo.codigo" name="kcod" placeholder="código (p. ej. 105)" />
+      <input [(ngModel)]="nuevoCodigo.descripcion" name="kdes" placeholder="Descripción del caso" />
+      <select [(ngModel)]="nuevoCodigo.prioridad" name="kpri">
+        <option *ngFor="let p of prioridades" [value]="p">{{ p }}</option>
+      </select>
+      <select [(ngModel)]="nuevoCodigo.agenciaSugeridaId" name="kag">
+        <option value="">— agencia sugerida —</option>
+        <option *ngFor="let a of agencias()" [value]="a.id">{{ a.nombre }}</option>
+      </select>
+      <button type="submit" class="btn btn--primary">Crear código</button>
+    </form>
+
+    <div class="buscador">
+      <input [ngModel]="filtroCodigo" name="fcodq" (ngModelChange)="buscarCodigo($event)"
+             placeholder="Buscar por código o descripción…" aria-label="Buscar código de caso" />
+      <span class="conteo">{{ codigosCoincidentes() }} de {{ codigos().length }}</span>
+    </div>
+
+    <div class="tbl-wrap">
+      <table>
+        <thead><tr><th>Código</th><th>Descripción</th><th>Prioridad</th><th>Agencia sugerida</th><th>Estado</th><th></th></tr></thead>
+        <tbody>
+          <tr *ngFor="let c of codigosFiltrados()">
+            <td class="mono">{{ c.codigo }}</td>
+            <td>{{ c.descripcion }}</td>
+            <td><span class="prio" [attr.data-prio]="c.prioridad">{{ c.prioridad }}</span></td>
+            <td>{{ nombreAgencia(c.agenciaSugeridaId) }}</td>
+            <td><span class="badge" [class.on]="c.activo">{{ c.activo ? 'Activo' : 'Inactivo' }}</span></td>
+            <td>
+              <button type="button" class="btn btn--ghost mini" *ngIf="puedeEditar()" (click)="alternarCodigo(c)">
+                {{ c.activo ? 'Desactivar' : 'Activar' }}
+              </button>
+            </td>
+          </tr>
+        </tbody>
+      </table>
+      <p class="tope" *ngIf="codigosCoincidentes() > codigosFiltrados().length">
+        Mostrando {{ codigosFiltrados().length }} de {{ codigosCoincidentes() }} — afine la búsqueda para ver el resto.
+      </p>
+    </div>
+  </div>
+</section>
