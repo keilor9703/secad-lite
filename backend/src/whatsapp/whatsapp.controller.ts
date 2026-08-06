@@ -7,7 +7,9 @@ import { Permisos } from '../auth/permisos.decorator';
 import { Tenant } from '../common/tenant.decorator';
 import { Usuario } from '../common/usuario.decorator';
 import { JwtPayload } from '../auth/auth.service';
+import { RequiereIntegracion } from '../tenants/integracion.decorator';
 
+@RequiereIntegracion('whatsapp')
 @Controller('whatsapp')
 export class WhatsappController {
   constructor(

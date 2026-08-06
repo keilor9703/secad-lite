@@ -1,5 +1,5 @@
 import { Body, Controller, Get, Param, Patch, Post } from '@nestjs/common';
-import { CrearTenantDto, TenantsService } from './tenants.service';
+import { ActualizarTenantDto, CrearTenantDto, TenantsService } from './tenants.service';
 import { Roles } from '../auth/roles.decorator';
 
 // Solo el superadmin gestiona los tenants.
@@ -18,8 +18,9 @@ export class TenantsController {
     return this.tenants.crear(dto);
   }
 
+  /** Suscripción, bloqueo e integraciones habilitadas del tenant. */
   @Patch(':id')
-  cambiarActivo(@Param('id') id: string, @Body() dto: { activo: boolean }) {
-    return this.tenants.cambiarActivo(id, !!dto.activo);
+  actualizar(@Param('id') id: string, @Body() dto: ActualizarTenantDto) {
+    return this.tenants.actualizar(id, dto);
   }
 }

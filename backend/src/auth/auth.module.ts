@@ -5,11 +5,13 @@ import { AuthController } from './auth.controller';
 import { AuthService } from './auth.service';
 import { UsuariosModule } from '../usuarios/usuarios.module';
 import { RolesModule } from '../roles/roles.module';
+import { TenantsModule } from '../tenants/tenants.module';
 
 @Module({
   imports: [
     UsuariosModule,
     RolesModule,
+    TenantsModule,
     JwtModule.registerAsync({
       imports: [ConfigModule],
       inject: [ConfigService],

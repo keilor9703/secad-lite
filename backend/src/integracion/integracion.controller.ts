@@ -3,11 +3,13 @@ import { ActualizarEntidadDto, CrearEntidadDto, IntegracionService, RadicarCasoD
 import { Public } from '../auth/public.decorator';
 import { Permisos } from '../auth/permisos.decorator';
 import { Tenant } from '../common/tenant.decorator';
+import { RequiereIntegracion } from '../tenants/integracion.decorator';
 
 /**
  * API entrante para entidades externas + gestión de entidades del tenant.
  * Los endpoints públicos se autentican con la API key de la entidad.
  */
+@RequiereIntegracion('api')
 @Controller()
 export class IntegracionController {
   constructor(private readonly integracion: IntegracionService) {}

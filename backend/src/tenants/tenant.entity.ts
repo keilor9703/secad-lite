@@ -1,5 +1,17 @@
 import { Column, CreateDateColumn, Entity, Index, PrimaryGeneratedColumn } from 'typeorm';
 
+/** Plan contratado por el tenant. */
+export type PlanTenant = 'basico' | 'estandar' | 'avanzado';
+export const PLANES: PlanTenant[] = ['basico', 'estandar', 'avanzado'];
+
+/** Estado de la suscripción: en prueba, al día o suspendida por cartera. */
+export type EstadoSuscripcion = 'prueba' | 'activa' | 'suspendida';
+export const ESTADOS_SUSCRIPCION: EstadoSuscripcion[] = ['prueba', 'activa', 'suspendida'];
+
+/** Integraciones que se pueden habilitar por tenant. */
+export const INTEGRACIONES = ['pbx', 'whatsapp', 'api'] as const;
+export type Integracion = (typeof INTEGRACIONES)[number];
+
 /**
  * Un tenant: la instancia de un municipio/organización en el modelo
  * multi-inquilino. Cada usuario queda asociado a un tenant por su `codigo`.
@@ -33,6 +45,35 @@ export class TenantEntity {
   /** WhatsApp Cloud API: token de acceso para enviar respuestas (secreto). */
   @Column({ type: 'varchar', length: 400, nullable: true })
   waAccessToken?: string | null;
+
+  // --- Suscripción (FALCON CAD es un servicio por suscripción) ---------------
+
+  /** Plan contratado; hoy solo etiqueta comercial, mañana define cupos. */
+  @Column({ type: 'varchar', length: 40, default: 'basico' })
+  plan!: PlanTenant;
+
+  /**
+   * Estado de la relación comercial. `suspendida` corta el acceso sin borrar
+   * nada: el municipio vuelve a operar en cuanto se regulariza.
+   */
+  @Column({ type: 'varchar', length: 20, default: 'prueba' })
+  suscripcion!: EstadoSuscripcion;
+
+  /** Hasta cuándo está pagado. Vencida, nadie del tenant puede entrar. */
+  @Column({ type: 'date', nullable: true })
+  vence?: string | null;
+
+  /** Motivo del bloqueo, que se le muestra a quien intente entrar. */
+  @Column({ type: 'varchar', length: 200, nullable: true })
+  motivoBloqueo?: string | null;
+
+  /**
+   * Integraciones habilitadas para este tenant (pbx, whatsapp, api). Lo que no
+   * esté aquí no se puede usar ni aparece en su interfaz, aunque el código
+   * exista: es la palanca comercial de cada módulo.
+   */
+  @Column({ type: 'simple-array', nullable: true })
+  integraciones?: string[] | null;
 
   @Column({ type: 'boolean', default: true })
   activo!: boolean;

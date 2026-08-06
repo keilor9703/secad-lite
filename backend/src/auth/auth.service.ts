@@ -3,6 +3,7 @@ import { JwtService } from '@nestjs/jwt';
 import { LoginDto, LoginResult } from './dto/login.dto';
 import { UsuariosService } from '../usuarios/usuarios.service';
 import { RolesService } from '../roles/roles.service';
+import { TenantsService } from '../tenants/tenants.service';
 
 /** Claims que viajan dentro del JWT. */
 export interface JwtPayload {
@@ -30,6 +31,7 @@ export class AuthService {
     private readonly jwt: JwtService,
     private readonly usuarios: UsuariosService,
     private readonly roles: RolesService,
+    private readonly tenants: TenantsService,
   ) {}
 
   async login(dto: LoginDto): Promise<LoginResult> {
@@ -38,6 +40,12 @@ export class AuthService {
     }
     const u = await this.usuarios.validar(dto.usuario.trim(), dto.contrasena);
     if (!u) throw new UnauthorizedException('Credenciales inválidas.');
+    // La instancia debe estar al día: suspendida o vencida, nadie de ese
+    // municipio entra (el superadmin sí, para poder regularizarla).
+    if (u.rol !== 'superadmin') {
+      const impedimento = await this.tenants.impedimento(u.tenant);
+      if (impedimento) throw new UnauthorizedException(impedimento.motivo);
+    }
     const permisos = await this.roles.permisosDe(u.tenant ?? null, u.rol);
     return this.emitir(u.username, 'institucional', u.nombre, u.rol, u.tenant ?? null, permisos, u.agenciaId ?? null);
   }

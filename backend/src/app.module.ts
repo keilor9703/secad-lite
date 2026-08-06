@@ -9,6 +9,7 @@ import { AuthModule } from './auth/auth.module';
 import { JwtAuthGuard } from './auth/jwt-auth.guard';
 import { RolesGuard } from './auth/roles.guard';
 import { PermisosGuard } from './auth/permisos.guard';
+import { SuscripcionGuard } from './tenants/suscripcion.guard';
 import { RolesModule } from './roles/roles.module';
 import { CatalogosModule } from './catalogos/catalogos.module';
 import { CasosModule } from './casos/casos.module';
@@ -66,6 +67,8 @@ import { IntegracionModule } from './integracion/integracion.module';
     AppService,
     // JWT obligatorio en todas las rutas salvo las marcadas con @Public().
     { provide: APP_GUARD, useClass: JwtAuthGuard },
+    // Después, la puerta del servicio: suscripción vigente e integración habilitada.
+    { provide: APP_GUARD, useClass: SuscripcionGuard },
     // Luego, restricción por rol reservado donde haya @Roles().
     { provide: APP_GUARD, useClass: RolesGuard },
     // Y por permiso (RBAC dinámico) donde haya @Permisos().

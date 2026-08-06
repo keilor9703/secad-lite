@@ -2,7 +2,24 @@ import { BadRequestException, ConflictException, Injectable, NotFoundException, 
 import { InjectRepository } from '@nestjs/typeorm';
 import { IsNull, Repository } from 'typeorm';
 import { randomBytes } from 'crypto';
-import { TenantEntity } from './tenant.entity';
+import { ESTADOS_SUSCRIPCION, EstadoSuscripcion, INTEGRACIONES, PLANES, PlanTenant, TenantEntity } from './tenant.entity';
+
+/** Cambios que solo hace el dueño de la plataforma. */
+export interface ActualizarTenantDto {
+  nombre?: string;
+  activo?: boolean;
+  plan?: PlanTenant;
+  suscripcion?: EstadoSuscripcion;
+  /** Fecha ISO (yyyy-MM-dd) hasta la que está pagado. */
+  vence?: string | null;
+  motivoBloqueo?: string | null;
+  integraciones?: string[];
+}
+
+/**
+ * Por qué un tenant no puede operar. `null` = puede.
+ */
+export type ImpedimentoTenant = { motivo: string } | null;
 
 export interface CrearTenantDto {
   codigo: string;
@@ -35,6 +52,60 @@ export class TenantsService implements OnModuleInit {
     return this.repo.find({ order: { codigo: 'ASC' } });
   }
 
+  /**
+   * Comprueba si un tenant puede operar ahora mismo: debe estar activo, con la
+   * suscripción no suspendida y sin vencer. Es la puerta del servicio: se
+   * verifica al iniciar sesión y en cada petición.
+   */
+  async impedimento(codigo: string | null | undefined): Promise<ImpedimentoTenant> {
+    if (!codigo) return null; // superadmin y rutas sin tenant
+    const t = await this.repo.findOne({ where: { codigo } });
+    if (!t) return { motivo: 'La instancia no existe.' };
+    if (!t.activo) return { motivo: t.motivoBloqueo || 'La instancia está bloqueada. Contacte al proveedor.' };
+    if (t.suscripcion === 'suspendida') {
+      return { motivo: t.motivoBloqueo || 'La suscripción está suspendida. Contacte al proveedor.' };
+    }
+    if (t.vence) {
+      // Se compara por día: vence al terminar la fecha indicada.
+      const hoy = new Date().toISOString().slice(0, 10);
+      if (t.vence < hoy) return { motivo: `La suscripción venció el ${t.vence}. Contacte al proveedor.` };
+    }
+    return null;
+  }
+
+  /** ¿Está habilitada esta integración para el tenant? */
+  async tieneIntegracion(codigo: string, clave: string): Promise<boolean> {
+    const t = await this.repo.findOne({ where: { codigo } });
+    return (t?.integraciones ?? []).includes(clave);
+  }
+
+  async actualizar(id: string, dto: ActualizarTenantDto): Promise<TenantEntity> {
+    const t = await this.repo.findOne({ where: { id } });
+    if (!t) throw new NotFoundException('Tenant no encontrado.');
+    if (dto.plan && !PLANES.includes(dto.plan)) throw new BadRequestException('Plan inválido.');
+    if (dto.suscripcion && !ESTADOS_SUSCRIPCION.includes(dto.suscripcion)) {
+      throw new BadRequestException('Estado de suscripción inválido.');
+    }
+    if (dto.vence && !/^\d{4}-\d{2}-\d{2}$/.test(dto.vence)) {
+      throw new BadRequestException('La fecha de vencimiento debe ser aaaa-mm-dd.');
+    }
+    if (dto.integraciones) {
+      const invalida = dto.integraciones.find((i) => !INTEGRACIONES.includes(i as never));
+      if (invalida) throw new BadRequestException(`Integración desconocida: ${invalida}.`);
+    }
+    if (dto.nombre !== undefined) {
+      if (!dto.nombre.trim()) throw new BadRequestException('El nombre no puede quedar vacío.');
+      t.nombre = dto.nombre.trim();
+    }
+    if (dto.activo !== undefined) t.activo = dto.activo;
+    if (dto.plan !== undefined) t.plan = dto.plan;
+    if (dto.suscripcion !== undefined) t.suscripcion = dto.suscripcion;
+    if (dto.vence !== undefined) t.vence = dto.vence || null;
+    if (dto.motivoBloqueo !== undefined) t.motivoBloqueo = dto.motivoBloqueo?.trim() || null;
+    if (dto.integraciones !== undefined) t.integraciones = dto.integraciones;
+    return this.repo.save(t);
+  }
+
   async crear(dto: CrearTenantDto): Promise<TenantEntity> {
     const codigo = dto.codigo?.trim().toLowerCase();
     if (!codigo || !dto.nombre?.trim()) throw new BadRequestException('Código y nombre son obligatorios.');
@@ -45,7 +116,13 @@ export class TenantsService implements OnModuleInit {
       throw new ConflictException('Ya existe un tenant con ese código.');
     }
     return this.repo.save(
-      this.repo.create({ codigo, nombre: dto.nombre.trim(), activo: true, apiKey: this.generarApiKey() }),
+      this.repo.create({
+        codigo, nombre: dto.nombre.trim(), activo: true, apiKey: this.generarApiKey(),
+        // Arranca en prueba de 30 días con las integraciones disponibles.
+        plan: 'basico', suscripcion: 'prueba',
+        vence: new Date(Date.now() + 30 * 864e5).toISOString().slice(0, 10),
+        integraciones: ['pbx', 'whatsapp', 'api'],
+      }),
     );
   }
 
