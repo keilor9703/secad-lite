@@ -1,0 +1,32 @@
+KIT DE MARCA — Águila
+=====================
+
+FAVICONS (íconos de pestaña / app)
+  favicon.ico ................ multi-tamaño (16/32/48/64), formato clásico
+  favicon-16x16.png .......... pestaña navegador
+  favicon-32x32.png .......... pestaña / accesos directos
+  favicon-48x48.png .......... alta densidad
+  icon-64/96/180/192/256/512.png  tamaños extra (mosaico claro redondeado)
+
+MÓVIL / PWA
+  apple-touch-icon.png ....... 180x180, pantalla de inicio iOS
+  android-chrome-192x192.png . PWA Android (maskable)
+  android-chrome-512x512.png . PWA Android / splash
+  site.webmanifest ........... manifiesto PWA (edita "name"/"short_name")
+
+LOGO
+  logo.png ................... marca completa, fondo transparente, alta resolución
+  logo-512.png ............... versión web lista para header (512px de ancho)
+
+INTEGRACIÓN
+  head-snippet.html .......... etiquetas <link> listas para pegar en <head>
+
+COLORES DE MARCA
+  Azul marino  #092956
+  Turquesa     #0FADBE
+
+NOTA
+  Los favicons van sobre un mosaico claro para que el águila (azul + turquesa)
+  se vea igual en pestañas con tema claro y oscuro. Coloca todos los archivos
+  en la raíz de tu sitio (mismo nivel que index.html) o ajusta las rutas del
+  snippet a tu carpeta (p. ej. /assets/).
