@@ -44,6 +44,53 @@
 
         <p class="desc" *ngIf="c.descripcion">{{ c.descripcion }}</p>
 
+        <!-- Remisión a otra entidad -->
+        <div class="remitir-caja">
+          <button type="button" class="btn btn--ghost" (click)="abrirRemitir()" *ngIf="!mostrarRemitir">
+            ↪ Remitir a otra entidad
+          </button>
+
+          <div class="remitir-form" *ngIf="mostrarRemitir">
+            <h3>Remitir el caso</h3>
+            <div class="field">
+              <label for="ragen">Agencia destino</label>
+              <select id="ragen" [ngModel]="remision.agenciaId" name="ragen"
+                      (ngModelChange)="cambiarAgenciaDestino($event)">
+                <option value="">— seleccione —</option>
+                <option *ngFor="let a of agenciasActivas()" [value]="a.id">{{ a.nombre }}</option>
+              </select>
+            </div>
+
+            <div class="canales-box" *ngIf="remision.agenciaId">
+              <span class="ubic-lbl">Canales destino</span>
+              <label class="chip" *ngFor="let c of canalesDestino()">
+                <input type="checkbox" [checked]="canalRemisionMarcado(c.id)"
+                       (change)="alternarCanalRemision(c.id)" />
+                <span>{{ c.codigo }} · {{ c.nombre }}</span>
+              </label>
+              <span class="vacio-inline" *ngIf="!canalesDestino().length">Esa agencia no tiene canales activos.</span>
+            </div>
+
+            <div class="field">
+              <label for="robs">Motivo</label>
+              <input id="robs" [(ngModel)]="remision.observacion" name="robs"
+                     placeholder="Por qué se remite (queda en la bitácora)" />
+            </div>
+
+            <label class="chk">
+              <input type="checkbox" [(ngModel)]="remision.exclusivo" name="rexc" />
+              <span>Trasladar: sacarlo de la cola de la agencia actual (si no, ambas lo atienden)</span>
+            </label>
+
+            <div class="acciones-remitir">
+              <button type="button" class="btn btn--ghost" (click)="mostrarRemitir = false">Cancelar</button>
+              <button type="button" class="btn btn--primary" (click)="remitir()" [disabled]="remitiendo()">
+                {{ remitiendo() ? 'Remitiendo…' : 'Remitir' }}
+              </button>
+            </div>
+          </div>
+        </div>
+
         <div class="acciones">
           <label>Cambiar estado</label>
           <div class="botones">

@@ -11,8 +11,22 @@ export class CasosService {
 
   constructor(private http: HttpClient) {}
 
-  listar(): Observable<Caso[]> {
-    return this.http.get<Caso[]>(this.base);
+  /**
+   * Bandeja del secad. Con `soloMisCanales` se acota a las colas que atiende el
+   * funcionario, que es la vista de despacho de su entidad.
+   */
+  listar(soloMisCanales = false): Observable<Caso[]> {
+    return this.http.get<Caso[]>(soloMisCanales ? `${this.base}?vista=mis-canales` : this.base);
+  }
+
+  /** Remite el caso a canales de otra agencia (sumando o trasladando). */
+  remitir(id: string, dto: {
+    agenciaResponsableId?: string;
+    canales: string[];
+    observacion?: string;
+    exclusivo?: boolean;
+  }): Observable<Caso> {
+    return this.http.post<Caso>(`${this.base}/${id}/remitir`, dto);
   }
 
   crear(dto: CrearCaso): Observable<Caso> {

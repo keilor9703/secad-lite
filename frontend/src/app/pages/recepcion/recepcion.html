@@ -13,6 +13,12 @@
     <div class="kpi"><span class="n">{{ enGestion() }}</span><span class="l">En gestión</span></div>
   </div>
 
+  <!-- Vista: la cola de mi entidad o toda la bandeja del secad -->
+  <div class="vista-tabs" role="group" aria-label="Vista de la bandeja">
+    <button type="button" [class.on]="!soloMisCanales()" (click)="cambiarVista(false)">Todos los casos</button>
+    <button type="button" [class.on]="soloMisCanales()" (click)="cambiarVista(true)">Mis canales</button>
+  </div>
+
   <p class="error" *ngIf="error()">{{ error() }}</p>
 
   <!-- Formulario de recepción -->
@@ -160,7 +166,7 @@
       <thead>
         <tr>
           <th>ID</th><th>Canal</th><th>Título</th><th>Ciudadano</th>
-          <th>Agencia</th><th>Estado</th><th>Acciones</th>
+          <th>Agencia</th><th>Canales</th><th>Estado</th><th>Acciones</th>
         </tr>
       </thead>
       <tbody>
@@ -170,6 +176,7 @@
           <td class="titulo"><a [routerLink]="['/recepcion', c.id]">{{ c.titulo }}</a></td>
           <td>{{ c.ciudadano }}</td>
           <td>{{ c.agencia }}</td>
+          <td class="mono canales-col">{{ canalesDe(c) }}</td>
           <td><span class="badge" [attr.data-estado]="c.estado">{{ estadoLabel(c.estado) }}</span></td>
           <td>
             <select class="acc" [ngModel]="c.estado" (ngModelChange)="cambiarEstado(c, $event)">

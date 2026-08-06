@@ -93,3 +93,12 @@ tbody tr:last-child td { border-bottom: none; }
   .form-panel .grid, .form-panel .grid.coords { grid-template-columns: 1fr 1fr; }
   .form-panel .grid .span2, .form-panel .grid .span4 { grid-column: 1 / -1; }
 }
+
+/* Alternar entre la cola de mi entidad y toda la bandeja del secad. */
+.vista-tabs { display: inline-flex; gap: 2px; padding: 2px; margin-bottom: 0.2rem;
+              border: 1px solid var(--border); border-radius: 999px; background: var(--surface-2); }
+.vista-tabs button { border: none; background: transparent; cursor: pointer; color: var(--ink-soft);
+                     font: inherit; font-size: 0.85rem; padding: 0.3rem 0.9rem; border-radius: 999px; }
+.vista-tabs button.on { background: var(--surface); color: var(--accent); font-weight: 600;
+                        box-shadow: 0 1px 2px rgba(0,0,0,0.12); }
+.canales-col { font-size: 0.8rem; color: var(--ink-soft); }

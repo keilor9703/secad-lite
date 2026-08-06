@@ -71,6 +71,72 @@ export class DetalleComponent implements OnInit, OnDestroy {
     this.catalogos.canales().subscribe({ next: (c) => this.canalesAtencion.set(c), error: () => {} });
   }
 
+  // --- Remisión a otra entidad ------------------------------------------------
+
+  mostrarRemitir = false;
+  remision = { agenciaId: '', canales: [] as string[], observacion: '', exclusivo: false };
+  readonly remitiendo = signal(false);
+
+  /** Agencias a las que se puede remitir. */
+  agenciasActivas(): Agencia[] {
+    return this.agencias().filter((a) => a.activo);
+  }
+
+  /** Canales de la agencia elegida como destino. */
+  canalesDestino(): CanalAtencion[] {
+    const id = this.remision.agenciaId;
+    return id ? this.canalesAtencion().filter((c) => c.agenciaId === id && c.activo) : [];
+  }
+
+  abrirRemitir(): void {
+    this.remision = { agenciaId: '', canales: [], observacion: '', exclusivo: false };
+    this.mostrarRemitir = true;
+  }
+
+  cambiarAgenciaDestino(id: string): void {
+    this.remision.agenciaId = id;
+    this.remision.canales = []; // los canales eran de la agencia anterior
+  }
+
+  canalRemisionMarcado(id: string): boolean {
+    return this.remision.canales.includes(id);
+  }
+
+  alternarCanalRemision(id: string): void {
+    this.remision.canales = this.canalRemisionMarcado(id)
+      ? this.remision.canales.filter((c) => c !== id)
+      : [...this.remision.canales, id];
+  }
+
+  remitir(): void {
+    if (!this.remision.agenciaId || !this.remision.canales.length) {
+      this.error.set('Elija la agencia destino y al menos un canal.');
+      return;
+    }
+    if (this.remision.exclusivo &&
+        !window.confirm('El caso saldrá de la cola de la agencia actual y quedará solo en la nueva. ¿Continuar?')) {
+      return;
+    }
+    this.remitiendo.set(true);
+    this.casosSvc.remitir(this.id, {
+      agenciaResponsableId: this.remision.agenciaId,
+      canales: this.remision.canales,
+      observacion: this.remision.observacion.trim() || undefined,
+      exclusivo: this.remision.exclusivo,
+    }).subscribe({
+      next: (c) => {
+        this.caso.set(c);
+        this.remitiendo.set(false);
+        this.mostrarRemitir = false;
+        this.cargarAuditoria();
+      },
+      error: (e) => {
+        this.remitiendo.set(false);
+        this.error.set(e?.error?.message ?? 'No fue posible remitir el caso.');
+      },
+    });
+  }
+
   /** Nombre de la agencia; los casos antiguos no la tienen. */
   nombreAgencia(id: string | null | undefined): string {
     if (!id) return '—';
@@ -159,12 +225,10 @@ export class DetalleComponent implements OnInit, OnDestroy {
   }
 
   cambiarEstado(estado: EstadoCaso): void {
-    let agencia: string | undefined;
-    if (estado === 'derivado') {
-      const dest = window.prompt('Agencia destino para derivar:', this.caso()?.agencia);
-      if (!dest?.trim()) return;
-      agencia = dest.trim();
-    }
+    // Derivar deja de ser un texto libre: se hace con el panel de remisión, que
+    // elige agencia y canales reales del catálogo.
+    if (estado === 'derivado') { this.abrirRemitir(); return; }
+    const agencia: string | undefined = undefined;
     if (estado === 'cerrado' && this.asignaciones().some((a) => this.activa(a))
         && !window.confirm('El caso tiene recursos en atención. Al cerrar se liberarán automáticamente. ¿Continuar?')) {
       return;

@@ -41,6 +41,11 @@ export class RecepcionComponent {
   private auth = inject(AuthService);
 
   readonly casos = signal<Caso[]>([]);
+  /**
+   * Vista de la bandeja. Quien atiende canales arranca viendo su cola; quien no
+   * tiene ninguno asignado (recepción central, supervisión) ve todo el secad.
+   */
+  readonly soloMisCanales = signal(false);
   readonly cargando = signal(false);
   readonly error = signal('');
   readonly guardando = signal(false);
@@ -90,15 +95,20 @@ export class RecepcionComponent {
     // de instancia, se recargan solos con los datos de la nueva.
     effect(() => {
       this.auth.tenantActivo();
-      this.cargar();
       this.cargarCatalogos();
+      this.cargar();
     });
+  }
+
+  cambiarVista(soloMias: boolean): void {
+    this.soloMisCanales.set(soloMias);
+    this.cargar();
   }
 
   cargar(): void {
     this.cargando.set(true);
     this.error.set('');
-    this.casosSvc.listar().subscribe({
+    this.casosSvc.listar(this.soloMisCanales()).subscribe({
       next: (data) => { this.casos.set(data); this.cargando.set(false); },
       error: () => { this.error.set('No fue posible cargar la bandeja.'); this.cargando.set(false); },
     });
@@ -295,6 +305,14 @@ export class RecepcionComponent {
       next: (act) => this.casos.update((cs) => cs.map((c) => (c.id === act.id ? act : c))),
       error: () => this.error.set('No fue posible actualizar el estado.'),
     });
+  }
+
+  /** Códigos de los canales de un caso, para la columna de la bandeja. */
+  canalesDe(caso: Caso): string {
+    const ids = caso.canales ?? [];
+    if (!ids.length) return '—';
+    const cods = this.canalesAtencion().filter((c) => ids.includes(c.id)).map((c) => c.codigo);
+    return cods.length ? cods.join(', ') : '—';
   }
 
   // --- Etiquetas --------------------------------------------------------------
