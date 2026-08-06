@@ -12,16 +12,38 @@ el archivo completo e informa qué haría.
 
 El listado oficial de tipificación (cientos o miles de filas).
 
-```bash
-cd backend
-export DATABASE_URL="postgres://usuario:clave@servidor:5432/secad_lite"
+> **Antes de la primera corrida hay que compilar.** Las utilidades viven en
+> `dist/`, que no está versionado:
+>
+> ```bash
+> cd backend
+> npm install
+> npm run build
+> ```
 
+La conexión sale de `DATABASE_URL`. Si el `backend/.env` ya la tiene (lo normal
+cuando la aplicación corre en esa máquina), no hay que hacer nada más; si no:
+
+```bash
+# Linux / macOS
+export DATABASE_URL="postgres://usuario:clave@servidor:5432/secad_lite"
+```
+
+```powershell
+# Windows PowerShell
+$env:DATABASE_URL = "postgres://usuario:clave@servidor:5432/secad_lite"
+```
+
+```bash
 # 1) Revisar sin escribir
 npm run importar:codigos -- codigos.csv --tenant envigado --agencia POLICIA --dry-run
 
 # 2) Cargar
 npm run importar:codigos -- codigos.csv --tenant envigado --agencia POLICIA
 ```
+
+En PowerShell, el `--` que separa los argumentos funciona igual; si diera
+problemas, se puede llamar directo: `node dist/scripts/importar-codigos.js codigos.csv --tenant envigado --dry-run`.
 
 **Columnas** (el encabezado se reconoce sin importar mayúsculas, tildes ni
 signos; entre paréntesis, otros nombres aceptados):
