@@ -4,29 +4,54 @@ export type EstadoCaso = 'nuevo' | 'en_gestion' | 'despachado' | 'derivado' | 'c
 export interface Caso {
   id: string;
   tenant: string;
+  /** Medio por el que entró el caso. */
   canal: Canal;
   titulo: string;
+  /** Relato de lo ocurrido (el comentario del operador). */
   descripcion: string;
   ciudadano: string;
   telefono?: string;
-  agencia: string;
+  direccionLlamante?: string | null;
+  /** Tipificación: código del catálogo y prioridad resultante. */
+  codigoCaso?: string | null;
+  prioridad?: PrioridadCaso;
+  /** Ubicación del incidente. */
+  ciudad?: string | null;
+  barrio?: string | null;
+  direccion?: string | null;
   lat?: number | null;
   lng?: number | null;
+  /** Nombre de la agencia responsable (denormalizado, para listados). */
+  agencia: string;
+  agenciaOrigenId?: string | null;
+  agenciaResponsableId?: string | null;
+  /** Canales de atención a los que se envió. */
+  canales?: string[] | null;
   estado: EstadoCaso;
   creadoPor: string;
   creadoEn: string;
   actualizadoEn: string;
 }
 
+/** Formulario de recepción. La agencia de origen la pone el backend con el JWT. */
 export interface CrearCaso {
   canal: Canal;
-  titulo: string;
+  titulo?: string;
   descripcion?: string;
   ciudadano: string;
   telefono?: string;
-  agencia?: string;
+  direccionLlamante?: string;
+  codigoCaso?: string;
+  prioridad?: PrioridadCaso;
+  ciudad?: string;
+  barrio?: string;
+  direccion?: string;
   lat?: number | null;
   lng?: number | null;
+  agenciaResponsableId?: string;
+  canales?: string[];
+  /** Compatibilidad: nombre de agencia en texto (API entrante). */
+  agencia?: string;
 }
 
 // --- PBX / planta telefónica ---

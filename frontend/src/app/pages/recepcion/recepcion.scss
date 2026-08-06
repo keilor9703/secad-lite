@@ -48,3 +48,48 @@ tbody tr:last-child td { border-bottom: none; }
 .badge[data-estado="cerrado"]    { background: var(--surface-2); color: var(--muted); }
 
 .acc { width: auto; min-width: 130px; padding: 0.35rem 0.5rem; font-size: 0.82rem; }
+
+/* --- Formulario de recepción (estilo CAD) --------------------------------- */
+.fp-head { display: flex; align-items: baseline; justify-content: space-between; gap: 1rem; flex-wrap: wrap; }
+.fp-meta { font-size: 0.8rem; color: var(--muted); font-family: var(--mono); }
+
+.form-panel fieldset {
+  border: 1px solid var(--border); border-radius: var(--radius-sm);
+  padding: 0.9rem 1rem 1rem; margin: 0.9rem 0 0;
+}
+.form-panel legend {
+  padding: 0 0.4rem; font-size: 0.78rem; font-weight: 700;
+  text-transform: uppercase; letter-spacing: 0.06em; color: var(--accent);
+}
+.form-panel .grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 0.7rem; }
+.form-panel .grid .span2 { grid-column: span 2; }
+.form-panel .grid .span4 { grid-column: 1 / -1; }
+.form-panel .grid.coords { grid-template-columns: repeat(4, 1fr); margin-top: 0.6rem; }
+.form-panel input[readonly] { background: var(--surface-2); color: var(--muted); }
+
+.con-boton { display: flex; gap: 0.4rem; }
+.con-boton input { flex: 1; }
+.con-boton .btn { white-space: nowrap; }
+
+.mapa-hint { margin: 0.8rem 0 0.4rem; font-size: 0.8rem; color: var(--muted); }
+.mapa { height: 300px; border-radius: var(--radius-sm); border: 1px solid var(--border-2); overflow: hidden; }
+/* El marcador se dibuja en HTML para no depender de los PNG de Leaflet. */
+:host ::ng-deep .pin-caso { font-size: 1.5rem; line-height: 1; text-align: center; }
+/* Las teselas y controles del mapa se atenúan en modo oscuro. */
+:host ::ng-deep .leaflet-control-attribution { font-size: 0.65rem; }
+
+.canales-box { display: flex; align-items: center; gap: 0.5rem; flex-wrap: wrap; margin-top: 0.7rem; }
+.canales-lbl { font-size: 0.8rem; font-weight: 600; color: var(--ink-soft); }
+.chip {
+  display: inline-flex; align-items: center; gap: 0.35rem; font-size: 0.82rem; cursor: pointer;
+  border: 1px solid var(--border-2); border-radius: 999px; padding: 0.2rem 0.6rem;
+}
+.chip input { width: auto; }
+.vacio-inline { color: var(--muted); font-size: 0.82rem; }
+
+.acciones { display: flex; justify-content: flex-end; gap: 0.6rem; margin-top: 1rem; }
+
+@media (max-width: 900px) {
+  .form-panel .grid, .form-panel .grid.coords { grid-template-columns: 1fr 1fr; }
+  .form-panel .grid .span2, .form-panel .grid .span4 { grid-column: 1 / -1; }
+}

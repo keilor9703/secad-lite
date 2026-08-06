@@ -15,48 +15,142 @@
 
   <p class="error" *ngIf="error()">{{ error() }}</p>
 
-  <!-- Formulario de nuevo caso -->
+  <!-- Formulario de recepción -->
   <div class="form-panel card" *ngIf="mostrarForm">
-    <h2>Recepcionar caso</h2>
-    <div class="grid">
-      <div class="field">
-        <label>Canal</label>
-        <select [(ngModel)]="form.canal">
-          <option *ngFor="let c of canales" [value]="c">{{ canalIcon(c) }} {{ canalLabel(c) }}</option>
-        </select>
-      </div>
-      <div class="field">
-        <label>Agencia responsable</label>
-        <input [(ngModel)]="form.agencia" placeholder="p. ej. Policía, Tránsito, Bomberos" />
-      </div>
-      <div class="field span2">
-        <label>Título *</label>
-        <input [(ngModel)]="form.titulo" placeholder="Motivo del caso" />
-      </div>
-      <div class="field">
-        <label>Ciudadano *</label>
-        <input [(ngModel)]="form.ciudadano" placeholder="Nombre del reportante" />
-      </div>
-      <div class="field">
-        <label>Teléfono</label>
-        <input [(ngModel)]="form.telefono" placeholder="Opcional" />
-      </div>
-      <div class="field">
-        <label>Latitud</label>
-        <input type="number" step="any" [(ngModel)]="form.lat" placeholder="Opcional — despacho por cercanía" />
-      </div>
-      <div class="field">
-        <label>Longitud</label>
-        <input type="number" step="any" [(ngModel)]="form.lng" placeholder="Opcional" />
-      </div>
-      <div class="field span2">
-        <label>Descripción</label>
-        <textarea [(ngModel)]="form.descripcion" rows="2" placeholder="Detalle (opcional)"></textarea>
-      </div>
+    <div class="fp-head">
+      <h2>Recepcionar caso</h2>
+      <span class="fp-meta">{{ abiertoEn | date: 'dd/MM/yyyy HH:mm' }} · {{ sesionUsuario() }}</span>
     </div>
-    <div class="form-actions">
+
+    <!-- 1. Cómo entra y quién reporta -->
+    <fieldset>
+      <legend>Origen y reportante</legend>
+      <div class="grid">
+        <div class="field">
+          <label for="fmedio">Medio de comunicación</label>
+          <select id="fmedio" [(ngModel)]="form.canal" name="fmedio">
+            <option *ngFor="let c of canales" [value]="c">{{ canalIcon(c) }} {{ canalLabel(c) }}</option>
+          </select>
+        </div>
+        <div class="field">
+          <label>Entidad de origen</label>
+          <input [value]="agenciaOrigen()?.nombre || 'Sin agencia asignada'" readonly
+                 title="La entidad del funcionario que recepciona; no se edita." />
+        </div>
+        <div class="field">
+          <label for="fllam">Quién reporta *</label>
+          <input id="fllam" [(ngModel)]="form.ciudadano" name="fllam" placeholder="Nombre del llamante" />
+        </div>
+        <div class="field">
+          <label for="ftel">Teléfono</label>
+          <input id="ftel" [(ngModel)]="form.telefono" name="ftel" placeholder="Abonado" />
+        </div>
+        <div class="field span2">
+          <label for="fdirll">Dirección de quien llama</label>
+          <input id="fdirll" [(ngModel)]="form.direccionLlamante" name="fdirll"
+                 placeholder="Solo si es distinta a la del caso" />
+        </div>
+      </div>
+    </fieldset>
+
+    <!-- 2. Tipificación -->
+    <fieldset>
+      <legend>Tipificación del caso</legend>
+      <div class="grid">
+        <div class="field">
+          <label for="fcod">Código de caso</label>
+          <input id="fcod" [(ngModel)]="form.codigoCaso" name="fcod" list="codigosCaso"
+                 (change)="aplicarCodigo()" placeholder="p. ej. 102" />
+          <datalist id="codigosCaso">
+            <option *ngFor="let c of codigos()" [value]="c.codigo">{{ c.codigo }} — {{ c.descripcion }}</option>
+          </datalist>
+        </div>
+        <div class="field">
+          <label for="fpri">Prioridad</label>
+          <select id="fpri" [(ngModel)]="form.prioridad" name="fpri">
+            <option *ngFor="let p of prioridades" [value]="p">{{ p }}</option>
+          </select>
+        </div>
+        <div class="field span2">
+          <label for="ftit">Descripción del caso</label>
+          <input id="ftit" [(ngModel)]="form.titulo" name="ftit"
+                 placeholder="Se completa con el código; puede ajustarla" />
+        </div>
+        <div class="field span4">
+          <label for="fcom">Comentario / relato</label>
+          <textarea id="fcom" [(ngModel)]="form.descripcion" name="fcom" rows="3"
+                    placeholder="Lo que narra quien reporta"></textarea>
+        </div>
+      </div>
+    </fieldset>
+
+    <!-- 3. Ubicación -->
+    <fieldset>
+      <legend>Ubicación del caso</legend>
+      <div class="grid">
+        <div class="field">
+          <label for="fciu">Ciudad / Municipio</label>
+          <input id="fciu" [(ngModel)]="form.ciudad" name="fciu" />
+        </div>
+        <div class="field">
+          <label for="fbar">Barrio</label>
+          <input id="fbar" [(ngModel)]="form.barrio" name="fbar" />
+        </div>
+        <div class="field span2">
+          <label for="fdir">Dirección del caso</label>
+          <div class="con-boton">
+            <input id="fdir" [(ngModel)]="form.direccion" name="fdir" placeholder="Cra 43 # 38-50" />
+            <button type="button" class="btn btn--ghost" (click)="buscarDireccion()" [disabled]="buscandoDireccion">
+              {{ buscandoDireccion ? 'Buscando…' : 'Buscar en el mapa' }}
+            </button>
+          </div>
+        </div>
+      </div>
+      <p class="mapa-hint">Haga clic en el mapa para fijar el punto: la dirección, el barrio y la
+        ciudad se completan solos.</p>
+      <div id="mapaCaso" class="mapa"></div>
+      <div class="grid coords">
+        <div class="field">
+          <label for="flat">Latitud</label>
+          <input id="flat" type="number" [(ngModel)]="form.lat" name="flat" step="0.000001" />
+        </div>
+        <div class="field">
+          <label for="flng">Longitud</label>
+          <input id="flng" type="number" [(ngModel)]="form.lng" name="flng" step="0.000001" />
+        </div>
+      </div>
+    </fieldset>
+
+    <!-- 4. A quién se envía -->
+    <fieldset>
+      <legend>Atención</legend>
+      <div class="grid">
+        <div class="field span2">
+          <label for="fag">Agencia responsable</label>
+          <select id="fag" [ngModel]="form.agenciaResponsableId" name="fag"
+                  (ngModelChange)="cambiarAgencia($event)">
+            <option [ngValue]="null">— seleccione —</option>
+            <option *ngFor="let a of agencias()" [ngValue]="a.id">{{ a.nombre }}</option>
+          </select>
+        </div>
+      </div>
+      <div class="canales-box" *ngIf="form.agenciaResponsableId">
+        <span class="canales-lbl">Canales de atención</span>
+        <label class="chip" *ngFor="let c of canalesDisponibles()">
+          <input type="checkbox" [checked]="canalMarcado(c.id)" (change)="alternarCanal(c.id)" />
+          <span>{{ c.codigo }} · {{ c.nombre }}</span>
+        </label>
+        <span class="vacio-inline" *ngIf="!canalesDisponibles().length">
+          Esa agencia no tiene canales activos.
+        </span>
+      </div>
+    </fieldset>
+
+    <div class="acciones">
       <button type="button" class="btn btn--ghost" (click)="cerrarForm()">Cancelar</button>
-      <button type="button" class="btn btn--primary" (click)="crear()">Guardar caso</button>
+      <button type="button" class="btn btn--primary" (click)="crear()" [disabled]="guardando()">
+        {{ guardando() ? 'Guardando…' : 'Guardar caso' }}
+      </button>
     </div>
   </div>
 
