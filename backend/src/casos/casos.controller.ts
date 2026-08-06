@@ -36,7 +36,8 @@ export class CasosController {
   @Permisos('casos.crear')
   @Post()
   crear(@Tenant() tenant: string, @Usuario() usuario: JwtPayload, @Body() dto: CrearCasoDto) {
-    return this.casos.crear(tenant, dto, usuario?.sub ?? 'desconocido');
+    // El origen del caso es SIEMPRE la agencia del funcionario, nunca el cuerpo.
+    return this.casos.crear(tenant, dto, usuario?.sub ?? 'desconocido', usuario?.agencia ?? null);
   }
 
   /** POST /api/casos/:id/notas — agregar una nota a la bitácora. */

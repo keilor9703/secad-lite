@@ -1,5 +1,5 @@
 import { Column, CreateDateColumn, Entity, Index, PrimaryGeneratedColumn, UpdateDateColumn } from 'typeorm';
-import { Canal, EstadoCaso } from './caso.model';
+import { Canal, EstadoCaso, PrioridadCaso } from './caso.model';
 
 /**
  * Tabla de casos. Modelo multitenant "pooled": una sola tabla para todos los
@@ -44,6 +44,46 @@ export class CasoEntity {
   /** Entidad externa que radicó el caso por la API entrante (si aplica). */
   @Column({ type: 'uuid', nullable: true })
   entidadId?: string | null;
+
+  // --- Tipificación (código de caso) -----------------------------------------
+
+  /** Código de caso digitado en recepción (codigos_caso.codigo). */
+  @Column({ type: 'varchar', length: 16, nullable: true })
+  codigoCaso?: string | null;
+
+  @Column({ type: 'varchar', length: 10, default: 'media' })
+  prioridad!: PrioridadCaso;
+
+  // --- Datos de quien reporta -------------------------------------------------
+
+  /** Dirección del llamante, que no siempre coincide con la del caso. */
+  @Column({ type: 'varchar', length: 200, nullable: true })
+  direccionLlamante?: string | null;
+
+  // --- Ubicación del caso -----------------------------------------------------
+
+  @Column({ type: 'varchar', length: 120, nullable: true })
+  ciudad?: string | null;
+
+  @Column({ type: 'varchar', length: 120, nullable: true })
+  barrio?: string | null;
+
+  @Column({ type: 'varchar', length: 200, nullable: true })
+  direccion?: string | null;
+
+  // --- Atención ---------------------------------------------------------------
+
+  /** Agencia desde la que se recepcionó (la del funcionario que lo registra). */
+  @Column({ type: 'uuid', nullable: true })
+  agenciaOrigenId?: string | null;
+
+  /** Agencia que debe atenderlo (la que elige el operador). */
+  @Column({ type: 'uuid', nullable: true })
+  agenciaResponsableId?: string | null;
+
+  /** Canales de atención a los que se envió (canales.id). */
+  @Column({ type: 'simple-array', nullable: true })
+  canales?: string[] | null;
 
   @Column({ type: 'varchar', length: 20, default: 'nuevo' })
   estado!: EstadoCaso;

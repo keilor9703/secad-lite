@@ -1,6 +1,6 @@
 import { BadRequestException, ConflictException, ForbiddenException, Injectable, Logger, NotFoundException, OnModuleInit } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository } from 'typeorm';
+import { IsNull, Repository } from 'typeorm';
 import * as bcrypt from 'bcryptjs';
 import { UsuarioEntity } from './usuario.entity';
 import { RolesService } from '../roles/roles.service';
@@ -229,6 +229,14 @@ export class UsuariosService implements OnModuleInit {
         await asegurar({ username: 'admin1', nombre: 'Administrador', rol: 'admin', tenant: 'demo' });
         await asegurar({ username: 'supervisor1', nombre: 'Supervisor Uno', rol: 'supervisor', tenant: 'demo' });
         await asegurar({ username: 'operador1', nombre: 'Operador Uno', rol: 'operador', tenant: 'demo' });
+      }
+
+      // Los usuarios de demostración quedan adscritos a la central de
+      // emergencias: sin agencia no podrían recepcionar con origen.
+      await this.catalogos.asegurarSeed('demo');
+      const central = (await this.catalogos.listarAgencias('demo')).find((a) => a.codigo === 'CENTRAL');
+      if (central) {
+        await this.repo.update({ tenant: 'demo', agenciaId: IsNull() }, { agenciaId: central.id });
       }
     } catch (e) {
       this.logger.warn(`Seed de usuarios demo omitido: ${(e as Error).message}`);

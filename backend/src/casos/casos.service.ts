@@ -3,7 +3,8 @@ import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { CasoEntity } from './caso.entity';
 import { EventoCasoEntity, TipoEvento } from './evento.entity';
-import { CANALES, EstadoCaso, ESTADOS } from './caso.model';
+import { CANALES, EstadoCaso, ESTADOS, PRIORIDADES } from './caso.model';
+import { CatalogosService } from '../catalogos/catalogos.service';
 import { DespachoService } from '../despacho/despacho.service';
 
 /** Contexto mínimo del actor (subconjunto del JWT) para auditoría y permisos. */
@@ -11,6 +12,8 @@ export interface Actor {
   sub: string;
   rol: string;
   permisos: string[];
+  /** Agencia del funcionario; queda como origen de lo que recepcione. */
+  agencia?: string | null;
 }
 import { CrearCasoDto } from './dto/crear-caso.dto';
 import { CambiarEstadoDto } from './dto/cambiar-estado.dto';
@@ -28,6 +31,7 @@ export class CasosService implements OnModuleInit {
     @InjectRepository(EventoCasoEntity)
     private readonly eventos: Repository<EventoCasoEntity>,
     private readonly despacho: DespachoService,
+    private readonly catalogos: CatalogosService,
   ) {}
 
   async onModuleInit(): Promise<void> {
@@ -50,20 +54,39 @@ export class CasosService implements OnModuleInit {
     return this.eventos.find({ where: { tenant, casoId }, order: { creadoEn: 'ASC' } });
   }
 
-  async crear(tenant: string, dto: CrearCasoDto, usuario: string): Promise<CasoEntity> {
-    if (!dto?.titulo?.trim()) throw new BadRequestException('El título es obligatorio.');
+  async crear(tenant: string, dto: CrearCasoDto, usuario: string, agenciaOrigenId?: string | null): Promise<CasoEntity> {
     if (!dto?.ciudadano?.trim()) throw new BadRequestException('El ciudadano es obligatorio.');
     if (!CANALES.includes(dto.canal)) throw new BadRequestException('Canal inválido.');
+    if (dto.prioridad && !PRIORIDADES.includes(dto.prioridad)) throw new BadRequestException('Prioridad inválida.');
+
+    // La tipificación manda: de ella salen el resumen y la prioridad si el
+    // operador no los sobreescribe, igual que en el CAD completo.
+    const tipificacion = await this.tipificar(tenant, dto.codigoCaso);
+    const titulo = (dto.titulo?.trim() || tipificacion?.descripcion || '').trim();
+    if (!titulo) throw new BadRequestException('Indique el código de caso o un título.');
+
+    const { responsable, canales } = await this.resolverAtencion(tenant, dto, tipificacion?.agenciaSugeridaId ?? null);
 
     const caso = await this.repo.save(
       this.repo.create({
         tenant,
         canal: dto.canal,
-        titulo: dto.titulo.trim(),
+        titulo,
         descripcion: dto.descripcion?.trim() ?? '',
         ciudadano: dto.ciudadano.trim(),
         telefono: dto.telefono?.trim() || null,
-        agencia: dto.agencia?.trim() || 'Central',
+        direccionLlamante: dto.direccionLlamante?.trim() || null,
+        codigoCaso: tipificacion?.codigo ?? null,
+        prioridad: dto.prioridad ?? tipificacion?.prioridad ?? 'media',
+        ciudad: dto.ciudad?.trim() || null,
+        barrio: dto.barrio?.trim() || null,
+        direccion: dto.direccion?.trim() || null,
+        // `agencia` (texto) se conserva denormalizada: es lo que agrupan las
+        // métricas y lo que traen los casos antiguos y la API entrante.
+        agencia: responsable?.nombre ?? dto.agencia?.trim() ?? 'Central',
+        agenciaOrigenId: agenciaOrigenId ?? null,
+        agenciaResponsableId: responsable?.id ?? null,
+        canales: canales.map((c) => c.id),
         lat: typeof dto.lat === 'number' ? dto.lat : null,
         lng: typeof dto.lng === 'number' ? dto.lng : null,
         entidadId: dto.entidadId ?? null,
@@ -71,8 +94,35 @@ export class CasosService implements OnModuleInit {
         creadoPor: usuario,
       }),
     );
-    await this.registrar(tenant, caso.id, 'creacion', `Caso recepcionado por ${caso.canal}.`, usuario);
+    const destino = canales.length
+      ? ` Enviado a ${canales.map((c) => c.codigo).join(', ')} (${responsable?.nombre ?? 'sin agencia'}).`
+      : '';
+    await this.registrar(tenant, caso.id, 'creacion', `Caso recepcionado por ${caso.canal}.${destino}`, usuario);
     return caso;
+  }
+
+  /** Busca el código de caso del secad; ignora en silencio uno desconocido. */
+  private async tipificar(tenant: string, codigo?: string) {
+    if (!codigo?.trim()) return null;
+    const buscado = codigo.trim().toUpperCase();
+    const todos = await this.catalogos.listarCodigos(tenant);
+    return todos.find((c) => c.codigo.toUpperCase() === buscado) ?? null;
+  }
+
+  /**
+   * Resuelve a quién se envía el caso: la agencia responsable que eligió el
+   * operador (o la sugerida por el código) y los canales de esa agencia. Los
+   * canales se validan contra la agencia para que no se cuele la cola de otra.
+   */
+  private async resolverAtencion(tenant: string, dto: CrearCasoDto, sugerida: string | null) {
+    const id = dto.agenciaResponsableId ?? sugerida;
+    if (!id) {
+      if (dto.canales?.length) throw new BadRequestException('Indique la agencia responsable de los canales.');
+      return { responsable: null, canales: [] };
+    }
+    const responsable = await this.catalogos.agenciaDe(tenant, id);
+    const canales = await this.catalogos.validarCanales(tenant, dto.canales ?? [], responsable.id);
+    return { responsable, canales };
   }
 
   async cambiarEstado(tenant: string, id: string, dto: CambiarEstadoDto, actor: Actor): Promise<CasoEntity> {
