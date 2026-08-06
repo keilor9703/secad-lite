@@ -94,6 +94,9 @@ tbody tr:last-child td { border-bottom: none; }
   .form-panel .grid .span2, .form-panel .grid .span4 { grid-column: 1 / -1; }
 }
 
+/* Aviso del alcance de la bandeja (lo aplica el servidor). */
+.alcance { margin: 0; font-size: 0.82rem; color: var(--muted); }
+
 /* Alternar entre la cola de mi entidad y toda la bandeja del secad. */
 .vista-tabs { display: inline-flex; gap: 2px; padding: 2px; margin-bottom: 0.2rem;
               border: 1px solid var(--border); border-radius: 999px; background: var(--surface-2); }

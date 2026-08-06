@@ -23,6 +23,11 @@ export class ShellComponent implements OnInit {
 
   readonly sesion = this.auth.sesion;
   readonly esAdmin = this.auth.esAdmin;
+  // Cada módulo se muestra solo si el rol tiene el permiso que lo gobierna.
+  readonly puedeVerCasos = computed(() => this.auth.tienePermiso('casos.ver'));
+  readonly puedeVerLlamadas = computed(() => this.auth.tienePermiso('pbx.usar'));
+  readonly puedeVerRecursos = computed(() => this.auth.tienePermiso('recursos.ver'));
+  readonly puedeVerPanel = computed(() => this.auth.tienePermiso('metricas.ver'));
   readonly esSuperadmin = this.auth.esSuperadmin;
   readonly tenantCtx = this.auth.tenantCtx;
   /** Instancias disponibles para el selector del superadmin. */
@@ -38,6 +43,8 @@ export class ShellComponent implements OnInit {
   readonly operativoVisible = computed(() => !this.esSuperadmin() || !!this.tenantCtx());
 
   ngOnInit(): void {
+    // Los permisos del token pueden estar desactualizados: se piden los vigentes.
+    this.auth.refrescarPerfil();
     const s = this.sesion();
     if (s?.tipo !== 'institucional') return;
     if (!this.esSuperadmin()) {

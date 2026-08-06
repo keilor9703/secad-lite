@@ -91,13 +91,37 @@
           </div>
         </div>
 
+        <!-- Caso cerrado: la reapertura pasa por autorización -->
+        <div class="reapertura" *ngIf="c.estado === 'cerrado'">
+          <p class="pendiente" *ngIf="c.reaperturaSolicitada">
+            ⏳ Reapertura solicitada por <strong>{{ c.reaperturaSolicitadaPor }}</strong>:
+            «{{ c.reaperturaMotivo }}»
+          </p>
+          <button type="button" class="btn btn--ghost" *ngIf="!mostrarReapertura"
+                  (click)="abrirReapertura()">
+            {{ puedeReabrir() ? '↩ Reabrir el caso' : '✋ Solicitar reapertura' }}
+          </button>
+          <div class="reapertura-form" *ngIf="mostrarReapertura">
+            <label for="rmot">{{ puedeReabrir() ? 'Observación de la reapertura' : 'Motivo de la solicitud' }}</label>
+            <textarea id="rmot" rows="2" [(ngModel)]="motivoReapertura" name="rmot"
+                      placeholder="Queda registrado en la trazabilidad del caso"></textarea>
+            <div class="acciones-remitir">
+              <button type="button" class="btn btn--ghost" (click)="mostrarReapertura = false">Cancelar</button>
+              <button type="button" class="btn btn--primary" (click)="enviarReapertura()"
+                      [disabled]="enviandoReapertura()">
+                {{ enviandoReapertura() ? 'Enviando…' : (puedeReabrir() ? 'Reabrir' : 'Enviar solicitud') }}
+              </button>
+            </div>
+          </div>
+        </div>
+
         <div class="acciones">
           <label>Cambiar estado</label>
           <div class="botones">
             <button *ngFor="let e of estados" type="button"
                     class="btn" [class.btn--primary]="e === c.estado"
-                    [disabled]="e === c.estado || bloqueado(e)"
-                    [title]="bloqueado(e) ? 'Requiere rol supervisor o admin' : ''"
+                    [disabled]="e === c.estado || bloqueadoPorPermiso(e)"
+                    [title]="bloqueadoPorPermiso(e) ? 'No disponible con sus permisos o con el caso cerrado' : ''"
                     (click)="cambiarEstado(e)">
               {{ estadoLabel(e) }}
             </button>

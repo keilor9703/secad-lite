@@ -28,6 +28,10 @@ export interface Caso {
   /** Canales de atención a los que se envió. */
   canales?: string[] | null;
   estado: EstadoCaso;
+  /** Solicitud de reapertura pendiente de que un supervisor la resuelva. */
+  reaperturaSolicitada?: boolean;
+  reaperturaMotivo?: string | null;
+  reaperturaSolicitadaPor?: string | null;
   creadoPor: string;
   creadoEn: string;
   actualizadoEn: string;

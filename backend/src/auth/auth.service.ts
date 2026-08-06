@@ -51,6 +51,25 @@ export class AuthService {
     return this.emitir(usuario, 'civil', usuario.split('@')[0], 'ciudadano', tenant, []);
   }
 
+  /**
+   * Estado vigente de la sesión. El token conserva lo que era cierto al iniciar
+   * sesión; esto devuelve lo que es cierto ahora (permisos del rol, agencia y
+   * canales asignados), que es lo que debe gobernar la interfaz.
+   */
+  async perfil(usuario: JwtPayload) {
+    if (usuario?.tipo === 'civil') {
+      return { usuario: usuario.sub, nombre: usuario.nombre, rol: usuario.rol, tipo: usuario.tipo,
+               tenant: usuario.tenant, permisos: [], agencia: null, canales: [] };
+    }
+    const u = await this.usuarios.buscarPorUsername(usuario?.sub ?? '');
+    if (!u) throw new UnauthorizedException('La cuenta no existe o fue desactivada.');
+    const permisos = await this.roles.permisosDe(u.tenant ?? null, u.rol);
+    return {
+      usuario: u.username, nombre: u.nombre, rol: u.rol, tipo: 'institucional' as const,
+      tenant: u.tenant ?? null, permisos, agencia: u.agenciaId ?? null, canales: u.canales ?? [],
+    };
+  }
+
   private emitir(
     sub: string,
     tipo: 'institucional' | 'civil',

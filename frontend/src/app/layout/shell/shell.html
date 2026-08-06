@@ -7,13 +7,13 @@
   <nav class="nav" *ngIf="sesion() as s">
     <ng-container *ngIf="s.tipo === 'institucional'; else navCivil">
       <ng-container *ngIf="operativoVisible()">
-        <a routerLink="/recepcion" routerLinkActive="active">Recepción</a>
-        <a routerLink="/llamadas" routerLinkActive="active" class="nav-llamadas">
+        <a routerLink="/recepcion" *ngIf="puedeVerCasos()" routerLinkActive="active">Recepción</a>
+        <a routerLink="/llamadas" *ngIf="puedeVerLlamadas()" routerLinkActive="active" class="nav-llamadas">
           Llamadas
           <span class="ring-badge" *ngIf="sonando().length">{{ sonando().length }}</span>
         </a>
-        <a routerLink="/recursos" routerLinkActive="active">Recursos</a>
-        <a routerLink="/dashboard" routerLinkActive="active">Panel</a>
+        <a routerLink="/recursos" *ngIf="puedeVerRecursos()" routerLinkActive="active">Recursos</a>
+        <a routerLink="/dashboard" *ngIf="puedeVerPanel()" routerLinkActive="active">Panel</a>
       </ng-container>
       <a *ngIf="esAdmin()" routerLink="/admin" routerLinkActive="active">Administración</a>
     </ng-container>

@@ -1,4 +1,4 @@
-import { Component, OnDestroy, OnInit, inject, signal } from '@angular/core';
+import { Component, OnDestroy, OnInit, computed, inject, signal } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { ActivatedRoute, RouterLink } from '@angular/router';
@@ -71,7 +71,56 @@ export class DetalleComponent implements OnInit, OnDestroy {
     this.catalogos.canales().subscribe({ next: (c) => this.canalesAtencion.set(c), error: () => {} });
   }
 
-  // --- Remisión a otra entidad ------------------------------------------------
+  // --- Reapertura de un caso cerrado ------------------------------------------
+
+  /** Solo un supervisor (casos.reabrir) reabre; el resto lo solicita. */
+  readonly puedeReabrir = computed(() => this.auth.tienePermiso('casos.reabrir'));
+  readonly puedeCerrar = computed(() => this.auth.tienePermiso('casos.cerrar'));
+  mostrarReapertura = false;
+  motivoReapertura = '';
+  readonly enviandoReapertura = signal(false);
+
+  abrirReapertura(): void {
+    this.motivoReapertura = '';
+    this.mostrarReapertura = true;
+  }
+
+  /**
+   * Con autorización reabre el caso; sin ella deja la solicitud para que un
+   * supervisor la resuelva. En ambos casos el motivo es obligatorio y queda en
+   * la trazabilidad.
+   */
+  enviarReapertura(): void {
+    const motivo = this.motivoReapertura.trim();
+    if (!motivo) { this.error.set('Escriba el motivo.'); return; }
+    this.enviandoReapertura.set(true);
+    const peticion = this.puedeReabrir()
+      ? this.casosSvc.reabrir(this.id, motivo)
+      : this.casosSvc.solicitarReapertura(this.id, motivo);
+    peticion.subscribe({
+      next: (c) => {
+        this.caso.set(c);
+        this.enviandoReapertura.set(false);
+        this.mostrarReapertura = false;
+        this.cargarAuditoria();
+      },
+      error: (e) => {
+        this.enviandoReapertura.set(false);
+        this.error.set(e?.error?.message ?? 'No fue posible procesar la reapertura.');
+      },
+    });
+  }
+
+  /** Estados que este funcionario puede fijar desde los botones. */
+  bloqueadoPorPermiso(estado: EstadoCaso): boolean {
+    const c = this.caso();
+    if (!c) return true;
+    if (estado === 'cerrado') return !this.puedeCerrar();
+    // Salir de 'cerrado' solo por la vía de la reapertura autorizada.
+    return c.estado === 'cerrado';
+  }
+
+    // --- Remisión a otra entidad ------------------------------------------------
 
   mostrarRemitir = false;
   remision = { agenciaId: '', canales: [] as string[], observacion: '', exclusivo: false };

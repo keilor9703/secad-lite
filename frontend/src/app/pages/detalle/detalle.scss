@@ -119,3 +119,15 @@
 .chk { display: flex; align-items: flex-start; gap: 0.45rem; font-size: 0.84rem; color: var(--ink-soft); }
 .chk input { width: auto; margin-top: 0.2rem; }
 .acciones-remitir { display: flex; justify-content: flex-end; gap: 0.5rem; }
+
+/* Reapertura de un caso cerrado (solicitud o autorización). */
+.reapertura { margin-top: 1rem; }
+.reapertura .pendiente {
+  margin: 0 0 0.5rem; padding: 0.5rem 0.7rem; font-size: 0.85rem;
+  background: var(--tag-warn-bg); color: var(--tag-warn-fg); border-radius: var(--radius-sm);
+}
+.reapertura-form {
+  display: flex; flex-direction: column; gap: 0.5rem; margin-top: 0.5rem;
+  border: 1px solid var(--border-2); border-radius: var(--radius-sm); padding: 0.8rem;
+}
+.reapertura-form label { font-size: 0.82rem; font-weight: 600; color: var(--ink-soft); }

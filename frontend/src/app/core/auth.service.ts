@@ -50,6 +50,26 @@ export class AuthService {
     return this.permiso(clave);
   }
 
+  /**
+   * Trae del servidor el rol, los permisos, la agencia y los canales vigentes y
+   * los aplica a la sesión guardada. Los del token quedaron congelados al
+   * iniciar sesión: sin esto, un permiso retirado seguiría pintando su módulo.
+   */
+  refrescarPerfil(): void {
+    if (!this._sesion()) return;
+    this.http.get<Partial<Sesion> & { permisos: string[] }>(`${this.base}/auth/perfil`).subscribe({
+      next: (p) => {
+        const actual = this._sesion();
+        if (!actual) return;
+        const fresca: Sesion = { ...actual, rol: p.rol ?? actual.rol, permisos: p.permisos, agencia: p.agencia ?? null };
+        this._sesion.set(fresca);
+        try { localStorage.setItem(STORAGE_KEY, JSON.stringify(fresca)); } catch { /* sin almacenamiento */ }
+      },
+      // Si la cuenta fue desactivada, el interceptor ya devolverá 401 en el resto.
+      error: () => {},
+    });
+  }
+
   login(usuario: string, contrasena: string): Observable<Sesion> {
     return this.http
       .post<Sesion>(`${this.base}/auth/login`, { usuario, contrasena })

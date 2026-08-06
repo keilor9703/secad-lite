@@ -15,8 +15,18 @@ export class CasosService {
    * Bandeja del secad. Con `soloMisCanales` se acota a las colas que atiende el
    * funcionario, que es la vista de despacho de su entidad.
    */
-  listar(soloMisCanales = false): Observable<Caso[]> {
-    return this.http.get<Caso[]>(soloMisCanales ? `${this.base}?vista=mis-canales` : this.base);
+  listar(): Observable<Caso[]> {
+    return this.http.get<Caso[]>(this.base);
+  }
+
+  /** Deja constancia de que un caso cerrado debe reabrirse. */
+  solicitarReapertura(id: string, motivo: string): Observable<Caso> {
+    return this.http.post<Caso>(`${this.base}/${id}/reapertura/solicitar`, { motivo });
+  }
+
+  /** Reapertura autorizada; la observación queda en la trazabilidad. */
+  reabrir(id: string, motivo: string, estado: EstadoCaso = 'en_gestion'): Observable<Caso> {
+    return this.http.post<Caso>(`${this.base}/${id}/reapertura`, { motivo, estado });
   }
 
   /** Remite el caso a canales de otra agencia (sumando o trasladando). */

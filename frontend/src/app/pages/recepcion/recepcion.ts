@@ -45,7 +45,13 @@ export class RecepcionComponent {
    * Vista de la bandeja. Quien atiende canales arranca viendo su cola; quien no
    * tiene ninguno asignado (recepción central, supervisión) ve todo el secad.
    */
-  readonly soloMisCanales = signal(false);
+  /**
+   * Alcance de la bandeja. Lo decide el servidor: sin casos.ver_todos solo
+   * llegan los casos de los canales propios. Aquí solo se anuncia, para que el
+   * funcionario sepa por qué ve lo que ve.
+   */
+  readonly veTodo = computed(() => this.auth.tienePermiso('casos.ver_todos'));
+  readonly puedeRecepcionar = computed(() => this.auth.tienePermiso('casos.crear'));
   readonly cargando = signal(false);
   readonly error = signal('');
   readonly guardando = signal(false);
@@ -100,15 +106,10 @@ export class RecepcionComponent {
     });
   }
 
-  cambiarVista(soloMias: boolean): void {
-    this.soloMisCanales.set(soloMias);
-    this.cargar();
-  }
-
   cargar(): void {
     this.cargando.set(true);
     this.error.set('');
-    this.casosSvc.listar(this.soloMisCanales()).subscribe({
+    this.casosSvc.listar().subscribe({
       next: (data) => { this.casos.set(data); this.cargando.set(false); },
       error: () => { this.error.set('No fue posible cargar la bandeja.'); this.cargando.set(false); },
     });

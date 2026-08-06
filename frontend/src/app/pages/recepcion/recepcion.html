@@ -4,7 +4,9 @@
       <h1>Recepción</h1>
       <p>Bandeja de casos entrantes · multicanal · multi-agencia</p>
     </div>
-    <button type="button" class="btn btn--primary" (click)="abrirForm()">+ Nuevo caso</button>
+    <button type="button" class="btn btn--primary" *ngIf="puedeRecepcionar()" (click)="abrirForm()">
+      + Nuevo caso
+    </button>
   </header>
 
   <div class="kpis">
@@ -13,11 +15,9 @@
     <div class="kpi"><span class="n">{{ enGestion() }}</span><span class="l">En gestión</span></div>
   </div>
 
-  <!-- Vista: la cola de mi entidad o toda la bandeja del secad -->
-  <div class="vista-tabs" role="group" aria-label="Vista de la bandeja">
-    <button type="button" [class.on]="!soloMisCanales()" (click)="cambiarVista(false)">Todos los casos</button>
-    <button type="button" [class.on]="soloMisCanales()" (click)="cambiarVista(true)">Mis canales</button>
-  </div>
+  <p class="alcance" *ngIf="!veTodo()">
+    Está viendo los casos de sus canales de atención y los que usted recepcionó.
+  </p>
 
   <p class="error" *ngIf="error()">{{ error() }}</p>
 
