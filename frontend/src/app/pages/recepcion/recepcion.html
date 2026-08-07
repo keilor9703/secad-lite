@@ -6,43 +6,60 @@
     </div>
   </header>
 
-  <!-- Llamadas timbrando: el punto de partida del trabajo de recepción -->
-  <div class="entrantes card">
-    <h2>📞 Llamadas en espera <span class="n">{{ sonando().length }}</span></h2>
-    <div class="llam" *ngFor="let l of sonando()">
-      <span class="num mono">{{ l.numero }}</span>
-      <!-- La central ya la dirigió a alguien: se ve solo si usted la supervisa,
-           no si es la suya (esa ya llegó sin necesidad de esta pista). -->
-      <span class="para" *ngIf="l.destinatario && l.destinatario !== miUsuario()">
-        para {{ l.destinatario }}
-      </span>
-      <span class="acciones-llam">
-        <span class="en-form" *ngIf="esLaLlamadaEnCurso(l)">En el formulario</span>
-        <button *ngIf="!esLaLlamadaEnCurso(l)" type="button" class="btn btn--primary mini"
-                (click)="tomarLlamada(l)" title="Trae el número al formulario para completar el caso">
-          Tomar llamada
-        </button>
-      </span>
-    </div>
-    <p class="sin-llamadas" *ngIf="!sonando().length">
-      No hay llamadas en espera. Puede recepcionar un caso a mano en el formulario.
-    </p>
-  </div>
-
-  <div class="kpis">
-    <div class="kpi"><span class="n">{{ total() }}</span><span class="l">Total</span></div>
-    <div class="kpi"><span class="n">{{ nuevos() }}</span><span class="l">Nuevos</span></div>
-    <div class="kpi"><span class="n">{{ enGestion() }}</span><span class="l">En gestión</span></div>
-  </div>
-
-  <p class="alcance" *ngIf="!veTodo()">
-    Está viendo los casos de sus canales de atención y los que usted recepcionó.
-  </p>
-
   <p class="error" *ngIf="error()">{{ error() }}</p>
 
-  <!-- Formulario de recepción -->
-  <div class="form-panel card">
+  <div class="rec-body">
+    <!-- Columna angosta: llamadas, contadores y últimas recepciones. Es un
+         bloque independiente (no comparte filas de grilla con el formulario)
+         para que su alto no dependa de lo largo que sea el formulario. -->
+    <aside class="rec-side">
+      <!-- Llamadas timbrando: el punto de partida del trabajo de recepción -->
+      <div class="entrantes card">
+        <h2>📞 Llamadas en espera <span class="n">{{ sonando().length }}</span></h2>
+        <div class="llam" *ngFor="let l of sonando()">
+          <span class="num mono">{{ l.numero }}</span>
+          <!-- La central ya la dirigió a alguien: se ve solo si usted la supervisa,
+               no si es la suya (esa ya llegó sin necesidad de esta pista). -->
+          <span class="para" *ngIf="l.destinatario && l.destinatario !== miUsuario()">
+            para {{ l.destinatario }}
+          </span>
+          <span class="acciones-llam">
+            <span class="en-form" *ngIf="esLaLlamadaEnCurso(l)">En el formulario</span>
+            <button *ngIf="!esLaLlamadaEnCurso(l)" type="button" class="btn btn--primary mini"
+                    (click)="tomarLlamada(l)" title="Trae el número al formulario para completar el caso">
+              Tomar llamada
+            </button>
+          </span>
+        </div>
+        <p class="sin-llamadas" *ngIf="!sonando().length">
+          No hay llamadas en espera. Puede recepcionar un caso a mano en el formulario.
+        </p>
+      </div>
+
+      <div class="kpis">
+        <div class="kpi"><span class="n">{{ total() }}</span><span class="l">Total</span></div>
+        <div class="kpi"><span class="n">{{ nuevos() }}</span><span class="l">Nuevos</span></div>
+        <div class="kpi"><span class="n">{{ enGestion() }}</span><span class="l">En gestión</span></div>
+      </div>
+
+      <p class="alcance" *ngIf="!veTodo()">
+        Está viendo los casos de sus canales de atención y los que usted recepcionó.
+      </p>
+
+      <!-- Lo que este operador acaba de recepcionar: confirmación de su trabajo -->
+      <div class="mias card" *ngIf="misRecientes().length">
+        <h2>Sus últimas recepciones</h2>
+        <a class="mia" *ngFor="let c of misRecientes()" [routerLink]="['/caso', c.id]">
+          <span class="hora mono">{{ c.creadoEn | date: 'HH:mm' }}</span>
+          <span class="mtitulo">{{ c.titulo }}</span>
+          <span class="magencia">→ {{ c.agencia }}</span>
+        </a>
+        <a class="ver-todo" routerLink="/casos">Ver todos los casos →</a>
+      </div>
+    </aside>
+
+    <!-- Formulario de recepción -->
+    <div class="form-panel card">
     <div class="fp-head">
       <h2>Recepcionar caso</h2>
       <span class="fp-meta">{{ abiertoEn | date: 'dd/MM/yyyy HH:mm' }} · {{ sesionUsuario() }}</span>
@@ -201,15 +218,5 @@
       </button>
     </div>
   </div>
-
-  <!-- Lo que este operador acaba de recepcionar: confirmación de su trabajo -->
-  <div class="mias card" *ngIf="misRecientes().length">
-    <h2>Sus últimas recepciones</h2>
-    <a class="mia" *ngFor="let c of misRecientes()" [routerLink]="['/caso', c.id]">
-      <span class="hora mono">{{ c.creadoEn | date: 'HH:mm' }}</span>
-      <span class="mtitulo">{{ c.titulo }}</span>
-      <span class="magencia">→ {{ c.agencia }}</span>
-    </a>
-    <a class="ver-todo" routerLink="/casos">Ver todos los casos →</a>
   </div>
 </section>
