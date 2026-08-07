@@ -2,7 +2,7 @@ import { Injectable, inject } from '@angular/core';
 import { HttpClient } from '@angular/common/http';
 import { Observable } from 'rxjs';
 import { environment } from '../../environments/environment';
-import { PermisoDef, RolTenant } from './models';
+import { CatalogoRoles, RolTenant } from './models';
 
 /**
  * Gestión de roles y permisos del tenant (RBAC dinámico). El tenant lo resuelve
@@ -14,9 +14,9 @@ export class RolesService {
   private http = inject(HttpClient);
   private readonly base = `${environment.apiBaseUrl}/roles`;
 
-  /** Catálogo fijo de permisos (filas de la matriz). */
-  catalogo(): Observable<PermisoDef[]> {
-    return this.http.get<PermisoDef[]>(`${this.base}/catalogo`);
+  /** Módulos (filas de la matriz) + catálogo fijo de permisos. */
+  catalogo(): Observable<CatalogoRoles> {
+    return this.http.get<CatalogoRoles>(`${this.base}/catalogo`);
   }
 
   listar(): Observable<RolTenant[]> {

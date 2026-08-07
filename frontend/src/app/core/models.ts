@@ -283,6 +283,24 @@ export interface PermisoDef {
   grupo: string;
 }
 
+/**
+ * Un módulo del sistema: lo que se le asigna a un rol. Al marcarlo, el rol
+ * queda con TODOS sus `permisos` (incluidas lecturas transversales, como
+ * catálogos) — nunca una funcionalidad suelta del módulo.
+ */
+export interface ModuloPermisos {
+  clave: string;
+  etiqueta: string;
+  descripcion: string;
+  permisos: string[];
+}
+
+/** Lo que trae GET /roles/catalogo: módulos para la matriz + catálogo fijo. */
+export interface CatalogoRoles {
+  modulos: ModuloPermisos[];
+  permisos: PermisoDef[];
+}
+
 export interface RolTenant {
   id: string;
   tenant: string;

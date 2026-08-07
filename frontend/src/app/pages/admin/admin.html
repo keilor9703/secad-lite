@@ -21,11 +21,11 @@
       <button type="submit" class="btn btn--primary" [disabled]="!nuevoRol.trim()">Crear rol</button>
     </form>
 
-    <div class="tbl-wrap matriz-wrap" *ngIf="roles().length && catalogo().length">
+    <div class="tbl-wrap matriz-wrap" *ngIf="roles().length && modulos().length">
       <table class="matriz">
         <thead>
           <tr>
-            <th class="permiso-col">Permiso</th>
+            <th class="permiso-col">Módulo</th>
             <th *ngFor="let r of roles()" class="rol-col">
               <div class="rol-head">
                 <span>{{ r.nombre }}</span>
@@ -37,16 +37,27 @@
           </tr>
         </thead>
         <tbody>
-          <ng-container *ngFor="let g of grupos()">
-            <tr class="grupo-row"><td [attr.colspan]="roles().length + 1">{{ g.grupo }}</td></tr>
-            <tr *ngFor="let p of g.permisos">
-              <td class="permiso-col" [title]="p.clave">{{ p.etiqueta }}</td>
-              <td *ngFor="let r of roles()" class="check-col">
-                <input type="checkbox" [checked]="tiene(r, p.clave)" (change)="toggle(r, p.clave)"
-                       [attr.aria-label]="r.nombre + ': ' + p.etiqueta" />
-              </td>
-            </tr>
-          </ng-container>
+          <tr class="grupo-row"><td [attr.colspan]="roles().length + 1">Módulos</td></tr>
+          <tr *ngFor="let m of modulos()">
+            <td class="permiso-col" [title]="m.descripcion">{{ m.etiqueta }}</td>
+            <td *ngFor="let r of roles()" class="check-col">
+              <input type="checkbox" [checked]="moduloActivo(r, m)" (change)="toggleModulo(r, m)"
+                     [attr.aria-label]="r.nombre + ': ' + m.etiqueta" />
+            </td>
+          </tr>
+          <tr class="grupo-row" *ngIf="transversales().length">
+            <td [attr.colspan]="roles().length + 1">
+              Funcionalidades transversales
+              <span class="ayuda-inline">— se suman a cualquier módulo marcado arriba</span>
+            </td>
+          </tr>
+          <tr *ngFor="let p of transversales()">
+            <td class="permiso-col" [title]="p.clave">{{ p.etiqueta }}</td>
+            <td *ngFor="let r of roles()" class="check-col">
+              <input type="checkbox" [checked]="tiene(r, p.clave)" (change)="toggle(r, p.clave)"
+                     [attr.aria-label]="r.nombre + ': ' + p.etiqueta" />
+            </td>
+          </tr>
         </tbody>
       </table>
     </div>

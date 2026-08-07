@@ -9,14 +9,17 @@ import { RolesService } from '../../core/roles.service';
 import { EntidadesService } from '../../core/entidades.service';
 import { CatalogosService } from '../../core/catalogos.service';
 import {
-  Agencia, CanalAtencion, CodigoCaso, EntidadExterna, PbxConfig, PermisoDef, PrioridadCaso,
+  Agencia, CanalAtencion, CodigoCaso, EntidadExterna, ModuloPermisos, PbxConfig, PermisoDef, PrioridadCaso,
   RolTenant, Tenant, TipoAgencia, UsuarioAdmin, WhatsappConfig,
 } from '../../core/models';
 
-interface GrupoPermisos {
-  grupo: string;
-  permisos: PermisoDef[];
-}
+/**
+ * Funcionalidades que cruzan varios módulos (no pertenecen a uno solo): se
+ * marcan aparte de los módulos, como filas sueltas de la matriz. Debe
+ * coincidir con `CLAVES_TRANSVERSALES` en el backend
+ * (`backend/src/roles/permiso.catalogo.ts`).
+ */
+const CLAVES_TRANSVERSALES = ['pbx.usar', 'whatsapp.responder'];
 
 @Component({
   selector: 'app-admin',
@@ -49,17 +52,13 @@ export class AdminComponent implements OnInit {
   readonly tenantActivo = this.auth.tenantActivo;
 
   // Roles y permisos (RBAC dinámico)
-  readonly catalogo = signal<PermisoDef[]>([]);
+  /** Módulos: lo que se marca/desmarca por rol (cada uno, su bundle completo). */
+  readonly modulos = signal<ModuloPermisos[]>([]);
+  /** Catálogo fijo de permisos, para resolver la etiqueta de lo transversal. */
+  readonly permisos = signal<PermisoDef[]>([]);
+  /** Funcionalidades que cruzan varios módulos: filas sueltas, aparte de los módulos. */
+  readonly transversales = computed(() => this.permisos().filter((p) => CLAVES_TRANSVERSALES.includes(p.clave)));
   readonly roles = signal<RolTenant[]>([]);
-  readonly grupos = computed<GrupoPermisos[]>(() => {
-    const out: GrupoPermisos[] = [];
-    for (const p of this.catalogo()) {
-      const g = out.find((x) => x.grupo === p.grupo);
-      if (g) g.permisos.push(p);
-      else out.push({ grupo: p.grupo, permisos: [p] });
-    }
-    return out;
-  });
   private readonly sucios = signal<Set<string>>(new Set());
   readonly haySucios = computed(() => this.sucios().size > 0);
   /** El superadmin ve la matriz solo cuando ya eligió un tenant. */
@@ -168,7 +167,10 @@ export class AdminComponent implements OnInit {
   ngOnInit(): void {
     this.cargarUsuarios();
     if (this.gestionaRoles()) {
-      this.rolesSvc.catalogo().subscribe({ next: (c) => this.catalogo.set(c), error: () => {} });
+      this.rolesSvc.catalogo().subscribe({
+        next: (c) => { this.modulos.set(c.modulos); this.permisos.set(c.permisos); },
+        error: () => {},
+      });
     }
     if (this.esSuperadmin()) this.cargarTenants();
   }
@@ -192,6 +194,37 @@ export class AdminComponent implements OnInit {
   toggle(rol: RolTenant, clave: string): void {
     const tiene = this.tiene(rol, clave);
     const permisos = tiene ? rol.permisos.filter((p) => p !== clave) : [...(rol.permisos ?? []), clave];
+    this.roles.update((rs) => rs.map((r) => (r.id === rol.id ? { ...r, permisos } : r)));
+    this.sucios.update((s) => new Set(s).add(rol.id));
+    this.rolesOk.set(false);
+  }
+
+  /** El módulo está activo solo si el rol tiene TODOS sus permisos — no basta con alguno. */
+  moduloActivo(rol: RolTenant, modulo: ModuloPermisos): boolean {
+    return modulo.permisos.every((p) => this.tiene(rol, p));
+  }
+
+  /**
+   * Marca o desmarca un módulo completo para el rol. Al desmarcar, un permiso
+   * solo se quita si NINGÚN OTRO módulo ya marcado del mismo rol lo sigue
+   * necesitando (p. ej. `casos.ver` lo piden Recepción, Despacho, Consulta y
+   * Catálogos a la vez) — así nunca se rompe un módulo que sigue activo por
+   * apagar otro que compartía un permiso con él.
+   */
+  toggleModulo(rol: RolTenant, modulo: ModuloPermisos): void {
+    const activo = this.moduloActivo(rol, modulo);
+    let permisos: string[];
+    if (activo) {
+      const enUsoPorOtros = new Set<string>();
+      for (const m of this.modulos()) {
+        if (m.clave !== modulo.clave && this.moduloActivo(rol, m)) {
+          m.permisos.forEach((p) => enUsoPorOtros.add(p));
+        }
+      }
+      permisos = (rol.permisos ?? []).filter((p) => enUsoPorOtros.has(p) || !modulo.permisos.includes(p));
+    } else {
+      permisos = [...new Set([...(rol.permisos ?? []), ...modulo.permisos])];
+    }
     this.roles.update((rs) => rs.map((r) => (r.id === rol.id ? { ...r, permisos } : r)));
     this.sucios.update((s) => new Set(s).add(rol.id));
     this.rolesOk.set(false);

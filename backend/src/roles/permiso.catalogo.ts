@@ -36,3 +36,69 @@ export const CLAVES_PERMISO: string[] = PERMISOS.map((p) => p.clave);
 export function esPermisoValido(clave: string): boolean {
   return CLAVES_PERMISO.includes(clave);
 }
+
+/**
+ * Un módulo, no una funcionalidad suelta, es lo que se le asigna a un rol: al
+ * marcar "Recepción" para el rol operador, ese rol debe quedar con TODO lo que
+ * Recepción necesita para funcionar completa —incluida la lectura de
+ * catálogos (agencias/canales/códigos), que es un permiso propio pero
+ * transversal a varios módulos—, no solo "crear casos" suelto. Marcar un
+ * módulo agrega su lista de permisos; desmarcarlo la quita, salvo lo que otro
+ * módulo YA marcado del mismo rol siga necesitando (la UI de Administración
+ * hace ese cálculo, ver `admin.ts`).
+ *
+ * Las funcionalidades genuinamente transversales —que no pertenecen a un solo
+ * módulo, sino que se añaden encima de cualquiera de ellos— no están aquí:
+ * siguen siendo permisos sueltos (ver `CLAVES_TRANSVERSALES`).
+ */
+export interface ModuloPermisos {
+  clave: string;
+  etiqueta: string;
+  descripcion: string;
+  permisos: string[];
+}
+
+export const MODULOS: ModuloPermisos[] = [
+  {
+    clave: 'recepcion', etiqueta: 'Recepción',
+    descripcion: 'Recepcionar casos multicanal y remitirlos a los canales de despacho.',
+    permisos: ['casos.ver', 'casos.crear'],
+  },
+  {
+    clave: 'despacho', etiqueta: 'Despacho',
+    descripcion: 'Gestionar los casos que llegan a sus canales: tomarlos, cerrarlos, asignar y mover recursos.',
+    permisos: ['casos.ver', 'casos.gestionar', 'casos.cerrar', 'despacho.ver', 'despacho.asignar', 'recursos.ver'],
+  },
+  {
+    clave: 'consulta', etiqueta: 'Consulta',
+    descripcion: 'Ver el histórico completo del secad (no solo lo propio) y autorizar reaperturas.',
+    permisos: ['casos.ver', 'casos.ver_todos', 'casos.reabrir'],
+  },
+  {
+    clave: 'recursos', etiqueta: 'Recursos',
+    descripcion: 'Dar de alta y editar la flota de recursos/unidades del secad.',
+    permisos: ['recursos.ver', 'recursos.gestionar'],
+  },
+  {
+    clave: 'panel', etiqueta: 'Panel de gestión',
+    descripcion: 'Ver las métricas de casos por estado, canal y agencia.',
+    permisos: ['metricas.ver'],
+  },
+  {
+    clave: 'catalogos', etiqueta: 'Catálogos',
+    descripcion: 'Editar agencias, canales de atención y códigos de caso/cierre.',
+    permisos: ['casos.ver', 'catalogos.gestionar'],
+  },
+  {
+    clave: 'administracion', etiqueta: 'Administración',
+    descripcion: 'Gestionar usuarios y roles, y configurar PBX, WhatsApp y entidades externas.',
+    permisos: ['usuarios.gestionar', 'roles.gestionar', 'catalogos.gestionar', 'pbx.configurar', 'whatsapp.configurar', 'entidades.gestionar'],
+  },
+];
+
+/**
+ * Capacidades que cruzan varios módulos en vez de pertenecer a uno: atender
+ * llamadas o responder WhatsApp tiene sentido tanto para quien solo recepciona
+ * como para quien además despacha. Se marcan aparte de los módulos.
+ */
+export const CLAVES_TRANSVERSALES: string[] = ['pbx.usar', 'whatsapp.responder'];

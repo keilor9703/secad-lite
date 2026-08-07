@@ -3,7 +3,7 @@ import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { RolEntity } from './rol.entity';
 import { UsuarioEntity } from '../usuarios/usuario.entity';
-import { CLAVES_PERMISO, esPermisoValido, PERMISOS } from './permiso.catalogo';
+import { CLAVES_PERMISO, esPermisoValido, MODULOS, PERMISOS } from './permiso.catalogo';
 
 export interface CrearRolDto {
   nombre: string;
@@ -23,9 +23,10 @@ const DEFAULTS: Array<{ codigo: string; nombre: string; permisos: string[] }> = 
   },
   {
     codigo: 'operador', nombre: 'Operador',
-    // El operador ve solo lo de sus canales (sin casos.ver_todos) y no reabre
-    // lo que cierra: la reapertura la autoriza un supervisor.
-    permisos: ['casos.ver', 'casos.crear', 'casos.gestionar', 'casos.cerrar', 'despacho.ver', 'despacho.asignar', 'recursos.ver', 'pbx.usar', 'whatsapp.responder'],
+    // Solo el módulo Recepción: recepciona, clasifica y remite a canales.
+    // Gestionar el caso, cerrarlo y despachar recursos es trabajo del
+    // despachador, no del operador — por eso no lleva permisos de Despacho.
+    permisos: ['casos.ver', 'casos.crear', 'pbx.usar', 'whatsapp.responder'],
   },
 ];
 
@@ -44,9 +45,14 @@ export class RolesService implements OnModuleInit {
     await this.asegurarSeed('demo');
   }
 
-  /** Catálogo de permisos (columnas de la matriz). */
+  /**
+   * Lo que la matriz de Administración necesita para editar roles: los
+   * módulos que se marcan/desmarcan (cada uno con su bundle de permisos) y el
+   * catálogo fijo de permisos, para resolver etiquetas de las funcionalidades
+   * transversales y para validar.
+   */
   catalogo() {
-    return PERMISOS;
+    return { modulos: MODULOS, permisos: PERMISOS };
   }
 
   /** Siembra los roles de sistema del tenant si aún no tiene ninguno. */

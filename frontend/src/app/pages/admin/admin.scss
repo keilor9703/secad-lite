@@ -44,6 +44,7 @@ tbody tr:last-child td { border-bottom: none; }
   background: var(--surface-2); font-weight: 700; font-size: 0.72rem;
   text-transform: uppercase; letter-spacing: 0.05em; color: var(--muted);
 }
+.ayuda-inline { font-weight: 400; text-transform: none; letter-spacing: normal; }
 .rol-head { display: inline-flex; align-items: center; gap: 0.35rem; }
 .rol-tag {
   font-size: 0.62rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.04em;
