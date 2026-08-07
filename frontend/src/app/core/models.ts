@@ -67,6 +67,10 @@ export interface Llamada {
   callId?: string | null;
   numero: string;
   numeroDestino?: string | null;
+  /** Extensión que reportó la central, si ya la enrutó por ACD. */
+  extension?: string | null;
+  /** Username del funcionario al que el ACD dirigió la llamada; null si es de la cola general. */
+  destinatario?: string | null;
   estado: EstadoLlamada;
   casoId?: string | null;
   atendidaPor?: string | null;
@@ -250,6 +254,8 @@ export interface UsuarioAdmin {
   /** Agencia del funcionario y canales de atención que cubre. */
   agenciaId: string | null;
   canales: string[];
+  /** Extensión de la planta telefónica; null si no atiende llamadas por PBX. */
+  extension: string | null;
 }
 
 // --- API entrante (entidades externas) ---

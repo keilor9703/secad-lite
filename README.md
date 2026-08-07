@@ -135,6 +135,33 @@ Los funcionarios ven la cola en **Llamadas** (badge de timbrado en la barra) y
 al **Atender** saltan al caso. La API key se obtiene/rota en **Administración**
 (rol admin) o vía `GET /api/pbx/config` · `POST /api/pbx/config/rotar`.
 
+### Enrutamiento por extensión (ACD)
+
+Quién decide a qué operador dirigir cada llamada es la central telefónica, no
+FALCON CAD: si tiene colas ACD (Asterisk/FreePBX o un proveedor con esa
+capacidad), ya sabe qué agente está libre y a qué extensión mandarla. FALCON
+CAD solo necesita el mapeo extensión → funcionario para traducir eso a "avisar
+solo a esta sesión":
+
+1. En **Administración → Usuarios**, asígnele a cada funcionario su extensión
+   (única por secad).
+2. La central manda la extensión en el evento `entrante`:
+
+   ```
+   { "evento": "entrante", "numero": "3001234567", "extension": "105" }
+   ```
+
+3. Si la extensión coincide con un funcionario activo, el aviso llega **solo**
+   a su sesión (Socket.IO, sala personal) y esa llamada desaparece de la cola
+   de los demás operadores — igual que un teléfono de escritorio real no suena
+   en el puesto de al lado. Un supervisor (`casos.ver_todos`) sigue viendo y
+   pudiendo atender cualquier llamada, dirigida o no, para poder auxiliar.
+
+Sin el campo `extension` (o si no hay match), la llamada se anuncia a todo el
+que esté atendiendo el tenant — el comportamiento de siempre. La integración
+funciona igual con una central sin ACD; el enrutamiento por extensión es
+estrictamente adicional.
+
 ## API entrante (entidades externas)
 
 Una entidad externa (central de alarmas, otra agencia, una app municipal) se

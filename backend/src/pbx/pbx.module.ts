@@ -8,6 +8,7 @@ import { PbxGateway } from './pbx.gateway';
 import { CasosModule } from '../casos/casos.module';
 import { TenantsModule } from '../tenants/tenants.module';
 import { AuthModule } from '../auth/auth.module';
+import { UsuariosModule } from '../usuarios/usuarios.module';
 
 /**
  * Integración con la planta telefónica (PBX). Recibe eventos de llamada por
@@ -20,6 +21,8 @@ import { AuthModule } from '../auth/auth.module';
     CasosModule,
     TenantsModule,
     AuthModule,
+    // Resuelve la extensión de la PBX al username del funcionario.
+    UsuariosModule,
   ],
   controllers: [PbxController],
   providers: [PbxService, PbxGateway],

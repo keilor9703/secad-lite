@@ -198,6 +198,8 @@
         <option [ngValue]="null">— agencia —</option>
         <option *ngFor="let a of agencias()" [ngValue]="a.id" [disabled]="!a.activo">{{ a.nombre }}</option>
       </select>
+      <input [(ngModel)]="nuevoUsuario.extension" name="uext" placeholder="extensión PBX (opcional)"
+             title="Extensión de la planta telefónica. La central dirige aquí las llamadas de este funcionario." />
       <span class="ctx-tag" *ngIf="esSuperadmin()" title="Tenant en gestión">{{ tenantCtx() || '—' }}</span>
       <button type="submit" class="btn btn--primary">Crear usuario</button>
     </form>
@@ -215,7 +217,7 @@
 
     <div class="tbl-wrap">
       <table>
-        <thead><tr><th>Usuario</th><th>Nombre</th><th>Rol</th><th>Agencia</th><th>Canales</th><th>Tenant</th><th>Estado</th><th></th></tr></thead>
+        <thead><tr><th>Usuario</th><th>Nombre</th><th>Rol</th><th>Agencia</th><th>Canales</th><th>Extensión PBX</th><th>Tenant</th><th>Estado</th><th></th></tr></thead>
         <tbody>
           <tr *ngFor="let u of usuarios()">
             <td class="mono">{{ u.username }}</td>
@@ -229,6 +231,11 @@
             </td>
             <td>{{ nombreAgencia(u.agenciaId) }}</td>
             <td class="mono">{{ nombresCanales(u.canales) }}</td>
+            <td>
+              <input class="mono ext" [ngModel]="u.extension" [ngModelOptions]="{ standalone: true }"
+                     placeholder="—" (blur)="guardarExtension(u, $any($event.target).value)"
+                     [attr.aria-label]="'Extensión PBX de ' + u.username" />
+            </td>
             <td class="mono">{{ u.tenant || '—' }}</td>
             <td><span class="badge" [class.on]="u.activo">{{ u.activo ? 'Activo' : 'Inactivo' }}</span></td>
             <td>

@@ -474,7 +474,24 @@ export class AdminComponent implements OnInit {
     });
   }
 
+  /**
+   * Extensión en la propia fila. Se guarda al perder el foco, y `undefined`
+   * significa «no la toque» — enviar `null` explícito la retiraría, y eso solo
+   * debe pasar si el campo quedó vacío a propósito.
+   */
+  guardarExtension(u: UsuarioAdmin, valor: string): void {
+    const nueva = valor.trim() || null;
+    if (nueva === u.extension) return;
+    this.admin.cambiarExtension(u.id, nueva).subscribe({
+      next: (act) => this.usuarios.update((us) => us.map((x) => (x.id === act.id ? act : x))),
+      error: (e) => this.error.set(e?.error?.message ?? 'No fue posible guardar la extensión.'),
+    });
+  }
+
   private usuarioVacio(): CrearUsuario {
-    return { username: '', nombre: '', contrasena: '', rol: 'operador', tenant: this.tenantCtx(), agenciaId: null, canales: [] };
+    return {
+      username: '', nombre: '', contrasena: '', rol: 'operador', tenant: this.tenantCtx(),
+      agenciaId: null, canales: [], extension: null,
+    };
   }
 }

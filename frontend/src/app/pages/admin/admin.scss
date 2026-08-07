@@ -94,3 +94,9 @@ tbody tr:last-child td { border-bottom: none; }
 .buscador input { flex: 1; max-width: 420px; }
 .buscador .conteo { font-size: 0.8rem; color: var(--muted); font-family: var(--mono); }
 .tope { margin: 0.5rem 0 0; font-size: 0.8rem; color: var(--muted); }
+
+/* Extensión de la PBX: se ve como texto hasta recibir el foco. */
+.ext { width: 100%; max-width: 110px; background: transparent; border: 1px solid transparent;
+       padding: 0.2rem 0.35rem; border-radius: var(--radius-sm); color: inherit; font: inherit; }
+.ext:hover { border-color: var(--border); }
+.ext:focus { border-color: var(--accent); background: var(--surface-2); outline: none; }

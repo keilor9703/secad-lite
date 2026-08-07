@@ -1,4 +1,4 @@
-import { BadRequestException, Injectable, NotFoundException, UnauthorizedException } from '@nestjs/common';
+import { BadRequestException, ForbiddenException, Injectable, NotFoundException, UnauthorizedException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Not, Repository } from 'typeorm';
 import { Subject } from 'rxjs';
@@ -6,6 +6,7 @@ import { LlamadaEntity } from './llamada.entity';
 import { CasoEntity } from '../casos/caso.entity';
 import { CasosService } from '../casos/casos.service';
 import { TenantsService } from '../tenants/tenants.service';
+import { UsuariosService } from '../usuarios/usuarios.service';
 
 export interface WebhookLlamadaDto {
   /** 'entrante' cuando timbra; 'colgada' cuando termina antes/después de atender. */
@@ -13,6 +14,20 @@ export interface WebhookLlamadaDto {
   callId?: string;
   numero?: string;
   numeroDestino?: string;
+  /**
+   * Extensión a la que el ACD de la central ya decidió dirigir la llamada.
+   * Es opcional a propósito: una planta sin colas ACD puede seguir usando la
+   * integración tal cual, sin mandar este campo, y la llamada se anuncia a
+   * todo el que esté atendiendo el tenant, como antes de tener este mapeo.
+   */
+  extension?: string;
+}
+
+/** Quién actúa: lo que necesita este servicio para decidir alcance y permisos. */
+export interface ActorPbx {
+  username: string;
+  /** Con esto ve y puede atender cualquier llamada, esté o no dirigida a él. */
+  supervisor: boolean;
 }
 
 /** Cambio en la cola de llamadas, para empujar por WebSocket al operador. */
@@ -26,6 +41,11 @@ export interface LlamadaEvento {
  * Integración con la planta telefónica (PBX). La central llama al webhook
  * (autenticado por API key del tenant) al timbrar/colgar; las llamadas entran a
  * una cola en vivo y el operador las "atiende", creando o enlazando un caso.
+ *
+ * El enrutamiento a un operador específico (ACD) es responsabilidad de la
+ * central, no de FALCON CAD: aquí solo se traduce la extensión que la central
+ * ya decidió al username del funcionario dueño de esa extensión, y con eso se
+ * dirige el aviso en vivo (y se filtra la cola) a esa sola sesión.
  */
 @Injectable()
 export class PbxService {
@@ -37,6 +57,7 @@ export class PbxService {
     @InjectRepository(CasoEntity) private readonly casos: Repository<CasoEntity>,
     private readonly casosSvc: CasosService,
     private readonly tenants: TenantsService,
+    private readonly usuarios: UsuariosService,
   ) {}
 
   /** Procesa un evento de la PBX autenticado por API key. */
@@ -48,12 +69,23 @@ export class PbxService {
     if (dto?.evento === 'entrante') {
       const numero = dto.numero?.trim();
       if (!numero) throw new BadRequestException('El número del llamante es obligatorio.');
+
+      // Si la central ya enrutó (ACD), se resuelve la extensión al funcionario
+      // dueño; sin extensión, o si no hay match, queda sin destinatario y se
+      // anuncia a todo el tenant — la integración sigue sirviendo igual.
+      const extension = dto.extension?.trim() || null;
+      const destinatario = extension
+        ? (await this.usuarios.buscarPorExtension(tenant.codigo, extension))?.username ?? null
+        : null;
+
       const llamada = await this.llamadas.save(
         this.llamadas.create({
           tenant: tenant.codigo,
           callId: dto.callId?.trim() || null,
           numero,
           numeroDestino: dto.numeroDestino?.trim() || null,
+          extension,
+          destinatario,
           estado: 'sonando',
         }),
       );
@@ -74,16 +106,25 @@ export class PbxService {
     throw new BadRequestException('Evento de PBX no reconocido.');
   }
 
-  /** Cola de llamadas del tenant (las que timbran primero, luego recientes). */
-  async listar(tenant: string): Promise<LlamadaEntity[]> {
-    return this.llamadas.find({ where: { tenant }, order: { creadoEn: 'DESC' }, take: 50 });
+  /**
+   * Cola de llamadas del tenant. Una llamada SONANDO dirigida por el ACD a
+   * otro operador no aparece: ya está siendo anunciada solo a esa sesión, y
+   * mostrarla aquí invitaría a un tercero a arrebatarla. Un supervisor
+   * (casos.ver_todos) sí ve la cola completa, para poder auxiliar.
+   * Las que ya se atendieron o perdieron quedan visibles siempre: son
+   * historial, no una llamada disputable.
+   */
+  async listar(tenant: string, actor: ActorPbx): Promise<LlamadaEntity[]> {
+    const todas = await this.llamadas.find({ where: { tenant }, order: { creadoEn: 'DESC' }, take: 50 });
+    if (actor.supervisor) return todas;
+    return todas.filter((l) => l.estado !== 'sonando' || !l.destinatario || l.destinatario === actor.username);
   }
 
   /**
    * El operador atiende una llamada: crea un caso (canal 'llamada') o lo enlaza
    * a un caso abierto del mismo número, y marca la llamada como atendida.
    */
-  async atender(tenant: string, llamadaId: string, operador: string): Promise<{ llamada: LlamadaEntity; casoId: string }> {
+  async atender(tenant: string, llamadaId: string, actor: ActorPbx): Promise<{ llamada: LlamadaEntity; casoId: string }> {
     const llamada = await this.llamadas.findOne({ where: { tenant, id: llamadaId } });
     if (!llamada) throw new NotFoundException('Llamada no encontrada.');
     if (llamada.estado === 'atendida' && llamada.casoId) {
@@ -91,6 +132,10 @@ export class PbxService {
     }
     if (llamada.estado !== 'sonando') {
       throw new BadRequestException('La llamada ya no está en cola.');
+    }
+    // El ACD ya la dirigió a otro operador: solo él (o un supervisor) la atiende.
+    if (llamada.destinatario && llamada.destinatario !== actor.username && !actor.supervisor) {
+      throw new ForbiddenException('Esta llamada fue dirigida a otro operador por la central.');
     }
 
     // ¿Hay un caso abierto del mismo número? Se enlaza en vez de duplicar.
@@ -102,7 +147,7 @@ export class PbxService {
     let casoId: string;
     if (abierto) {
       casoId = abierto.id;
-      await this.casosSvc.agregarNota(tenant, casoId, `Llamada telefónica atendida (${llamada.numero}).`, operador);
+      await this.casosSvc.agregarNota(tenant, casoId, `Llamada telefónica atendida (${llamada.numero}).`, actor.username);
     } else {
       const caso = await this.casosSvc.crear(
         tenant,
@@ -112,14 +157,14 @@ export class PbxService {
           ciudadano: `Llamante ${llamada.numero}`,
           telefono: llamada.numero,
         },
-        operador,
+        actor.username,
       );
       casoId = caso.id;
     }
 
     llamada.estado = 'atendida';
     llamada.casoId = casoId;
-    llamada.atendidaPor = operador;
+    llamada.atendidaPor = actor.username;
     const guardada = await this.llamadas.save(llamada);
     this.eventos$.next({ tenant, tipo: 'cambio', llamada: guardada });
     return { llamada: guardada, casoId };

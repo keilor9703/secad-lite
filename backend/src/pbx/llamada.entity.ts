@@ -32,6 +32,23 @@ export class LlamadaEntity {
   @Column({ type: 'varchar', length: 40, nullable: true })
   numeroDestino?: string | null;
 
+  /**
+   * Extensión que reportó el webhook, cuando el ACD de la central ya decidió
+   * a qué operador enrutar la llamada. Se conserva aunque no haya emparejado
+   * con nadie (extensión mal configurada), para poder diagnosticarlo.
+   */
+  @Column({ type: 'varchar', length: 20, nullable: true })
+  extension?: string | null;
+
+  /**
+   * Username del funcionario a quien el ACD dirigió la llamada (resuelto por
+   * la extensión). Nulo si la central no manda extensión o no hay match: en
+   * ese caso la llamada se anuncia a todo el que esté atendiendo el tenant,
+   * como antes de tener enrutamiento por extensión.
+   */
+  @Column({ type: 'varchar', length: 120, nullable: true })
+  destinatario?: string | null;
+
   @Column({ type: 'varchar', length: 20, default: 'sonando' })
   estado!: EstadoLlamada;
 

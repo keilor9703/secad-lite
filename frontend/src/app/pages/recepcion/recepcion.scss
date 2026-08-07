@@ -134,7 +134,8 @@ tbody tr:last-child td { border-bottom: none; }
         padding: 0.4rem 0; border-bottom: 1px solid var(--border); }
 .llam:last-child { border-bottom: none; }
 .llam .num { font-size: 1rem; font-weight: 600; }
-.acciones-llam { display: flex; gap: 0.4rem; }
+.llam .para { font-size: 0.72rem; color: var(--muted); font-style: italic; }
+.acciones-llam { display: flex; gap: 0.4rem; margin-left: auto; }
 .sin-llamadas { margin: 0; font-size: 0.84rem; color: var(--muted); }
 .mias { padding: 0.8rem 1rem; display: flex; flex-direction: column; gap: 0.3rem; }
 .mias h2 { margin: 0 0 0.3rem; font-size: 1rem; }

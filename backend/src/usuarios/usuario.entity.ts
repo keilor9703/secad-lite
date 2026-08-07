@@ -52,6 +52,15 @@ export class UsuarioEntity {
   @Column({ type: 'simple-array', nullable: true })
   canales?: string[] | null;
 
+  /**
+   * Extensión del funcionario en la planta telefónica (PBX). Es lo que permite
+   * dirigir una llamada ya enrutada por el ACD de la central a la sesión de
+   * ESTE operador y no a todo el tenant. Se asigna aquí porque la asignación
+   * en sí vive en la central, no en FALCON CAD — este es solo el mapeo.
+   */
+  @Column({ type: 'varchar', length: 20, nullable: true })
+  extension?: string | null;
+
   @Column({ type: 'boolean', default: true })
   activo!: boolean;
 }

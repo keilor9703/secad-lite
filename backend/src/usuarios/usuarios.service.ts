@@ -25,6 +25,8 @@ export interface UsuarioDto {
   agenciaId: string | null;
   /** Canales de atención asignados (canales.id). */
   canales: string[];
+  /** Extensión de la planta telefónica; null si no atiende llamadas por PBX. */
+  extension: string | null;
 }
 
 export interface CrearUsuarioDto {
@@ -35,6 +37,7 @@ export interface CrearUsuarioDto {
   tenant?: string;
   agenciaId?: string | null;
   canales?: string[];
+  extension?: string | null;
 }
 
 export interface ActualizarUsuarioDto {
@@ -44,6 +47,7 @@ export interface ActualizarUsuarioDto {
   contrasena?: string;
   agenciaId?: string | null;
   canales?: string[];
+  extension?: string | null;
 }
 
 /**
@@ -99,6 +103,7 @@ export class UsuariosService implements OnModuleInit {
     }
 
     const { agenciaId, canales } = await this.resolverAdscripcion(tenant, dto.agenciaId, dto.canales);
+    const extension = await this.resolverExtension(tenant, dto.extension, null);
 
     const u = await this.repo.save(
       this.repo.create({
@@ -109,6 +114,7 @@ export class UsuariosService implements OnModuleInit {
         tenant,
         agenciaId,
         canales,
+        extension,
         activo: true,
       }),
     );
@@ -142,7 +148,36 @@ export class UsuariosService implements OnModuleInit {
       u.agenciaId = adscripcion.agenciaId;
       u.canales = adscripcion.canales;
     }
+    if (dto.extension !== undefined) {
+      u.extension = await this.resolverExtension(u.tenant ?? null, dto.extension, u.id);
+    }
     return this.aDto(await this.repo.save(u));
+  }
+
+  /**
+   * Extensión del funcionario, en un secad concreto: única por tenant, para
+   * que el webhook de la PBX pueda resolver sin ambigüedad a quién dirigir la
+   * llamada que el ACD ya enrutó a esa extensión.
+   */
+  private async resolverExtension(
+    tenant: string | null, extension: string | null | undefined, propioId: string | null,
+  ): Promise<string | null> {
+    if (extension === undefined) return null;
+    const valor = extension?.trim();
+    if (!valor) return null;
+    if (!tenant) throw new BadRequestException('Solo un usuario de un tenant puede tener extensión.');
+    const enUso = await this.repo.findOne({ where: { tenant, extension: valor } });
+    if (enUso && enUso.id !== propioId) {
+      throw new ConflictException('Esa extensión ya está asignada a otro funcionario.');
+    }
+    return valor;
+  }
+
+  /** El funcionario dueño de esa extensión en el secad; null si no hay match. */
+  async buscarPorExtension(tenant: string, extension: string): Promise<UsuarioEntity | null> {
+    const valor = extension?.trim();
+    if (!valor) return null;
+    return this.repo.findOne({ where: { tenant, extension: valor, activo: true } });
   }
 
   /**
@@ -188,6 +223,7 @@ export class UsuariosService implements OnModuleInit {
       id: u.id, username: u.username, nombre: u.nombre, rol: u.rol,
       tenant: u.tenant ?? null, activo: u.activo,
       agenciaId: u.agenciaId ?? null, canales: u.canales ?? [],
+      extension: u.extension ?? null,
     };
   }
 

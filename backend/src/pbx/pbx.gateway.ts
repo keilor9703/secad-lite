@@ -9,7 +9,14 @@ import { origenPermitido } from '../common/cors';
 /**
  * Empuja las llamadas entrantes a los operadores en tiempo real (Socket.IO,
  * namespace /pbx). Autentica el handshake con el JWT; cada funcionario se une a
- * la sala de su tenant y recibe `llamada:entrante` / `llamada:cambio`.
+ * la sala de su tenant (`op:{tenant}`) y, con sesión institucional, a su sala
+ * personal (`op:{tenant}:{username}`).
+ *
+ * Cuando la central (ACD) ya dirigió la llamada a un operador puntual, el
+ * aviso va SOLO a su sala personal — nadie más del tenant lo ve timbrar, igual
+ * que un teléfono de escritorio real no suena en el puesto de al lado. Sin esa
+ * información (central sin ACD, o extensión sin funcionario asociado), se
+ * difunde a todo el tenant como hasta ahora.
  */
 // El canal en vivo va directo al backend: una reescritura de Vercel no
 // reenvía websockets, así que aquí también hay que respetar CORS_ORIGINS.
@@ -23,9 +30,11 @@ export class PbxGateway implements OnGatewayConnection, OnModuleInit {
   ) {}
 
   onModuleInit(): void {
-    // Reenvía los cambios de la cola a la sala del tenant correspondiente.
+    // Reenvía los cambios de la cola a quien deba verlos: al destinatario si
+    // el ACD ya lo decidió, o a todo el tenant si no hay a quién dirigirla.
     this.pbx.eventos$.subscribe(({ tenant, tipo, llamada }) => {
-      this.server.to(`op:${tenant}`).emit(tipo === 'entrante' ? 'llamada:entrante' : 'llamada:cambio', llamada);
+      const sala = llamada.destinatario ? `op:${tenant}:${llamada.destinatario}` : `op:${tenant}`;
+      this.server.to(sala).emit(tipo === 'entrante' ? 'llamada:entrante' : 'llamada:cambio', llamada);
     });
   }
 
@@ -38,8 +47,10 @@ export class PbxGateway implements OnGatewayConnection, OnModuleInit {
       const tenant = user.rol === 'superadmin'
         ? (client.handshake.auth?.tenant as string | undefined)?.trim()
         : user.tenant;
-      if (user.tipo === 'institucional' && tenant) client.join(`op:${tenant}`);
-      else client.disconnect();
+      if (user.tipo === 'institucional' && tenant) {
+        client.join(`op:${tenant}`);
+        client.join(`op:${tenant}:${user.sub}`);
+      } else client.disconnect();
     } catch {
       client.disconnect();
     }

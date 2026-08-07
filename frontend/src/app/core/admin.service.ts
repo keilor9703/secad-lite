@@ -15,6 +15,8 @@ export interface CrearUsuario {
   agenciaId?: string | null;
   /** Canales de atención que cubrirá, todos de esa agencia. */
   canales?: string[];
+  /** Extensión de la planta telefónica (única por secad). */
+  extension?: string | null;
 }
 
 @Injectable({ providedIn: 'root' })
@@ -49,5 +51,9 @@ export class AdminService {
   }
   cambiarRol(id: string, rol: string): Observable<UsuarioAdmin> {
     return this.http.patch<UsuarioAdmin>(`${this.base}/usuarios/${id}`, { rol });
+  }
+  /** Extensión de la PBX; null la retira (deja de recibir llamadas dirigidas). */
+  cambiarExtension(id: string, extension: string | null): Observable<UsuarioAdmin> {
+    return this.http.patch<UsuarioAdmin>(`${this.base}/usuarios/${id}`, { extension });
   }
 }

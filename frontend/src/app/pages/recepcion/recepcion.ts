@@ -104,6 +104,8 @@ export class RecepcionComponent implements OnInit {
 
   /** Nombre del funcionario que recepciona, para el encabezado del formulario. */
   readonly sesionUsuario = computed(() => this.auth.sesion()?.nombre ?? '');
+  /** Su username: para distinguir en la cola una llamada dirigida a otro. */
+  readonly miUsuario = computed(() => this.auth.sesion()?.usuario ?? '');
 
   /** Entidad de origen: la del funcionario, fija y no editable. */
   readonly agenciaOrigen = computed(() => {

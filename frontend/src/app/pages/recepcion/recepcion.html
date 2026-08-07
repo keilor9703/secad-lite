@@ -11,6 +11,11 @@
     <h2>📞 Llamadas en espera <span class="n">{{ sonando().length }}</span></h2>
     <div class="llam" *ngFor="let l of sonando()">
       <span class="num mono">{{ l.numero }}</span>
+      <!-- La central ya la dirigió a alguien: se ve solo si usted la supervisa,
+           no si es la suya (esa ya llegó sin necesidad de esta pista). -->
+      <span class="para" *ngIf="l.destinatario && l.destinatario !== miUsuario()">
+        para {{ l.destinatario }}
+      </span>
       <span class="acciones-llam">
         <button type="button" class="btn btn--ghost mini" (click)="usarNumero(l)" title="Traer el número al formulario">
           Usar número

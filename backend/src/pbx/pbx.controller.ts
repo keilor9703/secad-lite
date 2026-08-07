@@ -1,10 +1,11 @@
 import { Body, Controller, Get, Headers, Param, Post } from '@nestjs/common';
-import { PbxService, WebhookLlamadaDto } from './pbx.service';
+import { ActorPbx, PbxService, WebhookLlamadaDto } from './pbx.service';
 import { TenantsService } from '../tenants/tenants.service';
 import { Public } from '../auth/public.decorator';
 import { Permisos } from '../auth/permisos.decorator';
 import { Tenant } from '../common/tenant.decorator';
 import { Usuario } from '../common/usuario.decorator';
+import { PermisosVigentes } from '../common/permisos-vigentes.decorator';
 import { JwtPayload } from '../auth/auth.service';
 import { RequiereIntegracion } from '../tenants/integracion.decorator';
 
@@ -26,18 +27,34 @@ export class PbxController {
     return this.pbx.webhook(apiKey, dto);
   }
 
+  /**
+   * Quién actúa. `casos.ver_todos` (supervisión) ve y puede atender cualquier
+   * llamada, esté o no dirigida a él por el ACD de la central.
+   */
+  private actor(usuario: JwtPayload, permisos: string[]): ActorPbx {
+    return {
+      username: usuario?.sub ?? 'desconocido',
+      supervisor: usuario?.rol === 'superadmin' || permisos.includes('casos.ver_todos'),
+    };
+  }
+
   /** GET /api/pbx/llamadas — cola de llamadas del tenant. */
   @Permisos('pbx.usar')
   @Get('llamadas')
-  listar(@Tenant() tenant: string) {
-    return this.pbx.listar(tenant);
+  listar(@Tenant() tenant: string, @Usuario() usuario: JwtPayload, @PermisosVigentes() permisos: string[]) {
+    return this.pbx.listar(tenant, this.actor(usuario, permisos));
   }
 
   /** POST /api/pbx/llamadas/:id/atender — atender: crea/enlaza caso (screen-pop). */
   @Permisos('pbx.usar')
   @Post('llamadas/:id/atender')
-  atender(@Tenant() tenant: string, @Usuario() usuario: JwtPayload, @Param('id') id: string) {
-    return this.pbx.atender(tenant, id, usuario?.sub ?? 'desconocido');
+  atender(
+    @Tenant() tenant: string,
+    @Usuario() usuario: JwtPayload,
+    @PermisosVigentes() permisos: string[],
+    @Param('id') id: string,
+  ) {
+    return this.pbx.atender(tenant, id, this.actor(usuario, permisos));
   }
 
   /** GET /api/pbx/config — API key del tenant + ruta del webhook. */
