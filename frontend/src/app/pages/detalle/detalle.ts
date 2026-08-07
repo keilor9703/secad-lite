@@ -1,4 +1,4 @@
-import { Component, OnDestroy, OnInit, computed, inject, signal } from '@angular/core';
+import { Component, Input, OnChanges, OnDestroy, OnInit, computed, inject, signal } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { ActivatedRoute, RouterLink } from '@angular/router';
@@ -21,7 +21,7 @@ import {
   templateUrl: './detalle.html',
   styleUrl: './detalle.scss',
 })
-export class DetalleComponent implements OnInit, OnDestroy {
+export class DetalleComponent implements OnInit, OnChanges, OnDestroy {
   private route = inject(ActivatedRoute);
   private casosSvc = inject(CasosService);
   private auth = inject(AuthService);
@@ -62,10 +62,30 @@ export class DetalleComponent implements OnInit, OnDestroy {
 
   nota = '';
   guardandoNota = false;
+  /**
+   * Caso a mostrar. Cuando el detalle se incrusta dentro del módulo de despacho
+   * llega por aquí; como página propia, se toma de la ruta.
+   */
+  @Input() casoId?: string;
+  /** Oculta el enlace de volver cuando ya se está dentro de otro módulo. */
+  @Input() incrustado = false;
+
   private id = '';
 
+  ngOnChanges(): void {
+    // Al cambiar de caso dentro del tablero hay que recargarlo todo.
+    const nuevo = this.casoId ?? '';
+    if (nuevo && nuevo !== this.id) {
+      this.id = nuevo;
+      this.caso.set(null);
+      this.cargar();
+      this.cargarAuditoria();
+      this.cargarDespacho();
+    }
+  }
+
   ngOnInit(): void {
-    this.id = this.route.snapshot.paramMap.get('id') ?? '';
+    this.id = this.casoId ?? this.route.snapshot.paramMap.get('id') ?? '';
     this.cargar();
     this.catalogos.agencias().subscribe({ next: (a) => this.agencias.set(a), error: () => {} });
     this.catalogos.canales().subscribe({ next: (c) => this.canalesAtencion.set(c), error: () => {} });

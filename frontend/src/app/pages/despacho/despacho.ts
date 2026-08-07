@@ -1,6 +1,7 @@
 import { Component, computed, effect, inject, signal } from '@angular/core';
 import { CommonModule } from '@angular/common';
-import { RouterLink } from '@angular/router';
+import { ActivatedRoute, Router } from '@angular/router';
+import { DetalleComponent } from '../detalle/detalle';
 import { CasosService } from '../../core/casos.service';
 import { CatalogosService } from '../../core/catalogos.service';
 import { AuthService } from '../../core/auth.service';
@@ -22,7 +23,7 @@ interface Columna {
 @Component({
   selector: 'app-despacho',
   standalone: true,
-  imports: [CommonModule, RouterLink],
+  imports: [CommonModule, DetalleComponent],
   templateUrl: './despacho.html',
   styleUrl: './despacho.scss',
 })
@@ -30,6 +31,8 @@ export class DespachoComponent {
   private casosSvc = inject(CasosService);
   private catalogos = inject(CatalogosService);
   private auth = inject(AuthService);
+  private router = inject(Router);
+  private ruta = inject(ActivatedRoute);
 
   readonly casos = signal<Caso[]>([]);
   readonly canales = signal<CanalAtencion[]>([]);
@@ -61,10 +64,38 @@ export class DespachoComponent {
     }));
   });
 
-  readonly sinTomar = computed(() => this.columnas()[0]?.casos.length ?? 0);
+  /** Caso abierto en el panel de gestión, a la derecha de la cola. */
+  readonly seleccionado = signal<string | null>(null);
+
+  /**
+   * Casos que este despachador ya abrió alguna vez. Se guarda en el puesto de
+   * trabajo: sirve para señalar lo que aún no ha mirado, que es la pregunta que
+   * se hace todo el tiempo — "¿qué me llegó y todavía no he visto?".
+   */
+  private readonly vistos = signal<Set<string>>(this.leerVistos());
+
+  /** El último caso que entró a su cola, para no perderlo de vista. */
+  readonly ultimo = computed<Caso | null>(() => {
+    const abiertos = this.casos().filter((c) => c.estado !== 'cerrado');
+    if (!abiertos.length) return null;
+    return abiertos.reduce((a, b) => (new Date(a.creadoEn) > new Date(b.creadoEn) ? a : b));
+  });
+
+  /** Los que llevan más de 5 minutos en la cola sin que nadie los abra. */
+  readonly sinAbrir = computed(() =>
+    this.casos().filter((c) => c.estado !== 'cerrado' && !this.vistos().has(c.id) && this.minutos(c) >= 5),
+  );
+
+  noVisto(c: Caso): boolean {
+    return !this.vistos().has(c.id);
+  }
+
+    readonly sinTomar = computed(() => this.columnas()[0]?.casos.length ?? 0);
   readonly total = computed(() => this.columnas().reduce((n, c) => n + c.casos.length, 0));
 
   constructor() {
+    // Si la dirección trae un caso, se abre en el panel al entrar.
+    this.seleccionado.set(this.ruta.snapshot.paramMap.get('id'));
     effect(() => {
       this.auth.tenantActivo();
       this.cargar();
@@ -72,6 +103,39 @@ export class DespachoComponent {
     });
     // La cola cambia sola: se refresca sin que el despachador tenga que recargar.
     setInterval(() => { this.ahora.set(Date.now()); if (!document.hidden) this.cargar(true); }, 30_000);
+  }
+
+  /** Abre el caso en el panel de gestión, sin salir del módulo. */
+  abrir(c: Caso): void {
+    this.seleccionado.set(c.id);
+    this.marcarVisto(c.id);
+    // La dirección refleja el caso abierto: se puede compartir y recargar.
+    this.router.navigate(['/despacho', c.id], { replaceUrl: !!this.seleccionado() });
+  }
+
+  cerrarPanel(): void {
+    this.seleccionado.set(null);
+    this.router.navigate(['/despacho']);
+  }
+
+  private marcarVisto(id: string): void {
+    const s = new Set(this.vistos());
+    s.add(id);
+    this.vistos.set(s);
+    try { localStorage.setItem(this.claveVistos(), JSON.stringify([...s].slice(-500))); } catch { /* sin almacenamiento */ }
+  }
+
+  private claveVistos(): string {
+    return `falconcad_vistos_${this.auth.sesion()?.usuario ?? 'anon'}`;
+  }
+
+  private leerVistos(): Set<string> {
+    try {
+      const v = localStorage.getItem(this.claveVistos());
+      return new Set<string>(v ? JSON.parse(v) : []);
+    } catch {
+      return new Set<string>();
+    }
   }
 
   cargar(silencioso = false): void {

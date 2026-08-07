@@ -13,11 +13,13 @@ export const routes: Routes = [
       { path: '', pathMatch: 'full', canActivate: [inicioGuard], children: [] },
       { path: 'recepcion', loadComponent: () => import('./pages/recepcion/recepcion').then((m) => m.RecepcionComponent) },
       { path: 'despacho', loadComponent: () => import('./pages/despacho/despacho').then((m) => m.DespachoComponent) },
+      { path: 'despacho/:id', loadComponent: () => import('./pages/despacho/despacho').then((m) => m.DespachoComponent) },
       { path: 'casos', loadComponent: () => import('./pages/casos/casos').then((m) => m.CasosComponent) },
-      { path: 'caso/:id', loadComponent: () => import('./pages/detalle/detalle').then((m) => m.DetalleComponent) },
+      { path: 'caso/:id', redirectTo: 'despacho/:id' },
       // Ruta anterior del detalle: se conserva para no romper enlaces guardados.
       { path: 'recepcion/:id', redirectTo: 'caso/:id' },
-      { path: 'llamadas', loadComponent: () => import('./pages/llamadas/llamadas').then((m) => m.LlamadasComponent) },
+      // La cola de llamadas vive dentro de Recepción: aquí solo por enlaces antiguos.
+      { path: 'llamadas', redirectTo: 'recepcion' },
       { path: 'chat', loadComponent: () => import('./pages/chat/chat').then((m) => m.ChatComponent) },
       { path: 'dashboard', loadComponent: () => import('./pages/dashboard/dashboard').then((m) => m.DashboardComponent) },
       { path: 'recursos', loadComponent: () => import('./pages/recursos/recursos').then((m) => m.RecursosComponent) },

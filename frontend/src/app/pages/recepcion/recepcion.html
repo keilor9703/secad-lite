@@ -4,20 +4,25 @@
       <h1>Recepción</h1>
       <p>Bandeja de casos entrantes · multicanal · multi-agencia</p>
     </div>
-    <button type="button" class="btn btn--primary" *ngIf="puedeRecepcionar()" (click)="abrirForm()">
-      + Nuevo caso
-    </button>
   </header>
 
   <!-- Llamadas timbrando: el punto de partida del trabajo de recepción -->
-  <div class="entrantes card" *ngIf="sonando().length">
+  <div class="entrantes card">
     <h2>📞 Llamadas en espera <span class="n">{{ sonando().length }}</span></h2>
     <div class="llam" *ngFor="let l of sonando()">
       <span class="num mono">{{ l.numero }}</span>
-      <button type="button" class="btn btn--primary mini" (click)="atenderLlamada(l)">
-        Atender y recepcionar
-      </button>
+      <span class="acciones-llam">
+        <button type="button" class="btn btn--ghost mini" (click)="usarNumero(l)" title="Traer el número al formulario">
+          Usar número
+        </button>
+        <button type="button" class="btn btn--primary mini" (click)="atenderLlamada(l)">
+          Atender
+        </button>
+      </span>
     </div>
+    <p class="sin-llamadas" *ngIf="!sonando().length">
+      No hay llamadas en espera. Puede recepcionar un caso a mano en el formulario.
+    </p>
   </div>
 
   <div class="kpis">
@@ -33,7 +38,7 @@
   <p class="error" *ngIf="error()">{{ error() }}</p>
 
   <!-- Formulario de recepción -->
-  <div class="form-panel card" *ngIf="mostrarForm">
+  <div class="form-panel card">
     <div class="fp-head">
       <h2>Recepcionar caso</h2>
       <span class="fp-meta">{{ abiertoEn | date: 'dd/MM/yyyy HH:mm' }} · {{ sesionUsuario() }}</span>
@@ -164,7 +169,7 @@
     </fieldset>
 
     <div class="acciones">
-      <button type="button" class="btn btn--ghost" (click)="cerrarForm()">Cancelar</button>
+      <button type="button" class="btn btn--ghost" (click)="limpiarForm()">Limpiar</button>
       <button type="button" class="btn btn--primary" (click)="crear()" [disabled]="guardando()">
         {{ guardando() ? 'Guardando…' : 'Guardar caso' }}
       </button>

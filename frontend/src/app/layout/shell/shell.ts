@@ -26,6 +26,8 @@ export class ShellComponent implements OnInit {
   // Cada módulo se muestra solo si el rol tiene el permiso que lo gobierna.
   readonly puedeVerCasos = computed(() => this.auth.tienePermiso('casos.ver'));
   readonly puedeRecepcionar = computed(() => this.auth.tienePermiso('casos.crear'));
+  /** La consulta histórica es de quien supervisa; el resto trabaja en su cola. */
+  readonly puedeConsultar = computed(() => this.auth.tienePermiso('casos.ver_todos'));
   readonly puedeVerLlamadas = computed(() => this.auth.tienePermiso('pbx.usar'));
   readonly puedeVerRecursos = computed(() => this.auth.tienePermiso('recursos.ver'));
   readonly puedeVerPanel = computed(() => this.auth.tienePermiso('metricas.ver'));

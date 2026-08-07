@@ -1,4 +1,4 @@
-import { Component, computed, effect, inject, signal } from '@angular/core';
+import { Component, OnInit, computed, effect, inject, signal } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { RouterLink } from '@angular/router';
@@ -37,7 +37,7 @@ interface FormRecepcion {
   templateUrl: './recepcion.html',
   styleUrl: './recepcion.scss',
 })
-export class RecepcionComponent {
+export class RecepcionComponent implements OnInit {
   private casosSvc = inject(CasosService);
   private catalogos = inject(CatalogosService);
   private auth = inject(AuthService);
@@ -70,11 +70,20 @@ export class RecepcionComponent {
   });
 
   /** Atiende la llamada y abre el caso que la PBX crea con ella. */
-  atenderLlamada(l: { id: string }): void {
+  /**
+   * Atiende la llamada y trae su número al formulario. La PBX ya deja el caso
+   * creado, así que se abre para completarlo sin volver a teclear nada.
+   */
+  atenderLlamada(l: { id: string; numero?: string }): void {
     this.pbx.atender(l.id).subscribe({
-      next: ({ casoId }) => this.router.navigate(['/caso', casoId]),
+      next: ({ casoId }) => this.router.navigate(['/despacho', casoId]),
       error: (e) => this.error.set(e?.error?.message ?? 'No fue posible atender la llamada.'),
     });
+  }
+
+  /** Toma el número de la llamada sin cerrarla: para digitar el caso a mano. */
+  usarNumero(l: { numero?: string }): void {
+    if (l.numero) this.form.telefono = l.numero;
   }
   readonly cargando = signal(false);
   readonly error = signal('');
@@ -111,7 +120,8 @@ export class RecepcionComponent {
   /** Señal espejo del select de agencia, para recalcular los canales. */
   private readonly agenciaSeleccionada = signal<string | null>(null);
 
-  mostrarForm = false;
+  /** Siempre abierto: recepcionar es el trabajo de esta pantalla, no una opción. */
+  mostrarForm = true;
   form: FormRecepcion = this.formVacio();
   /** Hora de apertura del formulario, como referencia visible del registro. */
   abiertoEn = new Date();
@@ -147,19 +157,17 @@ export class RecepcionComponent {
 
   // --- Formulario -------------------------------------------------------------
 
-  abrirForm(): void {
-    this.form = this.formVacio();
-    this.agenciaSeleccionada.set(null);
-    this.abiertoEn = new Date();
-    this.mostrarForm = true;
-    this.error.set('');
-    // El contenedor del mapa solo existe una vez pintado el formulario.
+  ngOnInit(): void {
+    // El mapa se prepara una vez pintado el formulario, que ya está a la vista.
     setTimeout(() => this.prepararMapa(), 0);
   }
 
-  cerrarForm(): void {
-    this.mostrarForm = false;
-    this.destruirMapa();
+  /** Descarta lo escrito y deja el formulario listo para la siguiente llamada. */
+  limpiarForm(): void {
+    this.form = this.formVacio();
+    this.agenciaSeleccionada.set(null);
+    this.abiertoEn = new Date();
+    this.error.set('');
   }
 
   /**
@@ -220,7 +228,7 @@ export class RecepcionComponent {
       next: (caso) => {
         this.casos.update((cs) => [caso, ...cs]);
         this.guardando.set(false);
-        this.cerrarForm();
+        this.limpiarForm();
       },
       error: (e) => {
         this.guardando.set(false);

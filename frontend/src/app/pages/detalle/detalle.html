@@ -1,5 +1,5 @@
 <section class="det">
-  <a routerLink="/despacho" class="volver">← Volver al despacho</a>
+  <a routerLink="/despacho" class="volver" *ngIf="!incrustado">← Volver al despacho</a>
 
   <p class="error" *ngIf="error()">{{ error() }}</p>
   <p class="cargando" *ngIf="cargando()">Cargando…</p>

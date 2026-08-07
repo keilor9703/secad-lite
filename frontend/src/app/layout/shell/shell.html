@@ -9,11 +9,7 @@
       <ng-container *ngIf="operativoVisible()">
         <a routerLink="/recepcion" *ngIf="puedeRecepcionar()" routerLinkActive="active">Recepción</a>
         <a routerLink="/despacho" *ngIf="puedeVerCasos()" routerLinkActive="active">Despacho</a>
-        <a routerLink="/casos" *ngIf="puedeVerCasos()" routerLinkActive="active">Casos</a>
-        <a routerLink="/llamadas" *ngIf="puedeVerLlamadas()" routerLinkActive="active" class="nav-llamadas">
-          Llamadas
-          <span class="ring-badge" *ngIf="sonando().length">{{ sonando().length }}</span>
-        </a>
+        <a routerLink="/casos" *ngIf="puedeConsultar()" routerLinkActive="active">Consulta</a>
         <a routerLink="/recursos" *ngIf="puedeVerRecursos()" routerLinkActive="active">Recursos</a>
         <a routerLink="/dashboard" *ngIf="puedeVerPanel()" routerLinkActive="active">Panel</a>
       </ng-container>

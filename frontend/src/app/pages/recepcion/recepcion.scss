@@ -105,3 +105,24 @@ tbody tr:last-child td { border-bottom: none; }
 .vista-tabs button.on { background: var(--surface); color: var(--accent); font-weight: 600;
                         box-shadow: 0 1px 2px rgba(0,0,0,0.12); }
 .canales-col { font-size: 0.8rem; color: var(--ink-soft); }
+
+/* La cola de llamadas y el formulario son una sola mesa de trabajo. */
+.entrantes { padding: 0.8rem 1rem; }
+.entrantes h2 { margin: 0 0 0.5rem; font-size: 1rem; }
+.entrantes .n { font-family: var(--mono); font-size: 0.8rem; background: var(--tag-danger-bg);
+                color: var(--tag-danger-fg); border-radius: 999px; padding: 0.05rem 0.5rem; margin-left: 0.3rem; }
+.llam { display: flex; align-items: center; justify-content: space-between; gap: 0.6rem;
+        padding: 0.4rem 0; border-bottom: 1px solid var(--border); }
+.llam:last-child { border-bottom: none; }
+.llam .num { font-size: 1rem; font-weight: 600; }
+.acciones-llam { display: flex; gap: 0.4rem; }
+.sin-llamadas { margin: 0; font-size: 0.84rem; color: var(--muted); }
+.mias { padding: 0.8rem 1rem; display: flex; flex-direction: column; gap: 0.3rem; }
+.mias h2 { margin: 0 0 0.3rem; font-size: 1rem; }
+.mia { display: flex; gap: 0.6rem; align-items: baseline; text-decoration: none; color: inherit;
+       font-size: 0.86rem; padding: 0.2rem 0; }
+.mia:hover .mtitulo { text-decoration: underline; }
+.mia .hora { font-size: 0.76rem; color: var(--muted); }
+.mia .mtitulo { flex: 1; }
+.mia .magencia { font-size: 0.78rem; color: var(--muted); }
+.ver-todo { font-size: 0.8rem; color: var(--accent); text-decoration: none; margin-top: 0.3rem; }

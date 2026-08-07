@@ -1,55 +1,75 @@
-<section class="desp">
-  <header class="desp-head">
-    <div>
-      <h1>Despacho</h1>
-      <p *ngIf="!veTodo()">
-        Casos que llegan a
-        <ng-container *ngIf="misCanales().length; else sinCanal">
-          <strong *ngFor="let c of misCanales(); let i = index">{{ i ? ', ' : '' }}{{ c.codigo }} · {{ c.nombre }}</strong>
-        </ng-container>
-        <ng-template #sinCanal><strong>ningún canal asignado</strong></ng-template>
-      </p>
-      <p *ngIf="veTodo()">Todos los casos abiertos del secad.</p>
-    </div>
-    <div class="marcador" *ngIf="total()">
-      <span class="pend" [class.hay]="sinTomar()">{{ sinTomar() }}</span>
-      <span class="lbl">sin tomar</span>
-    </div>
-  </header>
-
-  <p class="error" *ngIf="error()">{{ error() }}</p>
-
-  <!-- Sin canales no hay nada que despachar: se explica en vez de mostrar vacío -->
-  <div class="guia card" *ngIf="!veTodo() && !misCanales().length && !total()">
-    <h2>Todavía no atiende ningún canal</h2>
-    <p>El despacho muestra los casos que llegan a los canales de su agencia. Pídale al
-      administrador de su instancia que le asigne al menos uno desde
-      <strong>Administración → Usuarios</strong>.</p>
-  </div>
-
-  <div class="tablero" *ngIf="veTodo() || misCanales().length || total()">
-    <div class="col" *ngFor="let col of columnas()">
-      <div class="col-head">
-        <h2>{{ col.titulo }}</h2>
-        <span class="cuenta">{{ col.casos.length }}</span>
-      </div>
-      <p class="col-pista">{{ col.pista }}</p>
-
-      <a class="tarjeta" *ngFor="let c of col.casos" [routerLink]="['/caso', c.id]"
-         [attr.data-sem]="semaforo(c)">
-        <div class="t-top">
-          <span class="prio" [attr.data-prio]="c.prioridad">{{ c.prioridad }}</span>
-          <span class="espera">{{ espera(c) }}</span>
-        </div>
-        <h3>{{ c.titulo }}</h3>
-        <p class="t-dir" *ngIf="c.direccion || c.barrio">📍 {{ c.direccion }}<span *ngIf="c.barrio"> · {{ c.barrio }}</span></p>
-        <p class="t-meta">
-          <span>{{ canalIcon(c) }} {{ c.ciudadano }}</span>
-          <span class="mono" *ngIf="canalesDe(c)">{{ canalesDe(c) }}</span>
+<section class="desp" [class.con-panel]="seleccionado()">
+  <div class="cola">
+    <header class="desp-head">
+      <div>
+        <h1>Despacho</h1>
+        <p *ngIf="!veTodo()">
+          Su cola:
+          <ng-container *ngIf="misCanales().length; else sinCanal">
+            <strong *ngFor="let c of misCanales(); let i = index">{{ i ? ', ' : '' }}{{ c.codigo }} · {{ c.nombre }}</strong>
+          </ng-container>
+          <ng-template #sinCanal><strong>ningún canal asignado</strong></ng-template>
         </p>
-      </a>
+        <p *ngIf="veTodo()">Todos los casos abiertos del secad.</p>
+      </div>
+      <div class="marcador" *ngIf="total()">
+        <span class="pend" [class.hay]="sinTomar()">{{ sinTomar() }}</span>
+        <span class="lbl">sin tomar</span>
+      </div>
+    </header>
 
-      <p class="col-vacia" *ngIf="!col.casos.length">Nada aquí.</p>
+    <!-- Lo primero que necesita saber: qué acaba de llegar y qué no ha mirado -->
+    <div class="alertas" *ngIf="ultimo() as u">
+      <a class="alerta nuevo" (click)="abrir(u)" [class.sin-ver]="noVisto(u)">
+        <span class="etq">Último en llegar</span>
+        <strong>{{ u.titulo }}</strong>
+        <span class="hace">hace {{ espera(u) }}</span>
+      </a>
+      <div class="alerta pendiente" *ngIf="sinAbrir().length">
+        ⚠ <strong>{{ sinAbrir().length }}</strong>
+        {{ sinAbrir().length === 1 ? 'caso lleva' : 'casos llevan' }} más de 5 minutos sin que los abra
+      </div>
+    </div>
+
+    <p class="error" *ngIf="error()">{{ error() }}</p>
+
+    <div class="guia card" *ngIf="!veTodo() && !misCanales().length && !total()">
+      <h2>Todavía no atiende ningún canal</h2>
+      <p>Aquí llegan los casos que recepción envía a los canales de su agencia. Pídale al
+        administrador que le asigne al menos uno desde <strong>Administración → Usuarios</strong>.</p>
+    </div>
+
+    <div class="tablero" *ngIf="veTodo() || misCanales().length || total()">
+      <div class="col" *ngFor="let col of columnas()">
+        <div class="col-head">
+          <h2>{{ col.titulo }}</h2>
+          <span class="cuenta">{{ col.casos.length }}</span>
+        </div>
+        <p class="col-pista">{{ col.pista }}</p>
+
+        <button type="button" class="tarjeta" *ngFor="let c of col.casos" (click)="abrir(c)"
+                [attr.data-sem]="semaforo(c)" [class.activa]="seleccionado() === c.id"
+                [class.sin-ver]="noVisto(c)">
+          <div class="t-top">
+            <span class="prio" [attr.data-prio]="c.prioridad">{{ c.prioridad }}</span>
+            <span class="espera">{{ espera(c) }}</span>
+          </div>
+          <h3>{{ c.titulo }}</h3>
+          <p class="t-dir" *ngIf="c.direccion || c.barrio">📍 {{ c.direccion }}<span *ngIf="c.barrio"> · {{ c.barrio }}</span></p>
+          <p class="t-meta">
+            <span>{{ canalIcon(c) }} {{ c.ciudadano }}</span>
+            <span class="mono" *ngIf="canalesDe(c)">{{ canalesDe(c) }}</span>
+          </p>
+        </button>
+
+        <p class="col-vacia" *ngIf="!col.casos.length">Nada aquí.</p>
+      </div>
     </div>
   </div>
+
+  <!-- Gestión del caso, sin salir del módulo: despacho de recursos, notas, remisión -->
+  <aside class="panel-caso" *ngIf="seleccionado() as id">
+    <button type="button" class="cerrar" (click)="cerrarPanel()" aria-label="Cerrar el caso">✕</button>
+    <app-detalle [casoId]="id" [incrustado]="true" />
+  </aside>
 </section>
