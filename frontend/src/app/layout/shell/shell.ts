@@ -24,7 +24,11 @@ export class ShellComponent implements OnInit {
   readonly sesion = this.auth.sesion;
   readonly esAdmin = this.auth.esAdmin;
   // Cada módulo se muestra solo si el rol tiene el permiso que lo gobierna.
-  readonly puedeVerCasos = computed(() => this.auth.tienePermiso('casos.ver'));
+  // ¡Ojo! No usar 'casos.ver' aquí: lo comparten Recepción, Consulta y
+  // Catálogos (todos lo necesitan para leer su propia bandeja/catálogo), así
+  // que un rol con solo Recepción vería también la pestaña Despacho. El
+  // permiso propio y exclusivo del módulo Despacho es 'despacho.ver'.
+  readonly puedeVerDespacho = computed(() => this.auth.tienePermiso('despacho.ver'));
   readonly puedeRecepcionar = computed(() => this.auth.tienePermiso('casos.crear'));
   /** La consulta histórica es de quien supervisa; el resto trabaja en su cola. */
   readonly puedeConsultar = computed(() => this.auth.tienePermiso('casos.ver_todos'));

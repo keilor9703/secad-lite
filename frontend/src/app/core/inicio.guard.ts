@@ -16,8 +16,10 @@ export const inicioGuard: CanActivateFn = () => {
   if (auth.esSuperadmin()) return router.parseUrl('/plataforma');
 
   // Quien recepciona entra por Recepción; quien solo despacha, al tablero.
+  // 'casos.ver' NO basta para mandar a Despacho: lo comparten Recepción,
+  // Consulta y Catálogos — el permiso propio de Despacho es 'despacho.ver'.
   if (auth.tienePermiso('casos.crear')) return router.parseUrl('/recepcion');
-  if (auth.tienePermiso('despacho.ver') || auth.tienePermiso('casos.ver')) return router.parseUrl('/despacho');
+  if (auth.tienePermiso('despacho.ver')) return router.parseUrl('/despacho');
   if (auth.tienePermiso('metricas.ver')) return router.parseUrl('/dashboard');
   if (auth.esAdmin()) return router.parseUrl('/admin');
   return router.parseUrl('/casos');
