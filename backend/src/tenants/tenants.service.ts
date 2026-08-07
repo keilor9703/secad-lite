@@ -1,8 +1,9 @@
-import { BadRequestException, ConflictException, Injectable, NotFoundException, OnModuleInit } from '@nestjs/common';
+import { BadRequestException, ConflictException, ForbiddenException, Injectable, NotFoundException, OnModuleInit } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { IsNull, Repository } from 'typeorm';
 import { randomBytes } from 'crypto';
-import { ESTADOS_SUSCRIPCION, EstadoSuscripcion, INTEGRACIONES, PLANES, PlanTenant, TenantEntity } from './tenant.entity';
+import { ESTADOS_SUSCRIPCION, EstadoSuscripcion, INTEGRACIONES, Integracion, PLANES, PlanTenant, TenantEntity } from './tenant.entity';
+import { CatalogosService } from '../catalogos/catalogos.service';
 
 /** Cambios que solo hace el dueño de la plataforma. */
 export interface ActualizarTenantDto {
@@ -21,6 +22,15 @@ export interface ActualizarTenantDto {
  */
 export type ImpedimentoTenant = { motivo: string } | null;
 
+export interface WaConfigDto {
+  phoneNumberId: string | null;
+  tokenConfigurado: boolean;
+  /** Agencia responsable de los casos que entran por WhatsApp (agencias.id). */
+  agenciaResponsableId: string | null;
+  /** Canales de esa agencia a los que se envían. */
+  canales: string[];
+}
+
 export interface CrearTenantDto {
   codigo: string;
   nombre: string;
@@ -32,6 +42,7 @@ export class TenantsService implements OnModuleInit {
   constructor(
     @InjectRepository(TenantEntity)
     private readonly repo: Repository<TenantEntity>,
+    private readonly catalogos: CatalogosService,
   ) {}
 
   async onModuleInit(): Promise<void> {
@@ -61,6 +72,11 @@ export class TenantsService implements OnModuleInit {
     if (!codigo) return null; // superadmin y rutas sin tenant
     const t = await this.repo.findOne({ where: { codigo } });
     if (!t) return { motivo: 'La instancia no existe.' };
+    return this.estadoDe(t);
+  }
+
+  /** Igual que impedimento(), pero sobre una entidad ya cargada (evita una segunda consulta). */
+  private estadoDe(t: TenantEntity): ImpedimentoTenant {
     if (!t.activo) return { motivo: t.motivoBloqueo || 'La instancia está bloqueada. Contacte al proveedor.' };
     if (t.suscripcion === 'suspendida') {
       return { motivo: t.motivoBloqueo || 'La suscripción está suspendida. Contacte al proveedor.' };
@@ -71,6 +87,24 @@ export class TenantsService implements OnModuleInit {
       if (t.vence < hoy) return { motivo: `La suscripción venció el ${t.vence}. Contacte al proveedor.` };
     }
     return null;
+  }
+
+  /**
+   * Puerta de las integraciones entrantes (webhooks públicos: PBX, entidades
+   * externas, WhatsApp). `SuscripcionGuard` NO protege estas rutas: son
+   * `@Public()` porque las llama un sistema externo sin sesión de usuario, y el
+   * guard exime toda ruta pública sin distinguir cuáles — por diseño, para no
+   * bloquear /auth/login ni /health. Cada servicio público debe llamar esto a
+   * mano, con el tenant que ya resolvió (por API key o por phone_number_id),
+   * antes de aceptar el evento: si no, un tenant bloqueado/vencido o sin la
+   * integración contratada seguiría recibiendo casos indefinidamente.
+   */
+  asegurarVigente(t: TenantEntity, integracion?: Integracion): void {
+    const impedimento = this.estadoDe(t);
+    if (impedimento) throw new ForbiddenException(impedimento.motivo);
+    if (integracion && t.integraciones && !t.integraciones.includes(integracion)) {
+      throw new ForbiddenException(`El módulo de ${integracion} no está habilitado para esta instancia.`);
+    }
   }
 
   /**
@@ -166,14 +200,25 @@ export class TenantsService implements OnModuleInit {
   }
 
   /** Configuración WhatsApp del tenant (el token nunca se devuelve, solo si está puesto). */
-  async getWaConfig(codigo: string): Promise<{ phoneNumberId: string | null; tokenConfigurado: boolean }> {
+  async getWaConfig(codigo: string): Promise<WaConfigDto> {
     const t = await this.porCodigo(codigo);
     if (!t) throw new NotFoundException('Tenant no encontrado.');
-    return { phoneNumberId: t.waPhoneNumberId ?? null, tokenConfigurado: !!t.waAccessToken };
+    return this.waConfigDto(t);
   }
 
-  /** Guarda la configuración WhatsApp del tenant. El token solo se actualiza si viene. */
-  async setWaConfig(codigo: string, phoneNumberId?: string, accessToken?: string): Promise<{ phoneNumberId: string | null; tokenConfigurado: boolean }> {
+  /**
+   * Guarda la configuración WhatsApp del tenant. El token solo se actualiza si
+   * viene. `agenciaResponsableId`/`canales` son a quién se envían los casos
+   * que entren por este canal — sin ellos, un caso de WhatsApp queda sin
+   * canal y solo lo ve un supervisor (casos.ver_todos).
+   */
+  async setWaConfig(
+    codigo: string,
+    phoneNumberId?: string,
+    accessToken?: string,
+    agenciaResponsableId?: string | null,
+    canales?: string[],
+  ): Promise<WaConfigDto> {
     const t = await this.porCodigo(codigo);
     if (!t) throw new NotFoundException('Tenant no encontrado.');
     if (phoneNumberId !== undefined) {
@@ -185,8 +230,28 @@ export class TenantsService implements OnModuleInit {
       t.waPhoneNumberId = pid;
     }
     if (accessToken !== undefined && accessToken.trim()) t.waAccessToken = accessToken.trim();
+    if (agenciaResponsableId !== undefined) {
+      if (!agenciaResponsableId) {
+        t.waAgenciaResponsableId = null;
+        t.waCanales = [];
+      } else {
+        const agencia = await this.catalogos.agenciaDe(codigo, agenciaResponsableId);
+        const validos = await this.catalogos.validarCanales(codigo, canales ?? [], agencia.id);
+        t.waAgenciaResponsableId = agencia.id;
+        t.waCanales = validos.map((c) => c.id);
+      }
+    }
     await this.repo.save(t);
-    return { phoneNumberId: t.waPhoneNumberId ?? null, tokenConfigurado: !!t.waAccessToken };
+    return this.waConfigDto(t);
+  }
+
+  private waConfigDto(t: TenantEntity): WaConfigDto {
+    return {
+      phoneNumberId: t.waPhoneNumberId ?? null,
+      tokenConfigurado: !!t.waAccessToken,
+      agenciaResponsableId: t.waAgenciaResponsableId ?? null,
+      canales: t.waCanales ?? [],
+    };
   }
 
   /** Rota (regenera) la API key del tenant. */

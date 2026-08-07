@@ -14,11 +14,14 @@ export class EntidadesService {
     return this.http.get<EntidadExterna[]>(this.base);
   }
 
-  crear(nombre: string, agencia?: string): Observable<EntidadExterna> {
-    return this.http.post<EntidadExterna>(this.base, { nombre, agencia });
+  crear(nombre: string, agenciaResponsableId?: string | null, canales?: string[]): Observable<EntidadExterna> {
+    return this.http.post<EntidadExterna>(this.base, { nombre, agenciaResponsableId, canales });
   }
 
-  actualizar(id: string, cambios: { nombre?: string; agencia?: string; activa?: boolean }): Observable<EntidadExterna> {
+  actualizar(
+    id: string,
+    cambios: { nombre?: string; agenciaResponsableId?: string | null; canales?: string[]; activa?: boolean },
+  ): Observable<EntidadExterna> {
     return this.http.patch<EntidadExterna>(`${this.base}/${id}`, cambios);
   }
 

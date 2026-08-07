@@ -78,7 +78,12 @@ export class AdminComponent implements OnInit {
   // Entidades externas (API entrante)
   readonly entidades = signal<EntidadExterna[]>([]);
   readonly keyVisible = signal<string | null>(null);
-  nuevaEntidad = { nombre: '', agencia: '' };
+  nuevaEntidad: { nombre: string; agenciaResponsableId: string | null; canales: string[] } =
+    { nombre: '', agenciaResponsableId: null, canales: [] };
+
+  /** Edición en línea de a quién se envían los casos de una entidad ya creada. */
+  readonly editandoEntidad = signal<string | null>(null);
+  entidadEdicion: { agenciaResponsableId: string | null; canales: string[] } = { agenciaResponsableId: null, canales: [] };
 
   // Integración PBX (planta telefónica)
   readonly pbxConfig = signal<PbxConfig | null>(null);
@@ -88,6 +93,9 @@ export class AdminComponent implements OnInit {
   // Integración WhatsApp
   readonly waConfig = signal<WhatsappConfig | null>(null);
   waPhoneNumberId = '';
+  /** A quién se envían los casos que entran por WhatsApp. */
+  waAgenciaResponsableId: string | null = null;
+  waCanales: string[] = [];
   waAccessToken = '';
   waGuardando = false;
   readonly waOk = signal(false);
@@ -242,13 +250,70 @@ export class AdminComponent implements OnInit {
     const nombre = this.nuevaEntidad.nombre.trim();
     if (!nombre) return;
     this.error.set('');
-    this.entidadesSvc.crear(nombre, this.nuevaEntidad.agencia.trim() || undefined).subscribe({
+    this.entidadesSvc.crear(nombre, this.nuevaEntidad.agenciaResponsableId, this.nuevaEntidad.canales).subscribe({
       next: (e) => {
         this.entidades.update((es) => [...es, e]);
-        this.nuevaEntidad = { nombre: '', agencia: '' };
+        this.nuevaEntidad = { nombre: '', agenciaResponsableId: null, canales: [] };
         this.keyVisible.set(e.id);
       },
       error: (e) => this.error.set(e?.error?.message ?? 'No fue posible crear la entidad.'),
+    });
+  }
+
+  /** Al cambiar de agencia se descartan los canales, que eran de la anterior. */
+  cambiarAgenciaEntidad(agenciaId: string | null): void {
+    this.nuevaEntidad.agenciaResponsableId = agenciaId;
+    this.nuevaEntidad.canales = [];
+  }
+
+  canalMarcadoEntidad(id: string): boolean {
+    return this.nuevaEntidad.canales.includes(id);
+  }
+
+  alternarCanalEntidad(id: string): void {
+    this.nuevaEntidad.canales = this.canalMarcadoEntidad(id)
+      ? this.nuevaEntidad.canales.filter((c) => c !== id)
+      : [...this.nuevaEntidad.canales, id];
+  }
+
+  // --- Edición en línea de la entidad ya creada -------------------------------
+
+  abrirEdicionEntidad(e: EntidadExterna): void {
+    this.error.set('');
+    this.editandoEntidad.set(e.id);
+    this.entidadEdicion = { agenciaResponsableId: e.agenciaResponsableId, canales: [...(e.canales ?? [])] };
+  }
+
+  cancelarEdicionEntidad(): void {
+    this.editandoEntidad.set(null);
+  }
+
+  cambiarAgenciaEdicionEntidad(agenciaId: string | null): void {
+    this.entidadEdicion.agenciaResponsableId = agenciaId;
+    this.entidadEdicion.canales = [];
+  }
+
+  canalMarcadoEdicionEntidad(id: string): boolean {
+    return this.entidadEdicion.canales.includes(id);
+  }
+
+  alternarCanalEdicionEntidad(id: string): void {
+    this.entidadEdicion.canales = this.canalMarcadoEdicionEntidad(id)
+      ? this.entidadEdicion.canales.filter((c) => c !== id)
+      : [...this.entidadEdicion.canales, id];
+  }
+
+  guardarEdicionEntidad(e: EntidadExterna): void {
+    this.error.set('');
+    this.entidadesSvc.actualizar(e.id, {
+      agenciaResponsableId: this.entidadEdicion.agenciaResponsableId,
+      canales: this.entidadEdicion.canales,
+    }).subscribe({
+      next: (act) => {
+        this.entidades.update((es) => es.map((x) => (x.id === act.id ? act : x)));
+        this.editandoEntidad.set(null);
+      },
+      error: (err) => this.error.set(err?.error?.message ?? 'No fue posible guardar la entidad.'),
     });
   }
 
@@ -277,9 +342,30 @@ export class AdminComponent implements OnInit {
 
   private cargarWa(): void {
     this.wa.config().subscribe({
-      next: (c) => { this.waConfig.set(c); this.waPhoneNumberId = c.phoneNumberId ?? ''; },
+      next: (c) => {
+        this.waConfig.set(c);
+        this.waPhoneNumberId = c.phoneNumberId ?? '';
+        this.waAgenciaResponsableId = c.agenciaResponsableId;
+        this.waCanales = [...(c.canales ?? [])];
+      },
       error: () => {},
     });
+  }
+
+  /** Al cambiar de agencia se descartan los canales, que eran de la anterior. */
+  cambiarAgenciaWa(agenciaId: string | null): void {
+    this.waAgenciaResponsableId = agenciaId;
+    this.waCanales = [];
+  }
+
+  canalMarcadoWa(id: string): boolean {
+    return this.waCanales.includes(id);
+  }
+
+  alternarCanalWa(id: string): void {
+    this.waCanales = this.canalMarcadoWa(id)
+      ? this.waCanales.filter((c) => c !== id)
+      : [...this.waCanales, id];
   }
 
   get waWebhookUrl(): string {
@@ -291,8 +377,16 @@ export class AdminComponent implements OnInit {
     this.waGuardando = true;
     this.waOk.set(false);
     this.error.set('');
-    this.wa.guardarConfig(this.waPhoneNumberId.trim(), this.waAccessToken.trim() || undefined).subscribe({
-      next: (c) => { this.waConfig.set(c); this.waAccessToken = ''; this.waGuardando = false; this.waOk.set(true); },
+    this.wa.guardarConfig(
+      this.waPhoneNumberId.trim(), this.waAccessToken.trim() || undefined,
+      this.waAgenciaResponsableId, this.waCanales,
+    ).subscribe({
+      next: (c) => {
+        this.waConfig.set(c);
+        this.waAgenciaResponsableId = c.agenciaResponsableId;
+        this.waCanales = [...(c.canales ?? [])];
+        this.waAccessToken = ''; this.waGuardando = false; this.waOk.set(true);
+      },
       error: (e) => { this.waGuardando = false; this.error.set(e?.error?.message ?? 'No fue posible guardar la configuración de WhatsApp.'); },
     });
   }

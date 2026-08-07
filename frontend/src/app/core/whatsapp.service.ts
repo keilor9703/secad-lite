@@ -24,8 +24,15 @@ export class WhatsappService {
     return this.http.get<WhatsappConfig>(`${this.base}/whatsapp/config`);
   }
 
-  guardarConfig(phoneNumberId: string, accessToken?: string): Observable<WhatsappConfig> {
-    return this.http.put<WhatsappConfig>(`${this.base}/whatsapp/config`, { phoneNumberId, accessToken });
+  guardarConfig(
+    phoneNumberId: string,
+    accessToken?: string,
+    agenciaResponsableId?: string | null,
+    canales?: string[],
+  ): Observable<WhatsappConfig> {
+    return this.http.put<WhatsappConfig>(
+      `${this.base}/whatsapp/config`, { phoneNumberId, accessToken, agenciaResponsableId, canales },
+    );
   }
 
   webhookUrl(path: string): string {

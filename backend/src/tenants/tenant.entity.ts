@@ -46,6 +46,17 @@ export class TenantEntity {
   @Column({ type: 'varchar', length: 400, nullable: true })
   waAccessToken?: string | null;
 
+  /**
+   * A quién se envían los casos que entran por WhatsApp: agencia responsable
+   * (catálogo) y sus canales de atención. Sin esto, un caso de WhatsApp no
+   * llega a ninguna bandeja de despacho — solo lo ve un supervisor.
+   */
+  @Column({ type: 'uuid', nullable: true })
+  waAgenciaResponsableId?: string | null;
+
+  @Column({ type: 'simple-array', nullable: true })
+  waCanales?: string[] | null;
+
   // --- Suscripción (FALCON CAD es un servicio por suscripción) ---------------
 
   /** Plan contratado; hoy solo etiqueta comercial, mañana define cupos. */

@@ -126,6 +126,26 @@
     </div>
 
     <div class="pbx-field">
+      <label>A quién se envían los casos que entren por WhatsApp</label>
+      <div class="pbx-row">
+        <select [ngModel]="waAgenciaResponsableId" name="waAge" (ngModelChange)="cambiarAgenciaWa($event)">
+          <option [ngValue]="null">— agencia responsable —</option>
+          <option *ngFor="let a of agencias()" [ngValue]="a.id" [disabled]="!a.activo">{{ a.nombre }}</option>
+        </select>
+      </div>
+      <div class="canales-pick" *ngIf="waAgenciaResponsableId">
+        <label class="chip" *ngFor="let c of canalesDe(waAgenciaResponsableId)" [class.off]="!c.activo">
+          <input type="checkbox" [checked]="canalMarcadoWa(c.id)" (change)="alternarCanalWa(c.id)" />
+          <span>{{ c.codigo }} · {{ c.nombre }}</span>
+        </label>
+      </div>
+      <p class="pbx-hint" *ngIf="!waAgenciaResponsableId">
+        Sin esto, los casos de WhatsApp no llegan a ninguna bandeja de despacho — solo los ve
+        quien tenga permiso de supervisión.
+      </p>
+    </div>
+
+    <div class="pbx-field">
       <label>Token de acceso {{ wcfg.tokenConfigurado ? '(configurado — deje vacío para conservarlo)' : '' }}</label>
       <div class="pbx-row">
         <input class="mono" [(ngModel)]="waAccessToken" name="waTok" type="password" placeholder="Bearer token de Meta" />
@@ -149,35 +169,80 @@
 
     <form class="crear-inline" (ngSubmit)="crearEntidad()">
       <input [(ngModel)]="nuevaEntidad.nombre" name="enom" placeholder="Nombre (p. ej. Bomberos)" />
-      <input [(ngModel)]="nuevaEntidad.agencia" name="eage" placeholder="Agencia destino (opcional)" />
+      <select [ngModel]="nuevaEntidad.agenciaResponsableId" name="eage" (ngModelChange)="cambiarAgenciaEntidad($event)">
+        <option [ngValue]="null">— agencia responsable —</option>
+        <option *ngFor="let a of agencias()" [ngValue]="a.id" [disabled]="!a.activo">{{ a.nombre }}</option>
+      </select>
       <button type="submit" class="btn btn--primary" [disabled]="!nuevaEntidad.nombre.trim()">Registrar entidad</button>
     </form>
+    <!-- Canales de la agencia elegida: a dónde llegan los casos que radique. -->
+    <div class="canales-pick" *ngIf="nuevaEntidad.agenciaResponsableId">
+      <span class="canales-lbl">Canales de atención:</span>
+      <label class="chip" *ngFor="let c of canalesDe(nuevaEntidad.agenciaResponsableId)" [class.off]="!c.activo">
+        <input type="checkbox" [checked]="canalMarcadoEntidad(c.id)" (change)="alternarCanalEntidad(c.id)" />
+        <span>{{ c.codigo }} · {{ c.nombre }}</span>
+      </label>
+      <span class="vacio-inline" *ngIf="!canalesDe(nuevaEntidad.agenciaResponsableId).length">
+        Esa agencia todavía no tiene canales.
+      </span>
+    </div>
+    <p class="pbx-hint" *ngIf="!nuevaEntidad.agenciaResponsableId">
+      Sin agencia ni canales, los casos que radique esta entidad no llegan a ninguna bandeja de
+      despacho — solo los verá quien tenga permiso de supervisión.
+    </p>
 
     <div class="tbl-wrap" *ngIf="entidades().length">
       <table>
-        <thead><tr><th>Entidad</th><th>Agencia</th><th>API key</th><th>Estado</th><th></th></tr></thead>
+        <thead><tr><th>Entidad</th><th>A quién se envía</th><th>API key</th><th>Estado</th><th></th></tr></thead>
         <tbody>
-          <tr *ngFor="let e of entidades()">
-            <td>{{ e.nombre }}</td>
-            <td>{{ e.agencia }}</td>
-            <td class="mono ent-key">
-              <span>{{ keyVisible() === e.id ? e.apiKey : '••••••••••••' }}</span>
-              <button type="button" class="btn btn--ghost mini"
-                      (click)="keyVisible.set(keyVisible() === e.id ? null : e.id)">
-                {{ keyVisible() === e.id ? 'Ocultar' : 'Mostrar' }}
-              </button>
-              <button type="button" class="btn btn--ghost mini" (click)="copiar(e.apiKey, 'ek' + e.id)">
-                {{ copiado === 'ek' + e.id ? '¡Copiado!' : 'Copiar' }}
-              </button>
-              <button type="button" class="btn btn--ghost mini" (click)="rotarEntidad(e)">Rotar</button>
-            </td>
-            <td><span class="badge" [class.on]="e.activa">{{ e.activa ? 'Activa' : 'Inactiva' }}</span></td>
-            <td>
-              <button type="button" class="btn btn--ghost mini" (click)="toggleEntidad(e)">
-                {{ e.activa ? 'Desactivar' : 'Activar' }}
-              </button>
-            </td>
-          </tr>
+          <ng-container *ngFor="let e of entidades()">
+            <tr *ngIf="editandoEntidad() !== e.id">
+              <td>{{ e.nombre }}</td>
+              <td>
+                {{ e.agencia }}
+                <span class="mono" *ngIf="e.canales.length"> ({{ nombresCanales(e.canales) }})</span>
+                <span class="vacio-inline" *ngIf="!e.agenciaResponsableId"> — sin canal asignado</span>
+              </td>
+              <td class="mono ent-key">
+                <span>{{ keyVisible() === e.id ? e.apiKey : '••••••••••••' }}</span>
+                <button type="button" class="btn btn--ghost mini"
+                        (click)="keyVisible.set(keyVisible() === e.id ? null : e.id)">
+                  {{ keyVisible() === e.id ? 'Ocultar' : 'Mostrar' }}
+                </button>
+                <button type="button" class="btn btn--ghost mini" (click)="copiar(e.apiKey, 'ek' + e.id)">
+                  {{ copiado === 'ek' + e.id ? '¡Copiado!' : 'Copiar' }}
+                </button>
+                <button type="button" class="btn btn--ghost mini" (click)="rotarEntidad(e)">Rotar</button>
+              </td>
+              <td><span class="badge" [class.on]="e.activa">{{ e.activa ? 'Activa' : 'Inactiva' }}</span></td>
+              <td>
+                <button type="button" class="btn btn--ghost mini" (click)="abrirEdicionEntidad(e)">Editar destino</button>
+                <button type="button" class="btn btn--ghost mini" (click)="toggleEntidad(e)">
+                  {{ e.activa ? 'Desactivar' : 'Activar' }}
+                </button>
+              </td>
+            </tr>
+            <tr *ngIf="editandoEntidad() === e.id" class="fila-edicion">
+              <td>{{ e.nombre }}</td>
+              <td colspan="3">
+                <select [ngModel]="entidadEdicion.agenciaResponsableId" [ngModelOptions]="{ standalone: true }"
+                        (ngModelChange)="cambiarAgenciaEdicionEntidad($event)">
+                  <option [ngValue]="null">— agencia responsable —</option>
+                  <option *ngFor="let a of agencias()" [ngValue]="a.id" [disabled]="!a.activo">{{ a.nombre }}</option>
+                </select>
+                <div class="canales-pick" *ngIf="entidadEdicion.agenciaResponsableId">
+                  <label class="chip" *ngFor="let c of canalesDe(entidadEdicion.agenciaResponsableId)" [class.off]="!c.activo">
+                    <input type="checkbox" [checked]="canalMarcadoEdicionEntidad(c.id)" (change)="alternarCanalEdicionEntidad(c.id)" />
+                    <span>{{ c.codigo }} · {{ c.nombre }}</span>
+                  </label>
+                </div>
+              </td>
+              <td>
+                <button type="button" class="btn btn--primary mini" (click)="guardarEdicionEntidad(e)">Guardar</button>
+                <button type="button" class="btn btn--ghost mini" (click)="cancelarEdicionEntidad()">Cancelar</button>
+              </td>
+            </tr>
+          </ng-container>
         </tbody>
       </table>
     </div>

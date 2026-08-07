@@ -165,14 +165,16 @@ estrictamente adicional.
 ## API entrante (entidades externas)
 
 Una entidad externa (central de alarmas, otra agencia, una app municipal) se
-registra en **Administración → Entidades externas** y recibe una **API key
-propia** (`ek_…`). Con ella radica casos y consulta su estado:
+registra en **Administración → Entidades externas**, eligiendo su **agencia
+responsable y canales** del catálogo operativo (igual que en Recepción) y
+recibe una **API key propia** (`ek_…`). Con ella radica casos y consulta su
+estado:
 
 ```
 POST /api/integracion/casos      Header: x-api-key: <API key de la entidad>
 { "titulo": "Alarma activada sede norte", "descripcion": "Sensor de humo",
   "referencia": "ACME-77", "telefono": "3001112233",
-  "agencia": "Bomberos", "lat": 4.65, "lng": -74.05 }
+  "lat": 4.65, "lng": -74.05 }
 # → { "casoId": "…", "estado": "nuevo", ... }
 
 GET  /api/integracion/casos/:id  Header: x-api-key: <API key de la entidad>
@@ -180,8 +182,20 @@ GET  /api/integracion/casos/:id  Header: x-api-key: <API key de la entidad>
 ```
 
 El caso entra a la bandeja con canal `integracion`, autor `entidad:<nombre>` y
-la referencia externa en la descripción. Cada key se **rota o desactiva** por
-entidad sin afectar a las demás (permiso `entidades.gestionar`).
+la referencia externa en la descripción. **Los canales de atención elegidos al
+registrar la entidad son los que llegan a la bandeja de despacho** — sin
+ellos, el caso solo lo ve un supervisor (`casos.ver_todos`), nunca un operador
+de canal normal. Cada key se **rota o desactiva** por entidad sin afectar a
+las demás (permiso `entidades.gestionar`).
+
+La API key identifica a la vez el tenant y la entidad: quien la use nunca
+declara "a qué tenant pertenezco", eso lo resuelve el servidor. Es el modelo
+estándar para integraciones servidor-a-servidor (sin persona detrás
+tecleando una contraseña); la clave debe vivir en el backend de la entidad,
+nunca embebida en una app móvil. Además de la API key propia de la entidad,
+el servidor valida que el tenant tenga la suscripción vigente y la
+integración `api` contratada — un tenant bloqueado o vencido deja de aceptar
+casos externos de inmediato, aunque la API key siga siendo válida.
 
 ## Migraciones (producción)
 

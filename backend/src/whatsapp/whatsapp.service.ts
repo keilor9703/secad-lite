@@ -37,7 +37,16 @@ export class WhatsappService {
         if (!phoneNumberId || !Array.isArray(mensajes) || mensajes.length === 0) continue;
 
         const tenant = await this.tenants.porWaPhoneNumberId(String(phoneNumberId));
-        if (!tenant || !tenant.activo) continue;
+        if (!tenant) continue;
+        // Tenant bloqueado/suspendido/vencido, o sin la integración contratada:
+        // se descarta el mensaje en silencio (Meta reintentará igual, y esto
+        // es lo mismo que ya hacía con !tenant.activo, solo que ahora cubre
+        // también suscripción suspendida/vencida e integración deshabilitada).
+        try {
+          this.tenants.asegurarVigente(tenant, 'whatsapp');
+        } catch {
+          continue;
+        }
 
         const nombres = new Map<string, string>();
         for (const c of value.contacts ?? []) {
@@ -84,9 +93,18 @@ export class WhatsappService {
     if (abierto) {
       casoId = abierto.id;
     } else {
+      // A quién se envía: la agencia/canales configurados para WhatsApp en
+      // Administración. Sin esa configuración el caso queda sin canal (solo
+      // lo ve un supervisor) — es la misma situación de antes de este ajuste.
+      const t = await this.tenants.porCodigo(tenant);
       const caso = await this.casosSvc.crear(
         tenant,
-        { canal: 'whatsapp', titulo: texto.slice(0, 80) || 'WhatsApp', descripcion: texto, ciudadano: nombre, telefono: from },
+        {
+          canal: 'whatsapp', titulo: texto.slice(0, 80) || 'WhatsApp', descripcion: texto,
+          ciudadano: nombre, telefono: from,
+          agenciaResponsableId: t?.waAgenciaResponsableId ?? undefined,
+          canales: t?.waCanales ?? undefined,
+        },
         'whatsapp',
       );
       casoId = caso.id;

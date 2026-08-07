@@ -51,11 +51,20 @@ export class WhatsappController {
     return { ...cfg, verifyToken: this.verifyToken, webhookPath: '/api/whatsapp/webhook' };
   }
 
-  /** PUT /api/whatsapp/config — configurar phone_number_id y token. */
+  /**
+   * PUT /api/whatsapp/config — phone_number_id, token, y a qué agencia/canales
+   * se envían los casos que entren por este canal (sin esto, solo los ve un
+   * supervisor).
+   */
   @Permisos('whatsapp.configurar')
   @Put('config')
-  async setConfig(@Tenant() tenant: string, @Body() dto: { phoneNumberId?: string; accessToken?: string }) {
-    const cfg = await this.tenants.setWaConfig(tenant, dto?.phoneNumberId, dto?.accessToken);
+  async setConfig(
+    @Tenant() tenant: string,
+    @Body() dto: { phoneNumberId?: string; accessToken?: string; agenciaResponsableId?: string | null; canales?: string[] },
+  ) {
+    const cfg = await this.tenants.setWaConfig(
+      tenant, dto?.phoneNumberId, dto?.accessToken, dto?.agenciaResponsableId, dto?.canales,
+    );
     return { ...cfg, verifyToken: this.verifyToken, webhookPath: '/api/whatsapp/webhook' };
   }
 

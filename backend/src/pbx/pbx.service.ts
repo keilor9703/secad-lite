@@ -64,7 +64,10 @@ export class PbxService {
   async webhook(apiKey: string, dto: WebhookLlamadaDto): Promise<LlamadaEntity> {
     const tenant = await this.tenants.porApiKey(apiKey);
     if (!tenant) throw new UnauthorizedException('API key inválida.');
-    if (!tenant.activo) throw new UnauthorizedException('Tenant inactivo.');
+    // Bloqueado, suscripción suspendida/vencida, o sin la integración pbx
+    // contratada: nada de esto lo revisa el guard global porque esta ruta es
+    // pública (la llama la central, sin sesión de usuario).
+    this.tenants.asegurarVigente(tenant, 'pbx');
 
     if (dto?.evento === 'entrante') {
       const numero = dto.numero?.trim();

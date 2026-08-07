@@ -5,6 +5,8 @@ import { randomBytes } from 'crypto';
 import { EntidadEntity } from './entidad.entity';
 import { CasoEntity } from '../casos/caso.entity';
 import { CasosService } from '../casos/casos.service';
+import { TenantsService } from '../tenants/tenants.service';
+import { CatalogosService } from '../catalogos/catalogos.service';
 
 /** Payload que una entidad externa envía para radicar un caso. */
 export interface RadicarCasoDto {
@@ -21,12 +23,16 @@ export interface RadicarCasoDto {
 
 export interface CrearEntidadDto {
   nombre: string;
-  agencia?: string;
+  /** Agencia responsable de sus casos (agencias.id, catálogo). */
+  agenciaResponsableId?: string | null;
+  /** Canales de esa agencia a los que se envían. */
+  canales?: string[];
 }
 
 export interface ActualizarEntidadDto {
   nombre?: string;
-  agencia?: string;
+  agenciaResponsableId?: string | null;
+  canales?: string[];
   activa?: boolean;
 }
 
@@ -41,6 +47,8 @@ export class IntegracionService {
     @InjectRepository(EntidadEntity) private readonly entidades: Repository<EntidadEntity>,
     @InjectRepository(CasoEntity) private readonly casos: Repository<CasoEntity>,
     private readonly casosSvc: CasosService,
+    private readonly tenants: TenantsService,
+    private readonly catalogos: CatalogosService,
   ) {}
 
   // --- API pública (x-api-key) ----------------------------------------------
@@ -65,6 +73,10 @@ export class IntegracionService {
         lat: dto.lat,
         lng: dto.lng,
         entidadId: entidad.id,
+        // A dónde se envía: lo que se configuró al registrar la entidad. Sin
+        // esto el caso queda sin canal y solo lo ve un supervisor.
+        agenciaResponsableId: entidad.agenciaResponsableId ?? undefined,
+        canales: entidad.canales ?? undefined,
       },
       `entidad:${entidad.nombre}`,
     );
@@ -94,10 +106,11 @@ export class IntegracionService {
     if (await this.entidades.findOne({ where: { tenant, nombre } })) {
       throw new ConflictException('Ya existe una entidad con ese nombre.');
     }
+    const atencion = await this.resolverAtencion(tenant, dto.agenciaResponsableId, dto.canales);
     return this.entidades.save(
       this.entidades.create({
         tenant, nombre,
-        agencia: dto.agencia?.trim() || 'Central',
+        ...atencion,
         apiKey: this.generarKey(),
         activa: true,
       }),
@@ -107,7 +120,16 @@ export class IntegracionService {
   async actualizar(tenant: string, id: string, dto: ActualizarEntidadDto): Promise<EntidadEntity> {
     const e = await this.obtener(tenant, id);
     if (dto.nombre?.trim()) e.nombre = dto.nombre.trim();
-    if (dto.agencia?.trim()) e.agencia = dto.agencia.trim();
+    if (dto.agenciaResponsableId !== undefined || dto.canales !== undefined) {
+      const atencion = await this.resolverAtencion(
+        tenant,
+        dto.agenciaResponsableId !== undefined ? dto.agenciaResponsableId : e.agenciaResponsableId,
+        dto.canales !== undefined ? dto.canales : e.canales ?? [],
+      );
+      e.agencia = atencion.agencia;
+      e.agenciaResponsableId = atencion.agenciaResponsableId;
+      e.canales = atencion.canales;
+    }
     if (typeof dto.activa === 'boolean') e.activa = dto.activa;
     return this.entidades.save(e);
   }
@@ -119,6 +141,22 @@ export class IntegracionService {
   }
 
   // ---------------------------------------------------------------------------
+
+  /**
+   * Resuelve la agencia y los canales del catálogo, igual que en Recepción:
+   * si no se indica agencia, la entidad queda sin canal (se conserva por
+   * compatibilidad, pero el frontend advierte que así solo la ven los
+   * supervisores).
+   */
+  private async resolverAtencion(tenant: string, agenciaResponsableId?: string | null, canalesIds?: string[]) {
+    if (!agenciaResponsableId) {
+      return { agencia: 'Central', agenciaResponsableId: null, canales: [] };
+    }
+    const agencia = await this.catalogos.agenciaDe(tenant, agenciaResponsableId);
+    const canales = await this.catalogos.validarCanales(tenant, canalesIds ?? [], agencia.id);
+    return { agencia: agencia.nombre, agenciaResponsableId: agencia.id, canales: canales.map((c) => c.id) };
+  }
+
   private async obtener(tenant: string, id: string): Promise<EntidadEntity> {
     const e = await this.entidades.findOne({ where: { tenant, id } });
     if (!e) throw new NotFoundException('Entidad no encontrada.');
@@ -129,6 +167,11 @@ export class IntegracionService {
     if (!apiKey?.trim()) throw new UnauthorizedException('Falta la API key (header x-api-key).');
     const e = await this.entidades.findOne({ where: { apiKey: apiKey.trim() } });
     if (!e || !e.activa) throw new UnauthorizedException('API key inválida o entidad inactiva.');
+    // Bloqueado, suscripción suspendida/vencida, o sin la integración 'api'
+    // contratada: esta ruta es pública, así que el guard global no lo revisa.
+    const tenant = await this.tenants.porCodigo(e.tenant);
+    if (!tenant) throw new UnauthorizedException('API key inválida o entidad inactiva.');
+    this.tenants.asegurarVigente(tenant, 'api');
     return e;
   }
 

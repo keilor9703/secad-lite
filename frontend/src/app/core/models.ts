@@ -88,6 +88,9 @@ export interface WhatsappConfig {
   tokenConfigurado: boolean;
   verifyToken: string;
   webhookPath: string;
+  /** A quién se envían los casos que entran por WhatsApp. */
+  agenciaResponsableId: string | null;
+  canales: string[];
 }
 
 export type TipoRecurso = 'patrulla' | 'ambulancia' | 'maquina' | 'moto' | 'otro';
@@ -264,6 +267,10 @@ export interface EntidadExterna {
   tenant: string;
   nombre: string;
   agencia: string;
+  /** Agencia responsable (agencias.id); null si no se configuró aún. */
+  agenciaResponsableId: string | null;
+  /** Canales a los que se envían sus casos. */
+  canales: string[];
   apiKey: string;
   activa: boolean;
   creadoEn?: string;

@@ -17,7 +17,18 @@ export class EntidadEntity {
   @Column({ type: 'varchar', length: 120 })
   nombre!: string;
 
-  /** Agencia por defecto de los casos que radica (p. ej. Bomberos). */
+  /**
+   * A quién se envían los casos que esta entidad radica: agencia responsable
+   * del catálogo y sus canales de atención. Sin esto, un caso radicado no
+   * llega a ninguna bandeja de despacho — solo lo ve un supervisor.
+   */
+  @Column({ type: 'uuid', nullable: true })
+  agenciaResponsableId?: string | null;
+
+  @Column({ type: 'simple-array', nullable: true })
+  canales?: string[] | null;
+
+  /** Nombre de la agencia, denormalizado para listar sin reconsultar el catálogo. */
   @Column({ type: 'varchar', length: 80, default: 'Central' })
   agencia!: string;
 
