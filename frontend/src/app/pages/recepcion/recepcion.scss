@@ -153,7 +153,19 @@ tbody tr:last-child td { border-bottom: none; }
    la derecha: el operador ve quién espera mientras escribe. */
 @media (min-width: 1280px) {
   .rec { display: grid; grid-template-columns: minmax(260px, 22%) 1fr; gap: 1rem; align-items: start; }
-  .rec > .rec-head, .rec > .error, .rec > .alcance { grid-column: 1 / -1; }
-  .rec > .entrantes, .rec > .mias { grid-column: 1; }
+  /*
+   * Ubicación explícita de cada bloque: .form-panel ocupa la columna 2 en un
+   * único tramo alto (filas 2 a 5). Sin fijar también la fila de .kpis y
+   * .alcance, el auto-placement de CSS Grid los saltaba hasta la primera
+   * fila donde las DOS columnas quedaran libres a la vez —después de que
+   * .form-panel termina su tramo—, empujándolos al fondo de la página en vez
+   * de dejarlos junto a .entrantes, en la columna angosta de la izquierda.
+   */
+  .rec > .rec-head { grid-column: 1 / -1; grid-row: 1; }
+  .rec > .entrantes { grid-column: 1; grid-row: 2; }
+  .rec > .kpis { grid-column: 1; grid-row: 3; }
+  .rec > .alcance { grid-column: 1; grid-row: 4; }
+  .rec > .error { grid-column: 1; grid-row: 5; }
   .rec > .form-panel { grid-column: 2; grid-row: 2 / span 4; }
+  .rec > .mias { grid-column: 1; grid-row: 6; }
 }
