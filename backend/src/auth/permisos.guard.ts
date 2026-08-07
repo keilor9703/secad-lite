@@ -62,8 +62,8 @@ export class PermisosGuard implements CanActivate {
     const guardado = this.cache.get(clave);
     if (guardado && guardado.expira > Date.now()) return guardado.permisos;
 
-    // buscarPorUsername solo devuelve cuentas activas.
-    const u = await this.usuarios.buscarPorUsername(user.sub);
+    // buscarPorUsernameYTenant solo devuelve cuentas activas.
+    const u = await this.usuarios.buscarPorUsernameYTenant(user.sub, user.tenant ?? null);
     if (!u) throw new ForbiddenException('La cuenta no existe o fue desactivada.');
     const permisos = await this.roles.permisosDe(u.tenant ?? null, u.rol);
     this.cache.set(clave, { permisos, expira: Date.now() + VIGENCIA_CACHE_MS });

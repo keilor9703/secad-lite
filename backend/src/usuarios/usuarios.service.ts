@@ -51,10 +51,11 @@ export interface ActualizarUsuarioDto {
 }
 
 /**
- * Directorio de usuarios (PostgreSQL, bcrypt). El `username` es único global; el
- * tenant se deduce del usuario. La gestión está acotada por ámbito: el
- * superadmin gobierna todos los tenants; el admin, solo el suyo. El rol que se
- * asigna debe existir en el tenant (RBAC dinámico, ver RolesService).
+ * Directorio de usuarios (PostgreSQL, bcrypt). El `username` es único DENTRO
+ * de cada tenant, no global: dos secads pueden tener cada uno su propio
+ * "admin". La gestión está acotada por ámbito: el superadmin gobierna todos
+ * los tenants; el admin, solo el suyo. El rol que se asigna debe existir en
+ * el tenant (RBAC dinámico, ver RolesService).
  */
 @Injectable()
 export class UsuariosService implements OnModuleInit {
@@ -71,15 +72,39 @@ export class UsuariosService implements OnModuleInit {
     await this.seed();
   }
 
-  buscarPorUsername(username: string): Promise<UsuarioEntity | null> {
-    return this.repo.findOne({ where: { username: username.trim().toLowerCase(), activo: true } });
+  /**
+   * La cuenta activa de ESE tenant con ese username. Úsese siempre que el
+   * tenant ya se conozca (viaja en el JWT) — es la búsqueda sin ambigüedad.
+   * `tenant: null` es el caso del superadmin (no pertenece a ningún tenant).
+   */
+  buscarPorUsernameYTenant(username: string, tenant: string | null): Promise<UsuarioEntity | null> {
+    return this.repo.findOne({
+      where: { username: username.trim().toLowerCase(), tenant: tenant ?? IsNull(), activo: true },
+    });
   }
 
-  /** Valida credenciales; devuelve el usuario o null. */
+  /**
+   * Cuentas activas con ese username, en cualquier tenant. Como el username
+   * solo es único DENTRO de cada tenant, puede haber más de una — se usa
+   * solo en el login, que todavía no sabe a qué tenant pertenece quien
+   * escribe.
+   */
+  private buscarActivosPorUsername(username: string): Promise<UsuarioEntity[]> {
+    return this.repo.find({ where: { username: username.trim().toLowerCase(), activo: true } });
+  }
+
+  /**
+   * Valida credenciales. Prueba la contraseña contra cada cuenta activa con
+   * ese username hasta encontrar la que corresponde — así se resuelve, sin
+   * pedir el tenant en el login, cuál de las cuentas (si hay varias con el
+   * mismo username en distintos tenants) es la del que está entrando.
+   */
   async validar(username: string, contrasena: string): Promise<UsuarioEntity | null> {
-    const u = await this.buscarPorUsername(username);
-    if (!u) return null;
-    return (await bcrypt.compare(contrasena, u.passwordHash)) ? u : null;
+    const candidatos = await this.buscarActivosPorUsername(username);
+    for (const u of candidatos) {
+      if (await bcrypt.compare(contrasena, u.passwordHash)) return u;
+    }
+    return null;
   }
 
   // --- Gestión (usuarios.gestionar) -----------------------------------------
@@ -98,8 +123,11 @@ export class UsuariosService implements OnModuleInit {
     }
     const { rol, tenant } = await this.resolverAmbito(actor, dto.rol, dto.tenant);
 
-    if (await this.repo.findOne({ where: { username } })) {
-      throw new ConflictException('Ese nombre de usuario ya existe.');
+    // Único DENTRO del tenant: el mismo username puede existir en otro
+    // secad sin conflicto (o, para el superadmin, entre las cuentas sin
+    // tenant).
+    if (await this.repo.findOne({ where: { username, tenant: tenant ?? IsNull() } })) {
+      throw new ConflictException('Ese nombre de usuario ya existe en este tenant.');
     }
 
     const { agenciaId, canales } = await this.resolverAdscripcion(tenant, dto.agenciaId, dto.canales);

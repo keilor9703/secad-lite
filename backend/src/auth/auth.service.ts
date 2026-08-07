@@ -69,7 +69,7 @@ export class AuthService {
       return { usuario: usuario.sub, nombre: usuario.nombre, rol: usuario.rol, tipo: usuario.tipo,
                tenant: usuario.tenant, permisos: [], agencia: null, canales: [] };
     }
-    const u = await this.usuarios.buscarPorUsername(usuario?.sub ?? '');
+    const u = await this.usuarios.buscarPorUsernameYTenant(usuario?.sub ?? '', usuario?.tenant ?? null);
     if (!u) throw new UnauthorizedException('La cuenta no existe o fue desactivada.');
     const permisos = await this.roles.permisosDe(u.tenant ?? null, u.rol);
     return {

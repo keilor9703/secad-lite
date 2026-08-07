@@ -28,7 +28,7 @@ export class CasosController {
    * reasignarlos surta efecto sin volver a iniciar sesión.
    */
   private async actor(usuario: JwtPayload, permisos: string[]): Promise<Actor> {
-    const yo = await this.usuarios.buscarPorUsername(usuario?.sub ?? '');
+    const yo = await this.usuarios.buscarPorUsernameYTenant(usuario?.sub ?? '', usuario?.tenant ?? null);
     return {
       sub: usuario?.sub ?? 'desconocido',
       rol: usuario?.rol ?? 'operador',
