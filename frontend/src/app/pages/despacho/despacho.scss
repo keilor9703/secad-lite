@@ -51,9 +51,11 @@
 @media (max-width: 560px) { .tablero { grid-template-columns: 1fr; } }
 
 /* La cola y la gestión conviven: el despachador no cambia de pantalla. */
-.desp.con-panel { display: grid; grid-template-columns: minmax(300px, 380px) 1fr; gap: 1rem; align-items: start; }
+/* Con el caso abierto, la cola pasa a riel lateral y la gestión toma el ancho
+   restante, que es donde el despachador escribe y despacha. */
+.desp.con-panel { display: grid; grid-template-columns: minmax(280px, 22%) 1fr; gap: 1rem; align-items: start; }
 .desp.con-panel .tablero { grid-template-columns: 1fr; }
-.desp.con-panel .col { max-height: 300px; overflow-y: auto; }
+.desp.con-panel .col { max-height: 34vh; overflow-y: auto; }
 .panel-caso { position: relative; background: var(--surface); border: 1px solid var(--border);
               border-radius: var(--radius); padding: 0.8rem 1rem 1rem; }
 .panel-caso .cerrar { position: absolute; top: 0.5rem; right: 0.6rem; z-index: 2;

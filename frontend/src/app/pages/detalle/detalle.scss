@@ -56,7 +56,7 @@
 .asig-badge[data-estado="cancelada"] { background: var(--tag-danger-bg); color: var(--tag-danger-fg); }
 .chat-panel { padding: 1.2rem 1.3rem; display: flex; flex-direction: column; gap: 0.7rem; }
 .chat-panel h2 { margin: 0; font-size: 1.05rem; }
-.chat-msgs { display: flex; flex-direction: column; gap: 0.5rem; max-height: 260px; overflow-y: auto; }
+.chat-msgs { display: flex; flex-direction: column; gap: 0.5rem; max-height: 40vh; overflow-y: auto; }
 .chat-msgs .vacio { color: var(--muted); margin: 0.4rem 0; }
 .cmsg { max-width: 82%; align-self: flex-start; display: flex; flex-direction: column; }
 .cmsg.propio { align-self: flex-end; align-items: flex-end; }
@@ -131,3 +131,9 @@
   border: 1px solid var(--border-2); border-radius: var(--radius-sm); padding: 0.8rem;
 }
 .reapertura-form label { font-size: 0.82rem; font-weight: 600; color: var(--ink-soft); }
+
+/* La nota es donde el despachador escribe todo lo que informa el recurso en
+   campo: necesita espacio para escribir, no una ranura de dos renglones. */
+.bitacora textarea, .nota-form textarea { min-height: 110px; resize: vertical; line-height: 1.45; }
+/* La línea de tiempo aprovecha el alto disponible en vez de recortarse pronto. */
+.linea { max-height: 46vh; overflow-y: auto; }

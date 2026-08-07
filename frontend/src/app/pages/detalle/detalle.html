@@ -199,7 +199,7 @@
         <h2>Bitácora</h2>
 
         <form class="nota-form" (ngSubmit)="agregarNota()">
-          <textarea [(ngModel)]="nota" name="nota" rows="2"
+          <textarea [(ngModel)]="nota" name="nota" rows="4"
                     placeholder="Agregar una nota al caso…" maxlength="1000"></textarea>
           <button type="submit" class="btn btn--primary" [disabled]="guardandoNota || !nota.trim()">
             {{ guardandoNota ? 'Guardando…' : 'Agregar nota' }}

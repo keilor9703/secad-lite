@@ -40,7 +40,12 @@
 .who .tipo { font-size: 0.7rem; color: var(--accent); text-transform: capitalize; }
 .who .tipo.civil { color: var(--warn); }
 
-.content { padding: 1.4rem; max-width: 1080px; margin: 0 auto; }
+/**
+ * Esto es una consola de operación, no un artículo: aprovecha el ancho de la
+ * pantalla. El margen crece con el viewport para no quedar pegado a los bordes,
+ * y el tope solo evita anchos absurdos en monitores muy grandes.
+ */
+.content { padding: 1.25rem clamp(1rem, 2.5vw, 2.5rem); max-width: 2200px; margin: 0 auto; }
 
 @media (max-width: 560px) {
   .topbar { gap: 0.8rem; flex-wrap: wrap; }

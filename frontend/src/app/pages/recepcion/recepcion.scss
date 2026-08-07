@@ -72,7 +72,7 @@ tbody tr:last-child td { border-bottom: none; }
 .con-boton .btn { white-space: nowrap; }
 
 .mapa-hint { margin: 0.8rem 0 0.4rem; font-size: 0.8rem; color: var(--muted); }
-.mapa { height: 300px; border-radius: var(--radius-sm); border: 1px solid var(--border-2); overflow: hidden; }
+.mapa { height: clamp(280px, 34vh, 460px); border-radius: var(--radius-sm); border: 1px solid var(--border-2); overflow: hidden; }
 /* El marcador se dibuja en HTML para no depender de los PNG de Leaflet. */
 :host ::ng-deep .pin-caso { font-size: 1.5rem; line-height: 1; text-align: center; }
 /* Las teselas y controles del mapa se atenúan en modo oscuro. */
@@ -126,3 +126,12 @@ tbody tr:last-child td { border-bottom: none; }
 .mia .mtitulo { flex: 1; }
 .mia .magencia { font-size: 0.78rem; color: var(--muted); }
 .ver-todo { font-size: 0.8rem; color: var(--accent); text-decoration: none; margin-top: 0.3rem; }
+
+/* En pantalla ancha, la cola de llamadas queda a la izquierda y el formulario a
+   la derecha: el operador ve quién espera mientras escribe. */
+@media (min-width: 1280px) {
+  .rec { display: grid; grid-template-columns: minmax(260px, 22%) 1fr; gap: 1rem; align-items: start; }
+  .rec > .rec-head, .rec > .error, .rec > .alcance { grid-column: 1 / -1; }
+  .rec > .entrantes, .rec > .mias { grid-column: 1; }
+  .rec > .form-panel { grid-column: 2; grid-row: 2 / span 4; }
+}
