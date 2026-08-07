@@ -23,6 +23,10 @@ tbody tr:last-child td { border-bottom: none; }
 
 .mini { padding: 0.3rem 0.6rem; font-size: 0.78rem; }
 
+.clave-edicion { display: flex; gap: 0.3rem; align-items: center; }
+.clave-edicion input { width: 140px; padding: 0.3rem 0.5rem; font-size: 0.8rem; }
+.pbx-warn.mini { display: inline; margin: 0 0 0 0.4rem; }
+
 /* Integración PBX */
 .pbx-hint { color: var(--muted); font-size: 0.85rem; margin: 0 0 0.8rem; line-height: 1.5; }
 .pbx-hint code { background: var(--surface-2); padding: 0.05rem 0.3rem; border-radius: 4px; font-size: 0.82em; }

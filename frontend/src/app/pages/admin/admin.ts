@@ -593,6 +593,43 @@ export class AdminComponent implements OnInit {
     });
   }
 
+  // --- Cambiar contraseña ------------------------------------------------------
+  // Vale para cualquier fila visible, incluida la del propio superadmin cuando
+  // es él quien mira la tabla (ve su propia cuenta porque `listar` no filtra
+  // por tenant para su rol): el alcance real lo impone el backend.
+
+  /** Id del usuario cuya fila tiene el campo de nueva contraseña abierto. */
+  readonly cambiandoClave = signal<string | null>(null);
+  claveNueva = '';
+  /** Id del usuario cuya contraseña se acaba de guardar (confirmación breve). */
+  readonly claveOk = signal<string | null>(null);
+
+  abrirCambioClave(u: UsuarioAdmin): void {
+    this.cambiandoClave.set(u.id);
+    this.claveNueva = '';
+    this.claveOk.set(null);
+  }
+
+  cancelarCambioClave(): void {
+    this.cambiandoClave.set(null);
+    this.claveNueva = '';
+  }
+
+  guardarClave(u: UsuarioAdmin): void {
+    const clave = this.claveNueva.trim();
+    if (!clave) { this.error.set('Escriba la nueva contraseña.'); return; }
+    this.error.set('');
+    this.admin.cambiarContrasena(u.id, clave).subscribe({
+      next: () => {
+        this.cambiandoClave.set(null);
+        this.claveNueva = '';
+        this.claveOk.set(u.id);
+        setTimeout(() => { if (this.claveOk() === u.id) this.claveOk.set(null); }, 3000);
+      },
+      error: (e) => this.error.set(e?.error?.message ?? 'No fue posible cambiar la contraseña.'),
+    });
+  }
+
   cambiarRolUsuario(u: UsuarioAdmin, rol: string): void {
     if (!rol || rol === u.rol) return;
     this.admin.cambiarRol(u.id, rol).subscribe({

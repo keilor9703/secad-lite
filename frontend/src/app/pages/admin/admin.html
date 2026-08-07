@@ -293,7 +293,7 @@
 
     <div class="tbl-wrap">
       <table>
-        <thead><tr><th>Usuario</th><th>Nombre</th><th>Rol</th><th>Agencia</th><th>Canales</th><th>Extensión PBX</th><th>Tenant</th><th>Estado</th><th></th></tr></thead>
+        <thead><tr><th>Usuario</th><th>Nombre</th><th>Rol</th><th>Agencia</th><th>Canales</th><th>Extensión PBX</th><th>Tenant</th><th>Estado</th><th>Contraseña</th><th></th></tr></thead>
         <tbody>
           <tr *ngFor="let u of usuarios()">
             <td class="mono">{{ u.username }}</td>
@@ -314,6 +314,24 @@
             </td>
             <td class="mono">{{ u.tenant || '—' }}</td>
             <td><span class="badge" [class.on]="u.activo">{{ u.activo ? 'Activo' : 'Inactivo' }}</span></td>
+            <td>
+              <ng-container *ngIf="cambiandoClave() !== u.id; else editandoClave">
+                <button type="button" class="btn btn--ghost mini" (click)="abrirCambioClave(u)">
+                  Cambiar
+                </button>
+                <span class="pbx-warn mini" *ngIf="claveOk() === u.id">Guardada.</span>
+              </ng-container>
+              <ng-template #editandoClave>
+                <span class="clave-edicion">
+                  <input type="password" class="mono" [(ngModel)]="claveNueva"
+                         [ngModelOptions]="{ standalone: true }" placeholder="nueva contraseña"
+                         (keyup.enter)="guardarClave(u)"
+                         [attr.aria-label]="'Nueva contraseña de ' + u.username" />
+                  <button type="button" class="btn btn--primary mini" (click)="guardarClave(u)">Guardar</button>
+                  <button type="button" class="btn btn--ghost mini" (click)="cancelarCambioClave()">Cancelar</button>
+                </span>
+              </ng-template>
+            </td>
             <td>
               <button type="button" class="btn btn--ghost mini"
                       *ngIf="u.rol !== 'superadmin'" (click)="toggleActivo(u)">

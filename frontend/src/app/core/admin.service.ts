@@ -56,4 +56,12 @@ export class AdminService {
   cambiarExtension(id: string, extension: string | null): Observable<UsuarioAdmin> {
     return this.http.patch<UsuarioAdmin>(`${this.base}/usuarios/${id}`, { extension });
   }
+  /**
+   * Cambia la contraseña de cualquier usuario visible en la tabla —incluida
+   * la del propio superadmin, cuando es él quien mira—: el backend ya
+   * resuelve el alcance (un admin de tenant solo ve y puede tocar los suyos).
+   */
+  cambiarContrasena(id: string, contrasena: string): Observable<UsuarioAdmin> {
+    return this.http.patch<UsuarioAdmin>(`${this.base}/usuarios/${id}`, { contrasena });
+  }
 }
