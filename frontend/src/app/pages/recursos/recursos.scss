@@ -23,3 +23,13 @@ tbody tr:last-child td { border-bottom: none; }
 .rbadge[data-estado="en_ruta"]        { background: var(--tag-warn-bg); color: var(--tag-warn-fg); }
 .rbadge[data-estado="en_sitio"]       { background: var(--tag-teal-bg); color: var(--tag-teal-fg); }
 .rbadge[data-estado="fuera_servicio"] { background: var(--surface-2); color: var(--muted); }
+
+/* Acciones de la fila: se apilan si no caben, sin desbordar la tabla. */
+.acciones-col { white-space: nowrap; }
+.acciones-col .btn + .btn { margin-left: 0.35rem; }
+.btn.peligro { color: var(--danger); }
+.btn.peligro:hover { border-color: var(--danger); }
+.fila-edicion { background: var(--surface-2); }
+.fila-edicion input, .fila-edicion select { width: 100%; min-width: 110px; }
+.vacio-inline { color: var(--muted); font-size: 0.85rem; }
+.hint { margin: 0.5rem 0 0; color: var(--muted); font-size: 0.82rem; }

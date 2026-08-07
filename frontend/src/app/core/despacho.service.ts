@@ -8,7 +8,8 @@ export interface CrearRecurso {
   codigo: string;
   nombre: string;
   tipo: TipoRecurso;
-  agencia?: string;
+  /** Agencia dueña (agencias.id); se elige del catálogo, no se escribe. */
+  agenciaId?: string | null;
 }
 
 @Injectable({ providedIn: 'root' })
@@ -28,6 +29,18 @@ export class DespachoService {
   }
   fueraServicio(id: string, fueraServicio: boolean): Observable<Recurso> {
     return this.http.patch<Recurso>(`${this.base}/recursos/${id}`, { fueraServicio });
+  }
+
+  actualizarRecurso(
+    id: string,
+    cambios: { codigo?: string; nombre?: string; tipo?: TipoRecurso; agenciaId?: string | null; activo?: boolean },
+  ): Observable<Recurso> {
+    return this.http.patch<Recurso>(`${this.base}/recursos/${id}`, cambios);
+  }
+
+  /** Borrado definitivo; el backend lo impide si el recurso ya fue despachado. */
+  eliminarRecurso(id: string): Observable<{ ok: true }> {
+    return this.http.delete<{ ok: true }>(`${this.base}/recursos/${id}`);
   }
 
   // Despacho sobre un caso

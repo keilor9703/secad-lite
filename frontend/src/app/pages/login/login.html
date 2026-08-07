@@ -9,23 +9,11 @@
       </div>
     </div>
 
-    <div class="tabs" role="tablist">
-      <button type="button" role="tab" [attr.aria-selected]="modo === 'usuario'"
-              [class.active]="modo === 'usuario'" (click)="setModo('usuario')">
-        Usuario
-      </button>
-      <button type="button" role="tab" [attr.aria-selected]="modo === 'ciudadano'"
-              [class.active]="modo === 'ciudadano'" (click)="setModo('ciudadano')">
-        Ciudadano
-      </button>
-    </div>
-
     <form (ngSubmit)="entrar()">
       <div class="field">
-        <label for="usuario">{{ modo === 'usuario' ? 'Usuario' : 'Correo' }}</label>
+        <label for="usuario">Usuario</label>
         <input id="usuario" name="usuario" [(ngModel)]="usuario"
-               [placeholder]="modo === 'usuario' ? 'p. ej. operador1' : 'p. ej. ciudadano@correo.com'"
-               autocomplete="username" />
+               placeholder="p. ej. operador1" autocomplete="username" />
       </div>
 
       <div class="field">
@@ -39,13 +27,6 @@
       <button type="submit" class="btn btn--primary full" [disabled]="cargando">
         {{ cargando ? 'Ingresando…' : 'Ingresar' }}
       </button>
-
-      <p class="hint" *ngIf="modo === 'usuario'">
-        Demo: <code>superadmin</code> · <code>admin1</code> · <code>supervisor1</code> · <code>operador1</code> (contraseña <code>demo</code>).
-      </p>
-      <p class="hint" *ngIf="modo === 'ciudadano'">
-        Demo: cualquier correo con contraseña <code>demo</code>.
-      </p>
     </form>
   </div>
 

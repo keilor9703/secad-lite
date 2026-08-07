@@ -14,27 +14,72 @@
       <select [(ngModel)]="nuevo.tipo" name="tipo">
         <option *ngFor="let t of tipos" [value]="t">{{ t }}</option>
       </select>
-      <input [(ngModel)]="nuevo.agencia" name="agencia" placeholder="agencia (Policía)" />
+      <!-- La agencia sale del catálogo: así la flota y los casos hablan de
+           las mismas entidades y el despacho por agencia cuadra. -->
+      <select [(ngModel)]="nuevo.agenciaId" name="agencia" aria-label="Agencia del recurso">
+        <option [ngValue]="null">— agencia —</option>
+        <option *ngFor="let a of agencias()" [ngValue]="a.id">{{ a.nombre }}</option>
+      </select>
       <button type="submit" class="btn btn--primary">Crear</button>
     </form>
+    <p class="hint" *ngIf="!agencias().length">
+      No hay agencias activas. Créelas primero en Catálogos operativos.
+    </p>
   </div>
 
   <div class="panel card">
     <div class="tbl-wrap">
       <table>
-        <thead><tr><th>Código</th><th>Nombre</th><th>Tipo</th><th>Agencia</th><th>Estado</th><th *ngIf="gestiona()"></th></tr></thead>
+        <thead>
+          <tr>
+            <th>Código</th><th>Nombre</th><th>Tipo</th><th>Agencia</th><th>Estado</th>
+            <th *ngIf="gestiona()" class="acciones-col"></th>
+          </tr>
+        </thead>
         <tbody>
-          <tr *ngFor="let r of recursos()">
-            <td class="mono">{{ r.codigo }}</td>
-            <td>{{ r.nombre }}</td>
-            <td class="cap">{{ r.tipo }}</td>
-            <td>{{ r.agencia }}</td>
-            <td><span class="rbadge" [attr.data-estado]="r.estado">{{ estadoLabel(r.estado) }}</span></td>
-            <td *ngIf="gestiona()">
-              <button type="button" class="btn btn--ghost mini" *ngIf="puedeToggle(r)" (click)="toggleServicio(r)">
-                {{ r.estado === 'fuera_servicio' ? 'Poner en servicio' : 'Fuera de servicio' }}
-              </button>
-            </td>
+          <ng-container *ngFor="let r of recursos()">
+            <!-- Fila en lectura -->
+            <tr *ngIf="editando() !== r.id">
+              <td class="mono">{{ r.codigo }}</td>
+              <td>{{ r.nombre }}</td>
+              <td class="cap">{{ r.tipo }}</td>
+              <td>{{ r.agencia }}</td>
+              <td><span class="rbadge" [attr.data-estado]="r.estado">{{ estadoLabel(r.estado) }}</span></td>
+              <td *ngIf="gestiona()" class="acciones-col">
+                <button type="button" class="btn btn--ghost mini" (click)="abrirEdicion(r)">Editar</button>
+                <button type="button" class="btn btn--ghost mini" *ngIf="puedeToggle(r)" (click)="toggleServicio(r)">
+                  {{ r.estado === 'fuera_servicio' ? 'Poner en servicio' : 'Fuera de servicio' }}
+                </button>
+                <button type="button" class="btn btn--ghost mini peligro" (click)="eliminar(r)">Eliminar</button>
+              </td>
+            </tr>
+
+            <!-- Fila en edición -->
+            <tr *ngIf="editando() === r.id" class="fila-edicion">
+              <td><input class="mono" [(ngModel)]="edicion.codigo" [ngModelOptions]="{ standalone: true }"
+                         aria-label="Código" /></td>
+              <td><input [(ngModel)]="edicion.nombre" [ngModelOptions]="{ standalone: true }"
+                         aria-label="Nombre" /></td>
+              <td>
+                <select [(ngModel)]="edicion.tipo" [ngModelOptions]="{ standalone: true }" aria-label="Tipo">
+                  <option *ngFor="let t of tipos" [value]="t">{{ t }}</option>
+                </select>
+              </td>
+              <td>
+                <select [(ngModel)]="edicion.agenciaId" [ngModelOptions]="{ standalone: true }" aria-label="Agencia">
+                  <option [ngValue]="null">— agencia —</option>
+                  <option *ngFor="let a of agencias()" [ngValue]="a.id">{{ a.nombre }}</option>
+                </select>
+              </td>
+              <td><span class="rbadge" [attr.data-estado]="r.estado">{{ estadoLabel(r.estado) }}</span></td>
+              <td class="acciones-col">
+                <button type="button" class="btn btn--primary mini" (click)="guardarEdicion(r)">Guardar</button>
+                <button type="button" class="btn btn--ghost mini" (click)="cancelarEdicion()">Cancelar</button>
+              </td>
+            </tr>
+          </ng-container>
+          <tr *ngIf="!recursos().length">
+            <td colspan="6" class="vacio-inline">Sin recursos en la flota todavía.</td>
           </tr>
         </tbody>
       </table>

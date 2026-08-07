@@ -5,15 +5,16 @@ import { AgenciaEntity, TIPOS_AGENCIA, TipoAgencia } from './agencia.entity';
 import { CanalEntity } from './canal.entity';
 import { CodigoCasoEntity, PRIORIDADES, PrioridadCaso } from './codigo-caso.entity';
 import { CodigoCierreEntity } from './codigo-cierre.entity';
+import { Referencia, ReferenciasService } from './referencias.service';
 
 export interface CrearAgenciaDto { codigo: string; nombre: string; tipo?: TipoAgencia; telefono?: string; }
-export interface ActualizarAgenciaDto { nombre?: string; tipo?: TipoAgencia; telefono?: string; activo?: boolean; }
+export interface ActualizarAgenciaDto { codigo?: string; nombre?: string; tipo?: TipoAgencia; telefono?: string; activo?: boolean; }
 export interface CrearCanalDto { agenciaId: string; codigo: string; nombre: string; }
-export interface ActualizarCanalDto { nombre?: string; activo?: boolean; }
+export interface ActualizarCanalDto { codigo?: string; nombre?: string; activo?: boolean; }
 export interface CrearCodigoCasoDto { codigo: string; descripcion: string; prioridad?: PrioridadCaso; agenciaSugeridaId?: string | null; }
-export interface ActualizarCodigoCasoDto { descripcion?: string; prioridad?: PrioridadCaso; agenciaSugeridaId?: string | null; activo?: boolean; }
+export interface ActualizarCodigoCasoDto { codigo?: string; descripcion?: string; prioridad?: PrioridadCaso; agenciaSugeridaId?: string | null; activo?: boolean; }
 export interface CrearCodigoCierreDto { codigo: string; etiqueta: string; }
-export interface ActualizarCodigoCierreDto { etiqueta?: string; activo?: boolean; }
+export interface ActualizarCodigoCierreDto { codigo?: string; etiqueta?: string; activo?: boolean; }
 
 /** Catálogo inicial de cada secad: sin esto no se puede recepcionar nada. */
 const SEMILLA: Array<{ codigo: string; nombre: string; tipo: TipoAgencia; canales: Array<[string, string]> }> = [
@@ -68,7 +69,22 @@ export class CatalogosService {
     @InjectRepository(CanalEntity) private readonly canales: Repository<CanalEntity>,
     @InjectRepository(CodigoCasoEntity) private readonly codigos: Repository<CodigoCasoEntity>,
     @InjectRepository(CodigoCierreEntity) private readonly cierres: Repository<CodigoCierreEntity>,
+    private readonly referencias: ReferenciasService,
   ) {}
+
+  /**
+   * Puerta común de los borrados: un registro solo se elimina de verdad si
+   * nadie lo referencia. Si ya tiene historia, borrarlo dejaría casos cerrados
+   * apuntando a un id inexistente y los reportes mostrarían huecos, así que se
+   * impide y se ofrece la baja lógica, que conserva el rastro.
+   */
+  private impedirSiEstaEnUso(refs: Referencia[], que: string): void {
+    if (!refs.length) return;
+    throw new ConflictException(
+      `No se puede eliminar: ${que} está en uso por ${ReferenciasService.resumir(refs)}. ` +
+        'Desactívelo en su lugar, así deja de ofrecerse sin borrar la historia.',
+    );
+  }
 
   // --- Agencias ---------------------------------------------------------------
 
@@ -95,6 +111,16 @@ export class CatalogosService {
     const a = await this.agencias.findOne({ where: { id, tenant } });
     if (!a) throw new NotFoundException('Agencia no encontrada.');
     if (dto.tipo && !TIPOS_AGENCIA.includes(dto.tipo)) throw new BadRequestException('Tipo de agencia inválido.');
+    // El código de la agencia sí se corrige: casos, canales y funcionarios la
+    // referencian por id, no por código, así que renombrarla no rompe nada.
+    if (dto.codigo !== undefined) {
+      const codigo = this.normalizarCodigo(dto.codigo);
+      if (!codigo) throw new BadRequestException('El código no puede quedar vacío.');
+      if (codigo !== a.codigo && (await this.agencias.findOne({ where: { tenant, codigo } }))) {
+        throw new ConflictException('Ya existe una agencia con ese código.');
+      }
+      a.codigo = codigo;
+    }
     if (dto.nombre !== undefined) {
       if (!dto.nombre.trim()) throw new BadRequestException('El nombre no puede quedar vacío.');
       a.nombre = dto.nombre.trim();
@@ -112,6 +138,15 @@ export class CatalogosService {
     a.activo = false;
     await this.agencias.save(a);
     await this.canales.update({ tenant, agenciaId: id }, { activo: false });
+    return { ok: true };
+  }
+
+  /** Borrado definitivo, solo si la agencia no dejó rastro en ninguna parte. */
+  async eliminarAgencia(tenant: string, id: string): Promise<{ ok: true }> {
+    const a = await this.agencias.findOne({ where: { id, tenant } });
+    if (!a) throw new NotFoundException('Agencia no encontrada.');
+    this.impedirSiEstaEnUso(await this.referencias.deAgencia(tenant, id), `la agencia «${a.nombre}»`);
+    await this.agencias.delete({ id, tenant });
     return { ok: true };
   }
 
@@ -152,6 +187,16 @@ export class CatalogosService {
   async actualizarCanal(tenant: string, id: string, dto: ActualizarCanalDto): Promise<CanalEntity> {
     const c = await this.canales.findOne({ where: { id, tenant } });
     if (!c) throw new NotFoundException('Canal no encontrado.');
+    // Igual que la agencia: se referencia por id, así que el código se corrige.
+    if (dto.codigo !== undefined) {
+      const codigo = this.normalizarCodigo(dto.codigo);
+      if (!codigo) throw new BadRequestException('El código no puede quedar vacío.');
+      if (codigo !== c.codigo &&
+          (await this.canales.findOne({ where: { tenant, agenciaId: c.agenciaId, codigo } }))) {
+        throw new ConflictException('Esa agencia ya tiene un canal con ese código.');
+      }
+      c.codigo = codigo;
+    }
     if (dto.nombre !== undefined) {
       if (!dto.nombre.trim()) throw new BadRequestException('El nombre no puede quedar vacío.');
       c.nombre = dto.nombre.trim();
@@ -165,6 +210,15 @@ export class CatalogosService {
     if (!c) throw new NotFoundException('Canal no encontrado.');
     c.activo = false;
     await this.canales.save(c);
+    return { ok: true };
+  }
+
+  /** Borrado definitivo, solo si al canal nunca le llegó un caso. */
+  async eliminarCanal(tenant: string, id: string): Promise<{ ok: true }> {
+    const c = await this.canales.findOne({ where: { id, tenant } });
+    if (!c) throw new NotFoundException('Canal no encontrado.');
+    this.impedirSiEstaEnUso(await this.referencias.deCanal(tenant, id), `el canal «${c.nombre}»`);
+    await this.canales.delete({ id, tenant });
     return { ok: true };
   }
 
@@ -196,6 +250,26 @@ export class CatalogosService {
     const c = await this.codigos.findOne({ where: { id, tenant } });
     if (!c) throw new NotFoundException('Código de caso no encontrado.');
     if (dto.prioridad && !PRIORIDADES.includes(dto.prioridad)) throw new BadRequestException('Prioridad inválida.');
+    // El código se guarda como texto en cada caso tipificado, así que solo se
+    // deja corregir mientras nadie lo haya usado: sirve para enmendar un alta
+    // equivocada, sin desligar los casos que ya lo llevan grabado.
+    if (dto.codigo !== undefined) {
+      const codigo = this.normalizarCodigo(dto.codigo);
+      if (!codigo) throw new BadRequestException('El código no puede quedar vacío.');
+      if (codigo !== c.codigo) {
+        const usos = await this.referencias.deCodigoCaso(tenant, c.codigo);
+        if (usos.length) {
+          throw new ConflictException(
+            `No se puede cambiar el código: ya hay ${ReferenciasService.resumir(usos)} con «${c.codigo}». ` +
+              'Puede corregir la descripción, la prioridad y la agencia sugerida.',
+          );
+        }
+        if (await this.codigos.findOne({ where: { tenant, codigo } })) {
+          throw new ConflictException('Ya existe un código de caso con ese código.');
+        }
+        c.codigo = codigo;
+      }
+    }
     if (dto.descripcion !== undefined) {
       if (!dto.descripcion.trim()) throw new BadRequestException('La descripción no puede quedar vacía.');
       c.descripcion = dto.descripcion.trim();
@@ -211,6 +285,15 @@ export class CatalogosService {
     if (!c) throw new NotFoundException('Código de caso no encontrado.');
     c.activo = false;
     await this.codigos.save(c);
+    return { ok: true };
+  }
+
+  /** Borrado definitivo, solo si ningún caso quedó tipificado con él. */
+  async eliminarCodigo(tenant: string, id: string): Promise<{ ok: true }> {
+    const c = await this.codigos.findOne({ where: { id, tenant } });
+    if (!c) throw new NotFoundException('Código de caso no encontrado.');
+    this.impedirSiEstaEnUso(await this.referencias.deCodigoCaso(tenant, c.codigo), `el código «${c.codigo}»`);
+    await this.codigos.delete({ id, tenant });
     return { ok: true };
   }
 
@@ -255,12 +338,30 @@ export class CatalogosService {
   }
 
   /**
-   * Solo se cambia la etiqueta o la vigencia: la clave queda grabada en los
-   * casos ya cerrados y renombrarla rompería los reportes históricos.
+   * La etiqueta y la vigencia se cambian siempre. La clave solo mientras
+   * ningún caso se haya cerrado con ella: queda grabada en el caso, y
+   * renombrarla después desligaría los reportes históricos.
    */
   async actualizarCierre(tenant: string, id: string, dto: ActualizarCodigoCierreDto): Promise<CodigoCierreEntity> {
     const c = await this.cierres.findOne({ where: { id, tenant } });
     if (!c) throw new NotFoundException('Código de cierre no encontrado.');
+    if (dto.codigo !== undefined) {
+      const codigo = this.normalizarClave(dto.codigo);
+      if (!codigo) throw new BadRequestException('La clave no puede quedar vacía.');
+      if (codigo !== c.codigo) {
+        const usos = await this.referencias.deCodigoCierre(tenant, c.codigo);
+        if (usos.length) {
+          throw new ConflictException(
+            `No se puede cambiar la clave: ya hay ${ReferenciasService.resumir(usos)} con «${c.codigo}». ` +
+              'La etiqueta sí se puede corregir.',
+          );
+        }
+        if (await this.cierres.findOne({ where: { tenant, codigo } })) {
+          throw new ConflictException('Ya existe un código de cierre con esa clave.');
+        }
+        c.codigo = codigo;
+      }
+    }
     if (dto.etiqueta !== undefined) {
       if (!dto.etiqueta.trim()) throw new BadRequestException('La etiqueta no puede quedar vacía.');
       c.etiqueta = dto.etiqueta.trim();
@@ -282,6 +383,18 @@ export class CatalogosService {
     return { ok: true };
   }
 
+  /** Borrado definitivo, solo si ningún caso se cerró con ese desenlace. */
+  async eliminarCierre(tenant: string, id: string): Promise<{ ok: true }> {
+    const c = await this.cierres.findOne({ where: { id, tenant } });
+    if (!c) throw new NotFoundException('Código de cierre no encontrado.');
+    this.impedirSiEstaEnUso(await this.referencias.deCodigoCierre(tenant, c.codigo), `el cierre «${c.etiqueta}»`);
+    if (c.activo && (await this.cierres.count({ where: { tenant, activo: true } })) <= 1) {
+      throw new BadRequestException('Debe quedar al menos un código de cierre vigente.');
+    }
+    await this.cierres.delete({ id, tenant });
+    return { ok: true };
+  }
+
   // --- Apoyo ------------------------------------------------------------------
 
   /** Agencia del tenant por id; lanza si no existe. Útil para validar referencias. */
@@ -289,6 +402,13 @@ export class CatalogosService {
     const a = await this.agencias.findOne({ where: { id, tenant } });
     if (!a) throw new BadRequestException('La agencia indicada no existe en este secad.');
     return a;
+  }
+
+  /** Varias agencias del tenant en una sola consulta; ignora las que no existan. */
+  async agenciasDe(tenant: string, ids: string[]): Promise<AgenciaEntity[]> {
+    const unicos = [...new Set((ids ?? []).filter(Boolean))];
+    if (!unicos.length) return [];
+    return this.agencias.find({ where: { tenant, id: In(unicos) } });
   }
 
   private async agenciaValida(tenant: string, id?: string | null): Promise<string | null> {

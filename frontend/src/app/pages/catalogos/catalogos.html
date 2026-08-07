@@ -8,6 +8,7 @@
   </header>
 
   <p class="error" *ngIf="error()">{{ error() }}</p>
+  <p class="aviso" *ngIf="aviso()">{{ aviso() }}</p>
 
   <div class="panel card">
     <h2>🏢 Agencias y canales de atención</h2>
@@ -24,23 +25,63 @@
     </form>
 
     <div class="agencia" *ngFor="let a of agencias()" [class.off]="!a.activo">
-      <div class="agencia-head">
+      <!-- Cabecera en lectura -->
+      <div class="agencia-head" *ngIf="!edita('agencia', a.id)">
         <span class="ag-cod mono">{{ a.codigo }}</span>
         <strong>{{ a.nombre }}</strong>
         <span class="rol">{{ a.tipo }}</span>
-        <button type="button" class="btn btn--ghost mini" *ngIf="puedeEditar()" (click)="alternarAgencia(a)">
-          {{ a.activo ? 'Desactivar' : 'Activar' }}
-        </button>
+        <span class="acciones" *ngIf="puedeEditar()">
+          <button type="button" class="btn btn--ghost mini"
+                  (click)="abrir('agencia', a.id, { codigo: a.codigo, nombre: a.nombre, tipo: a.tipo })">Editar</button>
+          <button type="button" class="btn btn--ghost mini" (click)="alternarAgencia(a)">
+            {{ a.activo ? 'Desactivar' : 'Activar' }}
+          </button>
+          <button type="button" class="btn btn--ghost mini peligro" (click)="eliminarAgencia(a)">Eliminar</button>
+        </span>
       </div>
+
+      <!-- Cabecera en edición -->
+      <div class="agencia-head editando" *ngIf="edita('agencia', a.id)">
+        <input class="mono corto" [(ngModel)]="borrador['codigo']" [ngModelOptions]="{ standalone: true }"
+               aria-label="Código de la agencia" />
+        <input [(ngModel)]="borrador['nombre']" [ngModelOptions]="{ standalone: true }"
+               aria-label="Nombre de la agencia" />
+        <select [(ngModel)]="borrador['tipo']" [ngModelOptions]="{ standalone: true }" aria-label="Tipo">
+          <option *ngFor="let t of tiposAgencia" [value]="t">{{ t }}</option>
+        </select>
+        <span class="acciones">
+          <button type="button" class="btn btn--primary mini" (click)="guardarAgencia(a)">Guardar</button>
+          <button type="button" class="btn btn--ghost mini" (click)="cerrarEdicion()">Cancelar</button>
+        </span>
+      </div>
+
       <ul class="canal-list">
         <li *ngFor="let c of canalesDe(a.id)" [class.off]="!c.activo">
-          <span class="mono">{{ c.codigo }}</span> · {{ c.nombre }}
-          <button type="button" class="btn btn--ghost mini" *ngIf="puedeEditar()" (click)="alternarCanal(c)">
-            {{ c.activo ? 'Desactivar' : 'Activar' }}
-          </button>
+          <ng-container *ngIf="!edita('canal', c.id)">
+            <span class="mono">{{ c.codigo }}</span> · {{ c.nombre }}
+            <span class="acciones" *ngIf="puedeEditar()">
+              <button type="button" class="btn btn--ghost mini"
+                      (click)="abrir('canal', c.id, { codigo: c.codigo, nombre: c.nombre })">Editar</button>
+              <button type="button" class="btn btn--ghost mini" (click)="alternarCanal(c)">
+                {{ c.activo ? 'Desactivar' : 'Activar' }}
+              </button>
+              <button type="button" class="btn btn--ghost mini peligro" (click)="eliminarCanal(c)">Eliminar</button>
+            </span>
+          </ng-container>
+          <ng-container *ngIf="edita('canal', c.id)">
+            <input class="mono corto" [(ngModel)]="borrador['codigo']" [ngModelOptions]="{ standalone: true }"
+                   aria-label="Código del canal" />
+            <input [(ngModel)]="borrador['nombre']" [ngModelOptions]="{ standalone: true }"
+                   aria-label="Nombre del canal" />
+            <span class="acciones">
+              <button type="button" class="btn btn--primary mini" (click)="guardarCanal(c)">Guardar</button>
+              <button type="button" class="btn btn--ghost mini" (click)="cerrarEdicion()">Cancelar</button>
+            </span>
+          </ng-container>
         </li>
         <li class="vacio-inline" *ngIf="!canalesDe(a.id).length">Sin canales todavía.</li>
       </ul>
+
       <form class="crear-inline sub" (ngSubmit)="crearCanal(a)" *ngIf="puedeEditar()">
         <input [ngModel]="(nuevoCanal[a.id] || {}).codigo" name="ccod{{ a.id }}"
                (ngModelChange)="nuevoCanal[a.id] = { codigo: $event, nombre: (nuevoCanal[a.id] || {}).nombre || '' }"
@@ -57,6 +98,64 @@
     <h2>🏷️ Códigos de caso</h2>
     <p class="hint">La tipificación que el operador digita al recepcionar. Cada código trae su
       prioridad y la agencia que suele atenderlo, para preseleccionarlas en el formulario.</p>
+
+    <!-- Carga masiva: exportar, corregir en una hoja de cálculo y volver a cargar -->
+    <div class="masiva" *ngIf="puedeEditar()">
+      <div class="masiva-botones">
+        <button type="button" class="btn btn--ghost" (click)="descargarPlantilla()">⬇ Descargar plantilla</button>
+        <button type="button" class="btn btn--ghost" (click)="exportar()">⬇ Exportar catálogo</button>
+        <label class="btn btn--ghost archivo">
+          ⬆ Importar CSV
+          <input type="file" accept=".csv,text/csv" (change)="elegirArchivo($event)" hidden />
+        </label>
+        <label class="opcion">
+          <span>Si el código ya existe</span>
+          <select [(ngModel)]="existentes" name="dupes">
+            <option value="omitir">dejarlo como está</option>
+            <option value="actualizar">actualizarlo</option>
+          </select>
+        </label>
+      </div>
+      <p class="hint">El archivo exportado tiene el mismo formato de la plantilla, así que puede
+        descargarlo, corregirlo en una hoja de cálculo y volver a subirlo. No se acepta el mismo
+        código dos veces, ni dos descripciones iguales para la misma agencia.</p>
+
+      <p class="masiva-estado" *ngIf="importando()">Procesando {{ archivoNombre() }}…</p>
+
+      <!-- Vista previa: nada se escribe hasta confirmar -->
+      <div class="previa" *ngIf="resultado() as r">
+        <p class="previa-titulo">
+          <strong>{{ r.simulacion ? 'Vista previa' : 'Resultado' }}</strong> de {{ archivoNombre() || 'la carga' }}:
+          {{ r.leidas }} filas leídas · {{ aceptadas(r) }} aplicables
+          <span *ngIf="r.omitidos">· {{ r.omitidos }} ya existían</span>
+          <span class="rechazadas" *ngIf="r.rechazos.length">· {{ r.rechazos.length }} rechazadas</span>
+        </p>
+
+        <div class="tbl-wrap" *ngIf="r.rechazos.length">
+          <table class="rechazos">
+            <thead><tr><th>Línea</th><th>Código</th><th>Motivo</th></tr></thead>
+            <tbody>
+              <tr *ngFor="let f of r.rechazos.slice(0, 50)">
+                <td class="mono">{{ f.linea }}</td>
+                <td class="mono">{{ f.codigo || '—' }}</td>
+                <td>{{ f.motivo }}</td>
+              </tr>
+            </tbody>
+          </table>
+          <p class="tope" *ngIf="r.rechazos.length > 50">
+            Mostrando las primeras 50 de {{ r.rechazos.length }} filas rechazadas.
+          </p>
+        </div>
+
+        <div class="previa-acciones" *ngIf="r.simulacion">
+          <button type="button" class="btn btn--primary" [disabled]="importando() || !aceptadas(r)"
+                  (click)="confirmarImportacion()">
+            Aplicar {{ aceptadas(r) }} {{ aceptadas(r) === 1 ? 'registro' : 'registros' }}
+          </button>
+          <button type="button" class="btn btn--ghost" (click)="descartarImportacion()">Descartar</button>
+        </div>
+      </div>
+    </div>
 
     <form class="crear-inline" (ngSubmit)="crearCodigo()" *ngIf="puedeEditar()">
       <input [(ngModel)]="nuevoCodigo.codigo" name="kcod" placeholder="código (p. ej. 105)" />
@@ -81,18 +180,46 @@
       <table>
         <thead><tr><th>Código</th><th>Descripción</th><th>Prioridad</th><th>Agencia sugerida</th><th>Estado</th><th></th></tr></thead>
         <tbody>
-          <tr *ngFor="let c of codigosFiltrados()">
-            <td class="mono">{{ c.codigo }}</td>
-            <td>{{ c.descripcion }}</td>
-            <td><span class="prio" [attr.data-prio]="c.prioridad">{{ c.prioridad }}</span></td>
-            <td>{{ nombreAgencia(c.agenciaSugeridaId) }}</td>
-            <td><span class="badge" [class.on]="c.activo">{{ c.activo ? 'Activo' : 'Inactivo' }}</span></td>
-            <td>
-              <button type="button" class="btn btn--ghost mini" *ngIf="puedeEditar()" (click)="alternarCodigo(c)">
-                {{ c.activo ? 'Desactivar' : 'Activar' }}
-              </button>
-            </td>
-          </tr>
+          <ng-container *ngFor="let c of codigosFiltrados()">
+            <tr *ngIf="!edita('codigo', c.id)">
+              <td class="mono">{{ c.codigo }}</td>
+              <td>{{ c.descripcion }}</td>
+              <td><span class="prio" [attr.data-prio]="c.prioridad">{{ c.prioridad }}</span></td>
+              <td>{{ nombreAgencia(c.agenciaSugeridaId) }}</td>
+              <td><span class="badge" [class.on]="c.activo">{{ c.activo ? 'Activo' : 'Inactivo' }}</span></td>
+              <td class="acciones" *ngIf="puedeEditar()">
+                <button type="button" class="btn btn--ghost mini"
+                        (click)="abrir('codigo', c.id, { codigo: c.codigo, descripcion: c.descripcion, prioridad: c.prioridad, agenciaSugeridaId: c.agenciaSugeridaId || '' })">Editar</button>
+                <button type="button" class="btn btn--ghost mini" (click)="alternarCodigo(c)">
+                  {{ c.activo ? 'Desactivar' : 'Activar' }}
+                </button>
+                <button type="button" class="btn btn--ghost mini peligro" (click)="eliminarCodigo(c)">Eliminar</button>
+              </td>
+            </tr>
+            <tr *ngIf="edita('codigo', c.id)" class="fila-edicion">
+              <td><input class="mono" [(ngModel)]="borrador['codigo']" [ngModelOptions]="{ standalone: true }"
+                         aria-label="Código" /></td>
+              <td><input [(ngModel)]="borrador['descripcion']" [ngModelOptions]="{ standalone: true }"
+                         aria-label="Descripción" /></td>
+              <td>
+                <select [(ngModel)]="borrador['prioridad']" [ngModelOptions]="{ standalone: true }" aria-label="Prioridad">
+                  <option *ngFor="let p of prioridades" [value]="p">{{ p }}</option>
+                </select>
+              </td>
+              <td>
+                <select [(ngModel)]="borrador['agenciaSugeridaId']" [ngModelOptions]="{ standalone: true }"
+                        aria-label="Agencia sugerida">
+                  <option value="">— ninguna —</option>
+                  <option *ngFor="let a of agencias()" [value]="a.id">{{ a.nombre }}</option>
+                </select>
+              </td>
+              <td><span class="badge" [class.on]="c.activo">{{ c.activo ? 'Activo' : 'Inactivo' }}</span></td>
+              <td class="acciones">
+                <button type="button" class="btn btn--primary mini" (click)="guardarCodigo(c)">Guardar</button>
+                <button type="button" class="btn btn--ghost mini" (click)="cerrarEdicion()">Cancelar</button>
+              </td>
+            </tr>
+          </ng-container>
         </tbody>
       </table>
       <p class="tope" *ngIf="codigosCoincidentes() > codigosFiltrados().length">
@@ -105,7 +232,7 @@
     <h2>✅ Códigos de cierre</h2>
     <p class="hint">Cómo terminó el caso. El despachador elige uno al cerrar y es lo que permite
       contar después cuántos fueron efectivos, cuántos falsa alarma y cuántos se perdieron sin unidad.
-      La clave queda grabada en el caso y no se cambia; la etiqueta sí se puede corregir.</p>
+      La clave solo se puede cambiar mientras ningún caso se haya cerrado con ella.</p>
 
     <form class="crear-inline" (ngSubmit)="crearCierre()" *ngIf="puedeEditar()">
       <input [(ngModel)]="nuevoCierre.codigo" name="zcod" placeholder="clave (p. ej. sin_recurso)" />
@@ -117,21 +244,32 @@
       <table>
         <thead><tr><th>Clave</th><th>Etiqueta</th><th>Estado</th><th></th></tr></thead>
         <tbody>
-          <tr *ngFor="let c of cierres()">
-            <td class="mono">{{ c.codigo }}</td>
-            <td>
-              <span *ngIf="!puedeEditar()">{{ c.etiqueta }}</span>
-              <input *ngIf="puedeEditar()" class="editable" [value]="c.etiqueta"
-                     (blur)="renombrarCierre(c, $any($event.target).value)"
-                     [attr.aria-label]="'Etiqueta de ' + c.codigo" />
-            </td>
-            <td><span class="badge" [class.on]="c.activo">{{ c.activo ? 'Vigente' : 'Retirado' }}</span></td>
-            <td>
-              <button type="button" class="btn btn--ghost mini" *ngIf="puedeEditar()" (click)="alternarCierre(c)">
-                {{ c.activo ? 'Retirar' : 'Reactivar' }}
-              </button>
-            </td>
-          </tr>
+          <ng-container *ngFor="let c of cierres()">
+            <tr *ngIf="!edita('cierre', c.id)">
+              <td class="mono">{{ c.codigo }}</td>
+              <td>{{ c.etiqueta }}</td>
+              <td><span class="badge" [class.on]="c.activo">{{ c.activo ? 'Vigente' : 'Retirado' }}</span></td>
+              <td class="acciones" *ngIf="puedeEditar()">
+                <button type="button" class="btn btn--ghost mini"
+                        (click)="abrir('cierre', c.id, { codigo: c.codigo, etiqueta: c.etiqueta })">Editar</button>
+                <button type="button" class="btn btn--ghost mini" (click)="alternarCierre(c)">
+                  {{ c.activo ? 'Retirar' : 'Reactivar' }}
+                </button>
+                <button type="button" class="btn btn--ghost mini peligro" (click)="eliminarCierre(c)">Eliminar</button>
+              </td>
+            </tr>
+            <tr *ngIf="edita('cierre', c.id)" class="fila-edicion">
+              <td><input class="mono" [(ngModel)]="borrador['codigo']" [ngModelOptions]="{ standalone: true }"
+                         aria-label="Clave" /></td>
+              <td><input [(ngModel)]="borrador['etiqueta']" [ngModelOptions]="{ standalone: true }"
+                         aria-label="Etiqueta" /></td>
+              <td><span class="badge" [class.on]="c.activo">{{ c.activo ? 'Vigente' : 'Retirado' }}</span></td>
+              <td class="acciones">
+                <button type="button" class="btn btn--primary mini" (click)="guardarCierre(c)">Guardar</button>
+                <button type="button" class="btn btn--ghost mini" (click)="cerrarEdicion()">Cancelar</button>
+              </td>
+            </tr>
+          </ng-container>
           <tr *ngIf="!cierres().length"><td colspan="4" class="vacio-inline">Sin códigos de cierre todavía.</td></tr>
         </tbody>
       </table>

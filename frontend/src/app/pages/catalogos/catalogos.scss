@@ -48,3 +48,32 @@ td { padding: 0.5rem 0.6rem; border-bottom: 1px solid var(--border); }
 .prio[data-prio="alta"]  { background: var(--tag-danger-bg); color: var(--tag-danger-fg); }
 .prio[data-prio="media"] { background: var(--tag-warn-bg);   color: var(--tag-warn-fg); }
 .prio[data-prio="baja"]  { background: var(--tag-ok-bg);     color: var(--tag-ok-fg); }
+
+.aviso { color: var(--accent); margin: 0; font-size: 0.9rem; }
+
+/* Acciones de cada registro: editar, desactivar, eliminar. */
+.acciones { display: inline-flex; gap: 0.3rem; flex-wrap: wrap; margin-left: auto; }
+.canal-list li .acciones { margin-left: 0.4rem; }
+.btn.peligro { color: var(--danger); }
+.btn.peligro:hover { border-color: var(--danger); }
+.fila-edicion { background: var(--surface-2); }
+.fila-edicion input, .fila-edicion select { width: 100%; min-width: 100px; }
+.agencia-head.editando input, .agencia-head.editando select { width: auto; flex: 1; min-width: 120px; }
+.agencia-head .corto, .canal-list .corto { flex: 0 0 110px; min-width: 90px; }
+
+/* Carga masiva del catálogo de códigos. */
+.masiva { border: 1px dashed var(--border-2); border-radius: var(--radius-sm);
+          padding: 0.8rem 0.9rem; margin: 0.3rem 0 0.6rem; }
+.masiva-botones { display: flex; gap: 0.5rem; flex-wrap: wrap; align-items: center; }
+.masiva .archivo { cursor: pointer; margin: 0; }
+.masiva .opcion { display: inline-flex; align-items: center; gap: 0.4rem; margin-left: auto;
+                  font-size: 0.8rem; color: var(--muted); }
+.masiva .opcion select { width: auto; }
+.masiva-estado { margin: 0.6rem 0 0; font-size: 0.85rem; color: var(--muted); }
+
+.previa { margin-top: 0.8rem; padding-top: 0.7rem; border-top: 1px solid var(--border); }
+.previa-titulo { margin: 0 0 0.5rem; font-size: 0.88rem; }
+.previa-titulo .rechazadas { color: var(--danger); font-weight: 600; }
+.previa-acciones { display: flex; gap: 0.5rem; margin-top: 0.7rem; }
+table.rechazos { font-size: 0.82rem; }
+table.rechazos td { padding: 0.3rem 0.5rem; }

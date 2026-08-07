@@ -2,20 +2,24 @@ import { BadRequestException, ConflictException, Injectable, NotFoundException, 
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { EstadoRecurso, RecursoEntity, TIPOS_RECURSO, TipoRecurso } from './recurso.entity';
+import { CatalogosService } from '../catalogos/catalogos.service';
+import { ReferenciasService } from '../catalogos/referencias.service';
 
 export interface CrearRecursoDto {
   codigo: string;
   nombre: string;
   tipo: TipoRecurso;
-  agencia?: string;
+  /** Agencia dueña (agencias.id); sale del catálogo, no se escribe a mano. */
+  agenciaId?: string | null;
   lat?: number;
   lng?: number;
 }
 
 export interface ActualizarRecursoDto {
+  codigo?: string;
   nombre?: string;
   tipo?: TipoRecurso;
-  agencia?: string;
+  agenciaId?: string | null;
   activo?: boolean;
   fueraServicio?: boolean;
   lat?: number;
@@ -28,7 +32,19 @@ export class RecursosService implements OnModuleInit {
   constructor(
     @InjectRepository(RecursoEntity)
     private readonly repo: Repository<RecursoEntity>,
+    private readonly catalogos: CatalogosService,
+    private readonly referencias: ReferenciasService,
   ) {}
+
+  /**
+   * Resuelve la agencia contra el catálogo del secad. Devuelve el id y el
+   * nombre, que se guarda denormalizado para no reconsultar en cada listado.
+   */
+  private async agenciaDelCatalogo(tenant: string, id?: string | null) {
+    if (!id) return { agenciaId: null, agencia: 'Central' };
+    const a = await this.catalogos.agenciaDe(tenant, id);
+    return { agenciaId: a.id, agencia: a.nombre };
+  }
 
   async onModuleInit(): Promise<void> {
     await this.seed();
@@ -50,13 +66,14 @@ export class RecursosService implements OnModuleInit {
     if (await this.repo.findOne({ where: { tenant, codigo } })) {
       throw new ConflictException('Ya existe un recurso con ese código.');
     }
+    const agencia = await this.agenciaDelCatalogo(tenant, dto.agenciaId);
     return this.repo.save(
       this.repo.create({
         tenant,
         codigo,
         nombre: dto.nombre.trim(),
         tipo: dto.tipo,
-        agencia: dto.agencia?.trim() || 'Central',
+        ...agencia,
         estado: 'disponible',
         lat: dto.lat ?? null,
         lng: dto.lng ?? null,
@@ -67,9 +84,21 @@ export class RecursosService implements OnModuleInit {
 
   async actualizar(tenant: string, id: string, dto: ActualizarRecursoDto): Promise<RecursoEntity> {
     const r = await this.obtener(tenant, id);
+    if (dto.codigo !== undefined) {
+      const codigo = dto.codigo.trim().toUpperCase();
+      if (!codigo) throw new BadRequestException('El código no puede quedar vacío.');
+      if (codigo !== r.codigo && (await this.repo.findOne({ where: { tenant, codigo } }))) {
+        throw new ConflictException('Ya existe un recurso con ese código.');
+      }
+      r.codigo = codigo;
+    }
     if (dto.nombre?.trim()) r.nombre = dto.nombre.trim();
     if (dto.tipo && TIPOS_RECURSO.includes(dto.tipo)) r.tipo = dto.tipo;
-    if (dto.agencia?.trim()) r.agencia = dto.agencia.trim();
+    if (dto.agenciaId !== undefined) {
+      const agencia = await this.agenciaDelCatalogo(tenant, dto.agenciaId);
+      r.agenciaId = agencia.agenciaId;
+      r.agencia = agencia.agencia;
+    }
     if (typeof dto.lat === 'number') r.lat = dto.lat;
     if (typeof dto.lng === 'number') r.lng = dto.lng;
     if (typeof dto.activo === 'boolean') r.activo = dto.activo;
@@ -87,6 +116,27 @@ export class RecursosService implements OnModuleInit {
     const r = await this.repo.findOne({ where: { tenant, id } });
     if (!r) throw new NotFoundException('Recurso no encontrado.');
     return r;
+  }
+
+  /**
+   * Borrado definitivo. Solo procede si el recurso nunca fue despachado: si ya
+   * tiene asignaciones, borrarlo dejaría despachos apuntando a una unidad
+   * inexistente, así que se ofrece darlo de baja en su lugar.
+   */
+  async eliminar(tenant: string, id: string): Promise<{ ok: true }> {
+    const r = await this.obtener(tenant, id);
+    if (r.estado !== 'disponible' && r.estado !== 'fuera_servicio') {
+      throw new BadRequestException('No se puede eliminar un recurso que está en atención.');
+    }
+    const refs = await this.referencias.deRecurso(tenant, id);
+    if (refs.length) {
+      throw new ConflictException(
+        `No se puede eliminar: el recurso «${r.codigo}» tiene ${ReferenciasService.resumir(refs)}. ` +
+          'Desactívelo en su lugar, así sale de la flota sin borrar la historia.',
+      );
+    }
+    await this.repo.delete({ id, tenant });
+    return { ok: true };
   }
 
   /** Cambia el estado operativo del recurso (lo usa el despacho). */

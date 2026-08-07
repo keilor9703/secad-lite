@@ -34,6 +34,14 @@ export class RecursoEntity {
   @Column({ type: 'varchar', length: 20, default: 'patrulla' })
   tipo!: TipoRecurso;
 
+  /**
+   * Agencia dueña del recurso (agencias.id). Es la referencia real; el texto
+   * de abajo se conserva denormalizado para los recursos anteriores al
+   * catálogo y para no reconsultar en cada listado.
+   */
+  @Column({ type: 'uuid', nullable: true })
+  agenciaId?: string | null;
+
   @Column({ type: 'varchar', length: 80, default: 'Central' })
   agencia!: string;
 

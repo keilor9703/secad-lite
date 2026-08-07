@@ -1,8 +1,9 @@
-import { Body, Controller, Delete, Get, Param, Patch, Post, Query } from '@nestjs/common';
+import { Body, Controller, Delete, Get, Header, Param, Patch, Post, Query } from '@nestjs/common';
 import {
   ActualizarAgenciaDto, ActualizarCanalDto, ActualizarCodigoCasoDto, ActualizarCodigoCierreDto,
   CatalogosService, CrearAgenciaDto, CrearCanalDto, CrearCodigoCasoDto, CrearCodigoCierreDto,
 } from './catalogos.service';
+import { ImportacionService, OpcionesImportacion } from './importacion.service';
 import { Permisos } from '../auth/permisos.decorator';
 import { Tenant } from '../common/tenant.decorator';
 
@@ -13,7 +14,10 @@ import { Tenant } from '../common/tenant.decorator';
 @Permisos('casos.ver')
 @Controller('catalogos')
 export class CatalogosController {
-  constructor(private readonly catalogos: CatalogosService) {}
+  constructor(
+    private readonly catalogos: CatalogosService,
+    private readonly importacion: ImportacionService,
+  ) {}
 
   // --- Agencias ---------------------------------------------------------------
 
@@ -38,6 +42,13 @@ export class CatalogosController {
   @Delete('agencias/:id')
   desactivarAgencia(@Tenant() tenant: string, @Param('id') id: string) {
     return this.catalogos.desactivarAgencia(tenant, id);
+  }
+
+  /** Borrado definitivo; falla con 409 si la agencia dejó rastro en la operación. */
+  @Permisos('catalogos.gestionar')
+  @Delete('agencias/:id/definitivo')
+  eliminarAgencia(@Tenant() tenant: string, @Param('id') id: string) {
+    return this.catalogos.eliminarAgencia(tenant, id);
   }
 
   // --- Canales de atención ----------------------------------------------------
@@ -65,6 +76,12 @@ export class CatalogosController {
     return this.catalogos.desactivarCanal(tenant, id);
   }
 
+  @Permisos('catalogos.gestionar')
+  @Delete('canales/:id/definitivo')
+  eliminarCanal(@Tenant() tenant: string, @Param('id') id: string) {
+    return this.catalogos.eliminarCanal(tenant, id);
+  }
+
   // --- Códigos de caso --------------------------------------------------------
 
   @Get('codigos-caso')
@@ -90,6 +107,44 @@ export class CatalogosController {
     return this.catalogos.desactivarCodigo(tenant, id);
   }
 
+  @Permisos('catalogos.gestionar')
+  @Delete('codigos-caso/:id/definitivo')
+  eliminarCodigo(@Tenant() tenant: string, @Param('id') id: string) {
+    return this.catalogos.eliminarCodigo(tenant, id);
+  }
+
+  // --- Carga y descarga del catálogo de códigos de caso -----------------------
+
+  /** GET /api/catalogos/codigos-caso/plantilla — CSV de ejemplo para llenar. */
+  @Get('codigos-caso/exportar/plantilla')
+  @Header('Content-Type', 'text/csv; charset=utf-8')
+  @Header('Content-Disposition', 'attachment; filename="plantilla-codigos-caso.csv"')
+  plantilla() {
+    return this.importacion.plantillaCodigos();
+  }
+
+  /** GET /api/catalogos/codigos-caso/exportar — el catálogo actual, mismo formato. */
+  @Get('codigos-caso/exportar/datos')
+  @Header('Content-Type', 'text/csv; charset=utf-8')
+  @Header('Content-Disposition', 'attachment; filename="codigos-caso.csv"')
+  exportar(@Tenant() tenant: string) {
+    return this.importacion.exportarCodigos(tenant);
+  }
+
+  /**
+   * POST /api/catalogos/codigos-caso/importar — carga masiva desde CSV.
+   * El archivo viaja como texto en el cuerpo para no exigir multipart: son
+   * unos cientos de kilobytes y así el cliente no necesita nada especial.
+   */
+  @Permisos('catalogos.gestionar')
+  @Post('codigos-caso/importar')
+  importar(@Tenant() tenant: string, @Body() dto: { csv: string } & OpcionesImportacion) {
+    return this.importacion.importarCodigos(tenant, dto?.csv ?? '', {
+      existentes: dto?.existentes,
+      simulacion: dto?.simulacion,
+    });
+  }
+
   // --- Códigos de cierre ------------------------------------------------------
 
   @Get('codigos-cierre')
@@ -113,5 +168,11 @@ export class CatalogosController {
   @Delete('codigos-cierre/:id')
   desactivarCierre(@Tenant() tenant: string, @Param('id') id: string) {
     return this.catalogos.desactivarCierre(tenant, id);
+  }
+
+  @Permisos('catalogos.gestionar')
+  @Delete('codigos-cierre/:id/definitivo')
+  eliminarCierre(@Tenant() tenant: string, @Param('id') id: string) {
+    return this.catalogos.eliminarCierre(tenant, id);
   }
 }

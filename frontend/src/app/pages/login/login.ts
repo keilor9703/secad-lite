@@ -3,12 +3,16 @@ import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { Router } from '@angular/router';
 import { AuthService } from '../../core/auth.service';
-import { Sesion } from '../../core/models';
 import { TemaToggleComponent } from '../../shared/tema-toggle/tema-toggle';
 import { LogoComponent } from '../../shared/logo/logo';
 
-type Modo = 'usuario' | 'ciudadano';
-
+/**
+ * Entrada a la consola. Solo hay una forma de identificarse, porque quien entra
+ * aquí siempre es un funcionario del secad: operador, despachador, supervisor o
+ * administrador. El acceso del ciudadano no vive en esta consola —si algún día
+ * se abre un portal público de chat, será una aplicación aparte con su propia
+ * puerta (el backend conserva el endpoint para eso).
+ */
 @Component({
   selector: 'app-login',
   standalone: true,
@@ -20,16 +24,10 @@ export class LoginComponent {
   private auth = inject(AuthService);
   private router = inject(Router);
 
-  modo: Modo = 'usuario';
   usuario = '';
   contrasena = '';
   cargando = false;
   error = '';
-
-  setModo(m: Modo): void {
-    this.modo = m;
-    this.error = '';
-  }
 
   entrar(): void {
     this.error = '';
@@ -38,22 +36,13 @@ export class LoginComponent {
       return;
     }
     this.cargando = true;
-    const flujo =
-      this.modo === 'usuario'
-        ? this.auth.login(this.usuario.trim(), this.contrasena)
-        : this.auth.loginCivil(this.usuario.trim(), this.contrasena);
-
-    flujo.subscribe({
-      next: (s) => { this.cargando = false; this.navegar(s); },
+    this.auth.login(this.usuario.trim(), this.contrasena).subscribe({
+      // A dónde entra cada quien lo decide inicioGuard, según su trabajo.
+      next: () => { this.cargando = false; this.router.navigate(['/']); },
       error: (e) => {
         this.cargando = false;
         this.error = e?.error?.message ?? 'No fue posible iniciar sesión.';
       },
     });
-  }
-
-  private navegar(s: Sesion): void {
-    // A dónde entra cada quien lo decide inicioGuard, según su trabajo.
-    this.router.navigate(['/']);
   }
 }

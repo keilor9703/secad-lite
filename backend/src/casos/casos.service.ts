@@ -97,7 +97,9 @@ export class CasosService implements OnModuleInit {
     const titulo = (dto.titulo?.trim() || tipificacion?.descripcion || '').trim();
     if (!titulo) throw new BadRequestException('Indique el código de caso o un título.');
 
-    const { responsable, canales } = await this.resolverAtencion(tenant, dto, tipificacion?.agenciaSugeridaId ?? null);
+    const { responsable, canales, agencias } = await this.resolverAtencion(
+      tenant, dto, tipificacion?.agenciaSugeridaId ?? null,
+    );
 
     const caso = await this.repo.save(
       this.repo.create({
@@ -126,11 +128,32 @@ export class CasosService implements OnModuleInit {
         creadoPor: usuario,
       }),
     );
-    const destino = canales.length
-      ? ` Enviado a ${canales.map((c) => c.codigo).join(', ')} (${responsable?.nombre ?? 'sin agencia'}).`
-      : '';
+    const destino = canales.length ? ` Enviado a ${this.describirDestino(canales, agencias)}.` : '';
     await this.registrar(tenant, caso.id, 'creacion', `Caso recepcionado por ${caso.canal}.${destino}`, usuario);
     return caso;
+  }
+
+  /**
+   * Texto del destino agrupado por entidad —«Policía Nacional (C1, C2) y
+   * Salud (A1)»—, para que la bitácora diga a quién se envió y no solo unos
+   * códigos de canal sueltos.
+   */
+  private describirDestino(
+    canales: Array<{ id: string; codigo: string; agenciaId: string }>,
+    agencias: Array<{ id: string; nombre: string }>,
+  ): string {
+    const nombre = new Map(agencias.map((a) => [a.id, a.nombre]));
+    const porAgencia = new Map<string, string[]>();
+    for (const c of canales) {
+      const lista = porAgencia.get(c.agenciaId) ?? [];
+      lista.push(c.codigo);
+      porAgencia.set(c.agenciaId, lista);
+    }
+    const partes = [...porAgencia.entries()].map(
+      ([id, codigos]) => `${nombre.get(id) ?? 'agencia desconocida'} (${codigos.join(', ')})`,
+    );
+    if (partes.length <= 1) return partes[0] ?? '';
+    return `${partes.slice(0, -1).join(', ')} y ${partes[partes.length - 1]}`;
   }
 
   /** Busca el código de caso del secad; ignora en silencio uno desconocido. */
@@ -142,19 +165,27 @@ export class CasosService implements OnModuleInit {
   }
 
   /**
-   * Resuelve a quién se envía el caso: la agencia responsable que eligió el
-   * operador (o la sugerida por el código) y los canales de esa agencia. Los
-   * canales se validan contra la agencia para que no se cuele la cola de otra.
+   * Resuelve a quién se envía el caso.
+   *
+   * Un mismo hecho suele necesitar a varias entidades a la vez —un accidente
+   * con heridos es tránsito, salud y policía—, así que los canales pueden ser
+   * de agencias distintas. La «responsable» es solo la principal: la que queda
+   * denormalizada en el caso y encabeza los reportes. Si el operador no la
+   * elige, se toma la del primer canal marcado.
    */
   private async resolverAtencion(tenant: string, dto: CrearCasoDto, sugerida: string | null) {
-    const id = dto.agenciaResponsableId ?? sugerida;
-    if (!id) {
-      if (dto.canales?.length) throw new BadRequestException('Indique la agencia responsable de los canales.');
-      return { responsable: null, canales: [] };
-    }
-    const responsable = await this.catalogos.agenciaDe(tenant, id);
-    const canales = await this.catalogos.validarCanales(tenant, dto.canales ?? [], responsable.id);
-    return { responsable, canales };
+    // Sin restringir a una agencia: se valida que existan y sean del tenant.
+    const canales = await this.catalogos.validarCanales(tenant, dto.canales ?? []);
+
+    const principalId = dto.agenciaResponsableId ?? canales[0]?.agenciaId ?? sugerida;
+    if (!principalId) return { responsable: null, canales, agencias: [] };
+
+    const responsable = await this.catalogos.agenciaDe(tenant, principalId);
+    // Todas las agencias tocadas, para dejarlo dicho en la bitácora.
+    const agencias = await this.catalogos.agenciasDe(tenant, [
+      ...new Set([responsable.id, ...canales.map((c) => c.agenciaId)]),
+    ]);
+    return { responsable, canales, agencias };
   }
 
   /**
@@ -167,10 +198,14 @@ export class CasosService implements OnModuleInit {
     if (caso.estado === 'cerrado') throw new BadRequestException('El caso está cerrado.');
     if (!dto?.canales?.length) throw new BadRequestException('Indique al menos un canal destino.');
 
-    const destinoId = dto.agenciaResponsableId ?? caso.agenciaResponsableId;
-    if (!destinoId) throw new BadRequestException('Indique la agencia destino.');
-    const agencia = await this.catalogos.agenciaDe(tenant, destinoId);
-    const canales = await this.catalogos.validarCanales(tenant, dto.canales, agencia.id);
+    // Los canales destino pueden ser de varias entidades, igual que al recepcionar.
+    const canales = await this.catalogos.validarCanales(tenant, dto.canales);
+    const principalId = dto.agenciaResponsableId ?? canales[0]?.agenciaId ?? caso.agenciaResponsableId;
+    if (!principalId) throw new BadRequestException('Indique la agencia destino.');
+    const agencia = await this.catalogos.agenciaDe(tenant, principalId);
+    const agencias = await this.catalogos.agenciasDe(tenant, [
+      ...new Set([agencia.id, ...canales.map((c) => c.agenciaId)]),
+    ]);
 
     const previos = caso.canales ?? [];
     const agenciaPrevia = caso.agencia;
@@ -181,10 +216,10 @@ export class CasosService implements OnModuleInit {
     caso.agencia = agencia.nombre;
     const guardado = await this.repo.save(caso);
 
-    const codigos = canales.map((c) => c.codigo).join(', ');
+    const destino = this.describirDestino(canales, agencias);
     const modo = dto.exclusivo ? `Trasladado de ${agenciaPrevia} a` : 'Remitido además a';
     const motivo = dto.observacion?.trim() ? ` Motivo: ${dto.observacion.trim()}` : '';
-    await this.registrar(tenant, id, 'derivacion', `${modo} ${agencia.nombre} (${codigos}).${motivo}`, usuario);
+    await this.registrar(tenant, id, 'derivacion', `${modo} ${destino}.${motivo}`, usuario);
     return guardado;
   }
 

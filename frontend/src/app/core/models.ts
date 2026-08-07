@@ -94,6 +94,9 @@ export interface Recurso {
   codigo: string;
   nombre: string;
   tipo: TipoRecurso;
+  /** Agencia dueña (agencias.id); sale del catálogo operativo. */
+  agenciaId?: string | null;
+  /** Nombre de la agencia, denormalizado para listar sin reconsultar. */
   agencia: string;
   estado: EstadoRecurso;
   activo: boolean;

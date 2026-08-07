@@ -111,14 +111,42 @@ export class RecepcionComponent implements OnInit {
     return this.agencias().find((a) => a.id === id) ?? null;
   });
 
-  /** Canales ofrecidos: los de la agencia responsable elegida. */
-  readonly canalesDisponibles = computed(() => {
-    const id = this.agenciaSeleccionada();
-    return id ? this.canalesAtencion().filter((c) => c.agenciaId === id && c.activo) : [];
+  /**
+   * Las entidades con sus canales, para marcarlos de varias a la vez. Un mismo
+   * hecho suele necesitar más de una: un accidente con heridos es tránsito,
+   * salud y policía, y todas deben verlo en su cola al mismo tiempo.
+   */
+  readonly destinos = computed(() => {
+    const canales = this.canalesAtencion().filter((c) => c.activo);
+    return this.agencias()
+      .map((a) => ({ agencia: a, canales: canales.filter((c) => c.agenciaId === a.id) }))
+      .filter((g) => g.canales.length);
   });
 
-  /** Señal espejo del select de agencia, para recalcular los canales. */
-  private readonly agenciaSeleccionada = signal<string | null>(null);
+  /** Espejo de los canales marcados, para recalcular resumen y principal. */
+  private readonly marcados = signal<string[]>([]);
+
+  /** Entidades con al menos un canal marcado. */
+  readonly agenciasMarcadas = computed(() => {
+    const ids = new Set(this.marcados());
+    const canales = this.canalesAtencion();
+    const conMarca = new Set(canales.filter((c) => ids.has(c.id)).map((c) => c.agenciaId));
+    return this.agencias().filter((a) => conMarca.has(a.id));
+  });
+
+  /** Frase de confirmación: «Policía Nacional (C1, C2) y Salud (A1)». */
+  readonly resumenDestino = computed(() => {
+    const ids = new Set(this.marcados());
+    const partes = this.destinos()
+      .map((g) => {
+        const codigos = g.canales.filter((c) => ids.has(c.id)).map((c) => c.codigo);
+        return codigos.length ? `${g.agencia.nombre} (${codigos.join(', ')})` : '';
+      })
+      .filter(Boolean);
+    if (!partes.length) return '';
+    if (partes.length === 1) return partes[0];
+    return `${partes.slice(0, -1).join(', ')} y ${partes[partes.length - 1]}`;
+  });
 
   /** Siempre abierto: recepcionar es el trabajo de esta pantalla, no una opción. */
   mostrarForm = true;
@@ -165,7 +193,8 @@ export class RecepcionComponent implements OnInit {
   /** Descarta lo escrito y deja el formulario listo para la siguiente llamada. */
   limpiarForm(): void {
     this.form = this.formVacio();
-    this.agenciaSeleccionada.set(null);
+    this.marcados.set([]);
+    this.sugeridaPorCodigo.set(null);
     this.abiertoEn = new Date();
     this.error.set('');
   }
@@ -181,13 +210,23 @@ export class RecepcionComponent implements OnInit {
     if (!def) return;
     this.form.titulo = def.descripcion;
     this.form.prioridad = def.prioridad;
-    if (def.agenciaSugeridaId) this.cambiarAgencia(def.agenciaSugeridaId);
+    // La tipificación sugiere quién suele atenderlo —se destaca en la lista—,
+    // pero no marca canales por su cuenta: a quién se envía lo decide el
+    // operador, que oye la llamada. Es una pista aparte de quién termine
+    // encabezando el caso, que puede ser otra si el operador marca distinto.
+    this.sugeridaPorCodigo.set(def.agenciaSugeridaId ?? null);
   }
 
-  cambiarAgencia(id: string | null): void {
+  /** Agencia que el código de caso sugiere, para destacarla en la lista. */
+  private readonly sugeridaPorCodigo = signal<string | null>(null);
+
+  esSugerida(agenciaId: string): boolean {
+    return this.sugeridaPorCodigo() === agenciaId;
+  }
+
+  /** Quién encabeza el caso. Si no se elige, manda la del primer canal marcado. */
+  cambiarPrincipal(id: string | null): void {
     this.form.agenciaResponsableId = id;
-    this.form.canales = []; // los canales eran de la agencia anterior
-    this.agenciaSeleccionada.set(id);
   }
 
   canalMarcado(id: string): boolean {
@@ -198,6 +237,31 @@ export class RecepcionComponent implements OnInit {
     this.form.canales = this.canalMarcado(id)
       ? this.form.canales.filter((c) => c !== id)
       : [...this.form.canales, id];
+    this.marcados.set([...this.form.canales]);
+    // Si la principal se queda sin canales marcados, deja de encabezar el caso.
+    const sigue = this.agenciasMarcadas().some((a) => a.id === this.form.agenciaResponsableId);
+    if (!sigue) this.form.agenciaResponsableId = this.agenciasMarcadas()[0]?.id ?? null;
+  }
+
+  /** Marca o desmarca de un golpe todos los canales de una entidad. */
+  alternarAgencia(agenciaId: string): void {
+    const grupo = this.destinos().find((g) => g.agencia.id === agenciaId);
+    if (!grupo) return;
+    const ids = grupo.canales.map((c) => c.id);
+    const todos = ids.every((id) => this.form.canales.includes(id));
+    this.form.canales = todos
+      ? this.form.canales.filter((id) => !ids.includes(id))
+      : [...new Set([...this.form.canales, ...ids])];
+    this.marcados.set([...this.form.canales]);
+    if (!this.agenciasMarcadas().some((a) => a.id === this.form.agenciaResponsableId)) {
+      this.form.agenciaResponsableId = this.agenciasMarcadas()[0]?.id ?? null;
+    }
+  }
+
+  /** Cuántos canales de esa entidad están marcados (para el contador del grupo). */
+  marcadosDe(agenciaId: string): number {
+    const grupo = this.destinos().find((g) => g.agencia.id === agenciaId);
+    return grupo ? grupo.canales.filter((c) => this.form.canales.includes(c.id)).length : 0;
   }
 
   crear(): void {

@@ -143,28 +143,50 @@
       </div>
     </fieldset>
 
-    <!-- 4. A quién se envía -->
+    <!-- 4. A quién se envía: puede ser más de una entidad a la vez -->
     <fieldset>
       <legend>Atención</legend>
-      <div class="grid">
-        <div class="field span2">
-          <label for="fag">Agencia responsable</label>
-          <select id="fag" [ngModel]="form.agenciaResponsableId" name="fag"
-                  (ngModelChange)="cambiarAgencia($event)">
-            <option [ngValue]="null">— seleccione —</option>
-            <option *ngFor="let a of agencias()" [ngValue]="a.id">{{ a.nombre }}</option>
-          </select>
+      <p class="hint">Marque los canales de cada entidad que deba atender. Puede enviar el mismo
+        caso a varias: todas lo verán en su cola al mismo tiempo.</p>
+
+      <div class="destinos">
+        <div class="destino" *ngFor="let g of destinos()"
+             [class.marcada]="marcadosDe(g.agencia.id) > 0"
+             [class.sugerida]="esSugerida(g.agencia.id)">
+          <div class="destino-head">
+            <button type="button" class="btn btn--ghost mini" (click)="alternarAgencia(g.agencia.id)">
+              {{ marcadosDe(g.agencia.id) === g.canales.length ? 'Quitar todos' : 'Marcar todos' }}
+            </button>
+            <strong>{{ g.agencia.nombre }}</strong>
+            <span class="cuenta" *ngIf="marcadosDe(g.agencia.id)">{{ marcadosDe(g.agencia.id) }}</span>
+            <span class="sug" *ngIf="esSugerida(g.agencia.id)">sugerida por el código</span>
+          </div>
+          <div class="destino-canales">
+            <label class="chip" *ngFor="let c of g.canales">
+              <input type="checkbox" [checked]="canalMarcado(c.id)" (change)="alternarCanal(c.id)" />
+              <span>{{ c.codigo }} · {{ c.nombre }}</span>
+            </label>
+          </div>
         </div>
+        <p class="vacio-inline" *ngIf="!destinos().length">
+          No hay entidades con canales activos. Créelos en Catálogos operativos.
+        </p>
       </div>
-      <div class="canales-box" *ngIf="form.agenciaResponsableId">
-        <span class="canales-lbl">Canales de atención</span>
-        <label class="chip" *ngFor="let c of canalesDisponibles()">
-          <input type="checkbox" [checked]="canalMarcado(c.id)" (change)="alternarCanal(c.id)" />
-          <span>{{ c.codigo }} · {{ c.nombre }}</span>
-        </label>
-        <span class="vacio-inline" *ngIf="!canalesDisponibles().length">
-          Esa agencia no tiene canales activos.
-        </span>
+
+      <div class="resumen-destino" *ngIf="resumenDestino()">
+        <span class="resumen-lbl">Se enviará a</span>
+        <span class="resumen-txt">{{ resumenDestino() }}</span>
+      </div>
+
+      <div class="grid" *ngIf="agenciasMarcadas().length > 1">
+        <div class="field span2">
+          <label for="fag">Entidad principal</label>
+          <select id="fag" [ngModel]="form.agenciaResponsableId" name="fag"
+                  (ngModelChange)="cambiarPrincipal($event)">
+            <option *ngFor="let a of agenciasMarcadas()" [ngValue]="a.id">{{ a.nombre }}</option>
+          </select>
+          <small class="ayuda">Encabeza el caso y es la que aparece en los reportes.</small>
+        </div>
       </div>
     </fieldset>
 

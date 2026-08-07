@@ -78,8 +78,27 @@ tbody tr:last-child td { border-bottom: none; }
 /* Las teselas y controles del mapa se atenúan en modo oscuro. */
 :host ::ng-deep .leaflet-control-attribution { font-size: 0.65rem; }
 
-.canales-box { display: flex; align-items: center; gap: 0.5rem; flex-wrap: wrap; margin-top: 0.7rem; }
-.canales-lbl { font-size: 0.8rem; font-weight: 600; color: var(--ink-soft); }
+/* Destinos: una tarjeta por entidad, con sus canales marcables. El operador
+   puede marcar canales de varias a la vez — el caso llega a todas. */
+.destinos { display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+            gap: 0.6rem; margin-top: 0.6rem; }
+.destino { border: 1px solid var(--border); border-radius: var(--radius-sm); padding: 0.55rem 0.7rem; }
+.destino.marcada { border-color: var(--accent); background: var(--accent-soft); }
+.destino.sugerida { box-shadow: inset 3px 0 0 var(--accent); }
+.destino-head { display: flex; align-items: center; gap: 0.5rem; flex-wrap: wrap; margin-bottom: 0.45rem; }
+.destino-head strong { font-size: 0.9rem; }
+.destino-head .btn { order: 3; margin-left: auto; }
+.cuenta { font-size: 0.7rem; font-weight: 700; background: var(--accent); color: var(--on-accent, #fff);
+          border-radius: 999px; padding: 0.05rem 0.4rem; }
+.sug { font-size: 0.68rem; color: var(--accent); text-transform: uppercase; letter-spacing: 0.04em; }
+.destino-canales { display: flex; flex-wrap: wrap; gap: 0.35rem; }
+
+.resumen-destino { display: flex; align-items: baseline; gap: 0.5rem; flex-wrap: wrap;
+                   margin-top: 0.7rem; padding: 0.5rem 0.7rem; border-radius: var(--radius-sm);
+                   background: var(--surface-2); }
+.resumen-lbl { font-size: 0.72rem; text-transform: uppercase; letter-spacing: 0.05em; color: var(--muted); }
+.resumen-txt { font-size: 0.9rem; font-weight: 600; }
+.ayuda { font-size: 0.75rem; color: var(--muted); }
 .chip {
   display: inline-flex; align-items: center; gap: 0.35rem; font-size: 0.82rem; cursor: pointer;
   border: 1px solid var(--border-2); border-radius: 999px; padding: 0.2rem 0.6rem;

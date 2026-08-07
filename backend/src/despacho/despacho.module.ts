@@ -1,4 +1,5 @@
 import { Module } from '@nestjs/common';
+import { CatalogosModule } from '../catalogos/catalogos.module';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { RecursoEntity } from './recurso.entity';
 import { AsignacionEntity } from './asignacion.entity';
@@ -10,7 +11,11 @@ import { DespachoService } from './despacho.service';
 import { DespachoController } from './despacho.controller';
 
 @Module({
-  imports: [TypeOrmModule.forFeature([RecursoEntity, AsignacionEntity, CasoEntity, EventoCasoEntity])],
+  imports: [
+    TypeOrmModule.forFeature([RecursoEntity, AsignacionEntity, CasoEntity, EventoCasoEntity]),
+    // Los recursos validan su agencia contra el catálogo del secad.
+    CatalogosModule,
+  ],
   controllers: [RecursosController, DespachoController],
   providers: [RecursosService, DespachoService],
   exports: [RecursosService, DespachoService],
