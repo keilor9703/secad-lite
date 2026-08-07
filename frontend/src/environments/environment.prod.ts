@@ -10,5 +10,12 @@
 export const environment = {
   production: true,
   apiBaseUrl: '/api',
+  /**
+   * Origen del canal en vivo (Socket.IO) de la planta telefónica. Debe ser la
+   * URL absoluta del backend: una reescritura de Vercel no reenvía websockets,
+   * así que este es el único camino que no pasa por el proxy. Vacío deja el
+   * aviso de llamada entrante inactivo, sin romper el resto de la aplicación.
+   */
+  wsBaseUrl: '',
   tenant: 'demo',
 };

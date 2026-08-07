@@ -73,10 +73,18 @@ export class TenantsService implements OnModuleInit {
     return null;
   }
 
-  /** ¿Está habilitada esta integración para el tenant? */
+  /**
+   * ¿Está habilitada esta integración para el tenant?
+   *
+   * Sin lista configurada (nulo) no hay restricción: es el caso de las
+   * instancias creadas antes de que existieran los módulos contratables, y
+   * dejarlas fuera les cortaría servicios que ya venían usando. Solo una lista
+   * explícita restringe.
+   */
   async tieneIntegracion(codigo: string, clave: string): Promise<boolean> {
     const t = await this.repo.findOne({ where: { codigo } });
-    return (t?.integraciones ?? []).includes(clave);
+    if (!t?.integraciones) return true;
+    return t.integraciones.includes(clave);
   }
 
   async actualizar(id: string, dto: ActualizarTenantDto): Promise<TenantEntity> {

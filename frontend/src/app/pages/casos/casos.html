@@ -1,0 +1,48 @@
+<section class="casos">
+  <header class="casos-head">
+    <div>
+      <h1>Casos</h1>
+      <p>Consulta y seguimiento de todo lo recepcionado.</p>
+    </div>
+    <span class="conteo">{{ filtrados().length }} de {{ casos().length }}</span>
+  </header>
+
+  <p class="alcance" *ngIf="!veTodo()">
+    Ve los casos de sus canales de atención y los que usted recepcionó.
+  </p>
+  <p class="error" *ngIf="error()">{{ error() }}</p>
+
+  <div class="filtros">
+    <input [ngModel]="texto" name="q" (ngModelChange)="buscar($event)"
+           placeholder="Buscar por motivo, ciudadano, dirección, código…" aria-label="Buscar casos" />
+    <select [ngModel]="estadoSel" name="est" (ngModelChange)="filtrarEstado($event)" aria-label="Filtrar por estado">
+      <option value="">Todos los estados</option>
+      <option *ngFor="let e of estados" [value]="e">{{ estadoLabel(e) }}</option>
+    </select>
+  </div>
+
+  <div class="tbl-wrap card">
+    <table>
+      <thead>
+        <tr>
+          <th>Código</th><th>Motivo</th><th>Ciudadano</th><th>Ubicación</th>
+          <th>Agencia</th><th>Estado</th><th>Recepcionado</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr *ngFor="let c of filtrados()">
+          <td class="mono">{{ c.codigoCaso || '—' }}</td>
+          <td class="titulo"><a [routerLink]="['/caso', c.id]">{{ canalIcon(c.canal) }} {{ c.titulo }}</a></td>
+          <td>{{ c.ciudadano }}</td>
+          <td class="ubic">{{ c.direccion || c.barrio || '—' }}</td>
+          <td>{{ c.agencia }}</td>
+          <td><span class="badge" [attr.data-estado]="c.estado">{{ estadoLabel(c.estado) }}</span></td>
+          <td class="mono fecha">{{ c.creadoEn | date: 'dd/MM HH:mm' }}</td>
+        </tr>
+      </tbody>
+    </table>
+    <p class="vacio" *ngIf="!filtrados().length && !cargando()">
+      {{ casos().length ? 'Ningún caso coincide con la búsqueda.' : 'Todavía no hay casos.' }}
+    </p>
+  </div>
+</section>

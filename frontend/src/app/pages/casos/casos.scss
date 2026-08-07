@@ -1,0 +1,33 @@
+.casos { display: flex; flex-direction: column; gap: 0.9rem; }
+.casos-head { display: flex; align-items: flex-start; justify-content: space-between; gap: 1rem; flex-wrap: wrap; }
+.casos-head h1 { margin: 0; font-size: 1.3rem; }
+.casos-head p { margin: 0.2rem 0 0; color: var(--muted); font-size: 0.85rem; }
+.conteo { font-family: var(--mono); font-size: 0.8rem; color: var(--muted); }
+.alcance, .error { margin: 0; font-size: 0.82rem; }
+.alcance { color: var(--muted); }
+.error { color: var(--danger); }
+
+.filtros { display: flex; gap: 0.6rem; flex-wrap: wrap; }
+.filtros input { flex: 1; min-width: 240px; }
+.filtros select { width: auto; min-width: 170px; }
+
+.tbl-wrap { overflow-x: auto; padding: 0.2rem 0.4rem 0.6rem; }
+table { width: 100%; border-collapse: collapse; font-size: 0.9rem; }
+th { text-align: left; font-size: 0.72rem; text-transform: uppercase; letter-spacing: 0.05em;
+     color: var(--muted); padding: 0.6rem; border-bottom: 1px solid var(--border); }
+td { padding: 0.55rem 0.6rem; border-bottom: 1px solid var(--border); }
+tbody tr:last-child td { border-bottom: none; }
+.titulo a { color: var(--accent); text-decoration: none; font-weight: 600; }
+.titulo a:hover { text-decoration: underline; }
+.ubic { color: var(--ink-soft); }
+.mono { font-family: var(--mono); }
+.fecha { font-size: 0.8rem; color: var(--muted); }
+.vacio { margin: 1rem 0; text-align: center; color: var(--muted); font-size: 0.88rem; }
+
+.badge { display: inline-block; padding: 0.15rem 0.5rem; border-radius: 999px; font-size: 0.74rem;
+         font-weight: 600; background: var(--surface-2); color: var(--ink-soft); }
+.badge[data-estado="nuevo"]      { background: var(--accent-soft);   color: var(--accent); }
+.badge[data-estado="en_gestion"] { background: var(--tag-warn-bg);   color: var(--tag-warn-fg); }
+.badge[data-estado="despachado"] { background: var(--tag-teal-bg);   color: var(--tag-teal-fg); }
+.badge[data-estado="derivado"]   { background: var(--tag-info-bg);   color: var(--tag-info-fg); }
+.badge[data-estado="cerrado"]    { background: var(--surface-2);     color: var(--muted); }

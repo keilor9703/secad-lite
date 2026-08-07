@@ -2,7 +2,9 @@ import { Component, computed, effect, inject, signal } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { RouterLink } from '@angular/router';
+import { Router } from '@angular/router';
 import { CasosService } from '../../core/casos.service';
+import { PbxService } from '../../core/pbx.service';
 import { CatalogosService } from '../../core/catalogos.service';
 import { AuthService } from '../../core/auth.service';
 import {
@@ -39,6 +41,8 @@ export class RecepcionComponent {
   private casosSvc = inject(CasosService);
   private catalogos = inject(CatalogosService);
   private auth = inject(AuthService);
+  private pbx = inject(PbxService);
+  private router = inject(Router);
 
   readonly casos = signal<Caso[]>([]);
   /**
@@ -52,6 +56,26 @@ export class RecepcionComponent {
    */
   readonly veTodo = computed(() => this.auth.tienePermiso('casos.ver_todos'));
   readonly puedeRecepcionar = computed(() => this.auth.tienePermiso('casos.crear'));
+
+  /** Llamadas timbrando: de aquí arranca el trabajo de quien recepciona. */
+  readonly sonando = this.pbx.sonando;
+
+  /**
+   * Lo que este operador acaba de tomar. Es la confirmación de su trabajo: la
+   * bandeja completa vive en Casos y la cola de atención, en Despacho.
+   */
+  readonly misRecientes = computed(() => {
+    const yo = this.auth.sesion()?.usuario;
+    return this.casos().filter((c) => c.creadoPor === yo).slice(0, 6);
+  });
+
+  /** Atiende la llamada y abre el caso que la PBX crea con ella. */
+  atenderLlamada(l: { id: string }): void {
+    this.pbx.atender(l.id).subscribe({
+      next: ({ casoId }) => this.router.navigate(['/caso', casoId]),
+      error: (e) => this.error.set(e?.error?.message ?? 'No fue posible atender la llamada.'),
+    });
+  }
   readonly cargando = signal(false);
   readonly error = signal('');
   readonly guardando = signal(false);

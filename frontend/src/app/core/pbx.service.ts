@@ -25,14 +25,27 @@ export class PbxService {
   readonly ultimaEntrante = signal<Llamada | null>(null);
 
   private readonly base = environment.apiBaseUrl;
+  /**
+   * Origen del canal en vivo. En desarrollo se deduce de la API; publicado, se
+   * toma de `wsBaseUrl`, porque el proxy del alojamiento estático no reenvía
+   * websockets y habría que ir directo al backend.
+   */
   private get wsBase(): string {
+    const explicito = (environment as { wsBaseUrl?: string }).wsBaseUrl;
+    if (explicito) return explicito;
     return environment.apiBaseUrl.replace(/\/api\/?$/, '');
+  }
+
+  /** Sin origen de websocket no hay canal en vivo que abrir. */
+  private get hayCanalVivo(): boolean {
+    return !!(environment as { wsBaseUrl?: string }).wsBaseUrl || !environment.apiBaseUrl.startsWith('/');
   }
 
   /** Carga la cola y abre el canal en vivo (idempotente). */
   conectar(): void {
     this.recargar();
-    if (this.socket?.connected) return;
+    // Sin canal en vivo la cola sigue funcionando por consulta; solo no hay aviso.
+    if (!this.hayCanalVivo || this.socket?.connected) return;
     this.socket = io(`${this.wsBase}/pbx`, {
       // El superadmin no tiene tenant propio: indica cuál escucha.
       auth: { token: this.auth.token, tenant: this.auth.tenantActivo() },

@@ -1,0 +1,55 @@
+<section class="desp">
+  <header class="desp-head">
+    <div>
+      <h1>Despacho</h1>
+      <p *ngIf="!veTodo()">
+        Casos que llegan a
+        <ng-container *ngIf="misCanales().length; else sinCanal">
+          <strong *ngFor="let c of misCanales(); let i = index">{{ i ? ', ' : '' }}{{ c.codigo }} · {{ c.nombre }}</strong>
+        </ng-container>
+        <ng-template #sinCanal><strong>ningún canal asignado</strong></ng-template>
+      </p>
+      <p *ngIf="veTodo()">Todos los casos abiertos del secad.</p>
+    </div>
+    <div class="marcador" *ngIf="total()">
+      <span class="pend" [class.hay]="sinTomar()">{{ sinTomar() }}</span>
+      <span class="lbl">sin tomar</span>
+    </div>
+  </header>
+
+  <p class="error" *ngIf="error()">{{ error() }}</p>
+
+  <!-- Sin canales no hay nada que despachar: se explica en vez de mostrar vacío -->
+  <div class="guia card" *ngIf="!veTodo() && !misCanales().length && !total()">
+    <h2>Todavía no atiende ningún canal</h2>
+    <p>El despacho muestra los casos que llegan a los canales de su agencia. Pídale al
+      administrador de su instancia que le asigne al menos uno desde
+      <strong>Administración → Usuarios</strong>.</p>
+  </div>
+
+  <div class="tablero" *ngIf="veTodo() || misCanales().length || total()">
+    <div class="col" *ngFor="let col of columnas()">
+      <div class="col-head">
+        <h2>{{ col.titulo }}</h2>
+        <span class="cuenta">{{ col.casos.length }}</span>
+      </div>
+      <p class="col-pista">{{ col.pista }}</p>
+
+      <a class="tarjeta" *ngFor="let c of col.casos" [routerLink]="['/caso', c.id]"
+         [attr.data-sem]="semaforo(c)">
+        <div class="t-top">
+          <span class="prio" [attr.data-prio]="c.prioridad">{{ c.prioridad }}</span>
+          <span class="espera">{{ espera(c) }}</span>
+        </div>
+        <h3>{{ c.titulo }}</h3>
+        <p class="t-dir" *ngIf="c.direccion || c.barrio">📍 {{ c.direccion }}<span *ngIf="c.barrio"> · {{ c.barrio }}</span></p>
+        <p class="t-meta">
+          <span>{{ canalIcon(c) }} {{ c.ciudadano }}</span>
+          <span class="mono" *ngIf="canalesDe(c)">{{ canalesDe(c) }}</span>
+        </p>
+      </a>
+
+      <p class="col-vacia" *ngIf="!col.casos.length">Nada aquí.</p>
+    </div>
+  </div>
+</section>

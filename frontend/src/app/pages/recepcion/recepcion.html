@@ -9,6 +9,17 @@
     </button>
   </header>
 
+  <!-- Llamadas timbrando: el punto de partida del trabajo de recepción -->
+  <div class="entrantes card" *ngIf="sonando().length">
+    <h2>📞 Llamadas en espera <span class="n">{{ sonando().length }}</span></h2>
+    <div class="llam" *ngFor="let l of sonando()">
+      <span class="num mono">{{ l.numero }}</span>
+      <button type="button" class="btn btn--primary mini" (click)="atenderLlamada(l)">
+        Atender y recepcionar
+      </button>
+    </div>
+  </div>
+
   <div class="kpis">
     <div class="kpi"><span class="n">{{ total() }}</span><span class="l">Total</span></div>
     <div class="kpi"><span class="n">{{ nuevos() }}</span><span class="l">Nuevos</span></div>
@@ -160,37 +171,14 @@
     </div>
   </div>
 
-  <!-- Bandeja -->
-  <div class="tbl-wrap card">
-    <table>
-      <thead>
-        <tr>
-          <th>ID</th><th>Canal</th><th>Título</th><th>Ciudadano</th>
-          <th>Agencia</th><th>Canales</th><th>Estado</th><th>Acciones</th>
-        </tr>
-      </thead>
-      <tbody>
-        <tr *ngFor="let c of casos()">
-          <td class="mono" [title]="c.id">{{ c.id.slice(0, 8) }}</td>
-          <td><span class="canal">{{ canalIcon(c.canal) }} {{ canalLabel(c.canal) }}</span></td>
-          <td class="titulo"><a [routerLink]="['/recepcion', c.id]">{{ c.titulo }}</a></td>
-          <td>{{ c.ciudadano }}</td>
-          <td>{{ c.agencia }}</td>
-          <td class="mono canales-col">{{ canalesDe(c) }}</td>
-          <td><span class="badge" [attr.data-estado]="c.estado">{{ estadoLabel(c.estado) }}</span></td>
-          <td>
-            <select class="acc" [ngModel]="c.estado" (ngModelChange)="cambiarEstado(c, $event)">
-              <option *ngFor="let e of estados" [value]="e">{{ estadoLabel(e) }}</option>
-            </select>
-          </td>
-        </tr>
-        <tr *ngIf="!cargando() && casos().length === 0">
-          <td colspan="7" class="empty">No hay casos en la bandeja.</td>
-        </tr>
-        <tr *ngIf="cargando()">
-          <td colspan="7" class="empty">Cargando…</td>
-        </tr>
-      </tbody>
-    </table>
+  <!-- Lo que este operador acaba de recepcionar: confirmación de su trabajo -->
+  <div class="mias card" *ngIf="misRecientes().length">
+    <h2>Sus últimas recepciones</h2>
+    <a class="mia" *ngFor="let c of misRecientes()" [routerLink]="['/caso', c.id]">
+      <span class="hora mono">{{ c.creadoEn | date: 'HH:mm' }}</span>
+      <span class="mtitulo">{{ c.titulo }}</span>
+      <span class="magencia">→ {{ c.agencia }}</span>
+    </a>
+    <a class="ver-todo" routerLink="/casos">Ver todos los casos →</a>
   </div>
 </section>

@@ -25,6 +25,7 @@ export class ShellComponent implements OnInit {
   readonly esAdmin = this.auth.esAdmin;
   // Cada módulo se muestra solo si el rol tiene el permiso que lo gobierna.
   readonly puedeVerCasos = computed(() => this.auth.tienePermiso('casos.ver'));
+  readonly puedeRecepcionar = computed(() => this.auth.tienePermiso('casos.crear'));
   readonly puedeVerLlamadas = computed(() => this.auth.tienePermiso('pbx.usar'));
   readonly puedeVerRecursos = computed(() => this.auth.tienePermiso('recursos.ver'));
   readonly puedeVerPanel = computed(() => this.auth.tienePermiso('metricas.ver'));
@@ -49,7 +50,8 @@ export class ShellComponent implements OnInit {
     const s = this.sesion();
     if (s?.tipo !== 'institucional') return;
     if (!this.esSuperadmin()) {
-      this.pbx.conectar();
+      // Sin pbx.usar no se consulta la planta: evita un 403 en cada carga.
+      if (this.puedeVerLlamadas()) this.pbx.conectar();
       return;
     }
     this.admin.listarTenants().subscribe({

@@ -53,7 +53,7 @@ export class LoginComponent {
   }
 
   private navegar(s: Sesion): void {
-    if (s.tipo === 'civil') { this.router.navigate(['/chat']); return; }
-    this.router.navigate([s.rol === 'superadmin' ? '/admin' : '/recepcion']);
+    // A dónde entra cada quien lo decide inicioGuard, según su trabajo.
+    this.router.navigate(['/']);
   }
 }

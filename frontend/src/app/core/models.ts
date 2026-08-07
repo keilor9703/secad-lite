@@ -202,6 +202,8 @@ export interface Sesion {
   tenant: string | null;
   /** Agencia a la que pertenece el funcionario (agencias.id). */
   agencia?: string | null;
+  /** Canales de atención que cubre (canales.id). */
+  canales?: string[];
 }
 
 export type PlanTenant = 'basico' | 'estandar' | 'avanzado';
