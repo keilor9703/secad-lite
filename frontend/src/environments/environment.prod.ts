@@ -17,8 +17,8 @@
  * websockets. Ver docs/despliegue-demo.md.
  * ────────────────────────────────────────────────────────────────────────────
  */
-const ORIGEN_API = '';
 
+const ORIGEN_API = 'https://secad-lite.onrender.com';
 export const environment = {
   production: true,
   apiBaseUrl: ORIGEN_API ? `${ORIGEN_API}/api` : '/api',
