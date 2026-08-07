@@ -79,6 +79,21 @@ export class PbxService {
     return this.http.post<{ llamada: Llamada; casoId: string }>(`${this.base}/pbx/llamadas/${id}/atender`, {});
   }
 
+  /** Toma la llamada para completarla en el formulario de Recepción. */
+  reclamar(id: string): Observable<Llamada> {
+    return this.http.post<Llamada>(`${this.base}/pbx/llamadas/${id}/reclamar`, {});
+  }
+
+  /** Suelta una llamada tomada sin guardar caso: vuelve a la cola compartida. */
+  soltar(id: string): Observable<Llamada> {
+    return this.http.post<Llamada>(`${this.base}/pbx/llamadas/${id}/soltar`, {});
+  }
+
+  /** Enlaza la llamada con el caso que el formulario acaba de guardar. */
+  vincular(id: string, casoId: string): Observable<Llamada> {
+    return this.http.post<Llamada>(`${this.base}/pbx/llamadas/${id}/vincular`, { casoId });
+  }
+
   config(): Observable<PbxConfig> {
     return this.http.get<PbxConfig>(`${this.base}/pbx/config`);
   }

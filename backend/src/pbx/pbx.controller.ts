@@ -57,6 +57,46 @@ export class PbxController {
     return this.pbx.atender(tenant, id, this.actor(usuario, permisos));
   }
 
+  /**
+   * POST /api/pbx/llamadas/:id/reclamar — la toma para trabajarla en el
+   * formulario de Recepción; desaparece de la cola de los demás operadores.
+   */
+  @Permisos('pbx.usar')
+  @Post('llamadas/:id/reclamar')
+  reclamar(
+    @Tenant() tenant: string,
+    @Usuario() usuario: JwtPayload,
+    @PermisosVigentes() permisos: string[],
+    @Param('id') id: string,
+  ) {
+    return this.pbx.reclamar(tenant, id, this.actor(usuario, permisos));
+  }
+
+  /** POST /api/pbx/llamadas/:id/soltar — cancela el formulario: vuelve a la cola. */
+  @Permisos('pbx.usar')
+  @Post('llamadas/:id/soltar')
+  soltar(
+    @Tenant() tenant: string,
+    @Usuario() usuario: JwtPayload,
+    @PermisosVigentes() permisos: string[],
+    @Param('id') id: string,
+  ) {
+    return this.pbx.soltar(tenant, id, this.actor(usuario, permisos));
+  }
+
+  /** POST /api/pbx/llamadas/:id/vincular — enlaza la llamada con el caso ya guardado. */
+  @Permisos('pbx.usar')
+  @Post('llamadas/:id/vincular')
+  vincular(
+    @Tenant() tenant: string,
+    @Usuario() usuario: JwtPayload,
+    @PermisosVigentes() permisos: string[],
+    @Param('id') id: string,
+    @Body() dto: { casoId: string },
+  ) {
+    return this.pbx.vincular(tenant, id, dto?.casoId, this.actor(usuario, permisos));
+  }
+
   /** GET /api/pbx/config — API key del tenant + ruta del webhook. */
   @Permisos('pbx.configurar')
   @Get('config')

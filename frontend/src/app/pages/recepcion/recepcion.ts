@@ -2,13 +2,12 @@ import { Component, OnInit, computed, effect, inject, signal } from '@angular/co
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { RouterLink } from '@angular/router';
-import { Router } from '@angular/router';
 import { CasosService } from '../../core/casos.service';
 import { PbxService } from '../../core/pbx.service';
 import { CatalogosService } from '../../core/catalogos.service';
 import { AuthService } from '../../core/auth.service';
 import {
-  Agencia, Canal, CanalAtencion, Caso, CodigoCaso, CrearCaso, EstadoCaso, PrioridadCaso,
+  Agencia, Canal, CanalAtencion, Caso, CodigoCaso, CrearCaso, EstadoCaso, Llamada, PrioridadCaso,
 } from '../../core/models';
 
 /** Lo que el operador diligencia; se traduce a CrearCaso al guardar. */
@@ -42,7 +41,6 @@ export class RecepcionComponent implements OnInit {
   private catalogos = inject(CatalogosService);
   private auth = inject(AuthService);
   private pbx = inject(PbxService);
-  private router = inject(Router);
 
   readonly casos = signal<Caso[]>([]);
   /**
@@ -69,21 +67,33 @@ export class RecepcionComponent implements OnInit {
     return this.casos().filter((c) => c.creadoPor === yo).slice(0, 6);
   });
 
-  /** Atiende la llamada y abre el caso que la PBX crea con ella. */
   /**
-   * Atiende la llamada y trae su número al formulario. La PBX ya deja el caso
-   * creado, así que se abre para completarlo sin volver a teclear nada.
+   * Llamada que se está trabajando en el formulario ahora mismo: se enlaza
+   * al caso cuando se guarda (ver `crear`), y se suelta si el operador
+   * cancela sin guardar (ver `limpiarForm`).
    */
-  atenderLlamada(l: { id: string; numero?: string }): void {
-    this.pbx.atender(l.id).subscribe({
-      next: ({ casoId }) => this.router.navigate(['/despacho', casoId]),
-      error: (e) => this.error.set(e?.error?.message ?? 'No fue posible atender la llamada.'),
-    });
+  private readonly llamadaEnCurso = signal<Llamada | null>(null);
+
+  esLaLlamadaEnCurso(l: Llamada): boolean {
+    return this.llamadaEnCurso()?.id === l.id;
   }
 
-  /** Toma el número de la llamada sin cerrarla: para digitar el caso a mano. */
-  usarNumero(l: { numero?: string }): void {
-    if (l.numero) this.form.telefono = l.numero;
+  /**
+   * Toma la llamada: desaparece de la cola de los demás operadores (nadie
+   * más puede tomarla) y trae el número al formulario, para completar el
+   * caso mientras el operador sigue al teléfono con el ciudadano. No crea
+   * ningún caso ni saca al operador de Recepción — eso solo pasa al hacer
+   * clic en "Guardar caso", que es cuando de verdad hay algo que radicar.
+   */
+  tomarLlamada(l: Llamada): void {
+    this.error.set('');
+    this.pbx.reclamar(l.id).subscribe({
+      next: (llamada) => {
+        this.form.telefono = llamada.numero;
+        this.llamadaEnCurso.set(llamada);
+      },
+      error: (e) => this.error.set(e?.error?.message ?? 'No fue posible tomar la llamada.'),
+    });
   }
   readonly cargando = signal(false);
   readonly error = signal('');
@@ -192,8 +202,18 @@ export class RecepcionComponent implements OnInit {
     setTimeout(() => this.prepararMapa(), 0);
   }
 
-  /** Descarta lo escrito y deja el formulario listo para la siguiente llamada. */
+  /**
+   * Descarta lo escrito y deja el formulario listo para la siguiente
+   * llamada. Si había una llamada tomada que no llegó a convertirse en
+   * caso (se limpió a mano en vez de guardar), se suelta: vuelve a la cola
+   * compartida en lugar de quedar atascada para siempre en este puesto.
+   */
   limpiarForm(): void {
+    const enCurso = this.llamadaEnCurso();
+    if (enCurso) {
+      this.pbx.soltar(enCurso.id).subscribe({ error: () => {} });
+      this.llamadaEnCurso.set(null);
+    }
     this.form = this.formVacio();
     this.marcados.set([]);
     this.sugeridaPorCodigo.set(null);
@@ -294,6 +314,14 @@ export class RecepcionComponent implements OnInit {
       next: (caso) => {
         this.casos.update((cs) => [caso, ...cs]);
         this.guardando.set(false);
+        // El caso ya quedó creado con todo lo que se alcanzó a diligenciar
+        // mientras el operador hablaba: ahora sí se cierra el círculo con la
+        // llamada que lo originó (queda "atendida" y enlazada a este caso).
+        const llamada = this.llamadaEnCurso();
+        if (llamada) {
+          this.llamadaEnCurso.set(null);
+          this.pbx.vincular(llamada.id, caso.id).subscribe({ error: () => {} });
+        }
         this.limpiarForm();
       },
       error: (e) => {

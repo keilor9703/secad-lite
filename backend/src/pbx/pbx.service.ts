@@ -173,6 +173,66 @@ export class PbxService {
     return { llamada: guardada, casoId };
   }
 
+  /**
+   * El operador toma la llamada para trabajarla en el formulario de
+   * Recepción, SIN crear todavía ningún caso: se reutiliza `destinatario`
+   * (el mismo campo que usa el enrutamiento por ACD) para que desaparezca
+   * de la cola de los demás operadores — no la puede tomar dos veces —
+   * mientras la completa. Solo se marca "atendida" y se enlaza al caso real
+   * cuando ese caso se guarda (ver `vincular`), para no perder la llamada
+   * en un caso vacío si el operador nunca llega a guardar.
+   */
+  async reclamar(tenant: string, llamadaId: string, actor: ActorPbx): Promise<LlamadaEntity> {
+    const llamada = await this.llamadas.findOne({ where: { tenant, id: llamadaId } });
+    if (!llamada) throw new NotFoundException('Llamada no encontrada.');
+    if (llamada.estado !== 'sonando') throw new BadRequestException('La llamada ya no está en cola.');
+    if (llamada.destinatario && llamada.destinatario !== actor.username && !actor.supervisor) {
+      throw new ForbiddenException('Esta llamada fue dirigida a otro operador por la central.');
+    }
+    llamada.destinatario = actor.username;
+    const guardada = await this.llamadas.save(llamada);
+    this.eventos$.next({ tenant, tipo: 'cambio', llamada: guardada });
+    return guardada;
+  }
+
+  /**
+   * El operador suelta una llamada que tomó pero no llegó a guardar como
+   * caso (canceló el formulario, tomó otra por error): vuelve a la cola
+   * compartida. Si la central ya la había dirigido a este operador por ACD
+   * (tiene `extension`), soltar no la libera a los demás — sigue siendo
+   * suya según la central, tomarla de nuevo es lo correcto.
+   */
+  async soltar(tenant: string, llamadaId: string, actor: ActorPbx): Promise<LlamadaEntity> {
+    const llamada = await this.llamadas.findOne({ where: { tenant, id: llamadaId } });
+    if (!llamada) throw new NotFoundException('Llamada no encontrada.');
+    if (llamada.estado !== 'sonando' || llamada.destinatario !== actor.username) return llamada;
+    if (!llamada.extension) llamada.destinatario = null;
+    const guardada = await this.llamadas.save(llamada);
+    this.eventos$.next({ tenant, tipo: 'cambio', llamada: guardada });
+    return guardada;
+  }
+
+  /**
+   * Cierra el flujo "tomar → completar el formulario → guardar": enlaza la
+   * llamada con el caso que acaba de crear Recepción y la marca atendida.
+   * No crea el caso —eso ya lo hizo el formulario, con todo lo que el
+   * operador alcanzó a diligenciar mientras hablaba— solo deja constancia
+   * de cuál llamada lo originó.
+   */
+  async vincular(tenant: string, llamadaId: string, casoId: string, actor: ActorPbx): Promise<LlamadaEntity> {
+    const llamada = await this.llamadas.findOne({ where: { tenant, id: llamadaId } });
+    if (!llamada) throw new NotFoundException('Llamada no encontrada.');
+    if (llamada.destinatario && llamada.destinatario !== actor.username && !actor.supervisor) {
+      throw new ForbiddenException('Esta llamada fue tomada por otro operador.');
+    }
+    llamada.estado = 'atendida';
+    llamada.casoId = casoId;
+    llamada.atendidaPor = actor.username;
+    const guardada = await this.llamadas.save(llamada);
+    this.eventos$.next({ tenant, tipo: 'cambio', llamada: guardada });
+    return guardada;
+  }
+
   private ubicar(tenant: string, callId?: string, numero?: string): Promise<LlamadaEntity | null> {
     if (callId?.trim()) {
       return this.llamadas.findOne({ where: { tenant, callId: callId.trim() }, order: { creadoEn: 'DESC' } });

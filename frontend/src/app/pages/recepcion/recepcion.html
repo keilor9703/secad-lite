@@ -17,11 +17,10 @@
         para {{ l.destinatario }}
       </span>
       <span class="acciones-llam">
-        <button type="button" class="btn btn--ghost mini" (click)="usarNumero(l)" title="Traer el número al formulario">
-          Usar número
-        </button>
-        <button type="button" class="btn btn--primary mini" (click)="atenderLlamada(l)">
-          Atender
+        <span class="en-form" *ngIf="esLaLlamadaEnCurso(l)">En el formulario</span>
+        <button *ngIf="!esLaLlamadaEnCurso(l)" type="button" class="btn btn--primary mini"
+                (click)="tomarLlamada(l)" title="Trae el número al formulario para completar el caso">
+          Tomar llamada
         </button>
       </span>
     </div>
