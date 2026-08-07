@@ -103,6 +103,10 @@ Pestaña *Ciudadano*: cualquier correo con contraseña `demo`.
   el estado **solo de sus casos**. Gestión en **Administración**.
 - **Tema e identidad propios** (teal).
 
+> Referencia técnica completa (URL, headers, autenticación, cuerpo y
+> respuesta de cada endpoint) de las tres integraciones anteriores:
+> [`docs/integraciones-externas.md`](docs/integraciones-externas.md).
+
 ## Integración con WhatsApp (Cloud API de Meta)
 
 Se registra una app de Meta apuntando el webhook a FALCON CAD; el
