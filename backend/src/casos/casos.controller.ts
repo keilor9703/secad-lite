@@ -11,7 +11,7 @@ import { Usuario } from '../common/usuario.decorator';
 import { PermisosVigentes } from '../common/permisos-vigentes.decorator';
 import { JwtPayload } from '../auth/auth.service';
 import { Permisos } from '../auth/permisos.decorator';
-import { EstadoCaso } from './caso.model';
+import { CODIGOS_CIERRE, EstadoCaso } from './caso.model';
 
 // La bandeja y el detalle son de uso interno: gobernado por permisos del rol.
 @Permisos('casos.ver')
@@ -47,6 +47,12 @@ export class CasosController {
     return this.casos.listar(tenant, await this.actor(usuario, permisos));
   }
 
+  /** GET /api/casos/codigos-cierre — cómo se puede clasificar un cierre. */
+  @Get('codigos-cierre')
+  codigosCierre() {
+    return CODIGOS_CIERRE;
+  }
+
   /** GET /api/casos/:id */
   @Get(':id')
   async obtener(
@@ -75,6 +81,21 @@ export class CasosController {
   crear(@Tenant() tenant: string, @Usuario() usuario: JwtPayload, @Body() dto: CrearCasoDto) {
     // El origen del caso es SIEMPRE la agencia del funcionario, nunca el cuerpo.
     return this.casos.crear(tenant, dto, usuario?.sub ?? 'desconocido', usuario?.agencia ?? null);
+  }
+
+  /**
+   * POST /api/casos/:id/tomar — hacerse cargo. Lo llama la interfaz al abrir un
+   * caso nuevo: se asume que quien lo abre lo va a gestionar.
+   */
+  @Permisos('casos.gestionar')
+  @Post(':id/tomar')
+  async tomar(
+    @Tenant() tenant: string,
+    @Usuario() usuario: JwtPayload,
+    @PermisosVigentes() permisos: string[],
+    @Param('id') id: string,
+  ) {
+    return this.casos.tomar(tenant, id, await this.actor(usuario, permisos));
   }
 
   /** POST /api/casos/:id/remitir — enviar el caso a canales de otra agencia. */

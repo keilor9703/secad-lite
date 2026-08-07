@@ -95,7 +95,8 @@ export class DespachoComponent {
 
   constructor() {
     // Si la dirección trae un caso, se abre en el panel al entrar.
-    this.seleccionado.set(this.ruta.snapshot.paramMap.get('id'));
+    // Acepta ambas formas: el enlace antiguo /despacho/:id y ?caso=.
+    this.seleccionado.set(this.ruta.snapshot.paramMap.get('id') ?? this.ruta.snapshot.queryParamMap.get('caso'));
     effect(() => {
       this.auth.tenantActivo();
       this.cargar();
@@ -105,17 +106,23 @@ export class DespachoComponent {
     setInterval(() => { this.ahora.set(Date.now()); if (!document.hidden) this.cargar(true); }, 30_000);
   }
 
-  /** Abre el caso en el panel de gestión, sin salir del módulo. */
+  /**
+   * Abre el caso en el panel de gestión, sin salir del módulo.
+   *
+   * El caso viaja como parámetro de consulta y no como segmento de ruta a
+   * propósito: cambiar el segmento haría que Angular recreara este componente,
+   * y la cola volvería a cargarse desde cero justo cuando el caso está pasando
+   * a gestión — se perdería el cambio de columna.
+   */
   abrir(c: Caso): void {
     this.seleccionado.set(c.id);
     this.marcarVisto(c.id);
-    // La dirección refleja el caso abierto: se puede compartir y recargar.
-    this.router.navigate(['/despacho', c.id], { replaceUrl: !!this.seleccionado() });
+    this.router.navigate([], { relativeTo: this.ruta, queryParams: { caso: c.id }, replaceUrl: true });
   }
 
   cerrarPanel(): void {
     this.seleccionado.set(null);
-    this.router.navigate(['/despacho']);
+    this.router.navigate([], { relativeTo: this.ruta, queryParams: {} });
   }
 
   private marcarVisto(id: string): void {

@@ -100,6 +100,18 @@ export class DespachoService {
 
     const detalle = estado === 'cancelada' ? ` (${a.motivo})` : '';
     await this.auditar(tenant, a.casoId, `Recurso ${a.recursoCodigo}: ${LABEL[anterior]} → ${LABEL[estado]}.${detalle}`, autor);
+
+    // Sin recursos activos el caso ya no está "con recursos": vuelve a gestión,
+    // para que el tablero lo muestre donde corresponde sin intervención manual.
+    const quedan = await this.activasDe(tenant, a.casoId);
+    if (!quedan.length) {
+      const caso = await this.casos.findOne({ where: { tenant, id: a.casoId } });
+      if (caso && caso.estado === 'despachado') {
+        caso.estado = 'en_gestion';
+        await this.casos.save(caso);
+        await this.auditar(tenant, a.casoId, 'Sin recursos en atención: el caso vuelve a gestión.', autor);
+      }
+    }
     return a;
   }
 

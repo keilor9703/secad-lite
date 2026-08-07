@@ -99,6 +99,10 @@ export class CasoEntity {
   @Column({ type: 'varchar', length: 20, default: 'nuevo' })
   estado!: EstadoCaso;
 
+  /** Cómo terminó el caso (ver CODIGOS_CIERRE). Solo lo llevan los cerrados. */
+  @Column({ type: 'varchar', length: 32, nullable: true })
+  codigoCierre?: string | null;
+
   // --- Reapertura ------------------------------------------------------------
 
   /**

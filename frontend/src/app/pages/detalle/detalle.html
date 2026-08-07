@@ -114,19 +114,34 @@
             </div>
           </div>
         </div>
+        <!-- El ciclo avanza solo: tomar el caso al abrirlo, despachar un recurso
+             o remitirlo mueven el estado. Lo único que se decide es el cierre. -->
+        <div class="acciones" *ngIf="c.estado !== 'cerrado'">
+          <button type="button" class="btn btn--primary" *ngIf="puedeCerrar() && !mostrarCierre"
+                  (click)="abrirCierre()">✓ Cerrar caso</button>
+          <p class="auto-nota">El estado avanza solo según lo que haga con el caso.</p>
 
-        <div class="acciones">
-          <label>Cambiar estado</label>
-          <div class="botones">
-            <button *ngFor="let e of estados" type="button"
-                    class="btn" [class.btn--primary]="e === c.estado"
-                    [disabled]="e === c.estado || bloqueadoPorPermiso(e)"
-                    [title]="bloqueadoPorPermiso(e) ? 'No disponible con sus permisos o con el caso cerrado' : ''"
-                    (click)="cambiarEstado(e)">
-              {{ estadoLabel(e) }}
-            </button>
+          <div class="cierre-form" *ngIf="mostrarCierre">
+            <h3>Cerrar el caso</h3>
+            <div class="field">
+              <label for="ccod">Código de cierre *</label>
+              <select id="ccod" [(ngModel)]="cierre.codigo" name="ccod">
+                <option value="">— cómo terminó —</option>
+                <option *ngFor="let k of codigosCierre()" [value]="k.codigo">{{ k.etiqueta }}</option>
+              </select>
+            </div>
+            <div class="field">
+              <label for="ccom">Comentario de cierre *</label>
+              <textarea id="ccom" rows="3" [(ngModel)]="cierre.comentario" name="ccom"
+                        placeholder="Qué pasó y cómo se resolvió"></textarea>
+            </div>
+            <div class="acciones-remitir">
+              <button type="button" class="btn btn--ghost" (click)="mostrarCierre = false">Cancelar</button>
+              <button type="button" class="btn btn--primary" (click)="confirmarCierre()" [disabled]="cerrando()">
+                {{ cerrando() ? 'Cerrando…' : 'Cerrar caso' }}
+              </button>
+            </div>
           </div>
-          <p class="rol-nota" *ngIf="!privilegiado()">Cerrar y reabrir requieren rol supervisor o admin.</p>
         </div>
       </div>
 

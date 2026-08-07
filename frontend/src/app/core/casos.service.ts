@@ -47,6 +47,20 @@ export class CasosService {
     return this.http.patch<Caso>(`${this.base}/${id}/estado`, { estado, agencia });
   }
 
+  /** Cierra clasificando: el código y el comentario alimentan los reportes. */
+  cerrar(id: string, codigoCierre: string, comentario: string): Observable<Caso> {
+    return this.http.patch<Caso>(`${this.base}/${id}/estado`, { estado: 'cerrado', codigoCierre, comentario });
+  }
+
+  /** Se hace cargo del caso: si estaba nuevo, pasa a gestión. */
+  tomar(id: string): Observable<Caso> {
+    return this.http.post<Caso>(`${this.base}/${id}/tomar`, {});
+  }
+
+  codigosCierre(): Observable<Array<{ codigo: string; etiqueta: string }>> {
+    return this.http.get<Array<{ codigo: string; etiqueta: string }>>(`${this.base}/codigos-cierre`);
+  }
+
   obtener(id: string): Observable<Caso> {
     return this.http.get<Caso>(`${this.base}/${id}`);
   }

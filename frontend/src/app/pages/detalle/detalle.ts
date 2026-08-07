@@ -1,4 +1,4 @@
-import { Component, Input, OnChanges, OnDestroy, OnInit, computed, inject, signal } from '@angular/core';
+import { Component, EventEmitter, Input, OnChanges, OnDestroy, OnInit, Output, computed, inject, signal } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { ActivatedRoute, RouterLink } from '@angular/router';
@@ -69,6 +69,14 @@ export class DetalleComponent implements OnInit, OnChanges, OnDestroy {
   @Input() casoId?: string;
   /** Oculta el enlace de volver cuando ya se está dentro de otro módulo. */
   @Input() incrustado = false;
+  /** Avisa al módulo que lo contiene: el tablero se recarga y el caso se mueve. */
+  @Output() cambiado = new EventEmitter<void>();
+
+  /** Cierre clasificado: sin código ni comentario no se puede cerrar. */
+  readonly codigosCierre = signal<Array<{ codigo: string; etiqueta: string }>>([]);
+  mostrarCierre = false;
+  cierre = { codigo: '', comentario: '' };
+  readonly cerrando = signal(false);
 
   private id = '';
 
@@ -86,6 +94,7 @@ export class DetalleComponent implements OnInit, OnChanges, OnDestroy {
 
   ngOnInit(): void {
     this.id = this.casoId ?? this.route.snapshot.paramMap.get('id') ?? '';
+    this.casosSvc.codigosCierre().subscribe({ next: (c) => this.codigosCierre.set(c), error: () => {} });
     this.cargar();
     this.catalogos.agencias().subscribe({ next: (a) => this.agencias.set(a), error: () => {} });
     this.catalogos.canales().subscribe({ next: (c) => this.canalesAtencion.set(c), error: () => {} });
@@ -123,6 +132,7 @@ export class DetalleComponent implements OnInit, OnChanges, OnDestroy {
         this.enviandoReapertura.set(false);
         this.mostrarReapertura = false;
         this.cargarAuditoria();
+        this.cambiado.emit();
       },
       error: (e) => {
         this.enviandoReapertura.set(false);
@@ -198,6 +208,7 @@ export class DetalleComponent implements OnInit, OnChanges, OnDestroy {
         this.remitiendo.set(false);
         this.mostrarRemitir = false;
         this.cargarAuditoria();
+        this.cambiado.emit();
       },
       error: (e) => {
         this.remitiendo.set(false);
@@ -206,7 +217,49 @@ export class DetalleComponent implements OnInit, OnChanges, OnDestroy {
     });
   }
 
-  /** Nombre de la agencia; los casos antiguos no la tienen. */
+  /**
+   * Abrir un caso nuevo es hacerse cargo de él: el sistema lo pasa a gestión y
+   * lo deja escrito, en vez de esperar a que alguien se acuerde de cambiarlo.
+   */
+  private tomarSiEsNuevo(c: Caso): void {
+    if (c.estado !== 'nuevo' || !this.auth.tienePermiso('casos.gestionar')) return;
+    this.casosSvc.tomar(c.id).subscribe({
+      next: (act) => { this.caso.set(act); this.cargarAuditoria(); this.cambiado.emit(); },
+      error: () => {},
+    });
+  }
+
+  abrirCierre(): void {
+    this.cierre = { codigo: '', comentario: '' };
+    this.mostrarCierre = true;
+  }
+
+  /** Cierra el caso con su clasificación; el resto de estados van solos. */
+  confirmarCierre(): void {
+    if (!this.cierre.codigo) { this.error.set('Elija el código de cierre.'); return; }
+    if (!this.cierre.comentario.trim()) { this.error.set('Escriba el comentario de cierre.'); return; }
+    if (this.asignaciones().some((a) => this.activa(a))
+        && !window.confirm('El caso tiene recursos en atención. Al cerrar se liberarán automáticamente. ¿Continuar?')) {
+      return;
+    }
+    this.cerrando.set(true);
+    this.casosSvc.cerrar(this.id, this.cierre.codigo, this.cierre.comentario.trim()).subscribe({
+      next: (c) => {
+        this.caso.set(c);
+        this.cerrando.set(false);
+        this.mostrarCierre = false;
+        this.cargarAuditoria();
+        this.cargarDespacho();
+        this.cambiado.emit();
+      },
+      error: (e) => {
+        this.cerrando.set(false);
+        this.error.set(e?.error?.message ?? 'No fue posible cerrar el caso.');
+      },
+    });
+  }
+
+    /** Nombre de la agencia; los casos antiguos no la tienen. */
   nombreAgencia(id: string | null | undefined): string {
     if (!id) return '—';
     return this.agencias().find((a) => a.id === id)?.nombre ?? '—';
@@ -279,6 +332,7 @@ export class DetalleComponent implements OnInit, OnChanges, OnDestroy {
         this.caso.set(c);
         this.cargarAuditoria();
         this.cargarDespacho();
+        this.tomarSiEsNuevo(c);
         if (c.canal === 'chat' && this.chatSubs.length === 0) this.iniciarChat();
         if (c.canal === 'whatsapp' && !this.waPoll) this.iniciarWhatsapp();
       },
@@ -303,7 +357,7 @@ export class DetalleComponent implements OnInit, OnChanges, OnDestroy {
       return;
     }
     this.casosSvc.cambiarEstado(this.id, estado, agencia).subscribe({
-      next: (c) => { this.caso.set(c); this.cargarAuditoria(); this.cargarDespacho(); },
+      next: (c) => { this.caso.set(c); this.cargarAuditoria(); this.cargarDespacho(); this.cambiado.emit(); },
       error: () => this.error.set('No fue posible actualizar el estado.'),
     });
   }
@@ -339,6 +393,8 @@ export class DetalleComponent implements OnInit, OnChanges, OnDestroy {
     this.cargarDespacho();
     this.cargarAuditoria();
     this.casosSvc.obtener(this.id).subscribe({ next: (c) => this.caso.set(c) });
+      // El caso pudo pasar a 'con recursos': el tablero debe reflejarlo.
+    this.cambiado.emit();
   }
 
   /** Siguientes fases posibles del despacho de un recurso (excluye cancelar). */

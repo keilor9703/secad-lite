@@ -137,3 +137,9 @@
 .bitacora textarea, .nota-form textarea { min-height: 110px; resize: vertical; line-height: 1.45; }
 /* La línea de tiempo aprovecha el alto disponible en vez de recortarse pronto. */
 .linea { max-height: 46vh; overflow-y: auto; }
+
+/* Cierre clasificado: es la única transición que decide una persona. */
+.auto-nota { margin: 0.4rem 0 0; font-size: 0.78rem; color: var(--muted); }
+.cierre-form { display: flex; flex-direction: column; gap: 0.6rem; margin-top: 0.6rem;
+               border: 1px solid var(--border-2); border-radius: var(--radius-sm); padding: 0.8rem; }
+.cierre-form h3 { margin: 0; font-size: 0.95rem; }

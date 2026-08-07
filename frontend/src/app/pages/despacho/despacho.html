@@ -70,6 +70,6 @@
   <!-- Gestión del caso, sin salir del módulo: despacho de recursos, notas, remisión -->
   <aside class="panel-caso" *ngIf="seleccionado() as id">
     <button type="button" class="cerrar" (click)="cerrarPanel()" aria-label="Cerrar el caso">✕</button>
-    <app-detalle [casoId]="id" [incrustado]="true" />
+    <app-detalle [casoId]="id" [incrustado]="true" (cambiado)="cargar(true)" />
   </aside>
 </section>

@@ -3,7 +3,7 @@ import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { CasoEntity } from './caso.entity';
 import { EventoCasoEntity, TipoEvento } from './evento.entity';
-import { CANALES, EstadoCaso, ESTADOS, PRIORIDADES } from './caso.model';
+import { CANALES, CLAVES_CIERRE, CODIGOS_CIERRE, EstadoCaso, ESTADOS, PRIORIDADES } from './caso.model';
 import { CatalogosService } from '../catalogos/catalogos.service';
 import { DespachoService } from '../despacho/despacho.service';
 
@@ -237,6 +237,20 @@ export class CasosService implements OnModuleInit {
     return guardado;
   }
 
+  /**
+   * Marca que alguien se hizo cargo. Al abrir un caso nuevo se asume que se va
+   * a gestionar, así que el sistema lo mueve solo y deja constancia de quién
+   * lo tomó: el despachador no tiene que acordarse de cambiar el estado.
+   */
+  async tomar(tenant: string, id: string, actor: Actor): Promise<CasoEntity> {
+    const caso = await this.obtener(tenant, id, actor);
+    if (caso.estado !== 'nuevo') return caso;
+    caso.estado = 'en_gestion';
+    const guardado = await this.repo.save(caso);
+    await this.registrar(tenant, id, 'estado', `Tomado por ${actor.sub}.`, actor.sub, 'nuevo', 'en_gestion');
+    return guardado;
+  }
+
   async cambiarEstado(tenant: string, id: string, dto: CambiarEstadoDto, actor: Actor): Promise<CasoEntity> {
     const caso = await this.obtener(tenant, id);
     if (!ESTADOS.includes(dto.estado)) throw new BadRequestException('Estado inválido.');
@@ -257,9 +271,23 @@ export class CasosService implements OnModuleInit {
     }
 
     const usuario = actor.sub;
+    // 'nuevo' es el estado en que nace un caso, no algo que se pueda elegir:
+    // volver atrás borraría el rastro de quién lo tomó.
+    if (dto.estado === 'nuevo') {
+      throw new BadRequestException('Un caso no se puede devolver a nuevo.');
+    }
+    // Cerrar exige decir cómo terminó y por qué: es lo que alimenta los reportes.
+    if (dto.estado === 'cerrado') {
+      if (!dto.codigoCierre || !CLAVES_CIERRE.includes(dto.codigoCierre)) {
+        throw new BadRequestException('Indique un código de cierre válido.');
+      }
+      if (!dto.comentario?.trim()) throw new BadRequestException('Escriba el comentario de cierre.');
+    }
+
     const anterior = caso.estado;
     const agenciaAnterior = caso.agencia;
     caso.estado = dto.estado;
+    if (dto.estado === 'cerrado') caso.codigoCierre = dto.codigoCierre ?? null;
     if (dto.estado === 'derivado') caso.agencia = dto.agencia!.trim();
     const guardado = await this.repo.save(caso);
 
@@ -276,10 +304,17 @@ export class CasosService implements OnModuleInit {
     } else {
       await this.registrar(
         tenant, id, 'estado',
-        `Estado: ${this.label(anterior)} → ${this.label(dto.estado)}.`, usuario, anterior, dto.estado,
+        dto.estado === 'cerrado'
+          ? `Cerrado como «${this.etiquetaCierre(dto.codigoCierre!)}». ${dto.comentario!.trim()}`
+          : `Estado: ${this.label(anterior)} → ${this.label(dto.estado)}.`,
+        usuario, anterior, dto.estado,
       );
     }
     return guardado;
+  }
+
+  private etiquetaCierre(codigo: string): string {
+    return CODIGOS_CIERRE.find((c) => c.codigo === codigo)?.etiqueta ?? codigo;
   }
 
   async agregarNota(tenant: string, casoId: string, texto: string, usuario: string): Promise<EventoCasoEntity> {
