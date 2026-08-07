@@ -36,9 +36,16 @@ import { IntegracionModule } from './integracion/integracion.module';
               'conexión, o levanta PostgreSQL con "docker compose up -d" desde la raíz.',
           );
         }
+        // Las bases gestionadas (Supabase, Neon, RDS…) exigen TLS. Con
+        // DB_SSL=true se cifra la conexión sin validar la cadena del
+        // certificado: alcanza para una demostración, pero para producción hay
+        // que entregar la CA del proveedor en vez de aceptar cualquiera.
+        const ssl =
+          config.get<string>('DB_SSL', 'false') === 'true' ? { rejectUnauthorized: false } : undefined;
         return {
           type: 'postgres' as const,
           url,
+          ssl,
           autoLoadEntities: true,
           // Dev: TypeORM crea/actualiza el esquema al arrancar (DB_SYNC=true por
           // defecto). Producción: DB_SYNC=false + DB_MIGRATE=true para aplicar

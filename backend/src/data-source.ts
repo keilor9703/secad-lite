@@ -26,6 +26,8 @@ config();
 export default new DataSource({
   type: 'postgres',
   url: process.env.DATABASE_URL,
+  // Igual que la app: las bases gestionadas exigen TLS (ver app.module.ts).
+  ssl: process.env.DB_SSL === 'true' ? { rejectUnauthorized: false } : undefined,
   entities: [CasoEntity, EventoCasoEntity, UsuarioEntity, MensajeChatEntity, TenantEntity, RecursoEntity, AsignacionEntity, LlamadaEntity, RolEntity, EntidadEntity, AgenciaEntity, CanalEntity, CodigoCasoEntity, CodigoCierreEntity],
   migrations: ['src/migrations/*.ts'],
 });

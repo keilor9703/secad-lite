@@ -1,0 +1,43 @@
+# Despliegue del backend en Render (plan gratuito, para demostración).
+#
+# Render lee este archivo si se crea el servicio como "Blueprint" apuntando al
+# repositorio. También se puede crear el Web Service a mano con los mismos
+# valores; el paso a paso está en docs/despliegue-demo.md.
+#
+# Las variables marcadas con `sync: false` NO se guardan en el repositorio: hay
+# que escribirlas en el panel de Render (Environment). DATABASE_URL es la cadena
+# de Supabase y JWT_SECRET el secreto para firmar las sesiones.
+services:
+  - type: web
+    name: falcon-cad-api
+    runtime: node
+    plan: free
+    region: oregon
+    rootDir: backend
+    buildCommand: npm ci && npm run build
+    startCommand: node dist/main.js
+    healthCheckPath: /api/health
+    envVars:
+      - key: NODE_VERSION
+        value: "22"
+      # Cadena de conexión de Supabase (Session pooler, puerto 5432).
+      - key: DATABASE_URL
+        sync: false
+      # Secreto de firma de los JWT: cadena larga y aleatoria.
+      - key: JWT_SECRET
+        sync: false
+      # Dominios del frontend autorizados a llamar la API, separados por comas.
+      - key: CORS_ORIGINS
+        sync: false
+      - key: JWT_EXPIRES
+        value: 8h
+      # El esquema lo aplican las migraciones versionadas, nunca synchronize:
+      # dejar DB_SYNC en true contra una base publicada permitiría que un
+      # cambio de entidad alterara tablas con datos sin que nadie lo revise.
+      - key: DB_SYNC
+        value: "false"
+      - key: DB_MIGRATE
+        value: "true"
+      # Supabase exige TLS.
+      - key: DB_SSL
+        value: "true"

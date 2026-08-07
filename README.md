@@ -173,6 +173,14 @@ npm run migration:revert
 Para que la app aplique las migraciones sola al arrancar, en `.env`:
 `DB_SYNC=false` y `DB_MIGRATE=true`.
 
+## Publicarlo
+
+Para una demostración en internet —base en Supabase, API en Render, interfaz en
+Vercel— siga [`docs/despliegue-demo.md`](docs/despliegue-demo.md): lleva el
+orden de los pasos, las variables de entorno de cada servicio y los límites de
+los planes gratuitos. Los detalles de la parte de Vercel están en
+[`docs/despliegue-vercel.md`](docs/despliegue-vercel.md).
+
 ## Pendiente / a endurecer
 
 - Contraseñas **demo** para los usuarios sembrados → en producción se crean con

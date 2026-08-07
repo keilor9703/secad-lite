@@ -4,13 +4,16 @@ import { Server, Socket } from 'socket.io';
 import { JwtService } from '@nestjs/jwt';
 import { PbxService } from './pbx.service';
 import { JwtPayload } from '../auth/auth.service';
+import { origenPermitido } from '../common/cors';
 
 /**
  * Empuja las llamadas entrantes a los operadores en tiempo real (Socket.IO,
  * namespace /pbx). Autentica el handshake con el JWT; cada funcionario se une a
  * la sala de su tenant y recibe `llamada:entrante` / `llamada:cambio`.
  */
-@WebSocketGateway({ namespace: '/pbx', cors: { origin: true } })
+// El canal en vivo va directo al backend: una reescritura de Vercel no
+// reenvía websockets, así que aquí también hay que respetar CORS_ORIGINS.
+@WebSocketGateway({ namespace: '/pbx', cors: { origin: origenPermitido, credentials: true } })
 export class PbxGateway implements OnGatewayConnection, OnModuleInit {
   @WebSocketServer() server!: Server;
 

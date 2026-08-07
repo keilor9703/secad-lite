@@ -4,7 +4,30 @@ export class Init1785724833589 implements MigrationInterface {
     name = 'Init1785724833589'
 
     public async up(queryRunner: QueryRunner): Promise<void> {
-        await queryRunner.query(`CREATE EXTENSION IF NOT EXISTS "uuid-ossp"`);
+        // Todas las llaves primarias son uuid con DEFAULT uuid_generate_v4().
+        // En una base gestionada (Supabase y compañía) el rol puede no tener
+        // permiso para crear extensiones, o la extensión puede vivir en un
+        // esquema fuera del search_path. Un CREATE EXTENSION fallido aborta la
+        // transacción entera de la migración, así que va dentro de un bloque
+        // con EXCEPTION —que abre un savepoint— y, si aun así no aparece la
+        // función, se define un alias sobre gen_random_uuid(), nativo desde
+        // PostgreSQL 13. Así el esquema se crea igual en cualquier proveedor.
+        await queryRunner.query(`
+            DO $$
+            BEGIN
+                BEGIN
+                    CREATE EXTENSION IF NOT EXISTS "uuid-ossp";
+                EXCEPTION WHEN OTHERS THEN
+                    NULL;
+                END;
+                BEGIN
+                    PERFORM uuid_generate_v4();
+                EXCEPTION WHEN undefined_function THEN
+                    EXECUTE 'CREATE FUNCTION public.uuid_generate_v4() RETURNS uuid '
+                         || 'LANGUAGE sql VOLATILE AS ''SELECT gen_random_uuid()''';
+                END;
+            END $$;
+        `);
         await queryRunner.query(`CREATE TABLE "casos" ("id" uuid NOT NULL DEFAULT uuid_generate_v4(), "tenant" character varying(64) NOT NULL, "canal" character varying(20) NOT NULL, "titulo" character varying(160) NOT NULL, "descripcion" text NOT NULL DEFAULT '', "ciudadano" character varying(120) NOT NULL, "telefono" character varying(40), "agencia" character varying(80) NOT NULL DEFAULT 'Central', "lat" double precision, "lng" double precision, "entidadId" uuid, "estado" character varying(20) NOT NULL DEFAULT 'nuevo', "creadoPor" character varying(120) NOT NULL, "creadoEn" TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT now(), "actualizadoEn" TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT now(), CONSTRAINT "PK_e53891d55a545d106d0c71d2155" PRIMARY KEY ("id"))`);
         await queryRunner.query(`CREATE INDEX "IDX_d9e9a5ae2ac38dc25cb071017b" ON "casos" ("tenant") `);
         await queryRunner.query(`CREATE INDEX "IDX_13d2bb8641e98d8b8b275d7d8f" ON "casos" ("tenant", "estado") `);
