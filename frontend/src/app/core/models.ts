@@ -186,6 +186,18 @@ export interface CodigoCaso {
 }
 
 /**
+ * Desenlace del caso. Es catálogo por secad: la clave queda grabada en el caso
+ * cerrado (`Caso.codigoCierre`) y la etiqueta es lo que se muestra y reporta.
+ */
+export interface CodigoCierre {
+  id: string;
+  tenant: string;
+  codigo: string;
+  etiqueta: string;
+  activo: boolean;
+}
+
+/**
  * Código de rol. Con el RBAC dinámico los roles viven por tenant en el backend;
  * 'superadmin' (global) y 'ciudadano' (acceso civil) son reservados.
  */

@@ -4,6 +4,7 @@ import { In, Repository } from 'typeorm';
 import { AgenciaEntity, TIPOS_AGENCIA, TipoAgencia } from './agencia.entity';
 import { CanalEntity } from './canal.entity';
 import { CodigoCasoEntity, PRIORIDADES, PrioridadCaso } from './codigo-caso.entity';
+import { CodigoCierreEntity } from './codigo-cierre.entity';
 
 export interface CrearAgenciaDto { codigo: string; nombre: string; tipo?: TipoAgencia; telefono?: string; }
 export interface ActualizarAgenciaDto { nombre?: string; tipo?: TipoAgencia; telefono?: string; activo?: boolean; }
@@ -11,6 +12,8 @@ export interface CrearCanalDto { agenciaId: string; codigo: string; nombre: stri
 export interface ActualizarCanalDto { nombre?: string; activo?: boolean; }
 export interface CrearCodigoCasoDto { codigo: string; descripcion: string; prioridad?: PrioridadCaso; agenciaSugeridaId?: string | null; }
 export interface ActualizarCodigoCasoDto { descripcion?: string; prioridad?: PrioridadCaso; agenciaSugeridaId?: string | null; activo?: boolean; }
+export interface CrearCodigoCierreDto { codigo: string; etiqueta: string; }
+export interface ActualizarCodigoCierreDto { etiqueta?: string; activo?: boolean; }
 
 /** Catálogo inicial de cada secad: sin esto no se puede recepcionar nada. */
 const SEMILLA: Array<{ codigo: string; nombre: string; tipo: TipoAgencia; canales: Array<[string, string]> }> = [
@@ -37,9 +40,26 @@ const SEMILLA_CODIGOS: Array<[string, string, PrioridadCaso, string]> = [
 ];
 
 /**
- * Catálogos operativos del secad: agencias, sus canales de atención y los
- * códigos de caso. Todo va acotado por tenant. La primera lectura de un secad
- * siembra un catálogo base para que pueda operar desde el minuto cero.
+ * Desenlaces con que arranca un secad. Son los que estuvieron fijos en código
+ * hasta que el cierre pasó a ser catálogo: se siembran igual para que ningún
+ * caso ya cerrado quede apuntando a una clave inexistente.
+ */
+const SEMILLA_CIERRES: Array<[string, string]> = [
+  ['atendido', 'Atendido efectivamente'],
+  ['falsa_alarma', 'Falsa alarma'],
+  ['sin_merito', 'Sin mérito / no procede'],
+  ['duplicado', 'Caso duplicado'],
+  ['remitido', 'Remitido a otra entidad'],
+  ['sin_recurso', 'Sin recurso disponible'],
+  ['desistido', 'El ciudadano desiste'],
+  ['informativo', 'Solo informativo'],
+];
+
+/**
+ * Catálogos operativos del secad: agencias, sus canales de atención, los
+ * códigos de caso y los códigos de cierre. Todo va acotado por tenant. La
+ * primera lectura de un secad siembra un catálogo base para que pueda operar
+ * desde el minuto cero.
  */
 @Injectable()
 export class CatalogosService {
@@ -47,6 +67,7 @@ export class CatalogosService {
     @InjectRepository(AgenciaEntity) private readonly agencias: Repository<AgenciaEntity>,
     @InjectRepository(CanalEntity) private readonly canales: Repository<CanalEntity>,
     @InjectRepository(CodigoCasoEntity) private readonly codigos: Repository<CodigoCasoEntity>,
+    @InjectRepository(CodigoCierreEntity) private readonly cierres: Repository<CodigoCierreEntity>,
   ) {}
 
   // --- Agencias ---------------------------------------------------------------
@@ -193,6 +214,74 @@ export class CatalogosService {
     return { ok: true };
   }
 
+  // --- Códigos de cierre ------------------------------------------------------
+
+  async listarCierres(tenant: string, soloActivos = false): Promise<CodigoCierreEntity[]> {
+    await this.asegurarSeed(tenant);
+    const where = soloActivos ? { tenant, activo: true } : { tenant };
+    return this.cierres.find({ where, order: { etiqueta: 'ASC' } });
+  }
+
+  /**
+   * El desenlace indicado, exigiendo que exista y esté vigente. Es lo que
+   * consulta el cierre del caso antes de dejarlo grabar.
+   */
+  async cierreVigente(tenant: string, codigo?: string | null): Promise<CodigoCierreEntity> {
+    const clave = this.normalizarClave(codigo);
+    if (!clave) throw new BadRequestException('Indique un código de cierre válido.');
+    const c = await this.cierres.findOne({ where: { tenant, codigo: clave } });
+    if (!c) throw new BadRequestException('Indique un código de cierre válido.');
+    if (!c.activo) throw new BadRequestException('Ese código de cierre ya no está vigente.');
+    return c;
+  }
+
+  /** Etiqueta del desenlace para mostrarlo; si ya no existe, cae en la clave. */
+  async etiquetaCierre(tenant: string, codigo?: string | null): Promise<string> {
+    const clave = this.normalizarClave(codigo);
+    if (!clave) return '';
+    const c = await this.cierres.findOne({ where: { tenant, codigo: clave } });
+    return c?.etiqueta ?? clave;
+  }
+
+  async crearCierre(tenant: string, dto: CrearCodigoCierreDto): Promise<CodigoCierreEntity> {
+    await this.asegurarSeed(tenant);
+    const codigo = this.normalizarClave(dto.codigo);
+    const etiqueta = dto.etiqueta?.trim();
+    if (!codigo || !etiqueta) throw new BadRequestException('Código y etiqueta son obligatorios.');
+    if (await this.cierres.findOne({ where: { tenant, codigo } })) {
+      throw new ConflictException('Ya existe un código de cierre con esa clave.');
+    }
+    return this.cierres.save(this.cierres.create({ tenant, codigo, etiqueta, activo: true }));
+  }
+
+  /**
+   * Solo se cambia la etiqueta o la vigencia: la clave queda grabada en los
+   * casos ya cerrados y renombrarla rompería los reportes históricos.
+   */
+  async actualizarCierre(tenant: string, id: string, dto: ActualizarCodigoCierreDto): Promise<CodigoCierreEntity> {
+    const c = await this.cierres.findOne({ where: { id, tenant } });
+    if (!c) throw new NotFoundException('Código de cierre no encontrado.');
+    if (dto.etiqueta !== undefined) {
+      if (!dto.etiqueta.trim()) throw new BadRequestException('La etiqueta no puede quedar vacía.');
+      c.etiqueta = dto.etiqueta.trim();
+    }
+    if (dto.activo !== undefined) c.activo = dto.activo;
+    return this.cierres.save(c);
+  }
+
+  /** Baja lógica: deja de ofrecerse al cerrar, pero los casos viejos lo conservan. */
+  async desactivarCierre(tenant: string, id: string): Promise<{ ok: true }> {
+    const c = await this.cierres.findOne({ where: { id, tenant } });
+    if (!c) throw new NotFoundException('Código de cierre no encontrado.');
+    // Sin desenlaces vigentes no se podría cerrar ningún caso: se impide.
+    if (c.activo && (await this.cierres.count({ where: { tenant, activo: true } })) <= 1) {
+      throw new BadRequestException('Debe quedar al menos un código de cierre vigente.');
+    }
+    c.activo = false;
+    await this.cierres.save(c);
+    return { ok: true };
+  }
+
   // --- Apoyo ------------------------------------------------------------------
 
   /** Agencia del tenant por id; lanza si no existe. Útil para validar referencias. */
@@ -212,12 +301,46 @@ export class CatalogosService {
   }
 
   /**
-   * Siembra el catálogo base la primera vez que un secad lo consulta. Es
-   * idempotente: si ya hay agencias no toca nada, así que un secad puede
-   * renombrarlas o desactivarlas sin que vuelvan a aparecer.
+   * Clave de cierre: minúscula sin tildes y con guion bajo. Es la forma que ya
+   * llevan los casos cerrados hasta hoy ('falsa_alarma'), así que se conserva
+   * tal cual. Las tildes se pliegan (no se borran) para que «Fiscalía» quede
+   * en 'fiscalia' y no en 'fiscala'.
+   */
+  private normalizarClave(codigo?: string | null): string {
+    return (codigo ?? '')
+      .trim()
+      .toLowerCase()
+      .normalize('NFD')
+      .replace(/[\u0300-\u036f]/g, '')
+      .replace(/\s+/g, '_')
+      .replace(/[^a-z0-9_]/g, '');
+  }
+
+  /**
+   * Siembra el catálogo base la primera vez que un secad lo consulta. Cada
+   * catálogo se siembra por separado y solo si está vacío, para que uno nuevo
+   * (los cierres) también llegue a los secads que ya venían operando.
    */
   async asegurarSeed(tenant: string): Promise<void> {
     if (!tenant) return;
+    await this.sembrarCierres(tenant);
+    await this.sembrarAgencias(tenant);
+  }
+
+  /** Desenlaces de cierre; sin ellos no se podría cerrar ningún caso. */
+  private async sembrarCierres(tenant: string): Promise<void> {
+    if (await this.cierres.count({ where: { tenant } })) return;
+    for (const [codigo, etiqueta] of SEMILLA_CIERRES) {
+      await this.cierres.save(this.cierres.create({ tenant, codigo, etiqueta, activo: true }));
+    }
+  }
+
+  /**
+   * Agencias, canales y códigos de caso. Idempotente: si ya hay agencias no
+   * toca nada, así que un secad puede renombrarlas o desactivarlas sin que
+   * vuelvan a aparecer.
+   */
+  private async sembrarAgencias(tenant: string): Promise<void> {
     if (await this.agencias.count({ where: { tenant } })) return;
 
     const porCodigo = new Map<string, string>();

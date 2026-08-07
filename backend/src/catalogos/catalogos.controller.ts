@@ -1,7 +1,7 @@
 import { Body, Controller, Delete, Get, Param, Patch, Post, Query } from '@nestjs/common';
 import {
-  ActualizarAgenciaDto, ActualizarCanalDto, ActualizarCodigoCasoDto, CatalogosService,
-  CrearAgenciaDto, CrearCanalDto, CrearCodigoCasoDto,
+  ActualizarAgenciaDto, ActualizarCanalDto, ActualizarCodigoCasoDto, ActualizarCodigoCierreDto,
+  CatalogosService, CrearAgenciaDto, CrearCanalDto, CrearCodigoCasoDto, CrearCodigoCierreDto,
 } from './catalogos.service';
 import { Permisos } from '../auth/permisos.decorator';
 import { Tenant } from '../common/tenant.decorator';
@@ -88,5 +88,30 @@ export class CatalogosController {
   @Delete('codigos-caso/:id')
   desactivarCodigo(@Tenant() tenant: string, @Param('id') id: string) {
     return this.catalogos.desactivarCodigo(tenant, id);
+  }
+
+  // --- Códigos de cierre ------------------------------------------------------
+
+  @Get('codigos-cierre')
+  cierres(@Tenant() tenant: string, @Query('activos') activos?: string) {
+    return this.catalogos.listarCierres(tenant, activos === 'true');
+  }
+
+  @Permisos('catalogos.gestionar')
+  @Post('codigos-cierre')
+  crearCierre(@Tenant() tenant: string, @Body() dto: CrearCodigoCierreDto) {
+    return this.catalogos.crearCierre(tenant, dto);
+  }
+
+  @Permisos('catalogos.gestionar')
+  @Patch('codigos-cierre/:id')
+  actualizarCierre(@Tenant() tenant: string, @Param('id') id: string, @Body() dto: ActualizarCodigoCierreDto) {
+    return this.catalogos.actualizarCierre(tenant, id, dto);
+  }
+
+  @Permisos('catalogos.gestionar')
+  @Delete('codigos-cierre/:id')
+  desactivarCierre(@Tenant() tenant: string, @Param('id') id: string) {
+    return this.catalogos.desactivarCierre(tenant, id);
   }
 }

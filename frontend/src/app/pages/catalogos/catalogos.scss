@@ -34,6 +34,11 @@ th { text-align: left; font-size: 0.72rem; text-transform: uppercase; letter-spa
 td { padding: 0.5rem 0.6rem; border-bottom: 1px solid var(--border); }
 .mono { font-family: var(--mono); }
 .mini { padding: 0.2rem 0.5rem; font-size: 0.76rem; }
+/* Etiqueta editable en sitio: se ve como texto hasta que recibe el foco. */
+.editable { width: 100%; max-width: 340px; background: transparent; border: 1px solid transparent;
+            padding: 0.2rem 0.35rem; border-radius: var(--radius-sm); color: inherit; font: inherit; }
+.editable:hover { border-color: var(--border); }
+.editable:focus { border-color: var(--accent); background: var(--surface-2); outline: none; }
 
 .badge { font-size: 0.74rem; padding: 0.1rem 0.5rem; border-radius: 999px;
          background: var(--surface-2); color: var(--muted); }

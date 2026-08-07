@@ -3,7 +3,7 @@ import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { CasoEntity } from './caso.entity';
 import { EventoCasoEntity, TipoEvento } from './evento.entity';
-import { CANALES, CLAVES_CIERRE, CODIGOS_CIERRE, EstadoCaso, ESTADOS, PRIORIDADES } from './caso.model';
+import { CANALES, EstadoCaso, ESTADOS, PRIORIDADES } from './caso.model';
 import { CatalogosService } from '../catalogos/catalogos.service';
 import { DespachoService } from '../despacho/despacho.service';
 
@@ -277,17 +277,17 @@ export class CasosService implements OnModuleInit {
       throw new BadRequestException('Un caso no se puede devolver a nuevo.');
     }
     // Cerrar exige decir cómo terminó y por qué: es lo que alimenta los reportes.
+    // El desenlace se valida contra el catálogo del secad, que cada uno ajusta.
+    let cierre: { codigo: string; etiqueta: string } | null = null;
     if (dto.estado === 'cerrado') {
-      if (!dto.codigoCierre || !CLAVES_CIERRE.includes(dto.codigoCierre)) {
-        throw new BadRequestException('Indique un código de cierre válido.');
-      }
+      cierre = await this.catalogos.cierreVigente(tenant, dto.codigoCierre);
       if (!dto.comentario?.trim()) throw new BadRequestException('Escriba el comentario de cierre.');
     }
 
     const anterior = caso.estado;
     const agenciaAnterior = caso.agencia;
     caso.estado = dto.estado;
-    if (dto.estado === 'cerrado') caso.codigoCierre = dto.codigoCierre ?? null;
+    if (dto.estado === 'cerrado') caso.codigoCierre = cierre!.codigo;
     if (dto.estado === 'derivado') caso.agencia = dto.agencia!.trim();
     const guardado = await this.repo.save(caso);
 
@@ -305,16 +305,12 @@ export class CasosService implements OnModuleInit {
       await this.registrar(
         tenant, id, 'estado',
         dto.estado === 'cerrado'
-          ? `Cerrado como «${this.etiquetaCierre(dto.codigoCierre!)}». ${dto.comentario!.trim()}`
+          ? `Cerrado como «${cierre!.etiqueta}». ${dto.comentario!.trim()}`
           : `Estado: ${this.label(anterior)} → ${this.label(dto.estado)}.`,
         usuario, anterior, dto.estado,
       );
     }
     return guardado;
-  }
-
-  private etiquetaCierre(codigo: string): string {
-    return CODIGOS_CIERRE.find((c) => c.codigo === codigo)?.etiqueta ?? codigo;
   }
 
   async agregarNota(tenant: string, casoId: string, texto: string, usuario: string): Promise<EventoCasoEntity> {

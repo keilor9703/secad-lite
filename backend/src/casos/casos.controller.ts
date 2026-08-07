@@ -11,7 +11,7 @@ import { Usuario } from '../common/usuario.decorator';
 import { PermisosVigentes } from '../common/permisos-vigentes.decorator';
 import { JwtPayload } from '../auth/auth.service';
 import { Permisos } from '../auth/permisos.decorator';
-import { CODIGOS_CIERRE, EstadoCaso } from './caso.model';
+import { EstadoCaso } from './caso.model';
 
 // La bandeja y el detalle son de uso interno: gobernado por permisos del rol.
 @Permisos('casos.ver')
@@ -47,11 +47,8 @@ export class CasosController {
     return this.casos.listar(tenant, await this.actor(usuario, permisos));
   }
 
-  /** GET /api/casos/codigos-cierre — cómo se puede clasificar un cierre. */
-  @Get('codigos-cierre')
-  codigosCierre() {
-    return CODIGOS_CIERRE;
-  }
+  // Cómo se clasifica un cierre ya no se responde aquí: es catálogo del secad,
+  // en GET /api/catalogos/codigos-cierre.
 
   /** GET /api/casos/:id */
   @Get(':id')

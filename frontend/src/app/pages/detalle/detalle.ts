@@ -10,8 +10,8 @@ import { ChatService } from '../../core/chat.service';
 import { DespachoService } from '../../core/despacho.service';
 import { WhatsappService } from '../../core/whatsapp.service';
 import {
-  Agencia, Asignacion, Canal, CanalAtencion, Caso, EstadoAsignacion, EstadoCaso, EventoCaso,
-  MensajeChat, RecursoSugerido, TipoEvento,
+  Agencia, Asignacion, Canal, CanalAtencion, Caso, CodigoCierre, EstadoAsignacion, EstadoCaso,
+  EventoCaso, MensajeChat, RecursoSugerido, TipoEvento,
 } from '../../core/models';
 
 @Component({
@@ -72,8 +72,11 @@ export class DetalleComponent implements OnInit, OnChanges, OnDestroy {
   /** Avisa al módulo que lo contiene: el tablero se recarga y el caso se mueve. */
   @Output() cambiado = new EventEmitter<void>();
 
-  /** Cierre clasificado: sin código ni comentario no se puede cerrar. */
-  readonly codigosCierre = signal<Array<{ codigo: string; etiqueta: string }>>([]);
+  /**
+   * Cierre clasificado: sin código ni comentario no se puede cerrar. Los
+   * desenlaces son catálogo del secad, así que solo se ofrecen los vigentes.
+   */
+  readonly codigosCierre = signal<CodigoCierre[]>([]);
   mostrarCierre = false;
   cierre = { codigo: '', comentario: '' };
   readonly cerrando = signal(false);
@@ -94,7 +97,7 @@ export class DetalleComponent implements OnInit, OnChanges, OnDestroy {
 
   ngOnInit(): void {
     this.id = this.casoId ?? this.route.snapshot.paramMap.get('id') ?? '';
-    this.casosSvc.codigosCierre().subscribe({ next: (c) => this.codigosCierre.set(c), error: () => {} });
+    this.catalogos.cierres(true).subscribe({ next: (c) => this.codigosCierre.set(c), error: () => {} });
     this.cargar();
     this.catalogos.agencias().subscribe({ next: (a) => this.agencias.set(a), error: () => {} });
     this.catalogos.canales().subscribe({ next: (c) => this.canalesAtencion.set(c), error: () => {} });

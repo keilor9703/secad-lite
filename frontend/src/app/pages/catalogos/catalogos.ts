@@ -3,12 +3,13 @@ import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { CatalogosService } from '../../core/catalogos.service';
 import { AuthService } from '../../core/auth.service';
-import { Agencia, CanalAtencion, CodigoCaso, PrioridadCaso, TipoAgencia } from '../../core/models';
+import { Agencia, CanalAtencion, CodigoCaso, CodigoCierre, PrioridadCaso, TipoAgencia } from '../../core/models';
 
 /**
  * Catálogos operativos del secad: las agencias que atienden, sus canales de
- * despacho y la tipificación de casos. Es configuración de la operación, no de
- * la plataforma ni de las cuentas, por eso vive fuera de Administración.
+ * despacho, la tipificación de casos y los desenlaces con que se cierran. Es
+ * configuración de la operación, no de la plataforma ni de las cuentas, por
+ * eso vive fuera de Administración.
  */
 @Component({
   selector: 'app-catalogos',
@@ -25,6 +26,7 @@ export class CatalogosComponent {
   readonly agencias = signal<Agencia[]>([]);
   readonly canales = signal<CanalAtencion[]>([]);
   readonly codigos = signal<CodigoCaso[]>([]);
+  readonly cierres = signal<CodigoCierre[]>([]);
 
   readonly esSuperadmin = this.auth.esSuperadmin;
   readonly tenantCtx = this.auth.tenantCtx;
@@ -36,6 +38,7 @@ export class CatalogosComponent {
   nuevaAgencia = { codigo: '', nombre: '', tipo: 'otra' as TipoAgencia };
   nuevoCanal: Record<string, { codigo: string; nombre: string }> = {};
   nuevoCodigo = { codigo: '', descripcion: '', prioridad: 'media' as PrioridadCaso, agenciaSugeridaId: '' };
+  nuevoCierre = { codigo: '', etiqueta: '' };
 
   /** Búsqueda dentro del catálogo de códigos, que puede traer miles. */
   filtroCodigo = '';
@@ -76,6 +79,7 @@ export class CatalogosComponent {
     this.catalogos.agencias().subscribe({ next: (a) => this.agencias.set(a), error: () => {} });
     this.catalogos.canales().subscribe({ next: (c) => this.canales.set(c), error: () => {} });
     this.catalogos.codigos().subscribe({ next: (c) => this.codigos.set(c), error: () => {} });
+    this.catalogos.cierres().subscribe({ next: (c) => this.cierres.set(c), error: () => {} });
   }
 
   // --- Agencias y canales -----------------------------------------------------
@@ -140,6 +144,37 @@ export class CatalogosComponent {
     this.catalogos.actualizarCodigo(c.id, { activo: !c.activo }).subscribe({
       next: (act) => this.codigos.update((cs) => cs.map((x) => (x.id === act.id ? act : x))),
       error: (e) => this.error.set(e?.error?.message ?? 'No fue posible actualizar el código.'),
+    });
+  }
+
+  // --- Códigos de cierre --------------------------------------------------------
+
+  crearCierre(): void {
+    this.error.set('');
+    const { codigo, etiqueta } = this.nuevoCierre;
+    if (!codigo.trim() || !etiqueta.trim()) { this.error.set('Clave y etiqueta del cierre son obligatorias.'); return; }
+    this.catalogos.crearCierre({ codigo: codigo.trim(), etiqueta: etiqueta.trim() }).subscribe({
+      next: (c) => { this.cierres.update((cs) => [...cs, c]); this.nuevoCierre = { codigo: '', etiqueta: '' }; },
+      error: (e) => this.error.set(e?.error?.message ?? 'No fue posible crear el código de cierre.'),
+    });
+  }
+
+  alternarCierre(c: CodigoCierre): void {
+    this.error.set('');
+    this.catalogos.actualizarCierre(c.id, { activo: !c.activo }).subscribe({
+      next: (act) => this.cierres.update((cs) => cs.map((x) => (x.id === act.id ? act : x))),
+      error: (e) => this.error.set(e?.error?.message ?? 'No fue posible actualizar el código de cierre.'),
+    });
+  }
+
+  /** La etiqueta sí se corrige: es lo que se muestra, no lo que queda grabado. */
+  renombrarCierre(c: CodigoCierre, etiqueta: string): void {
+    const nueva = etiqueta.trim();
+    if (!nueva || nueva === c.etiqueta) return;
+    this.error.set('');
+    this.catalogos.actualizarCierre(c.id, { etiqueta: nueva }).subscribe({
+      next: (act) => this.cierres.update((cs) => cs.map((x) => (x.id === act.id ? act : x))),
+      error: (e) => this.error.set(e?.error?.message ?? 'No fue posible renombrar el código de cierre.'),
     });
   }
 }

@@ -14,6 +14,7 @@ import { EntidadEntity } from './integracion/entidad.entity';
 import { AgenciaEntity } from './catalogos/agencia.entity';
 import { CanalEntity } from './catalogos/canal.entity';
 import { CodigoCasoEntity } from './catalogos/codigo-caso.entity';
+import { CodigoCierreEntity } from './catalogos/codigo-cierre.entity';
 
 config();
 
@@ -25,6 +26,6 @@ config();
 export default new DataSource({
   type: 'postgres',
   url: process.env.DATABASE_URL,
-  entities: [CasoEntity, EventoCasoEntity, UsuarioEntity, MensajeChatEntity, TenantEntity, RecursoEntity, AsignacionEntity, LlamadaEntity, RolEntity, EntidadEntity, AgenciaEntity, CanalEntity, CodigoCasoEntity],
+  entities: [CasoEntity, EventoCasoEntity, UsuarioEntity, MensajeChatEntity, TenantEntity, RecursoEntity, AsignacionEntity, LlamadaEntity, RolEntity, EntidadEntity, AgenciaEntity, CanalEntity, CodigoCasoEntity, CodigoCierreEntity],
   migrations: ['src/migrations/*.ts'],
 });

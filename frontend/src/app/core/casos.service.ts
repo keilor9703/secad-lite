@@ -57,10 +57,6 @@ export class CasosService {
     return this.http.post<Caso>(`${this.base}/${id}/tomar`, {});
   }
 
-  codigosCierre(): Observable<Array<{ codigo: string; etiqueta: string }>> {
-    return this.http.get<Array<{ codigo: string; etiqueta: string }>>(`${this.base}/codigos-cierre`);
-  }
-
   obtener(id: string): Observable<Caso> {
     return this.http.get<Caso>(`${this.base}/${id}`);
   }
