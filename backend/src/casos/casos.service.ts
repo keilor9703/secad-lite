@@ -1,6 +1,6 @@
 import { BadRequestException, ForbiddenException, Injectable, NotFoundException, OnModuleInit } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository } from 'typeorm';
+import { FindOptionsWhere, Not, Repository } from 'typeorm';
 import { CasoEntity } from './caso.entity';
 import { EventoCasoEntity, TipoEvento } from './evento.entity';
 import { CANALES, EstadoCaso, ESTADOS, PRIORIDADES } from './caso.model';
@@ -45,13 +45,18 @@ export class CasosService implements OnModuleInit {
   }
 
   /**
-   * Bandeja del secad. Con `canalesDelFuncionario` se acota a los casos
-   * enviados a esas colas — es la vista de despacho: cada entidad ve lo suyo.
-   * El filtrado se hace en memoria porque `canales` se guarda como lista simple
-   * y el volumen de un secad lite no lo justifica en SQL.
+   * Bandeja del secad, acotada en SQL: por defecto los 200 casos más
+   * recientes (tope 500), y con `abiertos` solo los no cerrados — así el
+   * tablero de Despacho, que se refresca cada 30 s, no arrastra meses de
+   * historial en cada consulta. El alcance por canales del funcionario se
+   * filtra en memoria sobre esa tanda (la lista de canales del caso se
+   * guarda como arreglo simple).
    */
-  async listar(tenant: string, actor: Actor): Promise<CasoEntity[]> {
-    const casos = await this.repo.find({ where: { tenant }, order: { creadoEn: 'DESC' } });
+  async listar(tenant: string, actor: Actor, opts?: { limite?: number; abiertos?: boolean }): Promise<CasoEntity[]> {
+    const limite = Math.min(Math.max(Math.trunc(opts?.limite ?? 200) || 200, 1), 500);
+    const where: FindOptionsWhere<CasoEntity> = { tenant };
+    if (opts?.abiertos) where.estado = Not('cerrado');
+    const casos = await this.repo.find({ where, order: { creadoEn: 'DESC' }, take: limite });
     return casos.filter((c) => this.alcanza(c, actor));
   }
 
@@ -193,8 +198,11 @@ export class CasosService implements OnModuleInit {
    * conjunta) o los reemplaza (traslado a otra entidad). Queda en la bitácora
    * con el motivo, para saber por qué cambió de manos.
    */
-  async remitir(tenant: string, id: string, dto: RemitirDto, usuario: string): Promise<CasoEntity> {
-    const caso = await this.obtener(tenant, id);
+  async remitir(tenant: string, id: string, dto: RemitirDto, actor: Actor): Promise<CasoEntity> {
+    // Con actor: solo se puede remitir lo que se alcanza a ver. Sin esta
+    // verificación, el GET ocultaba el caso pero la escritura lo aceptaba.
+    const caso = await this.obtener(tenant, id, actor);
+    const usuario = actor.sub;
     if (caso.estado === 'cerrado') throw new BadRequestException('El caso está cerrado.');
     if (!dto?.canales?.length) throw new BadRequestException('Indique al menos un canal destino.');
 
@@ -287,7 +295,8 @@ export class CasosService implements OnModuleInit {
   }
 
   async cambiarEstado(tenant: string, id: string, dto: CambiarEstadoDto, actor: Actor): Promise<CasoEntity> {
-    const caso = await this.obtener(tenant, id);
+    // Mismo alcance que la lectura: fuera de sus canales no hay nada que cambiar.
+    const caso = await this.obtener(tenant, id, actor);
     if (!ESTADOS.includes(dto.estado)) throw new BadRequestException('Estado inválido.');
     if (dto.estado === 'derivado' && !dto.agencia?.trim()) {
       throw new BadRequestException('Para derivar se requiere la agencia destino.');
@@ -348,8 +357,14 @@ export class CasosService implements OnModuleInit {
     return guardado;
   }
 
-  async agregarNota(tenant: string, casoId: string, texto: string, usuario: string): Promise<EventoCasoEntity> {
-    await this.obtener(tenant, casoId);
+  /**
+   * Nota en la bitácora. Desde la interfaz llega con `actor` y se exige el
+   * mismo alcance de la lectura; las integraciones internas (p. ej. enlazar
+   * una llamada de la PBX a un caso abierto del mismo número) anotan como
+   * sistema, sin actor.
+   */
+  async agregarNota(tenant: string, casoId: string, texto: string, usuario: string, actor?: Actor): Promise<EventoCasoEntity> {
+    await this.obtener(tenant, casoId, actor);
     const t = texto?.trim();
     if (!t) throw new BadRequestException('La nota no puede estar vacía.');
     if (t.length > 1000) throw new BadRequestException('La nota supera los 1000 caracteres.');

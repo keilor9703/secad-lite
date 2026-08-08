@@ -30,10 +30,19 @@ export class PbxGateway implements OnGatewayConnection, OnModuleInit {
   ) {}
 
   onModuleInit(): void {
-    // Reenvía los cambios de la cola a quien deba verlos: al destinatario si
-    // el ACD ya lo decidió, o a todo el tenant si no hay a quién dirigirla.
+    // A quién se avisa cada evento:
+    //  - 'entrante' dirigida por el ACD → solo a la sala personal del
+    //    destinatario: en los demás puestos ni timbra, como un teléfono real.
+    //  - Todo lo demás (tomada, soltada, atendida, colgada) → a la sala del
+    //    tenant, que incluye al destinatario. Antes, el aviso de "ya la
+    //    tomaron" iba solo a quien la tomó: los demás operadores la seguían
+    //    viendo timbrar y recibían un 403 al intentar tomarla. Qué muestra
+    //    cada quien de una llamada tomada lo decide el cliente con la misma
+    //    regla del servidor (dueño o supervisor).
     this.pbx.eventos$.subscribe(({ tenant, tipo, llamada }) => {
-      const sala = llamada.destinatario ? `op:${tenant}:${llamada.destinatario}` : `op:${tenant}`;
+      const sala = tipo === 'entrante' && llamada.destinatario
+        ? `op:${tenant}:${llamada.destinatario}`
+        : `op:${tenant}`;
       this.server.to(sala).emit(tipo === 'entrante' ? 'llamada:entrante' : 'llamada:cambio', llamada);
     });
   }

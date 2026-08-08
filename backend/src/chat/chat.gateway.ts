@@ -10,6 +10,7 @@ import { Server, Socket } from 'socket.io';
 import { JwtService } from '@nestjs/jwt';
 import { ChatService } from './chat.service';
 import { JwtPayload } from '../auth/auth.service';
+import { origenPermitido } from '../common/cors';
 
 /**
  * Chat en tiempo real (Socket.IO, namespace /chat). Autentica el handshake con
@@ -18,7 +19,9 @@ import { JwtPayload } from '../auth/auth.service';
  *  - Los funcionarios de ese tenant reciben aviso del caso nuevo y pueden unirse
  *    a la sala del caso para conversar en vivo.
  */
-@WebSocketGateway({ namespace: '/chat', cors: { origin: true } })
+// El mismo CORS_ORIGINS del resto de la API: antes este gateway reflejaba
+// cualquier origen con credenciales, ignorando la lista configurada.
+@WebSocketGateway({ namespace: '/chat', cors: { origin: origenPermitido, credentials: true } })
 export class ChatGateway implements OnGatewayConnection {
   @WebSocketServer() server!: Server;
 

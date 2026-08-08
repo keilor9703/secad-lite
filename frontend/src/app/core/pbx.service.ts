@@ -19,8 +19,21 @@ export class PbxService {
 
   /** Cola de llamadas (recientes primero). */
   readonly llamadas = signal<Llamada[]>([]);
-  /** Solo las que están timbrando. */
-  readonly sonando = computed(() => this.llamadas().filter((l) => l.estado === 'sonando'));
+  /**
+   * Solo las que están timbrando Y le corresponden a esta sesión: una llamada
+   * que otro operador ya tomó (o que el ACD dirigió a otro) desaparece de la
+   * cola en cuanto llega su aviso — es la misma regla que aplica el servidor
+   * al listar, repetida aquí porque los avisos en vivo van a todo el tenant.
+   * Un supervisor (casos.ver_todos) las ve todas, con la pista de para quién.
+   */
+  readonly sonando = computed(() => {
+    const s = this.auth.sesion();
+    const yo = s?.usuario;
+    const supervisor = s?.rol === 'superadmin' || (s?.permisos ?? []).includes('casos.ver_todos');
+    return this.llamadas().filter(
+      (l) => l.estado === 'sonando' && (supervisor || !l.destinatario || l.destinatario === yo),
+    );
+  });
   /** Última llamada entrante no atendida, para avisos globales. */
   readonly ultimaEntrante = signal<Llamada | null>(null);
 

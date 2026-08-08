@@ -1,7 +1,8 @@
-import { BadRequestException, ConflictException, Injectable, NotFoundException, UnauthorizedException } from '@nestjs/common';
+import { BadRequestException, ConflictException, Injectable, NotFoundException, OnModuleInit, UnauthorizedException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { randomBytes } from 'crypto';
+import { digestApiKey, esDigest } from '../common/secretos';
 import { EntidadEntity } from './entidad.entity';
 import { CasoEntity } from '../casos/caso.entity';
 import { CasosService } from '../casos/casos.service';
@@ -41,8 +42,11 @@ export interface ActualizarEntidadDto {
  * con su API key. Cada caso queda con canal 'integracion', enlazado a la
  * entidad (entidadId) para que esta pueda consultar su estado.
  */
+/** Entidad tal como se responde a Administración: sin la clave (ya no existe en claro). */
+export type EntidadDto = Omit<EntidadEntity, 'apiKey'> & { apiKey?: string };
+
 @Injectable()
-export class IntegracionService {
+export class IntegracionService implements OnModuleInit {
   constructor(
     @InjectRepository(EntidadEntity) private readonly entidades: Repository<EntidadEntity>,
     @InjectRepository(CasoEntity) private readonly casos: Repository<CasoEntity>,
@@ -50,6 +54,17 @@ export class IntegracionService {
     private readonly tenants: TenantsService,
     private readonly catalogos: CatalogosService,
   ) {}
+
+  /** Backfill: las claves guardadas en claro (ek_…) pasan a digest. */
+  async onModuleInit(): Promise<void> {
+    const todas = await this.entidades.find();
+    for (const e of todas) {
+      if (e.apiKey && !esDigest(e.apiKey)) {
+        e.apiKey = digestApiKey(e.apiKey);
+        await this.entidades.save(e);
+      }
+    }
+  }
 
   // --- API pública (x-api-key) ----------------------------------------------
 
@@ -96,28 +111,36 @@ export class IntegracionService {
 
   // --- Gestión (permiso entidades.gestionar) --------------------------------
 
-  listar(tenant: string): Promise<EntidadEntity[]> {
-    return this.entidades.find({ where: { tenant }, order: { nombre: 'ASC' } });
+  /** Entidades del tenant, SIN clave: en la base solo vive su digest. */
+  async listar(tenant: string): Promise<EntidadDto[]> {
+    const es = await this.entidades.find({ where: { tenant }, order: { nombre: 'ASC' } });
+    return es.map((e) => this.sinClave(e));
   }
 
-  async crear(tenant: string, dto: CrearEntidadDto): Promise<EntidadEntity> {
+  /**
+   * Registra la entidad. La respuesta trae la API key en claro UNA sola vez:
+   * lo guardado es su digest, así que este es el único momento de copiarla.
+   */
+  async crear(tenant: string, dto: CrearEntidadDto): Promise<EntidadDto> {
     const nombre = dto?.nombre?.trim();
     if (!nombre) throw new BadRequestException('El nombre de la entidad es obligatorio.');
     if (await this.entidades.findOne({ where: { tenant, nombre } })) {
       throw new ConflictException('Ya existe una entidad con ese nombre.');
     }
     const atencion = await this.resolverAtencion(tenant, dto.agenciaResponsableId, dto.canales);
-    return this.entidades.save(
+    const clave = this.generarKey();
+    const e = await this.entidades.save(
       this.entidades.create({
         tenant, nombre,
         ...atencion,
-        apiKey: this.generarKey(),
+        apiKey: digestApiKey(clave),
         activa: true,
       }),
     );
+    return { ...this.sinClave(e), apiKey: clave };
   }
 
-  async actualizar(tenant: string, id: string, dto: ActualizarEntidadDto): Promise<EntidadEntity> {
+  async actualizar(tenant: string, id: string, dto: ActualizarEntidadDto): Promise<EntidadDto> {
     const e = await this.obtener(tenant, id);
     if (dto.nombre?.trim()) e.nombre = dto.nombre.trim();
     if (dto.agenciaResponsableId !== undefined || dto.canales !== undefined) {
@@ -131,13 +154,22 @@ export class IntegracionService {
       e.canales = atencion.canales;
     }
     if (typeof dto.activa === 'boolean') e.activa = dto.activa;
-    return this.entidades.save(e);
+    return this.sinClave(await this.entidades.save(e));
   }
 
-  async rotarKey(tenant: string, id: string): Promise<EntidadEntity> {
+  /** Rota la clave; el texto claro viaja SOLO en esta respuesta. */
+  async rotarKey(tenant: string, id: string): Promise<EntidadDto> {
     const e = await this.obtener(tenant, id);
-    e.apiKey = this.generarKey();
-    return this.entidades.save(e);
+    const clave = this.generarKey();
+    e.apiKey = digestApiKey(clave);
+    await this.entidades.save(e);
+    return { ...this.sinClave(e), apiKey: clave };
+  }
+
+  /** Copia sin la columna apiKey (que ya solo contiene el digest). */
+  private sinClave(e: EntidadEntity): EntidadDto {
+    const { apiKey: _apiKey, ...resto } = e;
+    return resto;
   }
 
   // ---------------------------------------------------------------------------
@@ -165,7 +197,7 @@ export class IntegracionService {
 
   private async porApiKey(apiKey: string): Promise<EntidadEntity> {
     if (!apiKey?.trim()) throw new UnauthorizedException('Falta la API key (header x-api-key).');
-    const e = await this.entidades.findOne({ where: { apiKey: apiKey.trim() } });
+    const e = await this.entidades.findOne({ where: { apiKey: digestApiKey(apiKey) } });
     if (!e || !e.activa) throw new UnauthorizedException('API key inválida o entidad inactiva.');
     // Bloqueado, suscripción suspendida/vencida, o sin la integración 'api'
     // contratada: esta ruta es pública, así que el guard global no lo revisa.

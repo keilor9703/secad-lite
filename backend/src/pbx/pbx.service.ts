@@ -73,6 +73,16 @@ export class PbxService {
       const numero = dto.numero?.trim();
       if (!numero) throw new BadRequestException('El número del llamante es obligatorio.');
 
+      // Idempotencia: si la central reintenta el mismo evento (mismo callId
+      // aún timbrando), se devuelve la llamada ya registrada en vez de
+      // duplicarla en la cola.
+      if (dto.callId?.trim()) {
+        const repetida = await this.llamadas.findOne({
+          where: { tenant: tenant.codigo, callId: dto.callId.trim(), estado: 'sonando' },
+        });
+        if (repetida) return repetida;
+      }
+
       // Si la central ya enrutó (ACD), se resuelve la extensión al funcionario
       // dueño; sin extensión, o si no hay match, queda sin destinatario y se
       // anuncia a todo el tenant — la integración sigue sirviendo igual.
@@ -225,8 +235,19 @@ export class PbxService {
     if (llamada.destinatario && llamada.destinatario !== actor.username && !actor.supervisor) {
       throw new ForbiddenException('Esta llamada fue tomada por otro operador.');
     }
+    // Idempotente si ya quedó enlazada a ese mismo caso (doble clic, reintento).
+    if (llamada.estado === 'atendida' && llamada.casoId === casoId) return llamada;
+    // Solo se enlaza una llamada aún en curso: una perdida o finalizada no
+    // puede "resucitar" como atendida.
+    if (llamada.estado !== 'sonando') throw new BadRequestException('La llamada ya no está en cola.');
+    // El caso debe existir en este tenant: sin esto quedaba cualquier string
+    // como enlace y el historial llevaba a un caso inexistente. (El catch
+    // cubre un id que ni siquiera es un UUID: para Postgres es un error de
+    // sintaxis, para el cliente es el mismo "no existe".)
+    const caso = await this.casos.findOne({ where: { tenant, id: casoId ?? '' } }).catch(() => null);
+    if (!caso) throw new BadRequestException('El caso a enlazar no existe.');
     llamada.estado = 'atendida';
-    llamada.casoId = casoId;
+    llamada.casoId = caso.id;
     llamada.atendidaPor = actor.username;
     const guardada = await this.llamadas.save(llamada);
     this.eventos$.next({ tenant, tipo: 'cambio', llamada: guardada });

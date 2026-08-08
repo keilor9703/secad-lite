@@ -79,7 +79,10 @@ export interface Llamada {
 }
 
 export interface PbxConfig {
-  apiKey: string;
+  /** ¿Ya hay una API key emitida? (En claro solo se guarda su digest.) */
+  apiKeyConfigurada: boolean;
+  /** El texto claro viaja SOLO en la respuesta de rotar: cópielo ahí mismo. */
+  apiKey?: string;
   webhookPath: string;
 }
 
@@ -271,7 +274,8 @@ export interface EntidadExterna {
   agenciaResponsableId: string | null;
   /** Canales a los que se envían sus casos. */
   canales: string[];
-  apiKey: string;
+  /** Solo viene (en claro) al crearla o rotarla: es el único momento de copiarla. */
+  apiKey?: string;
   activa: boolean;
   creadoEn?: string;
 }

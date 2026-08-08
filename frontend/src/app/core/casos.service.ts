@@ -1,5 +1,5 @@
 import { Injectable } from '@angular/core';
-import { HttpClient } from '@angular/common/http';
+import { HttpClient, HttpParams } from '@angular/common/http';
 import { Observable } from 'rxjs';
 import { environment } from '../../environments/environment';
 import { Caso, CrearCaso, EstadoCaso, EventoCaso } from './models';
@@ -12,11 +12,15 @@ export class CasosService {
   constructor(private http: HttpClient) {}
 
   /**
-   * Bandeja del secad. Con `soloMisCanales` se acota a las colas que atiende el
-   * funcionario, que es la vista de despacho de su entidad.
+   * Bandeja del secad, acotada en el servidor: `limite` casos recientes (200
+   * por defecto, tope 500) y, con `abiertos`, solo los no cerrados — lo que
+   * necesita el tablero, sin arrastrar meses de historial en cada refresco.
    */
-  listar(): Observable<Caso[]> {
-    return this.http.get<Caso[]>(this.base);
+  listar(opts?: { limite?: number; abiertos?: boolean }): Observable<Caso[]> {
+    let params = new HttpParams();
+    if (opts?.limite) params = params.set('limite', String(opts.limite));
+    if (opts?.abiertos) params = params.set('abiertos', 'true');
+    return this.http.get<Caso[]>(this.base, { params });
   }
 
   /** Deja constancia de que un caso cerrado debe reabrirse. */

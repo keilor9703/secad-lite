@@ -56,8 +56,14 @@ export class WhatsappService {
         for (const m of mensajes) {
           const from = m?.from ? String(m.from) : '';
           if (!from) continue;
+          // Meta reenvía los webhooks que no confirma a tiempo: el mismo
+          // mensaje (mismo wamid) no se procesa dos veces.
+          const wamid = m?.id ? String(m.id).slice(0, 120) : null;
+          if (wamid && (await this.mensajes.findOne({ where: { tenant: tenant.codigo, waMessageId: wamid } }))) {
+            continue;
+          }
           const texto = this.textoDe(m);
-          await this.procesar(tenant.codigo, from, nombres.get(from) || from, texto);
+          await this.procesar(tenant.codigo, from, nombres.get(from) || from, texto, wamid);
           procesados++;
         }
       }
@@ -84,7 +90,7 @@ export class WhatsappService {
   }
 
   // ---------------------------------------------------------------------------
-  private async procesar(tenant: string, from: string, nombre: string, texto: string): Promise<void> {
+  private async procesar(tenant: string, from: string, nombre: string, texto: string, wamid: string | null = null): Promise<void> {
     const abierto = await this.casos.findOne({
       where: { tenant, telefono: from, canal: 'whatsapp', estado: Not('cerrado') },
       order: { creadoEn: 'DESC' },
@@ -110,7 +116,7 @@ export class WhatsappService {
       casoId = caso.id;
     }
     await this.mensajes.save(
-      this.mensajes.create({ tenant, casoId, autorTipo: 'ciudadano', autorNombre: nombre, texto }),
+      this.mensajes.create({ tenant, casoId, autorTipo: 'ciudadano', autorNombre: nombre, texto, waMessageId: wamid }),
     );
   }
 
@@ -133,14 +139,16 @@ export class WhatsappService {
   /** Envía un texto por la Graph API con el token del tenant. No lanza errores. */
   private async enviar(tenant: string, to: string, texto: string): Promise<void> {
     const t = await this.tenants.porCodigo(tenant);
-    if (!t?.waPhoneNumberId || !t?.waAccessToken) {
+    // El token vive cifrado en la base; se descifra solo aquí, para usarlo.
+    const token = await this.tenants.waAccessTokenDe(tenant);
+    if (!t?.waPhoneNumberId || !token) {
       this.log.warn(`WhatsApp sin credenciales para tenant ${tenant}; respuesta no enviada.`);
       return;
     }
     try {
       const res = await fetch(`https://graph.facebook.com/${GRAPH_VERSION}/${t.waPhoneNumberId}/messages`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${t.waAccessToken}` },
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
         body: JSON.stringify({ messaging_product: 'whatsapp', to, type: 'text', text: { body: texto } }),
       });
       if (!res.ok) this.log.warn(`WhatsApp Graph API respondió ${res.status} para tenant ${tenant}.`);

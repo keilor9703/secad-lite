@@ -89,17 +89,27 @@
 
     <div class="pbx-field">
       <label>API key del tenant</label>
-      <div class="pbx-row">
-        <input class="mono" [value]="mostrarKey() ? cfg.apiKey : '••••••••••••••••••••••••'" readonly />
-        <button type="button" class="btn btn--ghost mini" (click)="mostrarKey.set(!mostrarKey())">
-          {{ mostrarKey() ? 'Ocultar' : 'Mostrar' }}
-        </button>
+      <!-- La clave ya no se guarda en claro: solo se ve al rotarla, una vez. -->
+      <div class="pbx-row" *ngIf="cfg.apiKey; else keyOculta">
+        <input class="mono" [value]="cfg.apiKey" readonly />
         <button type="button" class="btn btn--ghost mini" (click)="copiar(cfg.apiKey, 'key')">
           {{ copiado === 'key' ? '¡Copiado!' : 'Copiar' }}
         </button>
         <button type="button" class="btn btn--ghost mini" (click)="rotarPbx()">Rotar</button>
       </div>
-      <p class="pbx-warn">La clave es secreta. Si la rota, actualícela en la PBX.</p>
+      <ng-template #keyOculta>
+        <div class="pbx-row">
+          <input class="mono"
+                 [value]="cfg.apiKeyConfigurada ? '•••••••••••••••••••••••• (emitida)' : 'Sin emitir'" readonly />
+          <button type="button" class="btn btn--ghost mini" (click)="rotarPbx()">
+            {{ cfg.apiKeyConfigurada ? 'Rotar' : 'Generar' }}
+          </button>
+        </div>
+      </ng-template>
+      <p class="pbx-warn" *ngIf="cfg.apiKey">Copie la clave AHORA: por seguridad no se vuelve a mostrar.
+        Actualícela en la PBX.</p>
+      <p class="pbx-warn" *ngIf="!cfg.apiKey">La clave no se puede volver a mostrar (solo se guarda su
+        huella). Si la perdió, rótela y configure la nueva en la PBX.</p>
     </div>
   </div>
 
@@ -215,14 +225,21 @@
                 <span class="vacio-inline" *ngIf="!e.agenciaResponsableId"> — sin canal asignado</span>
               </td>
               <td class="mono ent-key">
-                <span>{{ keyVisible() === e.id ? e.apiKey : '••••••••••••' }}</span>
-                <button type="button" class="btn btn--ghost mini"
-                        (click)="keyVisible.set(keyVisible() === e.id ? null : e.id)">
-                  {{ keyVisible() === e.id ? 'Ocultar' : 'Mostrar' }}
-                </button>
-                <button type="button" class="btn btn--ghost mini" (click)="copiar(e.apiKey, 'ek' + e.id)">
-                  {{ copiado === 'ek' + e.id ? '¡Copiado!' : 'Copiar' }}
-                </button>
+                <!-- La clave solo existe en claro al crearla o rotarla: si esta
+                     fila no la trae, ya no se puede volver a mostrar. -->
+                <ng-container *ngIf="e.apiKey; else entKeyOculta">
+                  <span>{{ keyVisible() === e.id ? e.apiKey : '••••••••••••' }}</span>
+                  <button type="button" class="btn btn--ghost mini"
+                          (click)="keyVisible.set(keyVisible() === e.id ? null : e.id)">
+                    {{ keyVisible() === e.id ? 'Ocultar' : 'Mostrar' }}
+                  </button>
+                  <button type="button" class="btn btn--ghost mini" (click)="copiar(e.apiKey, 'ek' + e.id)">
+                    {{ copiado === 'ek' + e.id ? '¡Copiado!' : 'Copiar' }}
+                  </button>
+                </ng-container>
+                <ng-template #entKeyOculta>
+                  <span title="Solo se muestra al crearla o rotarla">••••••••••••</span>
+                </ng-template>
                 <button type="button" class="btn btn--ghost mini" (click)="rotarEntidad(e)">Rotar</button>
               </td>
               <td><span class="badge" [class.on]="e.activa">{{ e.activa ? 'Activa' : 'Inactiva' }}</span></td>

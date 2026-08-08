@@ -97,19 +97,26 @@ export class PbxController {
     return this.pbx.vincular(tenant, id, dto?.casoId, this.actor(usuario, permisos));
   }
 
-  /** GET /api/pbx/config — API key del tenant + ruta del webhook. */
+  /**
+   * GET /api/pbx/config — estado de la integración + ruta del webhook. La API
+   * key ya no se guarda en claro (solo su digest), así que no se puede volver
+   * a mostrar: se rota para obtener una nueva.
+   */
   @Permisos('pbx.configurar')
   @Get('config')
   async config(@Tenant() tenant: string) {
-    const apiKey = await this.tenants.apiKeyDe(tenant);
-    return { apiKey, webhookPath: '/api/pbx/webhook' };
+    const apiKeyConfigurada = await this.tenants.apiKeyConfigurada(tenant);
+    return { apiKeyConfigurada, webhookPath: '/api/pbx/webhook' };
   }
 
-  /** POST /api/pbx/config/rotar — regenera la API key del tenant. */
+  /**
+   * POST /api/pbx/config/rotar — regenera la API key del tenant. El texto
+   * claro viaja SOLO en esta respuesta: es el único momento para copiarlo.
+   */
   @Permisos('pbx.configurar')
   @Post('config/rotar')
   async rotar(@Tenant() tenant: string) {
     const apiKey = await this.tenants.rotarApiKey(tenant);
-    return { apiKey, webhookPath: '/api/pbx/webhook' };
+    return { apiKey, apiKeyConfigurada: true, webhookPath: '/api/pbx/webhook' };
   }
 }

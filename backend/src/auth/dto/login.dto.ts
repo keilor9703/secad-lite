@@ -1,7 +1,12 @@
-/** Credenciales de login. */
-export interface LoginDto {
-  usuario: string;
-  contrasena: string;
+import { IsString, MaxLength } from 'class-validator';
+
+/** Credenciales de login (clase para que el ValidationPipe valide los tipos). */
+export class LoginDto {
+  @IsString() @MaxLength(120)
+  usuario!: string;
+
+  @IsString() @MaxLength(200)
+  contrasena!: string;
 }
 
 /** Resultado de un login exitoso. */

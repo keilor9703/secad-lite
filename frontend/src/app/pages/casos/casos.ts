@@ -56,7 +56,7 @@ export class CasosComponent {
 
   cargar(): void {
     this.cargando.set(true);
-    this.casosSvc.listar().subscribe({
+    this.casosSvc.listar({ limite: 500 }).subscribe({
       next: (cs) => { this.casos.set(cs); this.cargando.set(false); },
       error: () => { this.error.set('No fue posible cargar los casos.'); this.cargando.set(false); },
     });

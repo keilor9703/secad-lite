@@ -88,7 +88,6 @@ export class AdminComponent implements OnInit {
 
   // Integración PBX (planta telefónica)
   readonly pbxConfig = signal<PbxConfig | null>(null);
-  readonly mostrarKey = signal(false);
   copiado = '';
 
   // Integración WhatsApp
@@ -370,7 +369,7 @@ export class AdminComponent implements OnInit {
       next: (act) => {
         this.entidades.update((es) => es.map((x) => (x.id === act.id ? act : x)));
         this.keyVisible.set(act.id);
-        this.toast.exito('Clave de la entidad rotada.');
+        this.toast.exito('Clave nueva emitida. Cópiela ahora: no se vuelve a mostrar.');
       },
       error: (err) => this.error.set(err?.error?.message ?? 'No fue posible rotar la clave.'),
     });
@@ -441,12 +440,13 @@ export class AdminComponent implements OnInit {
   rotarPbx(): void {
     if (!window.confirm('Al rotar la clave, la PBX dejará de funcionar hasta actualizarla. ¿Continuar?')) return;
     this.pbx.rotarKey().subscribe({
-      next: (c) => { this.pbxConfig.set(c); this.mostrarKey.set(true); this.toast.exito('Clave de la PBX rotada.'); },
+      next: (c) => { this.pbxConfig.set(c); this.toast.exito('Clave nueva emitida. Cópiela ahora: no se vuelve a mostrar.'); },
       error: (e) => this.error.set(e?.error?.message ?? 'No fue posible rotar la clave.'),
     });
   }
 
-  copiar(texto: string, que: string): void {
+  copiar(texto: string | undefined | null, que: string): void {
+    if (!texto) return;
     navigator.clipboard?.writeText(texto).then(() => {
       this.copiado = que;
       setTimeout(() => { if (this.copiado === que) this.copiado = ''; }, 1500);

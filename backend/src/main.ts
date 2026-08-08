@@ -1,5 +1,5 @@
 import { NestFactory } from '@nestjs/core';
-import { Logger } from '@nestjs/common';
+import { Logger, ValidationPipe } from '@nestjs/common';
 import { NestExpressApplication } from '@nestjs/platform-express';
 import helmet from 'helmet';
 import { AppModule } from './app.module';
@@ -19,6 +19,12 @@ async function bootstrap() {
 
   // Prefijo común para toda la API.
   app.setGlobalPrefix('api');
+
+  // Validación estructural de la entrada: los bodies tipados como clase DTO
+  // se comprueban (tipos, longitudes, valores permitidos) y se les quita lo
+  // que no esté declarado, ANTES de llegar al servicio. Un body malformado
+  // responde 400 con el detalle, en vez de reventar en 500 en un .trim().
+  app.useGlobalPipes(new ValidationPipe({ whitelist: true, transform: true }));
 
   // Quién puede llamar a la API desde un navegador. Sin CORS_ORIGINS no se
   // restringe nada (desarrollo); con la variable, solo los orígenes listados.

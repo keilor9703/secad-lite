@@ -147,7 +147,8 @@ export class DespachoComponent {
 
   cargar(silencioso = false): void {
     if (!silencioso) this.cargando.set(true);
-    this.casosSvc.listar().subscribe({
+    // El tablero solo trabaja casos abiertos: se piden así al servidor.
+    this.casosSvc.listar({ abiertos: true, limite: 500 }).subscribe({
       next: (cs) => { this.casos.set(cs); this.cargando.set(false); },
       error: () => { this.error.set('No fue posible cargar la cola.'); this.cargando.set(false); },
     });

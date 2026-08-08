@@ -9,6 +9,7 @@ export type AutorTipo = 'ciudadano' | 'operador';
  */
 @Entity({ name: 'casos_mensajes' })
 @Index(['tenant', 'casoId', 'creadoEn'])
+@Index(['tenant', 'waMessageId'], { unique: true, where: '"waMessageId" IS NOT NULL' })
 export class MensajeChatEntity {
   @PrimaryGeneratedColumn('uuid')
   id!: string;
@@ -27,6 +28,15 @@ export class MensajeChatEntity {
 
   @Column({ type: 'text' })
   texto!: string;
+
+  /**
+   * Id del mensaje en WhatsApp (wamid), solo para los que entran por ese
+   * canal. Meta reenvía los webhooks que no confirma a tiempo: con esta
+   * marca (única por tenant, ver el índice de la clase), un reintento no
+   * vuelve a insertar el mismo mensaje.
+   */
+  @Column({ type: 'varchar', length: 120, nullable: true })
+  waMessageId?: string | null;
 
   @CreateDateColumn({ type: 'timestamptz' })
   creadoEn!: Date;

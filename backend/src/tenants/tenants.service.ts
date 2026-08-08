@@ -1,9 +1,11 @@
 import { BadRequestException, ConflictException, ForbiddenException, Injectable, NotFoundException, OnModuleInit } from '@nestjs/common';
+import { ConfigService } from '@nestjs/config';
 import { InjectRepository } from '@nestjs/typeorm';
-import { IsNull, Repository } from 'typeorm';
+import { IsNull, Not, Repository } from 'typeorm';
 import { randomBytes } from 'crypto';
 import { ESTADOS_SUSCRIPCION, EstadoSuscripcion, INTEGRACIONES, Integracion, PLANES, PlanTenant, TenantEntity } from './tenant.entity';
 import { CatalogosService } from '../catalogos/catalogos.service';
+import { cifrar, descifrar, digestApiKey, esDigest } from '../common/secretos';
 
 /** Cambios que solo hace el dueño de la plataforma. */
 export interface ActualizarTenantDto {
@@ -43,19 +45,31 @@ export class TenantsService implements OnModuleInit {
     @InjectRepository(TenantEntity)
     private readonly repo: Repository<TenantEntity>,
     private readonly catalogos: CatalogosService,
+    private readonly config: ConfigService,
   ) {}
 
   async onModuleInit(): Promise<void> {
     if (!(await this.repo.count())) {
       await this.repo.save(
-        this.repo.create({ codigo: 'demo', nombre: 'Municipio Demo', activo: true, apiKey: this.generarApiKey() }),
+        this.repo.create({ codigo: 'demo', nombre: 'Municipio Demo', activo: true, apiKey: digestApiKey(this.generarApiKey()) }),
       );
     }
-    // Backfill: cualquier tenant existente sin API key recibe una.
+    // Backfill: cualquier tenant sin API key recibe una (guardada como digest;
+    // el texto claro de esta nunca se conoce — el admin rota para obtener una).
     const sinKey = await this.repo.find({ where: { apiKey: IsNull() } });
     for (const t of sinKey) {
-      t.apiKey = this.generarApiKey();
+      t.apiKey = digestApiKey(this.generarApiKey());
       await this.repo.save(t);
+    }
+    // Backfill: las claves guardadas en claro (formato fk_…) pasan a digest.
+    // La clave que la PBX ya tiene configurada sigue funcionando igual: al
+    // llegar se le calcula el digest y coincide con el guardado.
+    const enClaro = await this.repo.find({ where: { apiKey: Not(IsNull()) } });
+    for (const t of enClaro) {
+      if (t.apiKey && !esDigest(t.apiKey)) {
+        t.apiKey = digestApiKey(t.apiKey);
+        await this.repo.save(t);
+      }
     }
   }
 
@@ -175,22 +189,24 @@ export class TenantsService implements OnModuleInit {
     return this.repo.save(t);
   }
 
-  /** Resuelve un tenant por su API key (integraciones entrantes). */
+  /** Resuelve un tenant por su API key (integraciones entrantes): compara por digest. */
   async porApiKey(apiKey: string): Promise<TenantEntity | null> {
     if (!apiKey?.trim()) return null;
-    return this.repo.findOne({ where: { apiKey: apiKey.trim() } });
+    return this.repo.findOne({ where: { apiKey: digestApiKey(apiKey) } });
   }
 
   porCodigo(codigo: string): Promise<TenantEntity | null> {
     return this.repo.findOne({ where: { codigo } });
   }
 
-  /** Devuelve (creando si falta) la API key del tenant indicado por su código. */
-  async apiKeyDe(codigo: string): Promise<string> {
+  /**
+   * ¿El tenant ya tiene API key emitida? El texto claro no se guarda (solo su
+   * digest), así que "verla" ya no es posible: se rota para obtener una nueva.
+   */
+  async apiKeyConfigurada(codigo: string): Promise<boolean> {
     const t = await this.porCodigo(codigo);
     if (!t) throw new NotFoundException('Tenant no encontrado.');
-    if (!t.apiKey) { t.apiKey = this.generarApiKey(); await this.repo.save(t); }
-    return t.apiKey;
+    return !!t.apiKey;
   }
 
   /** Resuelve un tenant por su phone_number_id de WhatsApp (enrutamiento entrante). */
@@ -229,7 +245,10 @@ export class TenantsService implements OnModuleInit {
       }
       t.waPhoneNumberId = pid;
     }
-    if (accessToken !== undefined && accessToken.trim()) t.waAccessToken = accessToken.trim();
+    // El token se necesita reusar (no basta un digest): se guarda cifrado.
+    if (accessToken !== undefined && accessToken.trim()) {
+      t.waAccessToken = cifrar(accessToken.trim(), this.secretoCifrado());
+    }
     if (agenciaResponsableId !== undefined) {
       if (!agenciaResponsableId) {
         t.waAgenciaResponsableId = null;
@@ -254,13 +273,33 @@ export class TenantsService implements OnModuleInit {
     };
   }
 
-  /** Rota (regenera) la API key del tenant. */
+  /**
+   * Rota la API key del tenant. Devuelve el texto claro UNA sola vez — lo que
+   * queda guardado es su digest, así que esta respuesta es la única
+   * oportunidad de copiarla a la configuración de la PBX.
+   */
   async rotarApiKey(codigo: string): Promise<string> {
     const t = await this.porCodigo(codigo);
     if (!t) throw new NotFoundException('Tenant no encontrado.');
-    t.apiKey = this.generarApiKey();
+    const clave = this.generarApiKey();
+    t.apiKey = digestApiKey(clave);
     await this.repo.save(t);
-    return t.apiKey;
+    return clave;
+  }
+
+  /** Token de WhatsApp descifrado, solo para enviar por la Graph API. */
+  async waAccessTokenDe(codigo: string): Promise<string | null> {
+    const t = await this.porCodigo(codigo);
+    if (!t?.waAccessToken) return null;
+    try {
+      return descifrar(t.waAccessToken, this.secretoCifrado());
+    } catch {
+      return null; // llave cambiada: el admin debe volver a guardar el token
+    }
+  }
+
+  private secretoCifrado(): string {
+    return this.config.get<string>('JWT_SECRET') ?? 'dev-secret';
   }
 
   private generarApiKey(): string {

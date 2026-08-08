@@ -1,4 +1,4 @@
-import { Body, Controller, Get, Param, Patch, Post } from '@nestjs/common';
+import { Body, Controller, Get, Param, Patch, Post, Query } from '@nestjs/common';
 import { Actor, CasosService } from './casos.service';
 import { CrearCasoDto } from './dto/crear-caso.dto';
 import { CambiarEstadoDto } from './dto/cambiar-estado.dto';
@@ -41,10 +41,21 @@ export class CasosController {
    * GET /api/casos — bandeja del secad.
    * Lo que devuelve depende del alcance del funcionario: con casos.ver_todos,
    * todo; sin él, solo lo de sus canales y lo que él recepcionó.
+   * `?limite=` acota la tanda (200 por defecto, tope 500); `?abiertos=true`
+   * excluye los cerrados (la vista del tablero de despacho).
    */
   @Get()
-  async listar(@Tenant() tenant: string, @Usuario() usuario: JwtPayload, @PermisosVigentes() permisos: string[]) {
-    return this.casos.listar(tenant, await this.actor(usuario, permisos));
+  async listar(
+    @Tenant() tenant: string,
+    @Usuario() usuario: JwtPayload,
+    @PermisosVigentes() permisos: string[],
+    @Query('limite') limite?: string,
+    @Query('abiertos') abiertos?: string,
+  ) {
+    return this.casos.listar(tenant, await this.actor(usuario, permisos), {
+      limite: limite ? Number(limite) : undefined,
+      abiertos: abiertos === 'true',
+    });
   }
 
   // Cómo se clasifica un cierre ya no se responde aquí: es catálogo del secad,
@@ -98,20 +109,28 @@ export class CasosController {
   /** POST /api/casos/:id/remitir — enviar el caso a canales de otra agencia. */
   @Permisos('casos.gestionar')
   @Post(':id/remitir')
-  remitir(@Tenant() tenant: string, @Usuario() usuario: JwtPayload, @Param('id') id: string, @Body() dto: RemitirDto) {
-    return this.casos.remitir(tenant, id, dto, usuario?.sub ?? 'desconocido');
+  async remitir(
+    @Tenant() tenant: string,
+    @Usuario() usuario: JwtPayload,
+    @PermisosVigentes() permisos: string[],
+    @Param('id') id: string,
+    @Body() dto: RemitirDto,
+  ) {
+    return this.casos.remitir(tenant, id, dto, await this.actor(usuario, permisos));
   }
 
   /** POST /api/casos/:id/notas — agregar una nota a la bitácora. */
   @Permisos('casos.gestionar')
   @Post(':id/notas')
-  agregarNota(
+  async agregarNota(
     @Tenant() tenant: string,
     @Usuario() usuario: JwtPayload,
+    @PermisosVigentes() permisos: string[],
     @Param('id') id: string,
     @Body() dto: AgregarNotaDto,
   ) {
-    return this.casos.agregarNota(tenant, id, dto?.texto, usuario?.sub ?? 'desconocido');
+    const actor = await this.actor(usuario, permisos);
+    return this.casos.agregarNota(tenant, id, dto?.texto, actor.sub, actor);
   }
 
   /**
