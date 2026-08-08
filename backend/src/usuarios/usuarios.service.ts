@@ -199,6 +199,25 @@ export class UsuariosService implements OnModuleInit {
   }
 
   /**
+   * Autoservicio: el propio funcionario cambia SU contraseña, demostrando que
+   * conoce la actual — no depende de que un administrador se la resetee (y el
+   * administrador deja de conocer las claves de su gente).
+   */
+  async cambiarContrasenaPropia(
+    username: string, tenant: string | null, actual: string, nueva: string,
+  ): Promise<{ ok: true }> {
+    const u = await this.buscarPorUsernameYTenant(username, tenant);
+    if (!u) throw new ForbiddenException('La cuenta no existe o fue desactivada.');
+    if (!actual || !(await bcrypt.compare(actual, u.passwordHash))) {
+      throw new ForbiddenException('La contraseña actual no es correcta.');
+    }
+    this.validarContrasena(nueva ?? '');
+    u.passwordHash = await bcrypt.hash(nueva, 10);
+    await this.repo.save(u);
+    return { ok: true };
+  }
+
+  /**
    * Extensión del funcionario, en un secad concreto: única por tenant, para
    * que el webhook de la PBX pueda resolver sin ambigüedad a quién dirigir la
    * llamada que el ACD ya enrutó a esa extensión.

@@ -31,3 +31,22 @@
 .fill[data-clave="integracion"] { background: var(--serie-ambar); }
 .val { font-size: 0.85rem; font-weight: 600; text-align: right; font-variant-numeric: tabular-nums; }
 
+
+/* Tiempos de respuesta (últimos 30 días). */
+.tiempos { padding: 1rem 1.2rem; margin-bottom: 1.2rem; }
+.tiempos h2 .periodo { font-size: 0.72rem; font-weight: 600; color: var(--muted);
+                       text-transform: uppercase; letter-spacing: 0.06em; margin-left: 0.5rem; }
+.t-kpis { display: grid; grid-template-columns: repeat(auto-fit, minmax(9.5rem, 1fr)); gap: 0.8rem; margin: 0.8rem 0; }
+.t-kpi { background: var(--surface-2); border-radius: var(--radius-sm); padding: 0.7rem 0.9rem;
+         display: flex; flex-direction: column; }
+.t-kpi .n { font-size: 1.35rem; font-weight: 700; color: var(--accent); font-variant-numeric: tabular-nums; }
+.t-kpi .l { font-size: 0.74rem; color: var(--muted); }
+.t-tabla { border-collapse: collapse; width: 100%; font-size: 0.88rem; margin-top: 0.4rem; }
+.t-tabla th, .t-tabla td { text-align: left; padding: 0.45rem 0.7rem; border-bottom: 1px solid var(--border); }
+.t-tabla thead th { font-size: 0.7rem; text-transform: uppercase; letter-spacing: 0.06em; color: var(--muted); }
+.t-tabla tbody tr:last-child td { border-bottom: none; }
+.t-tabla .num { font-variant-numeric: tabular-nums; }
+.prio { display: inline-block; padding: 0.12rem 0.55rem; border-radius: 999px; font-size: 0.76rem; font-weight: 700; }
+.prio[data-prio='alta']  { background: var(--tag-danger-bg); color: var(--tag-danger-fg); }
+.prio[data-prio='media'] { background: var(--tag-warn-bg);   color: var(--tag-warn-fg); }
+.prio[data-prio='baja']  { background: var(--tag-info-bg);   color: var(--tag-info-fg); }

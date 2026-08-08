@@ -9,6 +9,15 @@ export class LoginDto {
   contrasena!: string;
 }
 
+/** Autoservicio: cambiar la propia contraseña demostrando la actual. */
+export class CambiarContrasenaDto {
+  @IsString() @MaxLength(200)
+  actual!: string;
+
+  @IsString() @MaxLength(200)
+  nueva!: string;
+}
+
 /** Resultado de un login exitoso. */
 export interface LoginResult {
   token: string;

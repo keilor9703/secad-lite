@@ -16,10 +16,12 @@ export class CasosService {
    * por defecto, tope 500) y, con `abiertos`, solo los no cerrados — lo que
    * necesita el tablero, sin arrastrar meses de historial en cada refresco.
    */
-  listar(opts?: { limite?: number; abiertos?: boolean }): Observable<Caso[]> {
+  listar(opts?: { limite?: number; abiertos?: boolean; desde?: string; hasta?: string }): Observable<Caso[]> {
     let params = new HttpParams();
     if (opts?.limite) params = params.set('limite', String(opts.limite));
     if (opts?.abiertos) params = params.set('abiertos', 'true');
+    if (opts?.desde) params = params.set('desde', opts.desde);
+    if (opts?.hasta) params = params.set('hasta', opts.hasta);
     return this.http.get<Caso[]>(this.base, { params });
   }
 

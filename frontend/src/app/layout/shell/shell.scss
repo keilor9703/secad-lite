@@ -59,3 +59,16 @@
   border: 1px solid var(--border); border-radius: 999px;
   background: var(--surface-2); color: var(--accent);
 }
+
+/* Diálogo de cambio de contraseña (autoservicio). */
+.velo {
+  position: fixed; inset: 0; z-index: 900;
+  background: rgba(6, 16, 24, 0.45);
+  display: flex; align-items: center; justify-content: center; padding: 1rem;
+}
+.dialogo {
+  width: min(420px, 100%); padding: 1.2rem 1.4rem;
+  display: flex; flex-direction: column; gap: 0.8rem;
+}
+.dialogo h2 { margin: 0; font-size: 1.1rem; }
+.dialogo-acciones { display: flex; justify-content: flex-end; gap: 0.6rem; margin-top: 0.3rem; }

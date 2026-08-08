@@ -1,6 +1,6 @@
 import { BadRequestException, ForbiddenException, Injectable, NotFoundException, OnModuleInit } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { FindOptionsWhere, Not, Repository } from 'typeorm';
+import { Between, FindOptionsWhere, LessThan, MoreThanOrEqual, Not, Repository } from 'typeorm';
 import { CasoEntity } from './caso.entity';
 import { EventoCasoEntity, TipoEvento } from './evento.entity';
 import { CANALES, EstadoCaso, ESTADOS, PRIORIDADES } from './caso.model';
@@ -52,12 +52,31 @@ export class CasosService implements OnModuleInit {
    * filtra en memoria sobre esa tanda (la lista de canales del caso se
    * guarda como arreglo simple).
    */
-  async listar(tenant: string, actor: Actor, opts?: { limite?: number; abiertos?: boolean }): Promise<CasoEntity[]> {
+  async listar(
+    tenant: string,
+    actor: Actor,
+    opts?: { limite?: number; abiertos?: boolean; desde?: string; hasta?: string },
+  ): Promise<CasoEntity[]> {
     const limite = Math.min(Math.max(Math.trunc(opts?.limite ?? 200) || 200, 1), 500);
     const where: FindOptionsWhere<CasoEntity> = { tenant };
     if (opts?.abiertos) where.estado = Not('cerrado');
+    // Rango por fecha de recepción (aaaa-mm-dd, inclusive en ambos extremos):
+    // 'hasta' se corre al día siguiente para abarcar el día completo.
+    const desde = this.fechaValida(opts?.desde);
+    const hasta = this.fechaValida(opts?.hasta);
+    const finExclusivo = hasta ? new Date(hasta.getTime() + 864e5) : null;
+    if (desde && finExclusivo) where.creadoEn = Between(desde, finExclusivo);
+    else if (desde) where.creadoEn = MoreThanOrEqual(desde);
+    else if (finExclusivo) where.creadoEn = LessThan(finExclusivo);
     const casos = await this.repo.find({ where, order: { creadoEn: 'DESC' }, take: limite });
     return casos.filter((c) => this.alcanza(c, actor));
+  }
+
+  /** aaaa-mm-dd → Date, o null si viene vacío o malformado. */
+  private fechaValida(v?: string): Date | null {
+    if (!v || !/^\d{4}-\d{2}-\d{2}$/.test(v)) return null;
+    const d = new Date(`${v}T00:00:00`);
+    return isNaN(d.getTime()) ? null : d;
   }
 
   /**

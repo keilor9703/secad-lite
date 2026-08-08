@@ -73,6 +73,11 @@ export class AuthService {
     });
   }
 
+  /** Autoservicio: cambia MI contraseña demostrando la actual. */
+  cambiarContrasena(actual: string, nueva: string): Observable<{ ok: boolean }> {
+    return this.http.post<{ ok: boolean }>(`${this.base}/auth/cambiar-contrasena`, { actual, nueva });
+  }
+
   login(usuario: string, contrasena: string): Observable<Sesion> {
     return this.http
       .post<Sesion>(`${this.base}/auth/login`, { usuario, contrasena })

@@ -12,9 +12,16 @@
         </p>
         <p *ngIf="veTodo()">Todos los casos abiertos del secad.</p>
       </div>
-      <div class="marcador" *ngIf="total()">
-        <span class="pend" [class.hay]="sinTomar()">{{ sinTomar() }}</span>
-        <span class="lbl">sin tomar</span>
+      <div class="desp-head-der">
+        <button type="button" class="btn btn--ghost timbre" (click)="alternarSonido()"
+                [title]="sonidoActivo() ? 'Silenciar el aviso de casos nuevos' : 'Activar el aviso sonoro de casos nuevos'"
+                [attr.aria-label]="sonidoActivo() ? 'Silenciar aviso de casos nuevos' : 'Activar aviso sonoro de casos nuevos'">
+          {{ sonidoActivo() ? '🔔' : '🔕' }}
+        </button>
+        <div class="marcador" *ngIf="total()">
+          <span class="pend" [class.hay]="sinTomar()">{{ sinTomar() }}</span>
+          <span class="lbl">sin tomar</span>
+        </div>
       </div>
     </header>
 

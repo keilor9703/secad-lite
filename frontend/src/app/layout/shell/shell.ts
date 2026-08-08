@@ -5,6 +5,8 @@ import { AuthService } from '../../core/auth.service';
 import { AdminService } from '../../core/admin.service';
 import { PbxService } from '../../core/pbx.service';
 import { Tenant } from '../../core/models';
+import { FormsModule } from '@angular/forms';
+import { ToastService } from '../../shared/toast/toast.service';
 import { TemaToggleComponent } from '../../shared/tema-toggle/tema-toggle';
 import { LogoComponent } from '../../shared/logo/logo';
 import { ToastComponent } from '../../shared/toast/toast';
@@ -12,7 +14,7 @@ import { ToastComponent } from '../../shared/toast/toast';
 @Component({
   selector: 'app-shell',
   standalone: true,
-  imports: [CommonModule, RouterOutlet, RouterLink, RouterLinkActive, TemaToggleComponent, LogoComponent, ToastComponent],
+  imports: [CommonModule, FormsModule, RouterOutlet, RouterLink, RouterLinkActive, TemaToggleComponent, LogoComponent, ToastComponent],
   templateUrl: './shell.html',
   styleUrl: './shell.scss',
 })
@@ -21,6 +23,7 @@ export class ShellComponent implements OnInit {
   private admin = inject(AdminService);
   private pbx = inject(PbxService);
   private router = inject(Router);
+  private toast = inject(ToastService);
 
   readonly sesion = this.auth.sesion;
   readonly esAdmin = this.auth.esAdmin;
@@ -82,6 +85,39 @@ export class ShellComponent implements OnInit {
     // de un caso queda huérfano (su id es de la otra instancia), así que desde
     // ahí se vuelve a la bandeja.
     if (/^\/recepcion\/.+/.test(this.router.url)) this.router.navigateByUrl('/recepcion');
+  }
+
+  // --- Cambiar MI contraseña (autoservicio) --------------------------------
+  readonly cambioClaveAbierto = signal(false);
+  claveActual = '';
+  claveNueva = '';
+  claveConfirma = '';
+  readonly guardandoClave = signal(false);
+
+  abrirCambioClave(): void {
+    this.claveActual = this.claveNueva = this.claveConfirma = '';
+    this.cambioClaveAbierto.set(true);
+  }
+
+  guardarClave(): void {
+    if (!this.claveActual || !this.claveNueva) {
+      this.toast.advertencia('Diligencie la contraseña actual y la nueva.');
+      return;
+    }
+    if (this.claveNueva !== this.claveConfirma) {
+      this.toast.advertencia('La confirmación no coincide con la contraseña nueva.');
+      return;
+    }
+    this.guardandoClave.set(true);
+    this.auth.cambiarContrasena(this.claveActual, this.claveNueva).subscribe({
+      next: () => {
+        this.guardandoClave.set(false);
+        this.cambioClaveAbierto.set(false);
+        this.toast.exito('Contraseña actualizada.');
+      },
+      // El toast global ya anuncia el motivo (actual incorrecta, muy corta…).
+      error: () => this.guardandoClave.set(false),
+    });
   }
 
   salir(): void {

@@ -1,7 +1,7 @@
 import { Component, inject } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
-import { Router } from '@angular/router';
+import { ActivatedRoute, Router } from '@angular/router';
 import { AuthService } from '../../core/auth.service';
 import { TemaToggleComponent } from '../../shared/tema-toggle/tema-toggle';
 import { LogoComponent } from '../../shared/logo/logo';
@@ -24,6 +24,7 @@ import { ToastComponent } from '../../shared/toast/toast';
 export class LoginComponent {
   private auth = inject(AuthService);
   private router = inject(Router);
+  private route = inject(ActivatedRoute);
 
   usuario = '';
   contrasena = '';
@@ -38,8 +39,13 @@ export class LoginComponent {
     }
     this.cargando = true;
     this.auth.login(this.usuario.trim(), this.contrasena).subscribe({
-      // A dónde entra cada quien lo decide inicioGuard, según su trabajo.
-      next: () => { this.cargando = false; this.router.navigate(['/']); },
+      // Si venía de una página cuando expiró la sesión, se le devuelve allá;
+      // si no, inicioGuard elige la página según su trabajo.
+      next: () => {
+        this.cargando = false;
+        const volverA = this.route.snapshot.queryParamMap.get('volverA');
+        this.router.navigateByUrl(volverA && volverA.startsWith('/') ? volverA : '/');
+      },
       error: (e) => {
         this.cargando = false;
         this.error = e?.error?.message ?? 'No fue posible iniciar sesión.';

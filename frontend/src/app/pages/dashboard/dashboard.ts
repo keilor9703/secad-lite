@@ -24,12 +24,26 @@ export class DashboardComponent {
     nuevo: 'Nuevo', en_gestion: 'En gestión', despachado: 'Despachado', derivado: 'Derivado', cerrado: 'Cerrado',
   };
   private readonly canalLabels: Record<string, string> = {
-    llamada: 'Llamada', chat: 'Chat', integracion: 'Integración',
+    llamada: 'Llamada', chat: 'Chat', whatsapp: 'WhatsApp', integracion: 'Integración',
   };
 
   readonly porEstado = computed<Barra[]>(() => this.aBarras(this.resumen()?.porEstado, this.estadoLabels));
   readonly porCanal = computed<Barra[]>(() => this.aBarras(this.resumen()?.porCanal, this.canalLabels));
   readonly maxAgencia = computed(() => Math.max(1, ...(this.resumen()?.porAgencia ?? []).map((a) => a.total)));
+  /** Tiempos de respuesta (últimos 30 días): la medida real del centro. */
+  readonly tiempos = computed(() => this.resumen()?.tiempos ?? null);
+
+  /** Minutos → texto corto («8 min», «1 h 20 min»); null = sin casos con ese hito. */
+  duracion(min: number | null): string {
+    if (min === null) return '—';
+    if (min < 60) return `${Math.round(min)} min`;
+    const h = Math.floor(min / 60);
+    return `${h} h ${Math.round(min % 60)} min`;
+  }
+
+  prioridadLabel(p: string): string {
+    return ({ alta: 'Alta', media: 'Media', baja: 'Baja' } as Record<string, string>)[p] ?? p;
+  }
 
   constructor() {
     // Las métricas son del tenant activo (ver RecepcionComponent).

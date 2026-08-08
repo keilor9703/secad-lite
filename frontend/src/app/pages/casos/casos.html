@@ -19,6 +19,21 @@
       <option value="">Todos los estados</option>
       <option *ngFor="let e of estados" [value]="e">{{ estadoLabel(e) }}</option>
     </select>
+    <select [ngModel]="prioridadSel" name="pri" (ngModelChange)="filtrarPrioridad($event)" aria-label="Filtrar por prioridad">
+      <option value="">Toda prioridad</option>
+      <option *ngFor="let p of prioridades" [value]="p">{{ p }}</option>
+    </select>
+    <div class="rango">
+      <label for="fdesde">Del</label>
+      <input id="fdesde" type="date" [(ngModel)]="desde" name="fdesde" (change)="aplicarFechas()" aria-label="Desde" />
+      <label for="fhasta">al</label>
+      <input id="fhasta" type="date" [(ngModel)]="hasta" name="fhasta" (change)="aplicarFechas()" aria-label="Hasta" />
+      <button type="button" class="btn btn--ghost mini" *ngIf="desde || hasta" (click)="limpiarFechas()">Quitar fechas</button>
+    </div>
+    <button type="button" class="btn btn--ghost" (click)="exportarCsv()" [disabled]="!filtrados().length"
+            title="Descarga lo que se está viendo, con los filtros aplicados">
+      ⬇ Exportar CSV
+    </button>
   </div>
 
   <div class="tbl-wrap card">

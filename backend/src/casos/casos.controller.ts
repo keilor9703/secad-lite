@@ -51,10 +51,14 @@ export class CasosController {
     @PermisosVigentes() permisos: string[],
     @Query('limite') limite?: string,
     @Query('abiertos') abiertos?: string,
+    @Query('desde') desde?: string,
+    @Query('hasta') hasta?: string,
   ) {
     return this.casos.listar(tenant, await this.actor(usuario, permisos), {
       limite: limite ? Number(limite) : undefined,
       abiertos: abiertos === 'true',
+      desde,
+      hasta,
     });
   }
 

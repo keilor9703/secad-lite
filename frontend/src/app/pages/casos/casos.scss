@@ -31,3 +31,9 @@ tbody tr:last-child td { border-bottom: none; }
 .badge[data-estado="despachado"] { background: var(--tag-teal-bg);   color: var(--tag-teal-fg); }
 .badge[data-estado="derivado"]   { background: var(--tag-info-bg);   color: var(--tag-info-fg); }
 .badge[data-estado="cerrado"]    { background: var(--surface-2);     color: var(--muted); }
+
+/* Rango de fechas dentro de la barra de filtros. */
+.filtros { flex-wrap: wrap; }
+.rango { display: inline-flex; align-items: center; gap: 0.4rem; }
+.rango label { font-size: 0.8rem; color: var(--muted); }
+.rango input[type='date'] { width: auto; }

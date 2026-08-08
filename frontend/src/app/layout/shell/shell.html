@@ -39,6 +39,8 @@
       <span class="tipo" [class.civil]="s.tipo === 'civil'">{{ s.rol }}</span>
     </span>
     <app-tema-toggle />
+    <button type="button" class="btn btn--ghost mini-clave" *ngIf="s.tipo === 'institucional'"
+            (click)="abrirCambioClave()" title="Cambiar mi contraseña" aria-label="Cambiar mi contraseña">🔑</button>
     <button type="button" class="btn btn--ghost" (click)="salir()">Salir</button>
   </div>
 </header>
@@ -46,5 +48,30 @@
 <main class="content">
   <router-outlet />
 </main>
+
+<!-- Autoservicio: cambiar MI contraseña demostrando la actual. -->
+<div class="velo" *ngIf="cambioClaveAbierto()" (click)="cambioClaveAbierto.set(false)">
+  <form class="dialogo card" (click)="$event.stopPropagation()" (ngSubmit)="guardarClave()">
+    <h2>Cambiar mi contraseña</h2>
+    <div class="field">
+      <label for="claveActual">Contraseña actual</label>
+      <input id="claveActual" type="password" [(ngModel)]="claveActual" name="claveActual" autocomplete="current-password" />
+    </div>
+    <div class="field">
+      <label for="claveNueva">Contraseña nueva (mínimo 8 caracteres)</label>
+      <input id="claveNueva" type="password" [(ngModel)]="claveNueva" name="claveNueva" autocomplete="new-password" />
+    </div>
+    <div class="field">
+      <label for="claveConfirma">Confirme la contraseña nueva</label>
+      <input id="claveConfirma" type="password" [(ngModel)]="claveConfirma" name="claveConfirma" autocomplete="new-password" />
+    </div>
+    <div class="dialogo-acciones">
+      <button type="button" class="btn btn--ghost" (click)="cambioClaveAbierto.set(false)">Cancelar</button>
+      <button type="submit" class="btn btn--primary" [disabled]="guardandoClave()">
+        {{ guardandoClave() ? 'Guardando…' : 'Guardar' }}
+      </button>
+    </div>
+  </form>
+</div>
 
 <app-toast />

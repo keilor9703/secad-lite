@@ -14,8 +14,16 @@ import { TenantsService } from './tenants.service';
  * El superadmin queda fuera: es el dueño de la plataforma y necesita entrar
  * justamente cuando un tenant está bloqueado.
  */
+/** Cuánto se reutiliza el veredicto antes de volver a consultar la base. */
+const VIGENCIA_CACHE_MS = 15_000;
+
 @Injectable()
 export class SuscripcionGuard implements CanActivate {
+  /** El estado de una suscripción no cambia por segundo: se memoriza unos
+   *  segundos por tenant, igual que hace PermisosGuard con los permisos —
+   *  antes esto costaba un SELECT del tenant en CADA petición autenticada. */
+  private readonly cache = new Map<string, { impedimento: { motivo: string } | null; expira: number }>();
+
   constructor(
     private readonly reflector: Reflector,
     private readonly tenants: TenantsService,
@@ -32,8 +40,12 @@ export class SuscripcionGuard implements CanActivate {
     const tenant = user.tenant;
     if (!tenant) return true;
 
-    const impedimento = await this.tenants.impedimento(tenant);
-    if (impedimento) throw new ForbiddenException(impedimento.motivo);
+    let guardado = this.cache.get(tenant);
+    if (!guardado || guardado.expira <= Date.now()) {
+      guardado = { impedimento: await this.tenants.impedimento(tenant), expira: Date.now() + VIGENCIA_CACHE_MS };
+      this.cache.set(tenant, guardado);
+    }
+    if (guardado.impedimento) throw new ForbiddenException(guardado.impedimento.motivo);
 
     const integracion = this.reflector.getAllAndOverride<string>(INTEGRACION_KEY, [
       ctx.getHandler(),

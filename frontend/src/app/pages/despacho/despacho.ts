@@ -6,6 +6,7 @@ import { CasosService } from '../../core/casos.service';
 import { CatalogosService } from '../../core/catalogos.service';
 import { AuthService } from '../../core/auth.service';
 import { CanalAtencion, Caso, EstadoCaso } from '../../core/models';
+import { ToastService } from '../../shared/toast/toast.service';
 
 /** Una columna del tablero: un estado del ciclo de vida y sus casos. */
 interface Columna {
@@ -33,6 +34,7 @@ export class DespachoComponent {
   private auth = inject(AuthService);
   private router = inject(Router);
   private ruta = inject(ActivatedRoute);
+  private toast = inject(ToastService);
 
   readonly casos = signal<Caso[]>([]);
   readonly canales = signal<CanalAtencion[]>([]);
@@ -149,9 +151,64 @@ export class DespachoComponent {
     if (!silencioso) this.cargando.set(true);
     // El tablero solo trabaja casos abiertos: se piden así al servidor.
     this.casosSvc.listar({ abiertos: true, limite: 500 }).subscribe({
-      next: (cs) => { this.casos.set(cs); this.cargando.set(false); },
+      next: (cs) => { this.anunciarNuevos(cs); this.casos.set(cs); this.cargando.set(false); },
       error: () => { this.error.set('No fue posible cargar la cola.'); this.cargando.set(false); },
     });
+  }
+
+  // --- Aviso activo: el caso nuevo se anuncia, no hay que descubrirlo -------
+
+  /** Ids ya vistos por ESTA sesión del tablero, para detectar los recién llegados. */
+  private idsConocidos: Set<string> | null = null;
+  /** Timbre encendido/apagado; la sala decide y la elección se recuerda en el puesto. */
+  readonly sonidoActivo = signal(localStorage.getItem('falconcad_despacho_sonido') !== 'off');
+
+  alternarSonido(): void {
+    this.sonidoActivo.update((v) => !v);
+    try { localStorage.setItem('falconcad_despacho_sonido', this.sonidoActivo() ? 'on' : 'off'); } catch { /* sin almacenamiento */ }
+  }
+
+  /**
+   * Compara la tanda del refresco (cada 30 s) con la anterior: cada caso que
+   * no estaba se anuncia con un toast y, si el timbre está activo, con un tono
+   * corto — el despachador ya no tiene que barrer la columna "Sin tomar" con
+   * la mirada para saber si llegó algo. La primera carga no anuncia nada.
+   */
+  private anunciarNuevos(cs: Caso[]): void {
+    if (this.idsConocidos === null) {
+      this.idsConocidos = new Set(cs.map((c) => c.id));
+      return;
+    }
+    const nuevos = cs.filter((c) => !this.idsConocidos!.has(c.id));
+    for (const c of cs) this.idsConocidos.add(c.id);
+    if (!nuevos.length) return;
+    const primero = nuevos[0];
+    this.toast.info(nuevos.length === 1
+      ? `Caso nuevo en la cola: ${primero.titulo}`
+      : `${nuevos.length} casos nuevos en la cola.`);
+    if (this.sonidoActivo()) this.timbre();
+  }
+
+  /** Dos tonos cortos por WebAudio: no depende de ningún archivo de sonido. */
+  private timbre(): void {
+    try {
+      const ctx = new AudioContext();
+      const tono = (inicio: number, freq: number) => {
+        const osc = ctx.createOscillator();
+        const gain = ctx.createGain();
+        osc.frequency.value = freq;
+        osc.type = 'sine';
+        gain.gain.setValueAtTime(0.0001, ctx.currentTime + inicio);
+        gain.gain.exponentialRampToValueAtTime(0.18, ctx.currentTime + inicio + 0.02);
+        gain.gain.exponentialRampToValueAtTime(0.0001, ctx.currentTime + inicio + 0.28);
+        osc.connect(gain).connect(ctx.destination);
+        osc.start(ctx.currentTime + inicio);
+        osc.stop(ctx.currentTime + inicio + 0.3);
+      };
+      tono(0, 880);
+      tono(0.32, 1174);
+      setTimeout(() => ctx.close(), 900);
+    } catch { /* sin audio disponible */ }
   }
 
   /** Minutos desde que entró el caso. */

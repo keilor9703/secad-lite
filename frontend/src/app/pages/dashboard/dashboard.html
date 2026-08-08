@@ -14,6 +14,48 @@
       <div class="kpi" *ngFor="let b of porEstado()"><span class="n">{{ b.valor }}</span><span class="l">{{ b.etiqueta }}</span></div>
     </div>
 
+    <!-- Tiempos de respuesta: la medida real de un centro de despacho -->
+    <div class="panel card tiempos" *ngIf="tiempos() as t">
+      <h2>Tiempos de respuesta <span class="periodo">últimos 30 días</span></h2>
+      <ng-container *ngIf="t.global as g; else sinTiempos">
+        <div class="t-kpis">
+          <div class="t-kpi">
+            <span class="n">{{ duracion(g.tomaMin) }}</span>
+            <span class="l">Recepción → tomado</span>
+          </div>
+          <div class="t-kpi">
+            <span class="n">{{ duracion(g.despachoMin) }}</span>
+            <span class="l">Recepción → primer recurso</span>
+          </div>
+          <div class="t-kpi">
+            <span class="n">{{ duracion(g.cierreMin) }}</span>
+            <span class="l">Recepción → cierre</span>
+          </div>
+          <div class="t-kpi">
+            <span class="n">{{ g.total }}</span>
+            <span class="l">Casos del período</span>
+          </div>
+        </div>
+        <table class="t-tabla" *ngIf="t.porPrioridad.length">
+          <thead>
+            <tr><th>Prioridad</th><th>Casos</th><th>Tomado</th><th>Primer recurso</th><th>Cierre</th></tr>
+          </thead>
+          <tbody>
+            <tr *ngFor="let f of t.porPrioridad">
+              <td><span class="prio" [attr.data-prio]="f.prioridad">{{ prioridadLabel(f.prioridad) }}</span></td>
+              <td class="num">{{ f.total }}</td>
+              <td class="num">{{ duracion(f.tomaMin) }}</td>
+              <td class="num">{{ duracion(f.despachoMin) }}</td>
+              <td class="num">{{ duracion(f.cierreMin) }}</td>
+            </tr>
+          </tbody>
+        </table>
+      </ng-container>
+      <ng-template #sinTiempos>
+        <p class="vacio">Aún no hay casos en los últimos 30 días para medir tiempos.</p>
+      </ng-template>
+    </div>
+
     <div class="cols">
       <!-- Por canal -->
       <div class="panel card">

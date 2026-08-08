@@ -82,3 +82,7 @@
 .tarjeta.sin-ver h3::after { content: ' ●'; color: var(--accent); font-size: 0.7em; vertical-align: middle; }
 
 @media (max-width: 1100px) { .desp.con-panel { grid-template-columns: 1fr; } }
+
+/* Timbre de casos nuevos junto al marcador de la cola. */
+.desp-head-der { display: flex; align-items: center; gap: 0.6rem; }
+.timbre { font-size: 1.05rem; padding: 0.3rem 0.5rem; }
