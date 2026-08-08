@@ -61,12 +61,28 @@ export class ChatGateway implements OnGatewayConnection {
     return { casoId: caso.id };
   }
 
-  /** Un participante (funcionario o el ciudadano) se une a la sala del caso. */
+  /**
+   * Un participante (funcionario o el ciudadano) se une a la sala del caso.
+   *
+   * La sala NO es pública: antes de entrar se verifica quién pide entrar.
+   * Un ciudadano solo puede unirse al chat que él mismo inició (el caso que
+   * creó su sesión) — sin esto, cualquiera con sesión civil podía leer y
+   * escribir la conversación de emergencia de otro ciudadano con solo
+   * conocer o iterar ids de caso. Un funcionario entra a cualquier chat de
+   * su tenant, que es su bandeja de trabajo.
+   */
   @SubscribeMessage('chat:unir')
   async unir(@ConnectedSocket() client: Socket, @MessageBody() body: { casoId: string }) {
-    client.join(`caso:${body.casoId}`);
-    const mensajes = await this.chat.historial(this.tenantDe(client), body.casoId);
-    client.emit('chat:historial', { casoId: body.casoId, mensajes });
+    const u = this.user(client);
+    const tenant = this.tenantDe(client);
+    const caso = await this.chat.casoDeSala(tenant, body?.casoId ?? '');
+    if (!caso || (u.tipo === 'civil' && caso.creadoPor !== u.sub)) {
+      return { error: 'Chat no encontrado.' };
+    }
+    client.join(`caso:${caso.id}`);
+    const mensajes = await this.chat.historial(tenant, caso.id);
+    client.emit('chat:historial', { casoId: caso.id, mensajes });
+    return { casoId: caso.id };
   }
 
   /** Nuevo mensaje en la sala; se persiste y se difunde a los participantes. */
@@ -74,6 +90,10 @@ export class ChatGateway implements OnGatewayConnection {
   async mensaje(@ConnectedSocket() client: Socket, @MessageBody() body: { casoId: string; texto: string }) {
     const u = this.user(client);
     if (!body?.texto?.trim()) return;
+    // Solo quien ya está DENTRO de la sala escribe en ella. La membresía la
+    // otorgan chat:iniciar (el dueño) y chat:unir (verificado arriba); un
+    // socket que nunca pasó por ahí no tiene voz en ese caso.
+    if (!client.rooms.has(`caso:${body.casoId}`)) return { error: 'No participa en este chat.' };
     const autorTipo = u.tipo === 'civil' ? 'ciudadano' : 'operador';
     const msg = await this.chat.guardar(this.tenantDe(client), body.casoId, autorTipo, u.nombre, body.texto);
     this.server.to(`caso:${body.casoId}`).emit('chat:mensaje', msg);

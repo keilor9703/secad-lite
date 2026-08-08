@@ -36,4 +36,15 @@ export class ChatService {
   historial(tenant: string, casoId: string): Promise<MensajeChatEntity[]> {
     return this.mensajes.find({ where: { tenant, casoId }, order: { creadoEn: 'ASC' } });
   }
+
+  /**
+   * El caso de una sala de chat, para que el gateway decida quién puede
+   * entrar. Devuelve null si no existe en el tenant o no es de canal chat —
+   * ambos se responden igual, sin revelar cuál de los dos fue.
+   */
+  async casoDeSala(tenant: string, casoId: string): Promise<CasoEntity | null> {
+    if (!casoId?.trim()) return null;
+    const caso = await this.casos.obtener(tenant, casoId).catch(() => null);
+    return caso?.canal === 'chat' ? caso : null;
+  }
 }

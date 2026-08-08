@@ -1,6 +1,7 @@
 import { MiddlewareConsumer, Module, NestModule } from '@nestjs/common';
 import { ConfigModule, ConfigService } from '@nestjs/config';
 import { TypeOrmModule } from '@nestjs/typeorm';
+import { ThrottlerModule } from '@nestjs/throttler';
 import { APP_GUARD } from '@nestjs/core';
 import { AppController } from './app.controller';
 import { AppService } from './app.service';
@@ -25,6 +26,10 @@ import { IntegracionModule } from './integracion/integracion.module';
 @Module({
   imports: [
     ConfigModule.forRoot({ isGlobal: true }),
+    // Tope de intentos para las rutas que lo declaren (@UseGuards(ThrottlerGuard)):
+    // hoy, el login. 5 por minuto por IP frena la fuerza bruta de contraseñas
+    // sin estorbar el uso normal (un humano que se equivoca teclea menos que eso).
+    ThrottlerModule.forRoot({ throttlers: [{ ttl: 60_000, limit: 5 }] }),
     TypeOrmModule.forRootAsync({
       inject: [ConfigService],
       useFactory: (config: ConfigService) => {

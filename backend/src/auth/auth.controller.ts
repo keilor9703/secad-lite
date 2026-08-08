@@ -1,4 +1,5 @@
-import { Body, Controller, Get, Post } from '@nestjs/common';
+import { Body, Controller, Get, Post, UseGuards } from '@nestjs/common';
+import { Throttle, ThrottlerGuard } from '@nestjs/throttler';
 import { AuthService } from './auth.service';
 import { LoginDto } from './dto/login.dto';
 import { Tenant } from '../common/tenant.decorator';
@@ -10,8 +11,14 @@ import { JwtPayload } from './auth.service';
 export class AuthController {
   constructor(private readonly auth: AuthService) {}
 
-  /** POST /api/auth/login — usuario del sistema (el tenant sale del usuario). */
+  /**
+   * POST /api/auth/login — usuario del sistema (el tenant sale del usuario).
+   * Con tope de intentos por IP: sin él, la contraseña se puede adivinar por
+   * fuerza bruta a la velocidad que dé el servidor.
+   */
   @Public()
+  @UseGuards(ThrottlerGuard)
+  @Throttle({ default: { limit: 5, ttl: 60_000 } })
   @Post('login')
   login(@Body() dto: LoginDto) {
     return this.auth.login(dto);
@@ -29,6 +36,8 @@ export class AuthController {
 
   /** POST /api/auth/civil/login — ciudadano (chat); el tenant viene del header. */
   @Public()
+  @UseGuards(ThrottlerGuard)
+  @Throttle({ default: { limit: 5, ttl: 60_000 } })
   @Post('civil/login')
   civil(@Body() dto: LoginDto, @Tenant() tenant: string) {
     return this.auth.loginCivil(dto, tenant);

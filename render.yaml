@@ -41,3 +41,11 @@ services:
       # Supabase exige TLS.
       - key: DB_SSL
         value: "true"
+      # App secret de Meta: exige la firma X-Hub-Signature-256 en el webhook
+      # de WhatsApp. Sin configurarlo, el webhook queda deshabilitado en
+      # producción.
+      - key: WHATSAPP_APP_SECRET
+        sync: false
+      # El login exige JWT_SECRET real y apaga el acceso ciudadano demo.
+      - key: NODE_ENV
+        value: production

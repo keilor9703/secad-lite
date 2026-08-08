@@ -121,6 +121,7 @@ export class UsuariosService implements OnModuleInit {
     if (!username || !dto.contrasena || !dto.nombre?.trim()) {
       throw new BadRequestException('Usuario, nombre y contraseña son obligatorios.');
     }
+    this.validarContrasena(dto.contrasena);
     const { rol, tenant } = await this.resolverAmbito(actor, dto.rol, dto.tenant);
 
     // Único DENTRO del tenant: el mismo username puede existir en otro
@@ -166,7 +167,10 @@ export class UsuariosService implements OnModuleInit {
     if (dto.rol) u.rol = (await this.resolverAmbito(actor, dto.rol, u.tenant ?? undefined)).rol;
     if (dto.nombre?.trim()) u.nombre = dto.nombre.trim();
     if (typeof dto.activo === 'boolean') u.activo = dto.activo;
-    if (dto.contrasena) u.passwordHash = await bcrypt.hash(dto.contrasena, 10);
+    if (dto.contrasena) {
+      this.validarContrasena(dto.contrasena);
+      u.passwordHash = await bcrypt.hash(dto.contrasena, 10);
+    }
     if (dto.agenciaId !== undefined || dto.canales !== undefined) {
       const adscripcion = await this.resolverAdscripcion(
         u.tenant ?? null,
@@ -180,6 +184,18 @@ export class UsuariosService implements OnModuleInit {
       u.extension = await this.resolverExtension(u.tenant ?? null, dto.extension, u.id);
     }
     return this.aDto(await this.repo.save(u));
+  }
+
+  /**
+   * Mínimo de la contraseña al crearla o cambiarla. Las cuentas abren la
+   * bandeja del 123: una contraseña trivial es una puerta, no una clave. Se
+   * aplica solo hacia adelante — las cuentas existentes siguen entrando igual
+   * hasta su próximo cambio.
+   */
+  private validarContrasena(contrasena: string): void {
+    if (contrasena.length < 8) {
+      throw new BadRequestException('La contraseña debe tener al menos 8 caracteres.');
+    }
   }
 
   /**

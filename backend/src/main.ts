@@ -1,10 +1,21 @@
 import { NestFactory } from '@nestjs/core';
 import { Logger } from '@nestjs/common';
+import { NestExpressApplication } from '@nestjs/platform-express';
+import helmet from 'helmet';
 import { AppModule } from './app.module';
 import { origenPermitido } from './common/cors';
 
 async function bootstrap() {
-  const app = await NestFactory.create(AppModule);
+  // rawBody: la verificación de firma del webhook de WhatsApp necesita los
+  // bytes exactos que envió Meta, no el JSON ya reinterpretado.
+  const app = await NestFactory.create<NestExpressApplication>(AppModule, { rawBody: true });
+
+  // Cabeceras de seguridad estándar (X-Content-Type-Options, HSTS, etc.).
+  app.use(helmet());
+  // Detrás del balanceador del hospedaje, la IP real del cliente viaja en
+  // X-Forwarded-For: sin esto, el tope de intentos de login contaría todos
+  // los usuarios como una sola IP (la del proxy).
+  app.set('trust proxy', 1);
 
   // Prefijo común para toda la API.
   app.setGlobalPrefix('api');

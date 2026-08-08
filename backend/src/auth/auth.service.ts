@@ -1,4 +1,5 @@
-import { Injectable, UnauthorizedException } from '@nestjs/common';
+import { ForbiddenException, Injectable, UnauthorizedException } from '@nestjs/common';
+import { ConfigService } from '@nestjs/config';
 import { JwtService } from '@nestjs/jwt';
 import { LoginDto, LoginResult } from './dto/login.dto';
 import { UsuariosService } from '../usuarios/usuarios.service';
@@ -32,6 +33,7 @@ export class AuthService {
     private readonly usuarios: UsuariosService,
     private readonly roles: RolesService,
     private readonly tenants: TenantsService,
+    private readonly config: ConfigService,
   ) {}
 
   async login(dto: LoginDto): Promise<LoginResult> {
@@ -51,7 +53,16 @@ export class AuthService {
   }
 
   loginCivil(dto: LoginDto, tenant: string): LoginResult {
-    // Demo: cualquier correo con contraseña 'demo' (autoservicio ciudadano).
+    // El acceso ciudadano de demostración (cualquier correo + contraseña
+    // 'demo') solo existe fuera de producción, o si el operador de la
+    // plataforma lo enciende a propósito con DEMO_CIVIL=true. Publicado sin
+    // ese flag, queda apagado: era una puerta para leer y escribir chats de
+    // emergencias reales sin ninguna verificación de identidad.
+    const habilitado =
+      process.env.NODE_ENV !== 'production' || this.config.get<string>('DEMO_CIVIL') === 'true';
+    if (!habilitado) {
+      throw new ForbiddenException('El acceso ciudadano de demostración está deshabilitado en esta instancia.');
+    }
     if (!dto?.usuario?.trim() || dto?.contrasena !== 'demo') {
       throw new UnauthorizedException('Credenciales de ciudadano inválidas (use contraseña "demo").');
     }
