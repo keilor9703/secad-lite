@@ -5,6 +5,7 @@ import { Router } from '@angular/router';
 import { AuthService } from '../../core/auth.service';
 import { TemaToggleComponent } from '../../shared/tema-toggle/tema-toggle';
 import { LogoComponent } from '../../shared/logo/logo';
+import { ToastComponent } from '../../shared/toast/toast';
 
 /**
  * Entrada a la consola. Solo hay una forma de identificarse, porque quien entra
@@ -16,7 +17,7 @@ import { LogoComponent } from '../../shared/logo/logo';
 @Component({
   selector: 'app-login',
   standalone: true,
-  imports: [CommonModule, FormsModule, TemaToggleComponent, LogoComponent],
+  imports: [CommonModule, FormsModule, TemaToggleComponent, LogoComponent, ToastComponent],
   templateUrl: './login.html',
   styleUrl: './login.scss',
 })

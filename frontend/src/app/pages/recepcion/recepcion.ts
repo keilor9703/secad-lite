@@ -6,6 +6,7 @@ import { CasosService } from '../../core/casos.service';
 import { PbxService } from '../../core/pbx.service';
 import { CatalogosService } from '../../core/catalogos.service';
 import { AuthService } from '../../core/auth.service';
+import { ToastService } from '../../shared/toast/toast.service';
 import {
   Agencia, Canal, CanalAtencion, Caso, CodigoCaso, CrearCaso, EstadoCaso, Llamada, PrioridadCaso,
 } from '../../core/models';
@@ -41,6 +42,7 @@ export class RecepcionComponent implements OnInit {
   private catalogos = inject(CatalogosService);
   private auth = inject(AuthService);
   private pbx = inject(PbxService);
+  private toast = inject(ToastService);
 
   readonly casos = signal<Caso[]>([]);
   /**
@@ -309,6 +311,7 @@ export class RecepcionComponent implements OnInit {
       agenciaResponsableId: this.form.agenciaResponsableId ?? undefined,
       canales: this.form.canales,
     };
+    const destino = this.resumenDestino();
     this.guardando.set(true);
     this.casosSvc.crear(dto).subscribe({
       next: (caso) => {
@@ -322,6 +325,7 @@ export class RecepcionComponent implements OnInit {
           this.llamadaEnCurso.set(null);
           this.pbx.vincular(llamada.id, caso.id).subscribe({ error: () => {} });
         }
+        this.toast.exito(destino ? `Caso enviado a ${destino}.` : 'Caso recepcionado correctamente.');
         this.limpiarForm();
       },
       error: (e) => {

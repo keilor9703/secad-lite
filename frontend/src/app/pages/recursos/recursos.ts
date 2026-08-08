@@ -5,6 +5,7 @@ import { CrearRecurso, DespachoService } from '../../core/despacho.service';
 import { AuthService } from '../../core/auth.service';
 import { CatalogosService } from '../../core/catalogos.service';
 import { Agencia, EstadoRecurso, Recurso, TipoRecurso } from '../../core/models';
+import { ToastService } from '../../shared/toast/toast.service';
 
 /** Lo editable de un recurso mientras está abierto en la fila. */
 interface Edicion {
@@ -30,6 +31,7 @@ export class RecursosComponent {
   private despacho = inject(DespachoService);
   private auth = inject(AuthService);
   private catalogos = inject(CatalogosService);
+  private toast = inject(ToastService);
 
   /** Supervisor/admin pueden gestionar la flota. */
   readonly gestiona = this.auth.privilegiado;
@@ -66,7 +68,7 @@ export class RecursosComponent {
     const dto = { ...this.nuevo, codigo: this.nuevo.codigo.trim(), nombre: this.nuevo.nombre.trim() };
     if (!dto.codigo || !dto.nombre) { this.error.set('Código y nombre son obligatorios.'); return; }
     this.despacho.crearRecurso(dto).subscribe({
-      next: (r) => { this.recursos.update((rs) => [...rs, r]); this.nuevo = this.vacio(); },
+      next: (r) => { this.recursos.update((rs) => [...rs, r]); this.nuevo = this.vacio(); this.toast.exito('Recurso creado.'); },
       error: (e) => this.error.set(e?.error?.message ?? 'No fue posible crear el recurso.'),
     });
   }
@@ -94,6 +96,7 @@ export class RecursosComponent {
       next: (act) => {
         this.recursos.update((rs) => rs.map((x) => (x.id === act.id ? act : x)));
         this.editando.set(null);
+        this.toast.exito('Recurso actualizado.');
       },
       error: (e) => this.error.set(e?.error?.message ?? 'No fue posible guardar el recurso.'),
     });
@@ -107,7 +110,7 @@ export class RecursosComponent {
     this.error.set('');
     if (!confirm(`¿Eliminar el recurso ${r.codigo} — ${r.nombre}? Esta acción no se puede deshacer.`)) return;
     this.despacho.eliminarRecurso(r.id).subscribe({
-      next: () => this.recursos.update((rs) => rs.filter((x) => x.id !== r.id)),
+      next: () => { this.recursos.update((rs) => rs.filter((x) => x.id !== r.id)); this.toast.exito('Recurso eliminado.'); },
       error: (e) => this.error.set(e?.error?.message ?? 'No fue posible eliminar el recurso.'),
     });
   }
@@ -115,7 +118,10 @@ export class RecursosComponent {
   toggleServicio(r: Recurso): void {
     const fuera = r.estado !== 'fuera_servicio';
     this.despacho.fueraServicio(r.id, fuera).subscribe({
-      next: (act) => this.recursos.update((rs) => rs.map((x) => (x.id === act.id ? act : x))),
+      next: (act) => {
+        this.recursos.update((rs) => rs.map((x) => (x.id === act.id ? act : x)));
+        this.toast.exito(fuera ? 'Recurso puesto fuera de servicio.' : 'Recurso puesto en servicio.');
+      },
       error: (e) => this.error.set(e?.error?.message ?? 'No fue posible cambiar el servicio.'),
     });
   }

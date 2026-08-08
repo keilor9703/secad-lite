@@ -8,6 +8,7 @@ import { WhatsappService } from '../../core/whatsapp.service';
 import { RolesService } from '../../core/roles.service';
 import { EntidadesService } from '../../core/entidades.service';
 import { CatalogosService } from '../../core/catalogos.service';
+import { ToastService } from '../../shared/toast/toast.service';
 import {
   Agencia, CanalAtencion, CodigoCaso, EntidadExterna, ModuloPermisos, PbxConfig, PermisoDef, PrioridadCaso,
   RolTenant, Tenant, TipoAgencia, UsuarioAdmin, WhatsappConfig,
@@ -36,6 +37,7 @@ export class AdminComponent implements OnInit {
   private rolesSvc = inject(RolesService);
   private entidadesSvc = inject(EntidadesService);
   private catalogosSvc = inject(CatalogosService);
+  private toast = inject(ToastService);
 
   readonly esSuperadmin = this.auth.esSuperadmin;
   readonly gestionaRoles = this.auth.gestionaRoles;
@@ -241,7 +243,7 @@ export class AdminComponent implements OnInit {
         next: (act) => {
           this.roles.update((rs) => rs.map((r) => (r.id === act.id ? act : r)));
           this.sucios.update((s) => { const n = new Set(s); n.delete(act.id); return n; });
-          if (--restantes === 0) { this.guardandoRoles = false; this.rolesOk.set(true); }
+          if (--restantes === 0) { this.guardandoRoles = false; this.rolesOk.set(true); this.toast.exito('Permisos guardados.'); }
         },
         error: (e) => {
           this.guardandoRoles = false;
@@ -256,7 +258,7 @@ export class AdminComponent implements OnInit {
     if (!nombre) return;
     this.error.set('');
     this.rolesSvc.crear(nombre, []).subscribe({
-      next: (r) => { this.roles.update((rs) => [...rs, r]); this.nuevoRol = ''; },
+      next: (r) => { this.roles.update((rs) => [...rs, r]); this.nuevoRol = ''; this.toast.exito('Rol creado.'); },
       error: (e) => this.error.set(e?.error?.message ?? 'No fue posible crear el rol.'),
     });
   }
@@ -265,7 +267,7 @@ export class AdminComponent implements OnInit {
     if (!window.confirm(`¿Eliminar el rol "${rol.nombre}"?`)) return;
     this.error.set('');
     this.rolesSvc.eliminar(rol.id).subscribe({
-      next: () => this.roles.update((rs) => rs.filter((r) => r.id !== rol.id)),
+      next: () => { this.roles.update((rs) => rs.filter((r) => r.id !== rol.id)); this.toast.exito('Rol eliminado.'); },
       error: (e) => this.error.set(e?.error?.message ?? 'No fue posible eliminar el rol.'),
     });
   }
@@ -288,6 +290,7 @@ export class AdminComponent implements OnInit {
         this.entidades.update((es) => [...es, e]);
         this.nuevaEntidad = { nombre: '', agenciaResponsableId: null, canales: [] };
         this.keyVisible.set(e.id);
+        this.toast.exito('Entidad creada.');
       },
       error: (e) => this.error.set(e?.error?.message ?? 'No fue posible crear la entidad.'),
     });
@@ -345,6 +348,7 @@ export class AdminComponent implements OnInit {
       next: (act) => {
         this.entidades.update((es) => es.map((x) => (x.id === act.id ? act : x)));
         this.editandoEntidad.set(null);
+        this.toast.exito('Entidad actualizada.');
       },
       error: (err) => this.error.set(err?.error?.message ?? 'No fue posible guardar la entidad.'),
     });
@@ -352,7 +356,10 @@ export class AdminComponent implements OnInit {
 
   toggleEntidad(e: EntidadExterna): void {
     this.entidadesSvc.actualizar(e.id, { activa: !e.activa }).subscribe({
-      next: (act) => this.entidades.update((es) => es.map((x) => (x.id === act.id ? act : x))),
+      next: (act) => {
+        this.entidades.update((es) => es.map((x) => (x.id === act.id ? act : x)));
+        this.toast.exito(act.activa ? 'Entidad activada.' : 'Entidad desactivada.');
+      },
       error: (err) => this.error.set(err?.error?.message ?? 'No fue posible actualizar la entidad.'),
     });
   }
@@ -363,6 +370,7 @@ export class AdminComponent implements OnInit {
       next: (act) => {
         this.entidades.update((es) => es.map((x) => (x.id === act.id ? act : x)));
         this.keyVisible.set(act.id);
+        this.toast.exito('Clave de la entidad rotada.');
       },
       error: (err) => this.error.set(err?.error?.message ?? 'No fue posible rotar la clave.'),
     });
@@ -419,6 +427,7 @@ export class AdminComponent implements OnInit {
         this.waAgenciaResponsableId = c.agenciaResponsableId;
         this.waCanales = [...(c.canales ?? [])];
         this.waAccessToken = ''; this.waGuardando = false; this.waOk.set(true);
+        this.toast.exito('Configuración de WhatsApp guardada.');
       },
       error: (e) => { this.waGuardando = false; this.error.set(e?.error?.message ?? 'No fue posible guardar la configuración de WhatsApp.'); },
     });
@@ -432,7 +441,7 @@ export class AdminComponent implements OnInit {
   rotarPbx(): void {
     if (!window.confirm('Al rotar la clave, la PBX dejará de funcionar hasta actualizarla. ¿Continuar?')) return;
     this.pbx.rotarKey().subscribe({
-      next: (c) => { this.pbxConfig.set(c); this.mostrarKey.set(true); },
+      next: (c) => { this.pbxConfig.set(c); this.mostrarKey.set(true); this.toast.exito('Clave de la PBX rotada.'); },
       error: (e) => this.error.set(e?.error?.message ?? 'No fue posible rotar la clave.'),
     });
   }
@@ -473,7 +482,11 @@ export class AdminComponent implements OnInit {
     const { codigo, nombre, tipo } = this.nuevaAgencia;
     if (!codigo.trim() || !nombre.trim()) { this.error.set('Código y nombre de la agencia son obligatorios.'); return; }
     this.catalogosSvc.crearAgencia({ codigo: codigo.trim(), nombre: nombre.trim(), tipo }).subscribe({
-      next: (a) => { this.agencias.update((as) => [...as, a]); this.nuevaAgencia = { codigo: '', nombre: '', tipo: 'otra' }; },
+      next: (a) => {
+        this.agencias.update((as) => [...as, a]);
+        this.nuevaAgencia = { codigo: '', nombre: '', tipo: 'otra' };
+        this.toast.exito('Agencia creada.');
+      },
       error: (e) => this.error.set(e?.error?.message ?? 'No fue posible crear la agencia.'),
     });
   }
@@ -484,6 +497,7 @@ export class AdminComponent implements OnInit {
         this.agencias.update((as) => as.map((x) => (x.id === act.id ? act : x)));
         // Desactivar una agencia arrastra sus canales: recargarlos evita mostrarlos activos.
         if (!act.activo) this.catalogosSvc.canales().subscribe({ next: (c) => this.canales.set(c), error: () => {} });
+        this.toast.exito(act.activo ? 'Agencia activada.' : 'Agencia desactivada.');
       },
       error: (e) => this.error.set(e?.error?.message ?? 'No fue posible actualizar la agencia.'),
     });
@@ -494,14 +508,21 @@ export class AdminComponent implements OnInit {
     const dato = this.nuevoCanal[agencia.id] ?? { codigo: '', nombre: '' };
     if (!dato.codigo.trim() || !dato.nombre.trim()) { this.error.set('Código y nombre del canal son obligatorios.'); return; }
     this.catalogosSvc.crearCanal({ agenciaId: agencia.id, codigo: dato.codigo.trim(), nombre: dato.nombre.trim() }).subscribe({
-      next: (c) => { this.canales.update((cs) => [...cs, c]); this.nuevoCanal[agencia.id] = { codigo: '', nombre: '' }; },
+      next: (c) => {
+        this.canales.update((cs) => [...cs, c]);
+        this.nuevoCanal[agencia.id] = { codigo: '', nombre: '' };
+        this.toast.exito('Canal creado.');
+      },
       error: (e) => this.error.set(e?.error?.message ?? 'No fue posible crear el canal.'),
     });
   }
 
   alternarCanal(c: CanalAtencion): void {
     this.catalogosSvc.actualizarCanal(c.id, { activo: !c.activo }).subscribe({
-      next: (act) => this.canales.update((cs) => cs.map((x) => (x.id === act.id ? act : x))),
+      next: (act) => {
+        this.canales.update((cs) => cs.map((x) => (x.id === act.id ? act : x)));
+        this.toast.exito(act.activo ? 'Canal activado.' : 'Canal desactivado.');
+      },
       error: (e) => this.error.set(e?.error?.message ?? 'No fue posible actualizar el canal.'),
     });
   }
@@ -517,6 +538,7 @@ export class AdminComponent implements OnInit {
       next: (c) => {
         this.codigos.update((cs) => [...cs, c]);
         this.nuevoCodigo = { codigo: '', descripcion: '', prioridad: 'media', agenciaSugeridaId: '' };
+        this.toast.exito('Código de caso creado.');
       },
       error: (e) => this.error.set(e?.error?.message ?? 'No fue posible crear el código de caso.'),
     });
@@ -524,7 +546,10 @@ export class AdminComponent implements OnInit {
 
   alternarCodigo(c: CodigoCaso): void {
     this.catalogosSvc.actualizarCodigo(c.id, { activo: !c.activo }).subscribe({
-      next: (act) => this.codigos.update((cs) => cs.map((x) => (x.id === act.id ? act : x))),
+      next: (act) => {
+        this.codigos.update((cs) => cs.map((x) => (x.id === act.id ? act : x)));
+        this.toast.exito(act.activo ? 'Código activado.' : 'Código desactivado.');
+      },
       error: (e) => this.error.set(e?.error?.message ?? 'No fue posible actualizar el código.'),
     });
   }
@@ -568,7 +593,11 @@ export class AdminComponent implements OnInit {
     const { codigo, nombre } = this.nuevoTenant;
     if (!codigo.trim() || !nombre.trim()) { this.error.set('Código y nombre del tenant son obligatorios.'); return; }
     this.admin.crearTenant(codigo.trim(), nombre.trim()).subscribe({
-      next: (t) => { this.tenants.update((ts) => [...ts, t]); this.nuevoTenant = { codigo: '', nombre: '' }; },
+      next: (t) => {
+        this.tenants.update((ts) => [...ts, t]);
+        this.nuevoTenant = { codigo: '', nombre: '' };
+        this.toast.exito('Tenant creado.');
+      },
       error: (e) => this.error.set(e?.error?.message ?? 'No fue posible crear el tenant.'),
     });
   }
@@ -581,14 +610,21 @@ export class AdminComponent implements OnInit {
     }
     if (this.esSuperadmin() && !dto.tenant) { this.error.set('Seleccione el tenant del usuario.'); return; }
     this.admin.crearUsuario(dto).subscribe({
-      next: (u) => { this.usuarios.update((us) => [...us, u]); this.nuevoUsuario = this.usuarioVacio(); },
+      next: (u) => {
+        this.usuarios.update((us) => [...us, u]);
+        this.nuevoUsuario = this.usuarioVacio();
+        this.toast.exito('Usuario creado.');
+      },
       error: (e) => this.error.set(e?.error?.message ?? 'No fue posible crear el usuario.'),
     });
   }
 
   toggleActivo(u: UsuarioAdmin): void {
     this.admin.cambiarActivo(u.id, !u.activo).subscribe({
-      next: (act) => this.usuarios.update((us) => us.map((x) => (x.id === act.id ? act : x))),
+      next: (act) => {
+        this.usuarios.update((us) => us.map((x) => (x.id === act.id ? act : x)));
+        this.toast.exito(act.activo ? 'Usuario activado.' : 'Usuario desactivado.');
+      },
       error: () => this.error.set('No fue posible actualizar el usuario.'),
     });
   }
@@ -625,6 +661,7 @@ export class AdminComponent implements OnInit {
         this.claveNueva = '';
         this.claveOk.set(u.id);
         setTimeout(() => { if (this.claveOk() === u.id) this.claveOk.set(null); }, 3000);
+        this.toast.exito(`Contraseña de ${u.nombre} actualizada.`);
       },
       error: (e) => this.error.set(e?.error?.message ?? 'No fue posible cambiar la contraseña.'),
     });
@@ -633,7 +670,10 @@ export class AdminComponent implements OnInit {
   cambiarRolUsuario(u: UsuarioAdmin, rol: string): void {
     if (!rol || rol === u.rol) return;
     this.admin.cambiarRol(u.id, rol).subscribe({
-      next: (act) => this.usuarios.update((us) => us.map((x) => (x.id === act.id ? act : x))),
+      next: (act) => {
+        this.usuarios.update((us) => us.map((x) => (x.id === act.id ? act : x)));
+        this.toast.exito(`Rol de ${act.nombre} actualizado.`);
+      },
       error: (e) => this.error.set(e?.error?.message ?? 'No fue posible cambiar el rol.'),
     });
   }

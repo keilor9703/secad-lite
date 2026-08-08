@@ -7,11 +7,12 @@ import { PbxService } from '../../core/pbx.service';
 import { Tenant } from '../../core/models';
 import { TemaToggleComponent } from '../../shared/tema-toggle/tema-toggle';
 import { LogoComponent } from '../../shared/logo/logo';
+import { ToastComponent } from '../../shared/toast/toast';
 
 @Component({
   selector: 'app-shell',
   standalone: true,
-  imports: [CommonModule, RouterOutlet, RouterLink, RouterLinkActive, TemaToggleComponent, LogoComponent],
+  imports: [CommonModule, RouterOutlet, RouterLink, RouterLinkActive, TemaToggleComponent, LogoComponent, ToastComponent],
   templateUrl: './shell.html',
   styleUrl: './shell.scss',
 })

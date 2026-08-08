@@ -1,0 +1,9 @@
+<div class="toasts" role="status" aria-live="polite" aria-atomic="false">
+  <div class="toast" *ngFor="let t of toasts()" [attr.data-tipo]="t.tipo"
+       (mouseenter)="pausar(t.id)" (mouseleave)="reanudar(t.id)">
+    <span class="toast-icono" aria-hidden="true">{{ icono(t.tipo) }}</span>
+    <p class="toast-msg">{{ t.mensaje }}</p>
+    <button type="button" class="toast-cerrar" (click)="cerrar(t.id)" aria-label="Cerrar aviso">✕</button>
+    <span class="toast-barra" [style.animation-duration.ms]="t.duracionMs"></span>
+  </div>
+</div>

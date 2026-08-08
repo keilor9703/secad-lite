@@ -9,6 +9,7 @@ import { CatalogosService } from '../../core/catalogos.service';
 import { ChatService } from '../../core/chat.service';
 import { DespachoService } from '../../core/despacho.service';
 import { WhatsappService } from '../../core/whatsapp.service';
+import { ToastService } from '../../shared/toast/toast.service';
 import {
   Agencia, Asignacion, Canal, CanalAtencion, Caso, CodigoCierre, EstadoAsignacion, EstadoCaso,
   EventoCaso, MensajeChat, RecursoSugerido, TipoEvento,
@@ -29,6 +30,7 @@ export class DetalleComponent implements OnInit, OnChanges, OnDestroy {
   private despachoSvc = inject(DespachoService);
   private catalogos = inject(CatalogosService);
   private whatsappSvc = inject(WhatsappService);
+  private toast = inject(ToastService);
 
   /** Supervisor/admin: habilita cerrar y reabrir. */
   readonly privilegiado = this.auth.privilegiado;
@@ -136,6 +138,7 @@ export class DetalleComponent implements OnInit, OnChanges, OnDestroy {
         this.mostrarReapertura = false;
         this.cargarAuditoria();
         this.cambiado.emit();
+        this.toast.exito(this.puedeReabrir() ? 'Caso reabierto.' : 'Solicitud de reapertura enviada.');
       },
       error: (e) => {
         this.enviandoReapertura.set(false);
@@ -212,6 +215,7 @@ export class DetalleComponent implements OnInit, OnChanges, OnDestroy {
         this.mostrarRemitir = false;
         this.cargarAuditoria();
         this.cambiado.emit();
+        this.toast.exito('Caso remitido a la agencia destino.');
       },
       error: (e) => {
         this.remitiendo.set(false);
@@ -254,6 +258,7 @@ export class DetalleComponent implements OnInit, OnChanges, OnDestroy {
         this.cargarAuditoria();
         this.cargarDespacho();
         this.cambiado.emit();
+        this.toast.exito('Caso cerrado.');
       },
       error: (e) => {
         this.cerrando.set(false);
@@ -360,7 +365,13 @@ export class DetalleComponent implements OnInit, OnChanges, OnDestroy {
       return;
     }
     this.casosSvc.cambiarEstado(this.id, estado, agencia).subscribe({
-      next: (c) => { this.caso.set(c); this.cargarAuditoria(); this.cargarDespacho(); this.cambiado.emit(); },
+      next: (c) => {
+        this.caso.set(c);
+        this.cargarAuditoria();
+        this.cargarDespacho();
+        this.cambiado.emit();
+        this.toast.exito(`Estado actualizado a ${this.estadoLabel(estado).toLowerCase()}.`);
+      },
       error: () => this.error.set('No fue posible actualizar el estado.'),
     });
   }
@@ -374,7 +385,7 @@ export class DetalleComponent implements OnInit, OnChanges, OnDestroy {
   despachar(): void {
     if (!this.recursoSel) return;
     this.despachoSvc.despachar(this.id, this.recursoSel).subscribe({
-      next: () => { this.recursoSel = ''; this.refrescarTrasDespacho(); },
+      next: () => { this.recursoSel = ''; this.refrescarTrasDespacho(); this.toast.exito('Recurso despachado.'); },
       error: (e) => this.error.set(e?.error?.message ?? 'No fue posible despachar el recurso.'),
     });
   }
@@ -387,7 +398,7 @@ export class DetalleComponent implements OnInit, OnChanges, OnDestroy {
       motivo = m.trim();
     }
     this.despachoSvc.cambiarEstado(a.id, estado, motivo).subscribe({
-      next: () => this.refrescarTrasDespacho(),
+      next: () => { this.refrescarTrasDespacho(); this.toast.exito(`Recurso pasó a ${this.estadoAsigLabel(estado).toLowerCase()}.`); },
       error: (e) => this.error.set(e?.error?.message ?? 'No fue posible actualizar el despacho.'),
     });
   }
@@ -416,7 +427,7 @@ export class DetalleComponent implements OnInit, OnChanges, OnDestroy {
     if (!t) return;
     this.guardandoNota = true;
     this.casosSvc.agregarNota(this.id, t).subscribe({
-      next: (ev) => { this.eventos.update((e) => [...e, ev]); this.nota = ''; this.guardandoNota = false; },
+      next: (ev) => { this.eventos.update((e) => [...e, ev]); this.nota = ''; this.guardandoNota = false; this.toast.exito('Nota agregada.'); },
       error: () => { this.error.set('No fue posible guardar la nota.'); this.guardandoNota = false; },
     });
   }

@@ -4,6 +4,7 @@ import { FormsModule } from '@angular/forms';
 import { CatalogosService, ResultadoImportacion } from '../../core/catalogos.service';
 import { AuthService } from '../../core/auth.service';
 import { Agencia, CanalAtencion, CodigoCaso, CodigoCierre, PrioridadCaso, TipoAgencia } from '../../core/models';
+import { ToastService } from '../../shared/toast/toast.service';
 
 /** Qué registro se está editando: su sección y su id. */
 interface Edicion {
@@ -31,6 +32,7 @@ interface Edicion {
 export class CatalogosComponent {
   private catalogos = inject(CatalogosService);
   private auth = inject(AuthService);
+  private toast = inject(ToastService);
 
   readonly error = signal('');
   readonly aviso = signal('');
@@ -143,7 +145,11 @@ export class CatalogosComponent {
     const { codigo, nombre, tipo } = this.nuevaAgencia;
     if (!codigo.trim() || !nombre.trim()) { this.error.set('Código y nombre de la agencia son obligatorios.'); return; }
     this.catalogos.crearAgencia({ codigo: codigo.trim(), nombre: nombre.trim(), tipo }).subscribe({
-      next: (a) => { this.agencias.update((as) => [...as, a]); this.nuevaAgencia = { codigo: '', nombre: '', tipo: 'otra' }; },
+      next: (a) => {
+        this.agencias.update((as) => [...as, a]);
+        this.nuevaAgencia = { codigo: '', nombre: '', tipo: 'otra' };
+        this.toast.exito('Agencia creada.');
+      },
       error: (e) => this.fallo(e, 'No fue posible crear la agencia.'),
     });
   }
@@ -156,7 +162,11 @@ export class CatalogosComponent {
     this.catalogos.actualizarAgencia(a.id, {
       codigo, nombre, tipo: (this.borrador['tipo'] ?? a.tipo) as TipoAgencia,
     }).subscribe({
-      next: (act) => { this.agencias.update((as) => as.map((x) => (x.id === act.id ? act : x))); this.cerrarEdicion(); },
+      next: (act) => {
+        this.agencias.update((as) => as.map((x) => (x.id === act.id ? act : x)));
+        this.cerrarEdicion();
+        this.toast.exito('Agencia actualizada.');
+      },
       error: (e) => this.fallo(e, 'No fue posible guardar la agencia.'),
     });
   }
@@ -168,6 +178,7 @@ export class CatalogosComponent {
         this.agencias.update((as) => as.map((x) => (x.id === act.id ? act : x)));
         // Desactivar la agencia arrastra sus canales: se recargan para reflejarlo.
         if (!act.activo) this.catalogos.canales().subscribe({ next: (c) => this.canales.set(c), error: () => {} });
+        this.toast.exito(act.activo ? 'Agencia activada.' : 'Agencia desactivada.');
       },
       error: (e) => this.fallo(e, 'No fue posible actualizar la agencia.'),
     });
@@ -180,6 +191,7 @@ export class CatalogosComponent {
       next: () => {
         this.agencias.update((as) => as.filter((x) => x.id !== a.id));
         this.canales.update((cs) => cs.filter((c) => c.agenciaId !== a.id));
+        this.toast.exito('Agencia eliminada.');
       },
       error: (e) => this.fallo(e, 'No fue posible eliminar la agencia.'),
     });
@@ -192,7 +204,11 @@ export class CatalogosComponent {
     const dato = this.nuevoCanal[agencia.id] ?? { codigo: '', nombre: '' };
     if (!dato.codigo.trim() || !dato.nombre.trim()) { this.error.set('Código y nombre del canal son obligatorios.'); return; }
     this.catalogos.crearCanal({ agenciaId: agencia.id, codigo: dato.codigo.trim(), nombre: dato.nombre.trim() }).subscribe({
-      next: (c) => { this.canales.update((cs) => [...cs, c]); this.nuevoCanal[agencia.id] = { codigo: '', nombre: '' }; },
+      next: (c) => {
+        this.canales.update((cs) => [...cs, c]);
+        this.nuevoCanal[agencia.id] = { codigo: '', nombre: '' };
+        this.toast.exito('Canal creado.');
+      },
       error: (e) => this.fallo(e, 'No fue posible crear el canal.'),
     });
   }
@@ -203,7 +219,11 @@ export class CatalogosComponent {
     const nombre = (this.borrador['nombre'] ?? '').trim();
     if (!codigo || !nombre) { this.error.set('Código y nombre son obligatorios.'); return; }
     this.catalogos.actualizarCanal(c.id, { codigo, nombre }).subscribe({
-      next: (act) => { this.canales.update((cs) => cs.map((x) => (x.id === act.id ? act : x))); this.cerrarEdicion(); },
+      next: (act) => {
+        this.canales.update((cs) => cs.map((x) => (x.id === act.id ? act : x)));
+        this.cerrarEdicion();
+        this.toast.exito('Canal actualizado.');
+      },
       error: (e) => this.fallo(e, 'No fue posible guardar el canal.'),
     });
   }
@@ -211,7 +231,10 @@ export class CatalogosComponent {
   alternarCanal(c: CanalAtencion): void {
     this.limpiarMensajes();
     this.catalogos.actualizarCanal(c.id, { activo: !c.activo }).subscribe({
-      next: (act) => this.canales.update((cs) => cs.map((x) => (x.id === act.id ? act : x))),
+      next: (act) => {
+        this.canales.update((cs) => cs.map((x) => (x.id === act.id ? act : x)));
+        this.toast.exito(act.activo ? 'Canal activado.' : 'Canal desactivado.');
+      },
       error: (e) => this.fallo(e, 'No fue posible actualizar el canal.'),
     });
   }
@@ -220,7 +243,7 @@ export class CatalogosComponent {
     this.limpiarMensajes();
     if (!confirm(`¿Eliminar el canal «${c.nombre}»? Esta acción no se puede deshacer.`)) return;
     this.catalogos.eliminarCanal(c.id).subscribe({
-      next: () => this.canales.update((cs) => cs.filter((x) => x.id !== c.id)),
+      next: () => { this.canales.update((cs) => cs.filter((x) => x.id !== c.id)); this.toast.exito('Canal eliminado.'); },
       error: (e) => this.fallo(e, 'No fue posible eliminar el canal.'),
     });
   }
@@ -238,6 +261,7 @@ export class CatalogosComponent {
       next: (c) => {
         this.codigos.update((cs) => [...cs, c]);
         this.nuevoCodigo = { codigo: '', descripcion: '', prioridad: 'media', agenciaSugeridaId: '' };
+        this.toast.exito('Código de caso creado.');
       },
       error: (e) => this.fallo(e, 'No fue posible crear el código de caso.'),
     });
@@ -253,7 +277,11 @@ export class CatalogosComponent {
       prioridad: (this.borrador['prioridad'] ?? c.prioridad) as PrioridadCaso,
       agenciaSugeridaId: this.borrador['agenciaSugeridaId'] || null,
     }).subscribe({
-      next: (act) => { this.codigos.update((cs) => cs.map((x) => (x.id === act.id ? act : x))); this.cerrarEdicion(); },
+      next: (act) => {
+        this.codigos.update((cs) => cs.map((x) => (x.id === act.id ? act : x)));
+        this.cerrarEdicion();
+        this.toast.exito('Código actualizado.');
+      },
       error: (e) => this.fallo(e, 'No fue posible guardar el código.'),
     });
   }
@@ -261,7 +289,10 @@ export class CatalogosComponent {
   alternarCodigo(c: CodigoCaso): void {
     this.limpiarMensajes();
     this.catalogos.actualizarCodigo(c.id, { activo: !c.activo }).subscribe({
-      next: (act) => this.codigos.update((cs) => cs.map((x) => (x.id === act.id ? act : x))),
+      next: (act) => {
+        this.codigos.update((cs) => cs.map((x) => (x.id === act.id ? act : x)));
+        this.toast.exito(act.activo ? 'Código activado.' : 'Código desactivado.');
+      },
       error: (e) => this.fallo(e, 'No fue posible actualizar el código.'),
     });
   }
@@ -270,7 +301,7 @@ export class CatalogosComponent {
     this.limpiarMensajes();
     if (!confirm(`¿Eliminar el código «${c.codigo}»? Esta acción no se puede deshacer.`)) return;
     this.catalogos.eliminarCodigo(c.id).subscribe({
-      next: () => this.codigos.update((cs) => cs.filter((x) => x.id !== c.id)),
+      next: () => { this.codigos.update((cs) => cs.filter((x) => x.id !== c.id)); this.toast.exito('Código eliminado.'); },
       error: (e) => this.fallo(e, 'No fue posible eliminar el código.'),
     });
   }
@@ -282,7 +313,11 @@ export class CatalogosComponent {
     const { codigo, etiqueta } = this.nuevoCierre;
     if (!codigo.trim() || !etiqueta.trim()) { this.error.set('Clave y etiqueta del cierre son obligatorias.'); return; }
     this.catalogos.crearCierre({ codigo: codigo.trim(), etiqueta: etiqueta.trim() }).subscribe({
-      next: (c) => { this.cierres.update((cs) => [...cs, c]); this.nuevoCierre = { codigo: '', etiqueta: '' }; },
+      next: (c) => {
+        this.cierres.update((cs) => [...cs, c]);
+        this.nuevoCierre = { codigo: '', etiqueta: '' };
+        this.toast.exito('Código de cierre creado.');
+      },
       error: (e) => this.fallo(e, 'No fue posible crear el código de cierre.'),
     });
   }
@@ -293,7 +328,11 @@ export class CatalogosComponent {
     const etiqueta = (this.borrador['etiqueta'] ?? '').trim();
     if (!codigo || !etiqueta) { this.error.set('Clave y etiqueta son obligatorias.'); return; }
     this.catalogos.actualizarCierre(c.id, { codigo, etiqueta }).subscribe({
-      next: (act) => { this.cierres.update((cs) => cs.map((x) => (x.id === act.id ? act : x))); this.cerrarEdicion(); },
+      next: (act) => {
+        this.cierres.update((cs) => cs.map((x) => (x.id === act.id ? act : x)));
+        this.cerrarEdicion();
+        this.toast.exito('Código de cierre actualizado.');
+      },
       error: (e) => this.fallo(e, 'No fue posible guardar el código de cierre.'),
     });
   }
@@ -301,7 +340,10 @@ export class CatalogosComponent {
   alternarCierre(c: CodigoCierre): void {
     this.limpiarMensajes();
     this.catalogos.actualizarCierre(c.id, { activo: !c.activo }).subscribe({
-      next: (act) => this.cierres.update((cs) => cs.map((x) => (x.id === act.id ? act : x))),
+      next: (act) => {
+        this.cierres.update((cs) => cs.map((x) => (x.id === act.id ? act : x)));
+        this.toast.exito(act.activo ? 'Cierre activado.' : 'Cierre desactivado.');
+      },
       error: (e) => this.fallo(e, 'No fue posible actualizar el código de cierre.'),
     });
   }
@@ -310,7 +352,7 @@ export class CatalogosComponent {
     this.limpiarMensajes();
     if (!confirm(`¿Eliminar el cierre «${c.etiqueta}»? Esta acción no se puede deshacer.`)) return;
     this.catalogos.eliminarCierre(c.id).subscribe({
-      next: () => this.cierres.update((cs) => cs.filter((x) => x.id !== c.id)),
+      next: () => { this.cierres.update((cs) => cs.filter((x) => x.id !== c.id)); this.toast.exito('Cierre eliminado.'); },
       error: (e) => this.fallo(e, 'No fue posible eliminar el código de cierre.'),
     });
   }
@@ -368,6 +410,7 @@ export class CatalogosComponent {
           this.csvPendiente = '';
           this.archivoNombre.set('');
           this.catalogos.codigos().subscribe({ next: (c) => this.codigos.set(c), error: () => {} });
+          this.toast.exito(`Catálogo importado: ${r.creados} creados, ${r.actualizados} actualizados.`);
         }
       },
       error: (e) => { this.importando.set(false); this.fallo(e, 'No fue posible procesar el archivo.'); },
