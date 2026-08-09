@@ -102,7 +102,6 @@ export class RecepcionComponent implements OnInit {
   readonly guardando = signal(false);
 
   readonly canales: Canal[] = ['llamada', 'chat', 'whatsapp', 'integracion'];
-  readonly estados: EstadoCaso[] = ['nuevo', 'en_gestion', 'despachado', 'derivado', 'cerrado'];
   readonly prioridades: PrioridadCaso[] = ['alta', 'media', 'baja'];
 
   // Catálogos del secad
@@ -243,6 +242,53 @@ export class RecepcionComponent implements OnInit {
 
   /** Agencia que el código de caso sugiere, para destacarla en la lista. */
   private readonly sugeridaPorCodigo = signal<string | null>(null);
+
+  // --- Asistente de tipificación --------------------------------------------
+
+  /** Espejo del relato que escribe el operador, para reaccionar mientras teclea. */
+  private readonly relato = signal('');
+
+  actualizarRelato(texto: string): void {
+    this.form.descripcion = texto;
+    this.relato.set(texto);
+  }
+
+  /**
+   * Sugerencias de código de caso a partir del relato: puntúa cada código del
+   * catálogo por cuántas palabras significativas comparte su descripción con
+   * lo que el operador va escribiendo (sin acentos, 4+ letras). No usa nada
+   * externo: es el propio catálogo del secad leyéndose contra el relato. El
+   * operador decide — un clic aplica el código y arrastra el resto del
+   * formulario, igual que si lo hubiera digitado.
+   */
+  readonly sugerenciasCodigo = computed(() => {
+    const texto = this.normalizar(this.relato());
+    if (texto.length < 8) return [];
+    const palabras = new Set(texto.split(/[^a-z0-9]+/).filter((p) => p.length >= 4));
+    if (!palabras.size) return [];
+    const actual = this.form.codigoCaso?.trim().toUpperCase();
+    return this.codigos()
+      .filter((c) => c.activo !== false && c.codigo.toUpperCase() !== actual)
+      .map((c) => {
+        const desc = this.normalizar(c.descripcion).split(/[^a-z0-9]+/);
+        const puntos = desc.filter((p) => p.length >= 4 && palabras.has(p)).length;
+        return { codigo: c, puntos };
+      })
+      .filter((s) => s.puntos > 0)
+      .sort((a, b) => b.puntos - a.puntos)
+      .slice(0, 3)
+      .map((s) => s.codigo);
+  });
+
+  aplicarSugerencia(codigo: string): void {
+    this.form.codigoCaso = codigo;
+    this.aplicarCodigo();
+  }
+
+  /** Minúsculas y sin acentos, para comparar como habla la gente. */
+  private normalizar(t: string): string {
+    return (t ?? '').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
+  }
 
   esSugerida(agenciaId: string): boolean {
     return this.sugeridaPorCodigo() === agenciaId;
@@ -423,28 +469,6 @@ export class RecepcionComponent implements OnInit {
       });
   }
 
-  // --- Bandeja ----------------------------------------------------------------
-
-  cambiarEstado(caso: Caso, estado: EstadoCaso): void {
-    let agencia: string | undefined;
-    if (estado === 'derivado') {
-      const dest = window.prompt('Agencia destino para derivar:', caso.agencia);
-      if (!dest?.trim()) return;
-      agencia = dest.trim();
-    }
-    this.casosSvc.cambiarEstado(caso.id, estado, agencia).subscribe({
-      next: (act) => this.casos.update((cs) => cs.map((c) => (c.id === act.id ? act : c))),
-      error: () => this.error.set('No fue posible actualizar el estado.'),
-    });
-  }
-
-  /** Códigos de los canales de un caso, para la columna de la bandeja. */
-  canalesDe(caso: Caso): string {
-    const ids = caso.canales ?? [];
-    if (!ids.length) return '—';
-    const cods = this.canalesAtencion().filter((c) => ids.includes(c.id)).map((c) => c.codigo);
-    return cods.length ? cods.join(', ') : '—';
-  }
 
   // --- Etiquetas --------------------------------------------------------------
 
@@ -453,9 +477,6 @@ export class RecepcionComponent implements OnInit {
   }
   canalIcon(c: Canal): string {
     return { llamada: '📞', chat: '💬', whatsapp: '🟢', integracion: '🔌' }[c];
-  }
-  estadoLabel(e: EstadoCaso): string {
-    return { nuevo: 'Nuevo', en_gestion: 'En gestión', despachado: 'Despachado', derivado: 'Derivado', cerrado: 'Cerrado' }[e];
   }
 
   private formVacio(): FormRecepcion {

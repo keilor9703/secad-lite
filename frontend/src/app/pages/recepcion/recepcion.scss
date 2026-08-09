@@ -170,3 +170,16 @@ tbody tr:last-child td { border-bottom: none; }
     display: grid; grid-template-columns: minmax(260px, 22%) 1fr; gap: 1rem; align-items: start;
   }
 }
+
+/* Asistente de tipificación: el catálogo sugiere, el operador decide. */
+.sugerencias { display: flex; align-items: center; flex-wrap: wrap; gap: 0.4rem; margin-top: 0.45rem; }
+.sug-lbl { font-size: 0.74rem; font-weight: 700; color: var(--accent);
+           text-transform: uppercase; letter-spacing: 0.05em; }
+.sug-chip {
+  font: inherit; font-size: 0.8rem; cursor: pointer;
+  border: 1px dashed var(--accent); border-radius: 999px;
+  background: var(--accent-soft); color: var(--accent-deep);
+  padding: 0.18rem 0.65rem; max-width: 100%; overflow: hidden;
+  text-overflow: ellipsis; white-space: nowrap;
+}
+.sug-chip:hover { background: var(--accent); color: var(--on-accent); }

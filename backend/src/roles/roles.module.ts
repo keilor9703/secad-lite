@@ -1,4 +1,5 @@
 import { Module } from '@nestjs/common';
+import { AuditoriaModule } from '../auditoria/auditoria.module';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { RolEntity } from './rol.entity';
 import { UsuarioEntity } from '../usuarios/usuario.entity';
@@ -10,7 +11,8 @@ import { RolesController } from './roles.controller';
  * usuarios (solo conteo) para impedir borrar un rol en uso.
  */
 @Module({
-  imports: [TypeOrmModule.forFeature([RolEntity, UsuarioEntity])],
+  imports: [
+    AuditoriaModule,TypeOrmModule.forFeature([RolEntity, UsuarioEntity])],
   controllers: [RolesController],
   providers: [RolesService],
   exports: [RolesService],

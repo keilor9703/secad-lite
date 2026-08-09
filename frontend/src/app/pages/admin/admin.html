@@ -360,4 +360,37 @@
       </table>
     </div>
   </div>
+
+  <!-- Bitácora de administración: quién cambió qué (usuarios, roles, claves). -->
+  <div class="panel card" *ngIf="!esSuperadmin() || tenantCtx()">
+    <h2>
+      🧾 Bitácora de administración
+      <button type="button" class="btn btn--ghost mini" (click)="alternarBitacora()">
+        {{ bitacoraAbierta() ? 'Ocultar' : 'Ver' }}
+      </button>
+      <button type="button" class="btn btn--ghost mini" *ngIf="bitacoraAbierta()" (click)="cargarBitacora()">
+        Actualizar
+      </button>
+    </h2>
+    <ng-container *ngIf="bitacoraAbierta()">
+      <p class="pbx-hint">Cambios en usuarios, roles, claves e integraciones de esta instancia,
+        con su autor. Los casos tienen su propia línea de tiempo; esto cubre la administración.</p>
+      <div class="tbl-wrap" *ngIf="bitacora().length; else bitacoraVacia">
+        <table>
+          <thead><tr><th>Cuándo</th><th>Quién</th><th>Acción</th><th>Detalle</th></tr></thead>
+          <tbody>
+            <tr *ngFor="let e of bitacora()">
+              <td class="mono">{{ e.creadoEn | date: 'dd/MM HH:mm' }}</td>
+              <td>{{ e.autor }}</td>
+              <td><span class="mono">{{ e.accion }}</span></td>
+              <td class="bit-detalle">{{ e.detalle }}</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+      <ng-template #bitacoraVacia>
+        <p class="vacio-inline">Aún no hay movimientos registrados en esta instancia.</p>
+      </ng-template>
+    </ng-container>
+  </div>
 </section>

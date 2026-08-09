@@ -121,8 +121,17 @@
         </div>
         <div class="field span4">
           <label for="fcom">Comentario / relato</label>
-          <textarea id="fcom" [(ngModel)]="form.descripcion" name="fcom" rows="3"
-                    placeholder="Lo que narra quien reporta"></textarea>
+          <textarea id="fcom" [ngModel]="form.descripcion" (ngModelChange)="actualizarRelato($event)"
+                    name="fcom" rows="3" placeholder="Lo que narra quien reporta"></textarea>
+          <!-- El catálogo leyó el relato: sugiere la tipificación, el operador decide. -->
+          <div class="sugerencias" *ngIf="sugerenciasCodigo().length">
+            <span class="sug-lbl">¿Se trata de…?</span>
+            <button type="button" class="sug-chip" *ngFor="let c of sugerenciasCodigo()"
+                    (click)="aplicarSugerencia(c.codigo)"
+                    [title]="'Aplica el código ' + c.codigo + ' con su prioridad y agencia sugerida'">
+              {{ c.codigo }} · {{ c.descripcion }}
+            </button>
+          </div>
         </div>
       </div>
     </fieldset>

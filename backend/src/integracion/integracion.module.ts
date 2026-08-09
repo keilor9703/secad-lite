@@ -1,4 +1,5 @@
 import { Module } from '@nestjs/common';
+import { AuditoriaModule } from '../auditoria/auditoria.module';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { EntidadEntity } from './entidad.entity';
 import { CasoEntity } from '../casos/caso.entity';
@@ -14,7 +15,8 @@ import { CatalogosModule } from '../catalogos/catalogos.module';
  * casos (canal 'integracion') con bitácora.
  */
 @Module({
-  imports: [TypeOrmModule.forFeature([EntidadEntity, CasoEntity]), CasosModule, TenantsModule, CatalogosModule],
+  imports: [
+    AuditoriaModule,TypeOrmModule.forFeature([EntidadEntity, CasoEntity]), CasosModule, TenantsModule, CatalogosModule],
   controllers: [IntegracionController],
   providers: [IntegracionService],
   exports: [IntegracionService],

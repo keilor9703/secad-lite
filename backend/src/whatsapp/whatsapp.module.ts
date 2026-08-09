@@ -1,4 +1,5 @@
 import { Module } from '@nestjs/common';
+import { AuditoriaModule } from '../auditoria/auditoria.module';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { MensajeChatEntity } from '../chat/mensaje.entity';
 import { CasoEntity } from '../casos/caso.entity';
@@ -14,6 +15,7 @@ import { TenantsModule } from '../tenants/tenants.module';
  */
 @Module({
   imports: [
+    AuditoriaModule,
     TypeOrmModule.forFeature([MensajeChatEntity, CasoEntity]),
     CasosModule,
     TenantsModule,

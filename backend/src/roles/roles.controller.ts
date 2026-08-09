@@ -2,6 +2,9 @@ import { Body, Controller, Delete, Get, Param, Patch, Post } from '@nestjs/commo
 import { ActualizarRolDto, CrearRolDto, RolesService } from './roles.service';
 import { Permisos } from '../auth/permisos.decorator';
 import { Tenant } from '../common/tenant.decorator';
+import { Usuario } from '../common/usuario.decorator';
+import { JwtPayload } from '../auth/auth.service';
+import { AuditoriaAdminService } from '../auditoria/auditoria-admin.service';
 
 /**
  * Gestión de roles y permisos (requiere el permiso roles.gestionar). Los roles
@@ -11,7 +14,10 @@ import { Tenant } from '../common/tenant.decorator';
 @Permisos('roles.gestionar')
 @Controller('roles')
 export class RolesController {
-  constructor(private readonly roles: RolesService) {}
+  constructor(
+    private readonly roles: RolesService,
+    private readonly auditoria: AuditoriaAdminService,
+  ) {}
 
   /** GET /api/roles/catalogo — permisos disponibles (filas de la matriz). */
   @Get('catalogo')
@@ -27,19 +33,28 @@ export class RolesController {
 
   /** POST /api/roles — crear un rol a medida. */
   @Post()
-  crear(@Tenant() tenant: string, @Body() dto: CrearRolDto) {
-    return this.roles.crear(tenant, dto);
+  async crear(@Tenant() tenant: string, @Usuario() u: JwtPayload, @Body() dto: CrearRolDto) {
+    const rol = await this.roles.crear(tenant, dto);
+    await this.auditoria.registrar(tenant, u.sub, 'rol.crear', `Creó el rol «${rol.nombre}».`);
+    return rol;
   }
 
   /** PATCH /api/roles/:id — renombrar / cambiar la matriz de permisos. */
   @Patch(':id')
-  actualizar(@Tenant() tenant: string, @Param('id') id: string, @Body() dto: ActualizarRolDto) {
-    return this.roles.actualizar(tenant, id, dto);
+  async actualizar(@Tenant() tenant: string, @Usuario() u: JwtPayload, @Param('id') id: string, @Body() dto: ActualizarRolDto) {
+    const rol = await this.roles.actualizar(tenant, id, dto);
+    const que = dto?.permisos !== undefined
+      ? `permisos del rol «${rol.nombre}» → [${(rol.permisos ?? []).join(', ')}]`
+      : `rol «${rol.nombre}»`;
+    await this.auditoria.registrar(tenant, u.sub, 'rol.actualizar', `Actualizó ${que}.`);
+    return rol;
   }
 
   /** DELETE /api/roles/:id — eliminar un rol a medida (no de sistema ni en uso). */
   @Delete(':id')
-  eliminar(@Tenant() tenant: string, @Param('id') id: string) {
-    return this.roles.eliminar(tenant, id);
+  async eliminar(@Tenant() tenant: string, @Usuario() u: JwtPayload, @Param('id') id: string) {
+    const resultado = await this.roles.eliminar(tenant, id);
+    await this.auditoria.registrar(tenant, u.sub, 'rol.eliminar', `Eliminó el rol ${id}.`);
+    return resultado;
   }
 }

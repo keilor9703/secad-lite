@@ -1,6 +1,6 @@
 import { Component, computed, effect, inject, signal } from '@angular/core';
 import { CommonModule } from '@angular/common';
-import { ActivatedRoute, Router } from '@angular/router';
+import { ActivatedRoute, Router, RouterLink } from '@angular/router';
 import { DetalleComponent } from '../detalle/detalle';
 import { CasosService } from '../../core/casos.service';
 import { CatalogosService } from '../../core/catalogos.service';
@@ -24,7 +24,7 @@ interface Columna {
 @Component({
   selector: 'app-despacho',
   standalone: true,
-  imports: [CommonModule, DetalleComponent],
+  imports: [CommonModule, RouterLink, DetalleComponent],
   templateUrl: './despacho.html',
   styleUrl: './despacho.scss',
 })

@@ -7,12 +7,14 @@ import { Public } from './public.decorator';
 import { Usuario } from '../common/usuario.decorator';
 import { JwtPayload } from './auth.service';
 import { UsuariosService } from '../usuarios/usuarios.service';
+import { AuditoriaAdminService } from '../auditoria/auditoria-admin.service';
 
 @Controller('auth')
 export class AuthController {
   constructor(
     private readonly auth: AuthService,
     private readonly usuarios: UsuariosService,
+    private readonly auditoria: AuditoriaAdminService,
   ) {}
 
   /**
@@ -46,11 +48,13 @@ export class AuthController {
   @UseGuards(ThrottlerGuard)
   @Throttle({ default: { limit: 5, ttl: 60_000 } })
   @Post('cambiar-contrasena')
-  cambiarContrasena(@Usuario() usuario: JwtPayload, @Body() dto: CambiarContrasenaDto) {
+  async cambiarContrasena(@Usuario() usuario: JwtPayload, @Body() dto: CambiarContrasenaDto) {
     if (usuario?.tipo !== 'institucional') {
       throw new ForbiddenException('Solo las cuentas institucionales tienen contraseña propia.');
     }
-    return this.usuarios.cambiarContrasenaPropia(usuario.sub, usuario.tenant ?? null, dto.actual, dto.nueva);
+    const r = await this.usuarios.cambiarContrasenaPropia(usuario.sub, usuario.tenant ?? null, dto.actual, dto.nueva);
+    await this.auditoria.registrar(usuario.tenant ?? 'plataforma', usuario.sub, 'contrasena.propia', 'Cambió su propia contraseña.');
+    return r;
   }
 
   /** POST /api/auth/civil/login — ciudadano (chat); el tenant viene del header. */

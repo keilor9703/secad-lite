@@ -3,6 +3,7 @@ import { ActorPbx, PbxService, WebhookLlamadaDto } from './pbx.service';
 import { TenantsService } from '../tenants/tenants.service';
 import { Public } from '../auth/public.decorator';
 import { Permisos } from '../auth/permisos.decorator';
+import { AuditoriaAdminService } from '../auditoria/auditoria-admin.service';
 import { Tenant } from '../common/tenant.decorator';
 import { Usuario } from '../common/usuario.decorator';
 import { PermisosVigentes } from '../common/permisos-vigentes.decorator';
@@ -15,6 +16,7 @@ export class PbxController {
   constructor(
     private readonly pbx: PbxService,
     private readonly tenants: TenantsService,
+    private readonly auditoria: AuditoriaAdminService,
   ) {}
 
   /**
@@ -115,8 +117,9 @@ export class PbxController {
    */
   @Permisos('pbx.configurar')
   @Post('config/rotar')
-  async rotar(@Tenant() tenant: string) {
+  async rotar(@Tenant() tenant: string, @Usuario() u: JwtPayload) {
     const apiKey = await this.tenants.rotarApiKey(tenant);
+    await this.auditoria.registrar(tenant, u?.sub ?? 'desconocido', 'pbx.rotar', 'Rotó la API key de la planta telefónica.');
     return { apiKey, apiKeyConfigurada: true, webhookPath: '/api/pbx/webhook' };
   }
 }

@@ -1,4 +1,5 @@
 import { Module } from '@nestjs/common';
+import { AuditoriaModule } from '../auditoria/auditoria.module';
 import { JwtModule } from '@nestjs/jwt';
 import { ConfigModule, ConfigService } from '@nestjs/config';
 import { AuthController } from './auth.controller';
@@ -30,6 +31,7 @@ function resolverSecreto(config: ConfigService): string {
 
 @Module({
   imports: [
+    AuditoriaModule,
     UsuariosModule,
     RolesModule,
     TenantsModule,

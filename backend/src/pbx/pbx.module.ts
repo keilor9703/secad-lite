@@ -1,4 +1,5 @@
 import { Module } from '@nestjs/common';
+import { AuditoriaModule } from '../auditoria/auditoria.module';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { LlamadaEntity } from './llamada.entity';
 import { CasoEntity } from '../casos/caso.entity';
@@ -17,6 +18,7 @@ import { UsuariosModule } from '../usuarios/usuarios.module';
  */
 @Module({
   imports: [
+    AuditoriaModule,
     TypeOrmModule.forFeature([LlamadaEntity, CasoEntity]),
     CasosModule,
     TenantsModule,

@@ -1,4 +1,5 @@
 import { MiddlewareConsumer, Module, NestModule } from '@nestjs/common';
+import { AuditoriaModule } from './auditoria/auditoria.module';
 import { ConfigModule, ConfigService } from '@nestjs/config';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { ThrottlerModule } from '@nestjs/throttler';
@@ -25,6 +26,7 @@ import { IntegracionModule } from './integracion/integracion.module';
 
 @Module({
   imports: [
+    AuditoriaModule,
     ConfigModule.forRoot({ isGlobal: true }),
     // Tope de intentos para las rutas que lo declaren (@UseGuards(ThrottlerGuard)):
     // hoy, el login. 5 por minuto por IP frena la fuerza bruta de contraseñas
@@ -41,12 +43,17 @@ import { IntegracionModule } from './integracion/integracion.module';
               'conexión, o levanta PostgreSQL con "docker compose up -d" desde la raíz.',
           );
         }
-        // Las bases gestionadas (Supabase, Neon, RDS…) exigen TLS. Con
-        // DB_SSL=true se cifra la conexión sin validar la cadena del
-        // certificado: alcanza para una demostración, pero para producción hay
-        // que entregar la CA del proveedor en vez de aceptar cualquiera.
+        // Las bases gestionadas (Supabase, Neon, RDS…) exigen TLS. Con la CA
+        // del proveedor en DB_SSL_CA (el PEM completo) la cadena se valida de
+        // verdad; sin ella, DB_SSL=true cifra sin validar — sirve para una
+        // demostración, no para producción.
+        const ca = config.get<string>('DB_SSL_CA')?.trim();
         const ssl =
-          config.get<string>('DB_SSL', 'false') === 'true' ? { rejectUnauthorized: false } : undefined;
+          config.get<string>('DB_SSL', 'false') === 'true'
+            ? ca
+              ? { rejectUnauthorized: true, ca }
+              : { rejectUnauthorized: false }
+            : undefined;
         return {
           type: 'postgres' as const,
           url,

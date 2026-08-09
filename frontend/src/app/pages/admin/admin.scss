@@ -109,3 +109,6 @@ tbody tr:last-child td { border-bottom: none; }
 /* Fila de edición en línea (entidades, y cualquier otra tabla editable). */
 .fila-edicion { background: var(--surface-2); }
 .fila-edicion select { width: auto; min-width: 200px; }
+
+/* Bitácora de administración. */
+.bit-detalle { white-space: normal; min-width: 260px; }

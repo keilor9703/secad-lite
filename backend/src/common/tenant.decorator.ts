@@ -15,7 +15,13 @@ export const Tenant = createParamDecorator(
   (_data: unknown, ctx: ExecutionContext): string => {
     const req = ctx.switchToHttp().getRequest();
     const user = req.user as JwtPayload | undefined;
-    if (!user) return req.tenantId ?? 'demo';
+    if (!user) {
+      // Ruta pública (login civil): el tenant DEBE venir en el header; sin él
+      // no se cae en 'demo' a ciegas.
+      const publico = (req.tenantId ?? '').trim();
+      if (!publico) throw new BadRequestException('Indique la instancia (header X-Tenant-Id).');
+      return publico;
+    }
 
     if (user.rol === 'superadmin') {
       const elegido = (req.header('X-Tenant-Id') ?? '').trim();

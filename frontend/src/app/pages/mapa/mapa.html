@@ -1,0 +1,30 @@
+<section class="mapa-op">
+  <header class="mapa-head">
+    <div>
+      <h1>Mapa operativo</h1>
+      <p>Casos abiertos y flota, en vivo · se actualiza cada 30 s</p>
+    </div>
+    <div class="mapa-datos">
+      <span class="dato"><strong>{{ casosUbicados().length }}</strong> casos en el mapa</span>
+      <span class="dato" *ngIf="sinUbicar() > 0" title="Casos abiertos sin coordenadas; ubíquelos desde su detalle">
+        {{ sinUbicar() }} sin ubicar
+      </span>
+      <span class="dato"><strong>{{ recursosUbicados().length }}</strong> unidades</span>
+      <span class="dato hora" *ngIf="actualizadoEn()">{{ actualizadoEn() | date: 'HH:mm:ss' }}</span>
+    </div>
+  </header>
+
+  <p class="error" *ngIf="error()">{{ error() }}</p>
+
+  <div id="mapaOperativo" class="lienzo card"></div>
+
+  <div class="leyenda card">
+    <span class="ley"><span class="pin-caso-op" data-prio="alta"></span> Prioridad alta</span>
+    <span class="ley"><span class="pin-caso-op" data-prio="media"></span> Media</span>
+    <span class="ley"><span class="pin-caso-op" data-prio="baja"></span> Baja</span>
+    <span class="sep" aria-hidden="true"></span>
+    <span class="ley"><span class="pin-recurso" data-estado="disponible">🚓</span> Unidad disponible</span>
+    <span class="ley"><span class="pin-recurso" data-estado="en_ruta">🚑</span> Comprometida</span>
+    <span class="ley"><span class="pin-recurso" data-estado="fuera_servicio">🚒</span> Fuera de servicio</span>
+  </div>
+</section>

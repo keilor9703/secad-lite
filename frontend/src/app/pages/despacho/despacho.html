@@ -13,6 +13,7 @@
         <p *ngIf="veTodo()">Todos los casos abiertos del secad.</p>
       </div>
       <div class="desp-head-der">
+        <a routerLink="/wallboard" class="btn btn--ghost" title="Pantalla grande para la sala">📺 Sala</a>
         <button type="button" class="btn btn--ghost timbre" (click)="alternarSonido()"
                 [title]="sonidoActivo() ? 'Silenciar el aviso de casos nuevos' : 'Activar el aviso sonoro de casos nuevos'"
                 [attr.aria-label]="sonidoActivo() ? 'Silenciar aviso de casos nuevos' : 'Activar aviso sonoro de casos nuevos'">

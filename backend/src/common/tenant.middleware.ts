@@ -19,8 +19,12 @@ declare global {
 @Injectable()
 export class TenantMiddleware implements NestMiddleware {
   use(req: Request, _res: Response, next: NextFunction) {
+    // Sin valor por defecto: una petición pública sin header queda SIN tenant
+    // y el decorador la rechaza con un mensaje claro. El 'demo' silencioso de
+    // antes era una trampa: cualquier integración futura mal configurada
+    // habría caído calladamente en la instancia de demostración.
     const header = req.header('X-Tenant-Id');
-    req.tenantId = (header && header.trim()) || 'demo';
+    req.tenantId = (header && header.trim()) || undefined;
     next();
   }
 }

@@ -11,6 +11,7 @@ import { Permisos } from '../auth/permisos.decorator';
 import { Tenant } from '../common/tenant.decorator';
 import { Usuario } from '../common/usuario.decorator';
 import { JwtPayload } from '../auth/auth.service';
+import { AuditoriaAdminService } from '../auditoria/auditoria-admin.service';
 import { RequiereIntegracion } from '../tenants/integracion.decorator';
 
 @RequiereIntegracion('whatsapp')
@@ -20,6 +21,7 @@ export class WhatsappController {
     private readonly wa: WhatsappService,
     private readonly tenants: TenantsService,
     private readonly config: ConfigService,
+    private readonly auditoria: AuditoriaAdminService,
   ) {}
 
   private get verifyToken(): string {
@@ -104,11 +106,15 @@ export class WhatsappController {
   @Put('config')
   async setConfig(
     @Tenant() tenant: string,
+    @Usuario() u: JwtPayload,
     @Body() dto: { phoneNumberId?: string; accessToken?: string; agenciaResponsableId?: string | null; canales?: string[] },
   ) {
     const cfg = await this.tenants.setWaConfig(
       tenant, dto?.phoneNumberId, dto?.accessToken, dto?.agenciaResponsableId, dto?.canales,
     );
+    const conToken = dto?.accessToken?.trim() ? ', token renovado' : '';
+    await this.auditoria.registrar(tenant, u?.sub ?? 'desconocido', 'whatsapp.config',
+      `Actualizó la configuración de WhatsApp (phone_number_id: ${cfg.phoneNumberId ?? '—'}${conToken}).`);
     return { ...cfg, verifyToken: this.verifyToken, webhookPath: '/api/whatsapp/webhook' };
   }
 

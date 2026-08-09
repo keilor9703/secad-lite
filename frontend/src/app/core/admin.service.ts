@@ -19,6 +19,16 @@ export interface CrearUsuario {
   extension?: string | null;
 }
 
+/** Entrada de la bitácora de administración: quién cambió qué. */
+export interface EntradaBitacora {
+  id: string;
+  tenant: string;
+  autor: string;
+  accion: string;
+  detalle: string;
+  creadoEn: string;
+}
+
 @Injectable({ providedIn: 'root' })
 export class AdminService {
   private http = inject(HttpClient);
@@ -61,6 +71,11 @@ export class AdminService {
    * la del propio superadmin, cuando es él quien mira—: el backend ya
    * resuelve el alcance (un admin de tenant solo ve y puede tocar los suyos).
    */
+  /** Bitácora de administración: quién cambió qué en la configuración. */
+  listarBitacora(limite = 100): Observable<EntradaBitacora[]> {
+    return this.http.get<EntradaBitacora[]>(`${environment.apiBaseUrl}/admin/bitacora?limite=${limite}`);
+  }
+
   cambiarContrasena(id: string, contrasena: string): Observable<UsuarioAdmin> {
     return this.http.patch<UsuarioAdmin>(`${this.base}/usuarios/${id}`, { contrasena });
   }

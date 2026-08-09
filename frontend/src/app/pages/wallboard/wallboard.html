@@ -1,0 +1,45 @@
+<section class="wall">
+  <header class="wall-head">
+    <h1>FALCON <span>CAD</span> · Sala</h1>
+    <div class="reloj mono">{{ ahora() | date: 'HH:mm:ss' }}</div>
+  </header>
+
+  <!-- Colas por paso del ciclo: lo que la sala vigila todo el tiempo -->
+  <div class="colas">
+    <div class="cola" [class.alerta]="sinTomar().length > 0">
+      <span class="n">{{ sinTomar().length }}</span>
+      <span class="l">Sin tomar</span>
+    </div>
+    <div class="cola"><span class="n">{{ enGestion().length }}</span><span class="l">En gestión</span></div>
+    <div class="cola"><span class="n">{{ conRecursos().length }}</span><span class="l">Con recursos</span></div>
+    <div class="cola"><span class="n">{{ remitidos().length }}</span><span class="l">Remitidos</span></div>
+    <div class="cola critica" [class.alerta]="criticos().length > 0">
+      <span class="n">{{ criticos().length }}</span>
+      <span class="l">En rojo</span>
+    </div>
+  </div>
+
+  <div class="wall-cols">
+    <!-- Lo último en llegar, con su semáforo de espera -->
+    <div class="panel card">
+      <h2>Últimos en llegar</h2>
+      <div class="llegada" *ngFor="let c of ultimos()">
+        <span class="sem" [attr.data-sem]="semaforo(c)" aria-hidden="true"></span>
+        <span class="tit">{{ c.titulo }}</span>
+        <span class="agn">{{ c.agencia }}</span>
+        <span class="edad mono">{{ espera(c) }}</span>
+      </div>
+      <p class="vacio" *ngIf="!ultimos().length">Sin casos abiertos. Sala en calma.</p>
+    </div>
+
+    <!-- Tiempos del mes: cómo está respondiendo el centro -->
+    <div class="panel card" *ngIf="tiempos() as t">
+      <h2>Tiempos · 30 días</h2>
+      <div class="tiempos-wall">
+        <div class="tw"><span class="n">{{ duracion(t.tomaMin) }}</span><span class="l">hasta tomarse</span></div>
+        <div class="tw"><span class="n">{{ duracion(t.despachoMin) }}</span><span class="l">hasta 1.er recurso</span></div>
+        <div class="tw"><span class="n">{{ duracion(t.cierreMin) }}</span><span class="l">hasta el cierre</span></div>
+      </div>
+    </div>
+  </div>
+</section>

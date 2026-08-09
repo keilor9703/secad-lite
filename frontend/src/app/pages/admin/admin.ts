@@ -1,7 +1,7 @@
 import { Component, OnInit, computed, effect, inject, signal } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
-import { AdminService, CrearUsuario } from '../../core/admin.service';
+import { AdminService, CrearUsuario, EntradaBitacora } from '../../core/admin.service';
 import { AuthService } from '../../core/auth.service';
 import { PbxService } from '../../core/pbx.service';
 import { WhatsappService } from '../../core/whatsapp.service';
@@ -47,6 +47,9 @@ export class AdminComponent implements OnInit {
   readonly tenants = signal<Tenant[]>([]);
   readonly usuarios = signal<UsuarioAdmin[]>([]);
   readonly error = signal('');
+  /** Bitácora de administración del tenant en gestión. */
+  readonly bitacora = signal<EntradaBitacora[]>([]);
+  readonly bitacoraAbierta = signal(false);
 
   /** Tenant en gestión (lo elige el superadmin en la barra superior). */
   readonly tenantCtx = this.auth.tenantCtx;
@@ -162,6 +165,8 @@ export class AdminComponent implements OnInit {
       this.cargarWa();
       if (this.gestionaEntidades) this.cargarEntidades();
       this.cargarCatalogos();
+      this.bitacora.set([]);
+      if (this.bitacoraAbierta()) this.cargarBitacora();
     });
   }
 
@@ -182,6 +187,19 @@ export class AdminComponent implements OnInit {
   puedeEditarRolDe(u: UsuarioAdmin): boolean {
     if (u.rol === 'superadmin' || !u.tenant) return false;
     return this.esSuperadmin() ? u.tenant === this.tenantCtx() : true;
+  }
+
+  /** Se carga al abrir la sección (no en cada entrada a Administración). */
+  alternarBitacora(): void {
+    this.bitacoraAbierta.update((v) => !v);
+    if (this.bitacoraAbierta() && !this.bitacora().length) this.cargarBitacora();
+  }
+
+  cargarBitacora(): void {
+    this.admin.listarBitacora().subscribe({
+      next: (b) => this.bitacora.set(b),
+      error: () => {},
+    });
   }
 
   private cargarRoles(): void {
