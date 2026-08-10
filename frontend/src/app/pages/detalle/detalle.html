@@ -39,7 +39,7 @@
 
         <div class="canales-caso" *ngIf="(c.canales || []).length">
           <span class="ubic-lbl">Canales de atención</span>
-          <span class="chip-ro" *ngFor="let id of c.canales">{{ nombreCanal(id) }}</span>
+          <span class="chip-ro" *ngFor="let id of c.canales ?? []">{{ nombreCanal(id) }}</span>
         </div>
 
         <p class="desc" *ngIf="c.descripcion">{{ c.descripcion }}</p>

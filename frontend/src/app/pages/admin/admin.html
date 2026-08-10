@@ -221,7 +221,8 @@
               <td>{{ e.nombre }}</td>
               <td>
                 {{ e.agencia }}
-                <span class="mono" *ngIf="e.canales.length"> ({{ nombresCanales(e.canales) }})</span>
+                <!-- e.canales puede ser NULL en entidades creadas antes de la migración de enrutamiento -->
+                <span class="mono" *ngIf="e.canales?.length"> ({{ nombresCanales(e.canales!) }})</span>
                 <span class="vacio-inline" *ngIf="!e.agenciaResponsableId"> — sin canal asignado</span>
               </td>
               <td class="mono ent-key">

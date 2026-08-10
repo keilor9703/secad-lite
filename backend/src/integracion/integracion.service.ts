@@ -166,10 +166,14 @@ export class IntegracionService implements OnModuleInit {
     return { ...this.sinClave(e), apiKey: clave };
   }
 
-  /** Copia sin la columna apiKey (que ya solo contiene el digest). */
+  /**
+   * Copia sin la columna apiKey (que ya solo contiene el digest) y con
+   * `canales` normalizado a arreglo: las filas anteriores a la migración de
+   * enrutamiento lo tienen en NULL, y ese NULL llegaba tal cual al navegador.
+   */
   private sinClave(e: EntidadEntity): EntidadDto {
     const { apiKey: _apiKey, ...resto } = e;
-    return resto;
+    return { ...resto, canales: resto.canales ?? [] };
   }
 
   // ---------------------------------------------------------------------------
