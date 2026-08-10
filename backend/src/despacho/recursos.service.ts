@@ -11,8 +11,6 @@ export interface CrearRecursoDto {
   tipo: TipoRecurso;
   /** Agencia dueña (agencias.id); sale del catálogo, no se escribe a mano. */
   agenciaId?: string | null;
-  lat?: number;
-  lng?: number;
 }
 
 export interface ActualizarRecursoDto {
@@ -22,8 +20,6 @@ export interface ActualizarRecursoDto {
   agenciaId?: string | null;
   activo?: boolean;
   fueraServicio?: boolean;
-  lat?: number;
-  lng?: number;
 }
 
 /** Gestión de la flota de recursos (unidades). Acotada por tenant. */
@@ -75,8 +71,6 @@ export class RecursosService implements OnModuleInit {
         tipo: dto.tipo,
         ...agencia,
         estado: 'disponible',
-        lat: dto.lat ?? null,
-        lng: dto.lng ?? null,
         activo: true,
       }),
     );
@@ -99,8 +93,6 @@ export class RecursosService implements OnModuleInit {
       r.agenciaId = agencia.agenciaId;
       r.agencia = agencia.agencia;
     }
-    if (typeof dto.lat === 'number') r.lat = dto.lat;
-    if (typeof dto.lng === 'number') r.lng = dto.lng;
     if (typeof dto.activo === 'boolean') r.activo = dto.activo;
     // Sacar/entrar de servicio solo si el recurso no está comprometido.
     if (typeof dto.fueraServicio === 'boolean') {
@@ -148,10 +140,10 @@ export class RecursosService implements OnModuleInit {
   private async seed(): Promise<void> {
     if (await this.repo.count({ where: { tenant: 'demo' } })) return;
     const demo: Array<Partial<RecursoEntity>> = [
-      { codigo: 'P-01', nombre: 'Patrulla 01', tipo: 'patrulla', agencia: 'Policía', lat: 4.6580, lng: -74.0940 },
-      { codigo: 'P-02', nombre: 'Patrulla 02', tipo: 'patrulla', agencia: 'Policía', lat: 4.5709, lng: -74.0970 },
-      { codigo: 'AMB-1', nombre: 'Ambulancia 1', tipo: 'ambulancia', agencia: 'Salud', lat: 4.6300, lng: -74.0700 },
-      { codigo: 'M-1', nombre: 'Máquina 1', tipo: 'maquina', agencia: 'Bomberos', lat: 4.6100, lng: -74.0820 },
+      { codigo: 'P-01', nombre: 'Patrulla 01', tipo: 'patrulla', agencia: 'Policía' },
+      { codigo: 'P-02', nombre: 'Patrulla 02', tipo: 'patrulla', agencia: 'Policía' },
+      { codigo: 'AMB-1', nombre: 'Ambulancia 1', tipo: 'ambulancia', agencia: 'Salud' },
+      { codigo: 'M-1', nombre: 'Máquina 1', tipo: 'maquina', agencia: 'Bomberos' },
     ];
     for (const r of demo) {
       await this.repo.save(this.repo.create({ ...r, tenant: 'demo', estado: 'disponible', activo: true }));

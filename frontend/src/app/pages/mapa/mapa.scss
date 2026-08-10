@@ -1,4 +1,4 @@
-.mapa-op { display: flex; flex-direction: column; gap: 1rem; }
+.mapa-est { display: flex; flex-direction: column; gap: 1rem; }
 
 .mapa-head { display: flex; align-items: flex-end; justify-content: space-between; gap: 1rem; flex-wrap: wrap; }
 .mapa-head h1 { margin: 0; font-size: 1.5rem; letter-spacing: -0.02em; }
@@ -6,35 +6,59 @@
 .mapa-datos { display: flex; gap: 1rem; align-items: baseline; flex-wrap: wrap; }
 .dato { font-size: 0.85rem; color: var(--ink-soft); }
 .dato strong { color: var(--accent); font-variant-numeric: tabular-nums; }
-.dato.hora { font-family: var(--mono); color: var(--muted); font-size: 0.78rem; }
 
 .error { color: var(--danger); font-size: 0.87rem; margin: 0; }
 
-.lienzo { height: clamp(420px, 62vh, 720px); overflow: hidden; }
+.filtros { display: flex; gap: 0.6rem; flex-wrap: wrap; align-items: center; }
+.filtros select { width: auto; min-width: 200px; }
+.rango { display: inline-flex; align-items: center; gap: 0.4rem; }
+.rango label { font-size: 0.8rem; color: var(--muted); }
+.rango input[type='date'] { width: auto; }
+
+.mini { padding: 0.3rem 0.6rem; font-size: 0.78rem; }
+.modos { display: inline-flex; gap: 0.3rem; margin-left: auto; }
+.modos .btn.activo { background: var(--accent); color: var(--on-accent); border-color: var(--accent); }
+
+.lienzo { height: clamp(420px, 56vh, 640px); overflow: hidden; }
 
 .leyenda { display: flex; align-items: center; gap: 1rem; flex-wrap: wrap; padding: 0.6rem 1rem; font-size: 0.82rem; color: var(--ink-soft); }
 .ley { display: inline-flex; align-items: center; gap: 0.4rem; }
-.sep { width: 1px; height: 1.1rem; background: var(--border-2); }
 
-/* Los marcadores se dibujan en HTML (divIcon): sin depender de PNG de Leaflet.
-   Van con ::ng-deep porque Leaflet los inserta fuera del árbol del componente. */
-:host ::ng-deep .pin-caso-op {
-  display: inline-block; width: 16px; height: 16px; border-radius: 50%;
+.cols { display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; }
+@media (max-width: 720px) { .cols { grid-template-columns: 1fr; } }
+.panel { padding: 1.1rem 1.2rem; }
+.panel h2 { margin: 0 0 0.5rem; font-size: 1.02rem; }
+.pico { margin: 0 0 0.7rem; font-size: 0.82rem; color: var(--ink-soft); }
+.pico strong { color: var(--accent); }
+
+.barras { display: flex; flex-direction: column; gap: 0.5rem; }
+.vacio { color: var(--muted); margin: 0; }
+.fila { display: grid; grid-template-columns: 110px 1fr 34px; align-items: center; gap: 0.6rem; }
+.fila-codigo { grid-template-columns: 160px 1fr 34px; }
+.cap { font-size: 0.8rem; color: var(--ink-soft); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.cap small { color: var(--muted); }
+.track { height: 12px; background: var(--surface-2); border-radius: 999px; overflow: hidden; }
+.fill { height: 100%; border-radius: 999px; background: var(--accent); min-width: 3px; transition: width 0.3s ease; }
+.fill.ag { background: var(--accent-deep); }
+.val { font-size: 0.82rem; font-weight: 600; text-align: right; font-variant-numeric: tabular-nums; }
+
+/* Horarios de mayor afectación: 24 barras verticales, una por hora. */
+.horas { overflow-x: auto; }
+.barras-horas { flex-direction: row; align-items: flex-end; gap: 0.35rem; min-width: max-content; padding-bottom: 0.2rem; }
+.fila-hora { display: flex; flex-direction: column; align-items: center; gap: 0.3rem; width: 30px; }
+.fila-hora .cap { font-size: 0.6rem; color: var(--muted); width: auto; }
+.fila-hora .val { font-size: 0.62rem; font-weight: 500; }
+.track.vert { width: 14px; height: 90px; background: var(--surface-2); border-radius: 999px; display: flex; align-items: flex-end; overflow: hidden; }
+.track.vert .fill { width: 100%; height: 0%; border-radius: 999px; background: var(--accent); min-width: 0; transition: height 0.3s ease; }
+
+/* Marcadores de caso (modos puntos/cluster): divIcon, sin depender de PNG. */
+:host ::ng-deep .pin-caso {
+  display: inline-block; width: 14px; height: 14px; border-radius: 50%;
   border: 2px solid var(--surface); box-shadow: 0 1px 4px rgba(0, 0, 0, 0.4);
 }
-:host ::ng-deep .pin-caso-op[data-prio='alta']  { background: #d64545; }
-:host ::ng-deep .pin-caso-op[data-prio='media'] { background: #de9b3a; }
-:host ::ng-deep .pin-caso-op[data-prio='baja']  { background: #4a90d9; }
-
-:host ::ng-deep .pin-recurso {
-  display: inline-flex; align-items: center; justify-content: center;
-  width: 24px; height: 24px; font-size: 15px; border-radius: 50%;
-  background: var(--surface); border: 2px solid var(--ok);
-  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.35);
-}
-:host ::ng-deep .pin-recurso[data-estado='asignado'],
-:host ::ng-deep .pin-recurso[data-estado='en_ruta'],
-:host ::ng-deep .pin-recurso[data-estado='en_sitio'] { border-color: var(--warn); }
-:host ::ng-deep .pin-recurso[data-estado='fuera_servicio'] { border-color: var(--muted); filter: grayscale(1); opacity: 0.75; }
+:host ::ng-deep .pin-caso[data-prio='alta']  { background: #d64545; }
+:host ::ng-deep .pin-caso[data-prio='media'] { background: #de9b3a; }
+:host ::ng-deep .pin-caso[data-prio='baja']  { background: #4a90d9; }
 
 :host ::ng-deep .leaflet-control-attribution { font-size: 0.65rem; }
+:host ::ng-deep .marker-cluster { background-clip: padding-box; }

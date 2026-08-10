@@ -2,7 +2,7 @@ import { Injectable, inject } from '@angular/core';
 import { HttpClient } from '@angular/common/http';
 import { Observable } from 'rxjs';
 import { environment } from '../../environments/environment';
-import { Asignacion, EstadoAsignacion, Recurso, RecursoSugerido, TipoRecurso } from './models';
+import { Asignacion, EstadoAsignacion, Recurso, TipoRecurso } from './models';
 
 export interface CrearRecurso {
   codigo: string;
@@ -46,10 +46,6 @@ export class DespachoService {
   // Despacho sobre un caso
   asignaciones(casoId: string): Observable<Asignacion[]> {
     return this.http.get<Asignacion[]>(`${this.base}/casos/${casoId}/asignaciones`);
-  }
-  /** Recursos disponibles ordenados por cercanía al caso (distancia + ETA). */
-  recursosSugeridos(casoId: string): Observable<RecursoSugerido[]> {
-    return this.http.get<RecursoSugerido[]>(`${this.base}/casos/${casoId}/recursos-sugeridos`);
   }
   despachar(casoId: string, recursoId: string): Observable<Asignacion> {
     return this.http.post<Asignacion>(`${this.base}/casos/${casoId}/asignaciones`, { recursoId });

@@ -1,4 +1,4 @@
-import { Controller, Get } from '@nestjs/common';
+import { Controller, Get, Query } from '@nestjs/common';
 import { MetricasService } from './metricas.service';
 import { Tenant } from '../common/tenant.decorator';
 import { Permisos } from '../auth/permisos.decorator';
@@ -13,5 +13,11 @@ export class MetricasController {
   @Get()
   resumen(@Tenant() tenant: string) {
     return this.metricas.resumen(tenant);
+  }
+
+  /** GET /api/metricas/mapa — mapa estadístico/de calor de casos históricos. */
+  @Get('mapa')
+  mapa(@Tenant() tenant: string, @Query('desde') desde?: string, @Query('hasta') hasta?: string, @Query('codigo') codigo?: string) {
+    return this.metricas.mapa(tenant, { desde, hasta, codigo });
   }
 }

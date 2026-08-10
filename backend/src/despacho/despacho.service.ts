@@ -3,7 +3,6 @@ import { InjectRepository } from '@nestjs/typeorm';
 import { EntityManager, Repository } from 'typeorm';
 import { AsignacionEntity, EstadoAsignacion, ESTADOS_ASIGNACION, ESTADOS_ASIGNACION_ACTIVOS } from './asignacion.entity';
 import { RecursoEntity } from './recurso.entity';
-import { RecursosService } from './recursos.service';
 import { CasoEntity } from '../casos/caso.entity';
 import { EventoCasoEntity } from '../casos/evento.entity';
 
@@ -29,9 +28,7 @@ const LABEL: Record<EstadoAsignacion, string> = {
 export class DespachoService {
   constructor(
     @InjectRepository(AsignacionEntity) private readonly asignaciones: Repository<AsignacionEntity>,
-    @InjectRepository(CasoEntity) private readonly casos: Repository<CasoEntity>,
     @InjectRepository(EventoCasoEntity) private readonly eventos: Repository<EventoCasoEntity>,
-    private readonly recursosSvc: RecursosService,
   ) {}
 
   listar(tenant: string, casoId: string): Promise<AsignacionEntity[]> {
@@ -171,56 +168,9 @@ export class DespachoService {
     });
   }
 
-  /**
-   * Sugiere recursos disponibles ordenados por cercanía al caso: distancia
-   * lineal (Haversine) + ETA estimado a 40 km/h. Si el caso o el recurso no
-   * tienen coordenadas, la distancia queda en null y esos recursos van al final.
-   */
-  async recursosSugeridos(tenant: string, casoId: string): Promise<RecursoSugerido[]> {
-    const caso = await this.casos.findOne({ where: { tenant, id: casoId } });
-    if (!caso) throw new NotFoundException('Caso no encontrado.');
-    const disponibles = await this.recursosSvc.disponibles(tenant);
-    const conCoords = typeof caso.lat === 'number' && typeof caso.lng === 'number';
-
-    const sugeridos: RecursoSugerido[] = disponibles.map((recurso) => {
-      if (!conCoords || typeof recurso.lat !== 'number' || typeof recurso.lng !== 'number') {
-        return { recurso, distanciaKm: null, etaMin: null };
-      }
-      const distanciaKm = haversineKm(caso.lat!, caso.lng!, recurso.lat, recurso.lng);
-      const etaMin = Math.max(1, Math.round((distanciaKm / 40) * 60));
-      return { recurso, distanciaKm: Math.round(distanciaKm * 100) / 100, etaMin };
-    });
-
-    sugeridos.sort((a, b) => {
-      if (a.distanciaKm === null) return b.distanciaKm === null ? 0 : 1;
-      if (b.distanciaKm === null) return -1;
-      return a.distanciaKm - b.distanciaKm;
-    });
-    return sugeridos;
-  }
-
   /** Bitácora del despacho; con `em` participa en la transacción en curso. */
   private auditar(tenant: string, casoId: string, descripcion: string, autor: string, em?: EntityManager): Promise<EventoCasoEntity> {
     const repo = em ? em.getRepository(EventoCasoEntity) : this.eventos;
     return repo.save(repo.create({ tenant, casoId, tipo: 'despacho', descripcion, autor }));
   }
-}
-
-/** Recurso disponible con su cercanía estimada al caso. */
-export interface RecursoSugerido {
-  recurso: RecursoEntity;
-  distanciaKm: number | null;
-  etaMin: number | null;
-}
-
-/** Distancia en kilómetros entre dos puntos (fórmula de Haversine). */
-function haversineKm(lat1: number, lng1: number, lat2: number, lng2: number): number {
-  const R = 6371; // radio terrestre (km)
-  const rad = (d: number) => (d * Math.PI) / 180;
-  const dLat = rad(lat2 - lat1);
-  const dLng = rad(lng2 - lng1);
-  const a =
-    Math.sin(dLat / 2) ** 2 +
-    Math.cos(rad(lat1)) * Math.cos(rad(lat2)) * Math.sin(dLng / 2) ** 2;
-  return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
 }

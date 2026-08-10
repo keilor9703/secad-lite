@@ -48,13 +48,6 @@ export class RecursoEntity {
   @Column({ type: 'varchar', length: 20, default: 'disponible' })
   estado!: EstadoRecurso;
 
-  /** Última ubicación conocida (para asignación por cercanía). */
-  @Column({ type: 'double precision', nullable: true })
-  lat?: number | null;
-
-  @Column({ type: 'double precision', nullable: true })
-  lng?: number | null;
-
   @Column({ type: 'boolean', default: true })
   activo!: boolean;
 }

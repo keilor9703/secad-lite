@@ -32,7 +32,7 @@ export const routes: Routes = [
       { path: 'recepcion/:id', redirectTo: 'caso/:id' },
       // La cola de llamadas vive dentro de Recepción: aquí solo por enlaces antiguos.
       { path: 'llamadas', redirectTo: 'recepcion' },
-      { path: 'mapa', canActivate: [permisoGuard('despacho.ver', 'metricas.ver')],
+      { path: 'mapa', canActivate: [permisoGuard('metricas.ver')],
         loadComponent: () => import('./pages/mapa/mapa').then((m) => m.MapaComponent) },
       { path: 'wallboard', canActivate: [permisoGuard('despacho.ver', 'metricas.ver')],
         loadComponent: () => import('./pages/wallboard/wallboard').then((m) => m.WallboardComponent) },

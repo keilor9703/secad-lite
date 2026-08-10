@@ -25,6 +25,29 @@ export interface Resumen {
   tiempos: { porPrioridad: TiemposPrioridad[]; global: TiemposPrioridad | null };
 }
 
+/** Un caso histórico con ubicación, para pintar en el mapa (puntos/cluster/calor). */
+export interface PuntoMapa {
+  id: string;
+  lat: number;
+  lng: number;
+  codigoCaso: string | null;
+  prioridad: string;
+  titulo: string;
+  creadoEn: Date;
+}
+
+/** Análisis del delito y del fenómeno de convivencia y seguridad ciudadana. */
+export interface AnalisisMapa {
+  puntos: PuntoMapa[];
+  totalConUbicacion: number;
+  totalSinUbicacion: number;
+  /** Día de la semana (0 = domingo … 6 = sábado, EXTRACT(DOW) de PostgreSQL). */
+  porDiaSemana: Array<{ dia: number; total: number }>;
+  /** Hora del día (0-23) en que se recibió el caso. */
+  porHora: Array<{ hora: number; total: number }>;
+  topCodigos: Array<{ codigo: string; descripcion: string | null; total: number }>;
+}
+
 /** Métricas de gestión, siempre acotadas por tenant (GROUP BY en PostgreSQL). */
 @Injectable()
 export class MetricasService {
@@ -113,6 +136,91 @@ export class MetricasService {
     );
     const global = g && Number(g['total']) > 0 ? aFila(g, 'global') : null;
     return { porPrioridad, global };
+  }
+
+  /**
+   * Mapa estadístico y de calor: ubicación de los casos históricos (para
+   * puntos/cluster/calor) más el análisis del fenómeno — días y horas de
+   * mayor afectación y el top 5 de códigos de caso — filtrable por rango de
+   * fechas y por código. Siempre acotado al tenant del usuario logueado.
+   */
+  async mapa(tenant: string, opts?: { desde?: string; hasta?: string; codigo?: string }): Promise<AnalisisMapa> {
+    const desde = this.fechaValida(opts?.desde);
+    const hasta = this.fechaValida(opts?.hasta);
+    const finExclusivo = hasta ? new Date(hasta.getTime() + 864e5) : null;
+    const codigo = opts?.codigo?.trim().toUpperCase() || null;
+
+    const params: unknown[] = [tenant];
+    const cond: string[] = ['c.tenant = $1'];
+    if (desde) { params.push(desde); cond.push(`c."creadoEn" >= $${params.length}`); }
+    if (finExclusivo) { params.push(finExclusivo); cond.push(`c."creadoEn" < $${params.length}`); }
+    if (codigo) { params.push(codigo); cond.push(`c."codigoCaso" = $${params.length}`); }
+    const where = cond.join(' AND ');
+
+    const [puntos, porDia, porHora, topCodigos, sinUbicacion] = await Promise.all([
+      this.repo.query(
+        `SELECT c.id, c.lat, c.lng, c."codigoCaso" AS "codigoCaso", c.prioridad, c.titulo, c."creadoEn" AS "creadoEn"
+           FROM casos c WHERE ${where} AND c.lat IS NOT NULL AND c.lng IS NOT NULL
+          ORDER BY c."creadoEn" DESC LIMIT 5000`,
+        params,
+      ),
+      // Hora local de Colombia (UTC-5, sin horario de verano): "creadoEn" se
+      // guarda en UTC, así que extraer DOW/HOUR directo daría el día/hora de
+      // Greenwich, no el de cuando realmente ocurrió el caso.
+      this.repo.query(
+        `SELECT EXTRACT(DOW FROM (c."creadoEn" AT TIME ZONE 'America/Bogota'))::int AS dia, COUNT(*)::int AS total
+           FROM casos c WHERE ${where} GROUP BY dia`,
+        params,
+      ),
+      this.repo.query(
+        `SELECT EXTRACT(HOUR FROM (c."creadoEn" AT TIME ZONE 'America/Bogota'))::int AS hora, COUNT(*)::int AS total
+           FROM casos c WHERE ${where} GROUP BY hora`,
+        params,
+      ),
+      this.repo.query(
+        `SELECT c."codigoCaso" AS codigo, k.descripcion, COUNT(*)::int AS total
+           FROM casos c LEFT JOIN codigos_caso k ON k.tenant = c.tenant AND k.codigo = c."codigoCaso"
+          WHERE ${where} AND c."codigoCaso" IS NOT NULL
+          GROUP BY c."codigoCaso", k.descripcion
+          ORDER BY total DESC LIMIT 5`,
+        params,
+      ),
+      this.repo.query(
+        `SELECT COUNT(*)::int AS total FROM casos c WHERE ${where} AND (c.lat IS NULL OR c.lng IS NULL)`,
+        params,
+      ),
+    ]);
+
+    const diasPorNumero = new Map<number, number>(porDia.map((f: Record<string, unknown>) => [Number(f['dia']), Number(f['total'])]));
+    const horasPorNumero = new Map<number, number>(porHora.map((f: Record<string, unknown>) => [Number(f['hora']), Number(f['total'])]));
+
+    return {
+      puntos: puntos.map((f: Record<string, unknown>) => ({
+        id: String(f['id']),
+        lat: Number(f['lat']),
+        lng: Number(f['lng']),
+        codigoCaso: (f['codigoCaso'] as string | null) ?? null,
+        prioridad: String(f['prioridad']),
+        titulo: String(f['titulo']),
+        creadoEn: f['creadoEn'] as Date,
+      })),
+      totalConUbicacion: puntos.length,
+      totalSinUbicacion: Number(sinUbicacion[0]?.['total'] ?? 0),
+      porDiaSemana: Array.from({ length: 7 }, (_, dia) => ({ dia, total: diasPorNumero.get(dia) ?? 0 })),
+      porHora: Array.from({ length: 24 }, (_, hora) => ({ hora, total: horasPorNumero.get(hora) ?? 0 })),
+      topCodigos: topCodigos.map((f: Record<string, unknown>) => ({
+        codigo: String(f['codigo']),
+        descripcion: (f['descripcion'] as string | null) ?? null,
+        total: Number(f['total']),
+      })),
+    };
+  }
+
+  /** aaaa-mm-dd → Date, o null si viene vacío o malformado. */
+  private fechaValida(v?: string): Date | null {
+    if (!v || !/^\d{4}-\d{2}-\d{2}$/.test(v)) return null;
+    const d = new Date(`${v}T00:00:00`);
+    return isNaN(d.getTime()) ? null : d;
   }
 
   private async agrupar(tenant: string, campo: 'estado' | 'canal' | 'agencia'): Promise<Record<string, number>> {

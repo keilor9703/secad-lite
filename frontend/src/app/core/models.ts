@@ -110,15 +110,6 @@ export interface Recurso {
   agencia: string;
   estado: EstadoRecurso;
   activo: boolean;
-  lat?: number | null;
-  lng?: number | null;
-}
-
-/** Recurso disponible con su cercanía estimada al caso (distancia + ETA). */
-export interface RecursoSugerido {
-  recurso: Recurso;
-  distanciaKm: number | null;
-  etaMin: number | null;
 }
 
 export type EstadoAsignacion = 'asignado' | 'en_ruta' | 'en_sitio' | 'finalizada' | 'cancelada';

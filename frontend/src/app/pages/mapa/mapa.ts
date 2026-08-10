@@ -1,151 +1,217 @@
 import { Component, OnDestroy, OnInit, computed, inject, signal } from '@angular/core';
 import { CommonModule } from '@angular/common';
+import { FormsModule } from '@angular/forms';
 import { Router } from '@angular/router';
-import { CasosService } from '../../core/casos.service';
-import { DespachoService } from '../../core/despacho.service';
 import { AuthService } from '../../core/auth.service';
-import { Caso, Recurso } from '../../core/models';
+import { CatalogosService } from '../../core/catalogos.service';
+import { AnalisisMapa, MetricasService, PuntoMapa } from '../../core/metricas.service';
+import { CodigoCaso } from '../../core/models';
+
+type ModoVista = 'calor' | 'cluster' | 'puntos';
+
+interface Barra { etiqueta: string; valor: number; }
 
 /**
- * Mapa operativo: los casos abiertos y la flota, juntos y en vivo. Es la vista
- * de conjunto que el tablero (columnas) no puede dar: DÓNDE está pasando todo
- * y dónde están las unidades para responder. Se refresca solo cada 30 s.
+ * Mapa estadístico: NO rastrea recursos (el sistema no guarda su ubicación).
+ * Es un análisis del delito y de la convivencia y seguridad ciudadana a
+ * partir de dónde y cuándo han ocurrido los casos históricos del tenant:
+ * puntos, cluster y calor por ubicación, más días/horas de mayor afectación
+ * y el top 5 de códigos de caso. Filtrable por rango de fechas y código.
  */
 @Component({
   selector: 'app-mapa',
   standalone: true,
-  imports: [CommonModule],
+  imports: [CommonModule, FormsModule],
   templateUrl: './mapa.html',
   styleUrl: './mapa.scss',
 })
 export class MapaComponent implements OnInit, OnDestroy {
-  private casosSvc = inject(CasosService);
-  private despachoSvc = inject(DespachoService);
+  private metricasSvc = inject(MetricasService);
+  private catalogos = inject(CatalogosService);
   private auth = inject(AuthService);
   private router = inject(Router);
 
-  readonly casos = signal<Caso[]>([]);
-  readonly recursos = signal<Recurso[]>([]);
+  readonly analisis = signal<AnalisisMapa | null>(null);
+  readonly codigos = signal<CodigoCaso[]>([]);
+  readonly cargando = signal(true);
   readonly error = signal('');
-  readonly actualizadoEn = signal<Date | null>(null);
+  readonly modoVista = signal<ModoVista>('calor');
 
-  readonly casosUbicados = computed(() => this.casos().filter((c) => typeof c.lat === 'number' && typeof c.lng === 'number'));
-  readonly recursosUbicados = computed(() => this.recursos().filter((r) => typeof r.lat === 'number' && typeof r.lng === 'number'));
-  readonly sinUbicar = computed(() => this.casos().length - this.casosUbicados().length);
+  desde = '';
+  hasta = '';
+  codigoSel = '';
+
+  /** Sin `casos.ver` el popup no debe ofrecer un enlace que llevaría a un 403. */
+  readonly puedeAbrirCaso = this.auth.tienePermiso('casos.ver');
+
+  private readonly diaLabels = ['Domingo', 'Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes', 'Sábado'];
+  /** La semana se muestra empezando en lunes, aunque PostgreSQL numera desde domingo (DOW=0). */
+  private readonly ordenDias = [1, 2, 3, 4, 5, 6, 0];
+
+  readonly porDiaSemana = computed<Barra[]>(() => {
+    const a = this.analisis();
+    if (!a) return [];
+    return this.ordenDias.map((dia) => ({
+      etiqueta: this.diaLabels[dia],
+      valor: a.porDiaSemana.find((d) => d.dia === dia)?.total ?? 0,
+    }));
+  });
+
+  readonly porHora = computed<Barra[]>(() => {
+    const a = this.analisis();
+    if (!a) return [];
+    return a.porHora.map((h) => ({ etiqueta: `${String(h.hora).padStart(2, '0')}:00`, valor: h.total }));
+  });
+
+  readonly topCodigos = computed(() => this.analisis()?.topCodigos ?? []);
+  readonly maxTopCodigo = computed(() => Math.max(1, ...this.topCodigos().map((c) => c.total)));
+
+  readonly diaPico = computed(() => this.pico(this.porDiaSemana()));
+  readonly horaPico = computed(() => this.pico(this.porHora()));
+
+  readonly totalCasos = computed(() => {
+    const a = this.analisis();
+    return a ? a.totalConUbicacion + a.totalSinUbicacion : 0;
+  });
+
+  private pico(serie: Barra[]): Barra | null {
+    return serie.reduce<Barra | null>((m, b) => (!m || b.valor > m.valor ? b : m), null);
+  }
+
+  /** Porcentaje relativo al máximo de la serie, para el ancho de la barra. */
+  pct(valor: number, serie: Barra[]): number {
+    const max = Math.max(1, ...serie.map((b) => b.valor));
+    return Math.round((valor / max) * 100);
+  }
 
   private mapa?: import('leaflet').Map;
-  private capa?: import('leaflet').LayerGroup;
-  private refresco?: ReturnType<typeof setInterval>;
+  private capaPuntos?: import('leaflet').LayerGroup;
+  private capaCluster?: import('leaflet').MarkerClusterGroup;
+  private capaCalor?: import('leaflet').HeatLayer;
+  private encuadrado = false;
 
   ngOnInit(): void {
     setTimeout(() => this.prepararMapa(), 0);
+    this.catalogos.codigos(true).subscribe({ next: (c) => this.codigos.set(c), error: () => {} });
     this.cargar();
-    this.refresco = setInterval(() => { if (!document.hidden) this.cargar(); }, 30_000);
   }
 
   ngOnDestroy(): void {
-    if (this.refresco) clearInterval(this.refresco);
     this.mapa?.remove();
   }
 
   cargar(): void {
-    this.casosSvc.listar({ abiertos: true, limite: 500 }).subscribe({
-      next: (cs) => { this.casos.set(cs); this.pintar(); this.actualizadoEn.set(new Date()); },
-      error: () => this.error.set('No fue posible cargar los casos.'),
-    });
-    this.despachoSvc.listarRecursos().subscribe({
-      next: (rs) => { this.recursos.set(rs); this.pintar(); },
-      error: () => {},
-    });
+    this.cargando.set(true);
+    this.error.set('');
+    this.metricasSvc
+      .mapa({ desde: this.desde || undefined, hasta: this.hasta || undefined, codigo: this.codigoSel || undefined })
+      .subscribe({
+        next: (a) => { this.analisis.set(a); this.cargando.set(false); this.pintar(); },
+        error: () => { this.error.set('No fue posible cargar el mapa.'); this.cargando.set(false); },
+      });
   }
 
-  /** Leaflet es CommonJS: el import dinámico lo entrega bajo `default`. */
+  aplicarFechas(): void {
+    if (this.desde && this.hasta && this.desde > this.hasta) [this.desde, this.hasta] = [this.hasta, this.desde];
+    this.cargar();
+  }
+
+  limpiarFiltros(): void {
+    this.desde = this.hasta = this.codigoSel = '';
+    this.cargar();
+  }
+
+  cambiarVista(modo: ModoVista): void {
+    this.modoVista.set(modo);
+    this.pintar();
+  }
+
+  /** Leaflet y sus plugins de calor/cluster son CommonJS y dependen de un `L` global. */
   private async leaflet(): Promise<typeof import('leaflet')> {
     const mod = await import('leaflet');
-    return ((mod as unknown as { default?: typeof import('leaflet') }).default ?? mod);
+    const L = (mod as unknown as { default?: typeof import('leaflet') }).default ?? mod;
+    (window as unknown as { L: typeof import('leaflet') }).L = L;
+    await import('leaflet.heat');
+    await import('leaflet.markercluster');
+    return L;
   }
 
   private async prepararMapa(): Promise<void> {
     if (typeof window === 'undefined' || this.mapa) return;
-    const div = document.getElementById('mapaOperativo');
+    const div = document.getElementById('mapaCasos');
     if (!div) return;
     const L = await this.leaflet();
-    this.mapa = L.map(div, { zoomControl: true }).setView([4.711, -74.072], 12);
+    this.mapa = L.map(div, { zoomControl: true }).setView([4.6, -74.08], 6);
     L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
       maxZoom: 19, attribution: '© OpenStreetMap',
     }).addTo(this.mapa);
-    this.capa = L.layerGroup().addTo(this.mapa);
-    this.pintar();
+    this.capaPuntos = L.layerGroup();
+    this.capaCluster = L.markerClusterGroup();
+    this.capaCalor = L.heatLayer([], { radius: 22, blur: 18, maxZoom: 16 });
+    await this.pintar();
     setTimeout(() => this.mapa?.invalidateSize(), 100);
   }
 
-  /**
-   * Redibuja la capa completa con la tanda vigente. El texto de los popups se
-   * arma con textContent (nunca innerHTML con datos del ciudadano): lo que
-   * alguien haya escrito en un título no puede ejecutar nada aquí.
-   */
+  /** Redibuja SOLO la capa del modo activo; las otras se desmontan. */
   private async pintar(): Promise<void> {
-    if (!this.mapa || !this.capa) return;
+    if (!this.mapa) return;
     const L = await this.leaflet();
-    this.capa.clearLayers();
+    const puntos = this.analisis()?.puntos ?? [];
 
-    const puntos: Array<[number, number]> = [];
-
-    for (const c of this.casosUbicados()) {
-      const icono = L.divIcon({
-        className: '', iconSize: [22, 22], iconAnchor: [11, 11],
-        html: `<span class="pin-caso-op" data-prio="${c.prioridad ?? 'media'}"></span>`,
-      });
-      const marcador = L.marker([c.lat!, c.lng!], { icon: icono }).addTo(this.capa);
-      const cont = document.createElement('div');
-      const titulo = document.createElement('strong');
-      titulo.textContent = c.titulo;
-      const linea = document.createElement('div');
-      linea.textContent = `${c.agencia} · ${c.estado} · prioridad ${c.prioridad ?? 'media'}`;
-      const enlace = document.createElement('a');
-      enlace.textContent = 'Abrir caso →';
-      enlace.href = '#';
-      enlace.onclick = (ev) => { ev.preventDefault(); this.abrirCaso(c); };
-      cont.append(titulo, linea, enlace);
-      marcador.bindPopup(cont);
-      puntos.push([c.lat!, c.lng!]);
+    for (const capa of [this.capaPuntos, this.capaCluster, this.capaCalor]) {
+      if (capa && this.mapa.hasLayer(capa)) this.mapa.removeLayer(capa);
     }
 
-    for (const r of this.recursosUbicados()) {
-      const icono = L.divIcon({
-        className: '', iconSize: [26, 26], iconAnchor: [13, 13],
-        html: `<span class="pin-recurso" data-estado="${r.estado}">${this.emojiRecurso(r)}</span>`,
-      });
-      const marcador = L.marker([r.lat!, r.lng!], { icon: icono }).addTo(this.capa);
-      const cont = document.createElement('div');
-      cont.textContent = `${r.codigo} — ${r.nombre} (${this.estadoRecursoLabel(r)})`;
-      marcador.bindPopup(cont);
-      puntos.push([r.lat!, r.lng!]);
+    if (this.modoVista() === 'calor') {
+      const datos: Array<[number, number, number]> = puntos.map((p) => [p.lat, p.lng, this.pesoPrioridad(p.prioridad)]);
+      this.capaCalor?.setLatLngs(datos);
+      if (this.capaCalor) this.mapa.addLayer(this.capaCalor);
+    } else if (this.modoVista() === 'cluster') {
+      this.capaCluster?.clearLayers();
+      for (const p of puntos) this.capaCluster?.addLayer(this.marcador(L, p));
+      if (this.capaCluster) this.mapa.addLayer(this.capaCluster);
+    } else {
+      this.capaPuntos?.clearLayers();
+      for (const p of puntos) this.marcador(L, p).addTo(this.capaPuntos!);
+      if (this.capaPuntos) this.mapa.addLayer(this.capaPuntos);
     }
 
     // Encuadre inicial: una sola vez, cuando ya hay algo que mostrar.
     if (!this.encuadrado && puntos.length) {
       this.encuadrado = true;
-      this.mapa.fitBounds(L.latLngBounds(puntos).pad(0.2));
+      this.mapa.fitBounds(L.latLngBounds(puntos.map((p): [number, number] => [p.lat, p.lng])).pad(0.2));
     }
   }
 
-  private encuadrado = false;
-
-  /** A dónde se abre el caso depende del rol: despachador al tablero, resto al detalle. */
-  private abrirCaso(c: Caso): void {
-    if (this.auth.tienePermiso('despacho.ver')) {
-      this.router.navigate(['/despacho'], { queryParams: { caso: c.id } });
-    } else {
-      this.router.navigate(['/caso', c.id]);
+  /**
+   * El popup se arma con textContent (nunca innerHTML con datos del
+   * ciudadano): lo que alguien haya escrito en un título no puede ejecutar
+   * nada aquí.
+   */
+  private marcador(L: typeof import('leaflet'), p: PuntoMapa): import('leaflet').Marker {
+    const icono = L.divIcon({
+      className: '', iconSize: [16, 16], iconAnchor: [8, 8],
+      html: `<span class="pin-caso" data-prio="${p.prioridad ?? 'media'}"></span>`,
+    });
+    const marcador = L.marker([p.lat, p.lng], { icon: icono });
+    const cont = document.createElement('div');
+    const titulo = document.createElement('strong');
+    titulo.textContent = p.titulo;
+    const linea = document.createElement('div');
+    linea.textContent = `${p.codigoCaso ?? 'Sin código'} · prioridad ${p.prioridad} · ${new Date(p.creadoEn).toLocaleString()}`;
+    cont.append(titulo, linea);
+    if (this.puedeAbrirCaso) {
+      const enlace = document.createElement('a');
+      enlace.textContent = 'Abrir caso →';
+      enlace.href = '#';
+      enlace.onclick = (ev) => { ev.preventDefault(); this.router.navigate(['/caso', p.id]); };
+      cont.append(enlace);
     }
+    marcador.bindPopup(cont);
+    return marcador;
   }
 
-  emojiRecurso(r: Recurso): string {
-    return { patrulla: '🚓', ambulancia: '🚑', maquina: '🚒', moto: '🏍', otro: '🚙' }[r.tipo] ?? '🚙';
-  }
-
-  estadoRecursoLabel(r: Recurso): string {
-    return { disponible: 'disponible', asignado: 'asignado', en_ruta: 'en ruta', en_sitio: 'en sitio', fuera_servicio: 'fuera de servicio' }[r.estado] ?? r.estado;
+  private pesoPrioridad(p: string): number {
+    return ({ alta: 1, media: 0.6, baja: 0.3 } as Record<string, number>)[p] ?? 0.5;
   }
 }

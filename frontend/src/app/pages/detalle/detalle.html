@@ -151,9 +151,9 @@
         <h2>🚓 Despacho</h2>
         <div class="despachar-form" *ngIf="c.estado !== 'cerrado'">
           <select [(ngModel)]="recursoSel" name="recursoSel">
-            <option value="" disabled>Recurso disponible (más cercano primero)…</option>
-            <option *ngFor="let s of sugeridos()" [value]="s.recurso.id">
-              {{ s.recurso.codigo }} · {{ s.recurso.nombre }} ({{ s.recurso.agencia }})<ng-container *ngIf="s.distanciaKm !== null"> — {{ s.distanciaKm }} km · ~{{ s.etaMin }} min</ng-container>
+            <option value="" disabled>Recurso disponible…</option>
+            <option *ngFor="let r of disponibles()" [value]="r.id">
+              {{ r.codigo }} · {{ r.nombre }} ({{ r.agencia }})
             </option>
           </select>
           <button type="button" class="btn btn--primary" [disabled]="!recursoSel" (click)="despachar()">Despachar</button>

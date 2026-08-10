@@ -12,7 +12,7 @@ import { WhatsappService } from '../../core/whatsapp.service';
 import { ToastService } from '../../shared/toast/toast.service';
 import {
   Agencia, Asignacion, Canal, CanalAtencion, Caso, CodigoCierre, EstadoAsignacion, EstadoCaso,
-  EventoCaso, MensajeChat, RecursoSugerido, TipoEvento,
+  EventoCaso, MensajeChat, Recurso, TipoEvento,
 } from '../../core/models';
 
 @Component({
@@ -37,7 +37,7 @@ export class DetalleComponent implements OnInit, OnChanges, OnDestroy {
 
   // Despacho
   readonly asignaciones = signal<Asignacion[]>([]);
-  readonly sugeridos = signal<RecursoSugerido[]>([]);
+  readonly disponibles = signal<Recurso[]>([]);
   recursoSel = '';
 
   readonly caso = signal<Caso | null>(null);
@@ -379,7 +379,7 @@ export class DetalleComponent implements OnInit, OnChanges, OnDestroy {
   // Despacho -----------------------------------------------------------------
   private cargarDespacho(): void {
     this.despachoSvc.asignaciones(this.id).subscribe({ next: (a) => this.asignaciones.set(a) });
-    this.despachoSvc.recursosSugeridos(this.id).subscribe({ next: (s) => this.sugeridos.set(s) });
+    this.despachoSvc.disponibles().subscribe({ next: (r) => this.disponibles.set(r) });
   }
 
   despachar(): void {

@@ -9,7 +9,7 @@
       <ng-container *ngIf="operativoVisible()">
         <a routerLink="/recepcion" *ngIf="puedeRecepcionar()" routerLinkActive="active">Recepción</a>
         <a routerLink="/despacho" *ngIf="puedeVerDespacho()" routerLinkActive="active">Despacho</a>
-        <a routerLink="/mapa" *ngIf="puedeVerDespacho() || puedeVerPanel()" routerLinkActive="active">Mapa</a>
+        <a routerLink="/mapa" *ngIf="puedeVerPanel()" routerLinkActive="active">Mapa</a>
         <a routerLink="/casos" *ngIf="puedeConsultar()" routerLinkActive="active">Consulta</a>
         <a routerLink="/recursos" *ngIf="puedeVerRecursos()" routerLinkActive="active">Recursos</a>
         <a routerLink="/dashboard" *ngIf="puedeVerPanel()" routerLinkActive="active">Panel</a>
