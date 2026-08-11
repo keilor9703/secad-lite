@@ -12,7 +12,7 @@ import { WhatsappService } from '../../core/whatsapp.service';
 import { ToastService } from '../../shared/toast/toast.service';
 import {
   Agencia, Asignacion, Canal, CanalAtencion, Caso, CodigoCierre, EstadoAsignacion, EstadoCaso,
-  EventoCaso, MensajeChat, Recurso, TipoEvento,
+  EventoCaso, MensajeChat, Recurso, TenantDirectorio, TipoEvento,
 } from '../../core/models';
 
 @Component({
@@ -220,6 +220,60 @@ export class DetalleComponent implements OnInit, OnChanges, OnDestroy {
       error: (e) => {
         this.remitiendo.set(false);
         this.error.set(e?.error?.message ?? 'No fue posible remitir el caso.');
+      },
+    });
+  }
+
+  // --- Remisión a otra jurisdicción (otro tenant) -----------------------------
+
+  readonly puedeRemitirTenant = computed(() => this.auth.tienePermiso('casos.remitir_tenant'));
+  mostrarRemitirTenant = false;
+  readonly tenantsDestino = signal<TenantDirectorio[]>([]);
+  remisionTenant = { tenantDestino: '', observacion: '' };
+  readonly remitiendoTenant = signal(false);
+
+  abrirRemitirTenant(): void {
+    this.remisionTenant = { tenantDestino: '', observacion: '' };
+    this.mostrarRemitirTenant = true;
+    if (!this.tenantsDestino().length) {
+      this.casosSvc.tenantsRemitibles().subscribe({
+        next: (ts) => this.tenantsDestino.set(ts),
+        error: () => this.error.set('No fue posible cargar las instancias disponibles.'),
+      });
+    }
+  }
+
+  remitirTenant(): void {
+    if (!this.remisionTenant.tenantDestino) {
+      this.error.set('Elija la instancia destino.');
+      return;
+    }
+    if (!this.remisionTenant.observacion.trim()) {
+      this.error.set('Indique el motivo de la remisión.');
+      return;
+    }
+    const destino = this.tenantsDestino().find((t) => t.codigo === this.remisionTenant.tenantDestino);
+    if (!window.confirm(
+      `El caso quedará derivado en esta instancia y se creará uno nuevo en ${destino?.nombre ?? this.remisionTenant.tenantDestino}. ¿Continuar?`,
+    )) {
+      return;
+    }
+    this.remitiendoTenant.set(true);
+    this.casosSvc.remitirTenant(this.id, {
+      tenantDestino: this.remisionTenant.tenantDestino,
+      observacion: this.remisionTenant.observacion.trim(),
+    }).subscribe({
+      next: (c) => {
+        this.caso.set(c);
+        this.remitiendoTenant.set(false);
+        this.mostrarRemitirTenant = false;
+        this.cargarAuditoria();
+        this.cambiado.emit();
+        this.toast.exito('Caso remitido a otra jurisdicción.');
+      },
+      error: (e) => {
+        this.remitiendoTenant.set(false);
+        this.error.set(e?.error?.message ?? 'No fue posible remitir el caso a esa instancia.');
       },
     });
   }

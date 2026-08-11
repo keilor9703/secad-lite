@@ -78,6 +78,19 @@ export class TenantsService implements OnModuleInit {
   }
 
   /**
+   * Directorio liviano de instancias a las que se puede remitir un caso (otra
+   * jurisdicción): solo código y nombre, de las que están operables. Nunca
+   * expone plan, suscripción ni datos comerciales — quien remite no gestiona
+   * esa instancia, solo necesita elegir a cuál pertenece el caso.
+   */
+  async directorio(excluirCodigo?: string): Promise<Array<{ codigo: string; nombre: string }>> {
+    const todos = await this.repo.find({ where: { activo: true }, order: { nombre: 'ASC' } });
+    return todos
+      .filter((t) => t.codigo !== excluirCodigo && !this.estadoDe(t))
+      .map((t) => ({ codigo: t.codigo, nombre: t.nombre }));
+  }
+
+  /**
    * Comprueba si un tenant puede operar ahora mismo: debe estar activo, con la
    * suscripción no suspendida y sin vencer. Es la puerta del servicio: se
    * verifica al iniciar sesión y en cada petición.

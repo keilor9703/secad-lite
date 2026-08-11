@@ -1,11 +1,12 @@
 import { BadRequestException, ForbiddenException, Injectable, NotFoundException, OnModuleInit } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Between, FindOptionsWhere, LessThan, MoreThanOrEqual, Not, Repository } from 'typeorm';
+import { Between, EntityManager, FindOptionsWhere, LessThan, MoreThanOrEqual, Not, Repository } from 'typeorm';
 import { CasoEntity } from './caso.entity';
 import { EventoCasoEntity, TipoEvento } from './evento.entity';
 import { CANALES, EstadoCaso, ESTADOS, PRIORIDADES } from './caso.model';
 import { CatalogosService } from '../catalogos/catalogos.service';
 import { DespachoService } from '../despacho/despacho.service';
+import { TenantsService } from '../tenants/tenants.service';
 
 /**
  * Quién actúa. `permisos` son los VIGENTES (resueltos contra la base por
@@ -23,6 +24,7 @@ export interface Actor {
 import { CrearCasoDto } from './dto/crear-caso.dto';
 import { CambiarEstadoDto } from './dto/cambiar-estado.dto';
 import { RemitirDto } from './dto/remitir.dto';
+import { RemitirTenantDto } from './dto/remitir-tenant.dto';
 
 /**
  * Casos persistidos en PostgreSQL. Todo consulta/escribe SIEMPRE acotado por
@@ -38,6 +40,7 @@ export class CasosService implements OnModuleInit {
     private readonly eventos: Repository<EventoCasoEntity>,
     private readonly despacho: DespachoService,
     private readonly catalogos: CatalogosService,
+    private readonly tenants: TenantsService,
   ) {}
 
   async onModuleInit(): Promise<void> {
@@ -250,6 +253,90 @@ export class CasosService implements OnModuleInit {
     return guardado;
   }
 
+  /** Instancias a las que se puede remitir un caso (todas menos la propia). */
+  tenantsRemitibles(tenant: string): Promise<Array<{ codigo: string; nombre: string }>> {
+    return this.tenants.directorio(tenant);
+  }
+
+  /**
+   * Remite el caso a OTRA jurisdicción (otro tenant): la llamada entró donde
+   * no correspondía. Como el modelo es pooled y las referencias del caso
+   * (agencia, canales) solo tienen sentido en su propio tenant, no se mueve la
+   * fila: el caso original queda `derivado` (mismo estado que usa la
+   * derivación libre por PATCH .../estado) y se crea uno nuevo en el tenant
+   * destino, con la agencia sin asignar (allá lo tipifican con su propio
+   * catálogo). Ambos casos quedan enlazados por id para la trazabilidad, cada
+   * uno con su propia entrada de bitácora.
+   */
+  async remitirATenant(tenant: string, id: string, dto: RemitirTenantDto, actor: Actor): Promise<CasoEntity> {
+    await this.obtener(tenant, id, actor); // valida alcance antes de tocar nada
+    const destinoCodigo = dto?.tenantDestino?.trim();
+    const motivo = dto?.observacion?.trim();
+    if (!destinoCodigo) throw new BadRequestException('Indique la instancia destino.');
+    if (destinoCodigo === tenant) throw new BadRequestException('El destino debe ser una instancia distinta a la actual.');
+    if (!motivo) throw new BadRequestException('Indique el motivo de la remisión.');
+
+    const destino = await this.tenants.porCodigo(destinoCodigo);
+    if (!destino) throw new NotFoundException('La instancia destino no existe.');
+    this.tenants.asegurarVigente(destino);
+
+    return this.repo.manager.transaction(async (em) => {
+      const casos = em.getRepository(CasoEntity);
+      const caso = await casos.findOne({ where: { tenant, id }, lock: { mode: 'pessimistic_write' } });
+      if (!caso) throw new NotFoundException('Caso no encontrado.');
+      if (caso.estado === 'cerrado') throw new BadRequestException('El caso está cerrado.');
+      if (caso.remitidoATenant) {
+        throw new BadRequestException(`Este caso ya fue remitido a otra instancia (${caso.remitidoATenant}).`);
+      }
+
+      const nuevo = await casos.save(
+        casos.create({
+          tenant: destino.codigo,
+          canal: caso.canal,
+          titulo: caso.titulo,
+          descripcion: caso.descripcion,
+          ciudadano: caso.ciudadano,
+          telefono: caso.telefono,
+          direccionLlamante: caso.direccionLlamante,
+          codigoCaso: caso.codigoCaso,
+          prioridad: caso.prioridad,
+          ciudad: caso.ciudad,
+          barrio: caso.barrio,
+          direccion: caso.direccion,
+          lat: caso.lat,
+          lng: caso.lng,
+          agencia: 'Central',
+          agenciaResponsableId: null,
+          canales: [],
+          estado: 'nuevo',
+          creadoPor: `remisión desde ${tenant}`,
+          remitidoDeTenant: tenant,
+          remitidoDeCasoId: caso.id,
+        }),
+      );
+
+      const agenciaPrevia = caso.agencia;
+      caso.estado = 'derivado';
+      caso.agencia = `Remitido a ${destino.nombre}`;
+      caso.remitidoATenant = destino.codigo;
+      caso.remitidoACasoId = nuevo.id;
+      await casos.save(caso);
+
+      await this.registrar(
+        tenant, id, 'derivacion',
+        `Remitido a otra jurisdicción: ${destino.nombre} (${destino.codigo}), antes en ${agenciaPrevia}. Motivo: ${motivo}`,
+        actor.sub, undefined, undefined, em,
+      );
+      await this.registrar(
+        destino.codigo, nuevo.id, 'creacion',
+        `Caso recibido por remisión desde otra jurisdicción (tenant «${tenant}»). Motivo: ${motivo}`,
+        actor.sub, undefined, undefined, em,
+      );
+
+      return caso;
+    });
+  }
+
   /**
    * Deja constancia de que se necesita reabrir un caso cerrado. No lo reabre:
    * solo registra la solicitud y su motivo para que un supervisor decida.
@@ -391,12 +478,14 @@ export class CasosService implements OnModuleInit {
   }
 
   // ---------------------------------------------------------------------------
+  /** Con `em` participa en la transacción en curso (p. ej. remisión entre tenants). */
   private registrar(
     tenant: string, casoId: string, tipo: TipoEvento, descripcion: string,
-    autor: string, estadoAnterior?: EstadoCaso, estadoNuevo?: EstadoCaso,
+    autor: string, estadoAnterior?: EstadoCaso, estadoNuevo?: EstadoCaso, em?: EntityManager,
   ): Promise<EventoCasoEntity> {
-    return this.eventos.save(
-      this.eventos.create({ tenant, casoId, tipo, descripcion, autor, estadoAnterior, estadoNuevo }),
+    const repo = em ? em.getRepository(EventoCasoEntity) : this.eventos;
+    return repo.save(
+      repo.create({ tenant, casoId, tipo, descripcion, autor, estadoAnterior, estadoNuevo }),
     );
   }
 

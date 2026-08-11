@@ -26,16 +26,29 @@ export class PbxService {
    * al listar, repetida aquí porque los avisos en vivo van a todo el tenant.
    * Un supervisor (casos.ver_todos) las ve todas, con la pista de para quién.
    */
-  readonly sonando = computed(() => {
-    const s = this.auth.sesion();
-    const yo = s?.usuario;
-    const supervisor = s?.rol === 'superadmin' || (s?.permisos ?? []).includes('casos.ver_todos');
-    return this.llamadas().filter(
-      (l) => l.estado === 'sonando' && (supervisor || !l.destinatario || l.destinatario === yo),
-    );
-  });
+  readonly sonando = computed(() => this.llamadas().filter((l) => l.estado === 'sonando' && this.meCorresponde(l)));
   /** Última llamada entrante no atendida, para avisos globales. */
   readonly ultimaEntrante = signal<Llamada | null>(null);
+
+  /** Timbre encendido/apagado; la elección se recuerda en el puesto de trabajo. */
+  readonly sonidoActivo = signal(localStorage.getItem('falconcad_pbx_sonido') !== 'off');
+
+  alternarSonido(): void {
+    this.sonidoActivo.update((v) => !v);
+    try { localStorage.setItem('falconcad_pbx_sonido', this.sonidoActivo() ? 'on' : 'off'); } catch { /* sin almacenamiento */ }
+  }
+
+  /**
+   * ¿A esta sesión le toca ver/oír esta llamada? Una que otro operador ya tomó
+   * (o que el ACD dirigió a otro) no es suya — es la misma regla que aplica el
+   * servidor al listar, repetida aquí porque los avisos en vivo van a todo el
+   * tenant. Un supervisor (casos.ver_todos) las ve/oye todas.
+   */
+  private meCorresponde(l: Llamada): boolean {
+    const s = this.auth.sesion();
+    const supervisor = s?.rol === 'superadmin' || (s?.permisos ?? []).includes('casos.ver_todos');
+    return supervisor || !l.destinatario || l.destinatario === s?.usuario;
+  }
 
   private readonly base = environment.apiBaseUrl;
   /**
@@ -64,8 +77,47 @@ export class PbxService {
       auth: { token: this.auth.token, tenant: this.auth.tenantActivo() },
       transports: ['websocket', 'polling'],
     });
-    this.socket.on('llamada:entrante', (l: Llamada) => { this.upsert(l); this.ultimaEntrante.set(l); });
+    this.socket.on('llamada:entrante', (l: Llamada) => {
+      this.upsert(l);
+      this.ultimaEntrante.set(l);
+      // El aviso suena en el momento del timbrazo, no cuando alguien la
+      // convierte en caso: antes no había NINGÚN sonido atado al evento real
+      // de "está timbrando", así que el operador dependía de mirar la
+      // pantalla de Recepción para enterarse.
+      if (this.sonidoActivo() && this.meCorresponde(l)) this.timbre();
+    });
     this.socket.on('llamada:cambio', (l: Llamada) => this.upsert(l));
+  }
+
+  /**
+   * Dos tonos por WebAudio, distintos del aviso de "caso nuevo" del tablero.
+   *
+   * Un AudioContext nace SUSPENDIDO si la pestaña todavía no tuvo ninguna
+   * interacción del usuario (política de autoplay del navegador): sin el
+   * resume(), el timbre "suena" en el código pero no se oye nada — es la
+   * causa más probable de que el aviso pareciera funcionar a veces sí, a
+   * veces no.
+   */
+  private timbre(): void {
+    try {
+      const ctx = new AudioContext();
+      if (ctx.state === 'suspended') ctx.resume();
+      const tono = (inicio: number, freq: number) => {
+        const osc = ctx.createOscillator();
+        const gain = ctx.createGain();
+        osc.frequency.value = freq;
+        osc.type = 'sine';
+        gain.gain.setValueAtTime(0.0001, ctx.currentTime + inicio);
+        gain.gain.exponentialRampToValueAtTime(0.2, ctx.currentTime + inicio + 0.02);
+        gain.gain.exponentialRampToValueAtTime(0.0001, ctx.currentTime + inicio + 0.22);
+        osc.connect(gain).connect(ctx.destination);
+        osc.start(ctx.currentTime + inicio);
+        osc.stop(ctx.currentTime + inicio + 0.24);
+      };
+      tono(0, 1046);
+      tono(0.26, 1046);
+      setTimeout(() => ctx.close(), 800);
+    } catch { /* sin audio disponible */ }
   }
 
   /** Reabre la cola tras cambiar de tenant en gestión (superadmin). */

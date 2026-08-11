@@ -189,10 +189,18 @@ export class DespachoComponent {
     if (this.sonidoActivo()) this.timbre();
   }
 
-  /** Dos tonos cortos por WebAudio: no depende de ningún archivo de sonido. */
+  /**
+   * Dos tonos cortos por WebAudio: no depende de ningún archivo de sonido.
+   *
+   * Un AudioContext nace SUSPENDIDO si la pestaña no tuvo ninguna interacción
+   * del usuario todavía (política de autoplay del navegador): sin resume(),
+   * el timbre "suena" en el código pero no se oye — explica que el aviso
+   * pareciera funcionar unas veces sí y otras no.
+   */
   private timbre(): void {
     try {
       const ctx = new AudioContext();
+      if (ctx.state === 'suspended') ctx.resume();
       const tono = (inicio: number, freq: number) => {
         const osc = ctx.createOscillator();
         const gain = ctx.createGain();

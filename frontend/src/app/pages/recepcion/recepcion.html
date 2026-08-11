@@ -15,7 +15,14 @@
     <aside class="rec-side">
       <!-- Llamadas timbrando: el punto de partida del trabajo de recepción -->
       <div class="entrantes card">
-        <h2>📞 Llamadas en espera <span class="n">{{ sonando().length }}</span></h2>
+        <h2>
+          📞 Llamadas en espera <span class="n">{{ sonando().length }}</span>
+          <button type="button" class="btn btn--ghost mini timbre" (click)="alternarSonido()"
+                  [title]="sonidoActivo() ? 'Silenciar el aviso de llamada entrante' : 'Activar el aviso sonoro de llamada entrante'"
+                  [attr.aria-label]="sonidoActivo() ? 'Silenciar aviso de llamada entrante' : 'Activar aviso sonoro de llamada entrante'">
+            {{ sonidoActivo() ? '🔔' : '🔕' }}
+          </button>
+        </h2>
         <div class="llam" *ngFor="let l of sonando()">
           <span class="num mono">{{ l.numero }}</span>
           <!-- La central ya la dirigió a alguien: se ve solo si usted la supervisa,

@@ -19,7 +19,7 @@ const DEFAULTS: Array<{ codigo: string; nombre: string; permisos: string[] }> = 
   { codigo: 'admin', nombre: 'Administrador', permisos: [...CLAVES_PERMISO] },
   {
     codigo: 'supervisor', nombre: 'Supervisor',
-    permisos: ['casos.ver', 'casos.ver_todos', 'casos.crear', 'casos.gestionar', 'casos.cerrar', 'casos.reabrir', 'despacho.ver', 'despacho.asignar', 'recursos.ver', 'recursos.gestionar', 'pbx.usar', 'whatsapp.responder', 'metricas.ver'],
+    permisos: ['casos.ver', 'casos.ver_todos', 'casos.crear', 'casos.gestionar', 'casos.cerrar', 'casos.reabrir', 'casos.remitir_tenant', 'despacho.ver', 'despacho.asignar', 'recursos.ver', 'recursos.gestionar', 'pbx.usar', 'whatsapp.responder', 'metricas.ver'],
   },
   {
     codigo: 'operador', nombre: 'Operador',

@@ -15,6 +15,12 @@
         <a routerLink="/dashboard" *ngIf="puedeVerPanel()" routerLinkActive="active">Panel</a>
         <a routerLink="/mapa" *ngIf="puedeVerPanel()" routerLinkActive="active">Mapa</a>
       </ng-container>
+      <!-- Indicador global de llamadas timbrando sin tomar: visible en cualquier
+           página, no solo dentro de Recepción, para que nadie deje de verlo. -->
+      <a routerLink="/recepcion" class="nav-llamadas" *ngIf="puedeVerLlamadas() && sonando().length > 0"
+         title="Hay llamadas en espera sin tomar">
+        📞 <span class="ring-badge">{{ sonando().length }}</span>
+      </a>
       <a *ngIf="puedeVerCatalogos()" routerLink="/catalogos" routerLinkActive="active">Catálogos</a>
       <a *ngIf="esAdmin()" routerLink="/admin" routerLinkActive="active">Administración</a>
       <!-- Solo el dueño de la plataforma: instancias, suscripciones y módulos. -->

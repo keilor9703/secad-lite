@@ -32,9 +32,21 @@ export interface Caso {
   reaperturaSolicitada?: boolean;
   reaperturaMotivo?: string | null;
   reaperturaSolicitadaPor?: string | null;
+  /** Este caso llegó por remisión de otra jurisdicción (otro tenant). */
+  remitidoDeTenant?: string | null;
+  remitidoDeCasoId?: string | null;
+  /** Este caso fue remitido a otra jurisdicción (otro tenant). */
+  remitidoATenant?: string | null;
+  remitidoACasoId?: string | null;
   creadoPor: string;
   creadoEn: string;
   actualizadoEn: string;
+}
+
+/** Instancia del directorio liviano para remitir un caso a otra jurisdicción. */
+export interface TenantDirectorio {
+  codigo: string;
+  nombre: string;
 }
 
 /** Formulario de recepción. La agencia de origen la pone el backend con el JWT. */

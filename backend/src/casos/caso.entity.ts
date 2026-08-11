@@ -121,6 +121,25 @@ export class CasoEntity {
   @Column({ type: 'timestamptz', nullable: true })
   reaperturaSolicitadaEn?: Date | null;
 
+  // --- Remisión a otra jurisdicción (otro tenant) -----------------------------
+
+  /**
+   * Este caso llegó por remisión de otro tenant: de dónde vino y el id que
+   * tenía allá (para la trazabilidad; cada tenant conserva su propia bitácora).
+   */
+  @Column({ type: 'varchar', length: 64, nullable: true })
+  remitidoDeTenant?: string | null;
+
+  @Column({ type: 'uuid', nullable: true })
+  remitidoDeCasoId?: string | null;
+
+  /** Este caso fue remitido a otro tenant: a dónde fue y el id que quedó allá. */
+  @Column({ type: 'varchar', length: 64, nullable: true })
+  remitidoATenant?: string | null;
+
+  @Column({ type: 'uuid', nullable: true })
+  remitidoACasoId?: string | null;
+
   @Column({ type: 'varchar', length: 120 })
   creadoPor!: string;
 

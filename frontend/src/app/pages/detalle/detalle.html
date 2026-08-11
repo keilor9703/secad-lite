@@ -23,6 +23,8 @@
           <div *ngIf="c.direccionLlamante"><dt>Dirección del llamante</dt><dd>{{ c.direccionLlamante }}</dd></div>
           <div><dt>Entidad de origen</dt><dd>{{ nombreAgencia(c.agenciaOrigenId) }}</dd></div>
           <div><dt>Agencia responsable</dt><dd>{{ c.agencia }}</dd></div>
+          <div *ngIf="c.remitidoDeTenant"><dt>Llegó por remisión de</dt><dd class="mono">{{ c.remitidoDeTenant }}</dd></div>
+          <div *ngIf="c.remitidoATenant"><dt>Remitido a</dt><dd class="mono">{{ c.remitidoATenant }}</dd></div>
           <div><dt>Recepcionado por</dt><dd>{{ c.creadoPor }}</dd></div>
           <div><dt>Creado</dt><dd>{{ c.creadoEn | date:'short' }}</dd></div>
           <div><dt>Actualizado</dt><dd>{{ c.actualizadoEn | date:'short' }}</dd></div>
@@ -86,6 +88,42 @@
               <button type="button" class="btn btn--ghost" (click)="mostrarRemitir = false">Cancelar</button>
               <button type="button" class="btn btn--primary" (click)="remitir()" [disabled]="remitiendo()">
                 {{ remitiendo() ? 'Remitiendo…' : 'Remitir' }}
+              </button>
+            </div>
+          </div>
+        </div>
+
+        <!-- Remisión a otra jurisdicción: el caso no le corresponde a este tenant -->
+        <div class="remitir-caja" *ngIf="puedeRemitirTenant() && c.estado !== 'cerrado'">
+          <button type="button" class="btn btn--ghost" (click)="abrirRemitirTenant()" *ngIf="!mostrarRemitirTenant">
+            🌐 Remitir a otra jurisdicción
+          </button>
+
+          <div class="remitir-form" *ngIf="mostrarRemitirTenant">
+            <h3>Remitir a otra jurisdicción</h3>
+            <p class="ayuda">
+              Úselo cuando el caso llegó a esta instancia pero le corresponde a otro municipio: este caso
+              queda derivado aquí y se crea uno nuevo allá, con la misma información.
+            </p>
+            <div class="field">
+              <label for="rtdest">Instancia destino</label>
+              <select id="rtdest" [(ngModel)]="remisionTenant.tenantDestino" name="rtdest">
+                <option value="">— seleccione —</option>
+                <option *ngFor="let t of tenantsDestino()" [value]="t.codigo">{{ t.nombre }}</option>
+              </select>
+              <span class="vacio-inline" *ngIf="!tenantsDestino().length">No hay otras instancias disponibles.</span>
+            </div>
+
+            <div class="field">
+              <label for="rtobs">Motivo *</label>
+              <input id="rtobs" [(ngModel)]="remisionTenant.observacion" name="rtobs"
+                     placeholder="Por qué corresponde a otra jurisdicción (queda en la bitácora)" />
+            </div>
+
+            <div class="acciones-remitir">
+              <button type="button" class="btn btn--ghost" (click)="mostrarRemitirTenant = false">Cancelar</button>
+              <button type="button" class="btn btn--primary" (click)="remitirTenant()" [disabled]="remitiendoTenant()">
+                {{ remitiendoTenant() ? 'Remitiendo…' : 'Remitir' }}
               </button>
             </div>
           </div>

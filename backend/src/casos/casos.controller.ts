@@ -4,6 +4,7 @@ import { CrearCasoDto } from './dto/crear-caso.dto';
 import { CambiarEstadoDto } from './dto/cambiar-estado.dto';
 import { AgregarNotaDto } from './dto/agregar-nota.dto';
 import { RemitirDto } from './dto/remitir.dto';
+import { RemitirTenantDto } from './dto/remitir-tenant.dto';
 import { ReabrirDto, SolicitarReaperturaDto } from './dto/reabrir.dto';
 import { UsuariosService } from '../usuarios/usuarios.service';
 import { Tenant } from '../common/tenant.decorator';
@@ -65,6 +66,17 @@ export class CasosController {
   // Cómo se clasifica un cierre ya no se responde aquí: es catálogo del secad,
   // en GET /api/catalogos/codigos-cierre.
 
+  /**
+   * GET /api/casos/tenants-remitibles — directorio liviano de instancias a las
+   * que se puede remitir un caso (otra jurisdicción). Va ANTES de :id: si no,
+   * Nest la confundiría con el id de un caso.
+   */
+  @Permisos('casos.remitir_tenant')
+  @Get('tenants-remitibles')
+  tenantsRemitibles(@Tenant() tenant: string) {
+    return this.casos.tenantsRemitibles(tenant);
+  }
+
   /** GET /api/casos/:id */
   @Get(':id')
   async obtener(
@@ -121,6 +133,23 @@ export class CasosController {
     @Body() dto: RemitirDto,
   ) {
     return this.casos.remitir(tenant, id, dto, await this.actor(usuario, permisos));
+  }
+
+  /**
+   * POST /api/casos/:id/remitir-tenant — remitir el caso a OTRA jurisdicción
+   * (otro tenant). Distinto de /remitir (canales del mismo tenant): cruza la
+   * frontera de aislamiento del secad, así que exige su propio permiso.
+   */
+  @Permisos('casos.remitir_tenant')
+  @Post(':id/remitir-tenant')
+  async remitirTenant(
+    @Tenant() tenant: string,
+    @Usuario() usuario: JwtPayload,
+    @PermisosVigentes() permisos: string[],
+    @Param('id') id: string,
+    @Body() dto: RemitirTenantDto,
+  ) {
+    return this.casos.remitirATenant(tenant, id, dto, await this.actor(usuario, permisos));
   }
 
   /** POST /api/casos/:id/notas — agregar una nota a la bitácora. */

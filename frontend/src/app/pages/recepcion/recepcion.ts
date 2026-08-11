@@ -59,6 +59,8 @@ export class RecepcionComponent implements OnInit {
 
   /** Llamadas timbrando: de aquí arranca el trabajo de quien recepciona. */
   readonly sonando = this.pbx.sonando;
+  readonly sonidoActivo = this.pbx.sonidoActivo;
+  alternarSonido(): void { this.pbx.alternarSonido(); }
 
   /**
    * Lo que este operador acaba de tomar. Es la confirmación de su trabajo: la

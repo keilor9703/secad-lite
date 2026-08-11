@@ -127,9 +127,10 @@ tbody tr:last-child td { border-bottom: none; }
 
 /* La cola de llamadas y el formulario son una sola mesa de trabajo. */
 .entrantes { padding: 0.8rem 1rem; }
-.entrantes h2 { margin: 0 0 0.5rem; font-size: 1rem; }
+.entrantes h2 { margin: 0 0 0.5rem; font-size: 1rem; display: flex; align-items: center; }
 .entrantes .n { font-family: var(--mono); font-size: 0.8rem; background: var(--tag-danger-bg);
                 color: var(--tag-danger-fg); border-radius: 999px; padding: 0.05rem 0.5rem; margin-left: 0.3rem; }
+.entrantes .timbre { margin-left: auto; font-size: 1.05rem; padding: 0.3rem 0.5rem; }
 .llam { display: flex; align-items: center; justify-content: space-between; gap: 0.6rem;
         padding: 0.4rem 0; border-bottom: 1px solid var(--border); }
 .llam:last-child { border-bottom: none; }
