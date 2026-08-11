@@ -29,6 +29,10 @@
 .fill[data-clave="llamada"] { background: var(--serie-teal); }
 .fill[data-clave="chat"] { background: var(--serie-azul); }
 .fill[data-clave="integracion"] { background: var(--serie-ambar); }
+.fill.ll[data-clave="sonando"] { background: var(--warn); }
+.fill.ll[data-clave="atendida"] { background: var(--ok); }
+.fill.ll[data-clave="perdida"] { background: var(--danger); }
+.fill.ll[data-clave="finalizada"] { background: var(--serie-azul); }
 .val { font-size: 0.85rem; font-weight: 600; text-align: right; font-variant-numeric: tabular-nums; }
 
 

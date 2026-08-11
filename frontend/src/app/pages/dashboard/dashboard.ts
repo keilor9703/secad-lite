@@ -1,7 +1,7 @@
 import { Component, computed, effect, inject, signal } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { AuthService } from '../../core/auth.service';
-import { MetricasService, Resumen } from '../../core/metricas.service';
+import { MetricasService, Resumen, ResumenLlamadas } from '../../core/metricas.service';
 
 interface Barra { etiqueta: string; valor: number; clave: string; }
 
@@ -17,6 +17,7 @@ export class DashboardComponent {
   private auth = inject(AuthService);
 
   readonly resumen = signal<Resumen | null>(null);
+  readonly llamadas = signal<ResumenLlamadas | null>(null);
   readonly cargando = signal(true);
   readonly error = signal('');
 
@@ -26,12 +27,16 @@ export class DashboardComponent {
   private readonly canalLabels: Record<string, string> = {
     llamada: 'Llamada', chat: 'Chat', whatsapp: 'WhatsApp', integracion: 'Integración',
   };
+  private readonly estadoLlamadaLabels: Record<string, string> = {
+    sonando: 'Timbrando', atendida: 'Atendidas', perdida: 'Perdidas', finalizada: 'Finalizadas',
+  };
 
   readonly porEstado = computed<Barra[]>(() => this.aBarras(this.resumen()?.porEstado, this.estadoLabels));
   readonly porCanal = computed<Barra[]>(() => this.aBarras(this.resumen()?.porCanal, this.canalLabels));
   readonly maxAgencia = computed(() => Math.max(1, ...(this.resumen()?.porAgencia ?? []).map((a) => a.total)));
   /** Tiempos de respuesta (últimos 30 días): la medida real del centro. */
   readonly tiempos = computed(() => this.resumen()?.tiempos ?? null);
+  readonly porEstadoLlamada = computed<Barra[]>(() => this.aBarras(this.llamadas()?.porEstado, this.estadoLlamadaLabels));
 
   /** Minutos → texto corto («8 min», «1 h 20 min»); null = sin casos con ese hito. */
   duracion(min: number | null): string {
@@ -59,6 +64,12 @@ export class DashboardComponent {
     this.metricas.resumen().subscribe({
       next: (r) => { this.resumen.set(r); this.cargando.set(false); },
       error: () => { this.error.set('No fue posible cargar las métricas.'); this.cargando.set(false); },
+    });
+    // Aparte: si la planta telefónica no está en uso, este reporte igual
+    // carga (con conteos en cero) sin bloquear el resto del panel.
+    this.metricas.llamadas().subscribe({
+      next: (r) => this.llamadas.set(r),
+      error: () => {},
     });
   }
 

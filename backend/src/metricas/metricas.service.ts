@@ -3,6 +3,7 @@ import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { CasoEntity } from '../casos/caso.entity';
 import { CANALES, ESTADOS } from '../casos/caso.model';
+import { ESTADOS_LLAMADA, LlamadaEntity } from '../pbx/llamada.entity';
 
 /** Tiempos promedio (minutos) desde la recepción, últimos 30 días. */
 export interface TiemposPrioridad {
@@ -23,6 +24,14 @@ export interface Resumen {
   porAgencia: Array<{ agencia: string; total: number }>;
   /** Un centro de despacho se mide en tiempos, no en conteos. */
   tiempos: { porPrioridad: TiemposPrioridad[]; global: TiemposPrioridad | null };
+}
+
+/** Reporte de la planta telefónica (PBX), últimos 30 días. */
+export interface ResumenLlamadas {
+  total: number;
+  porEstado: Record<string, number>;
+  /** Minutos promedio entre que timbra y que se atiende; null sin llamadas atendidas en el período. */
+  tiempoRespuestaProm: number | null;
 }
 
 /** Un caso histórico con ubicación, para pintar en el mapa (puntos/cluster/calor). */
@@ -54,6 +63,8 @@ export class MetricasService {
   constructor(
     @InjectRepository(CasoEntity)
     private readonly repo: Repository<CasoEntity>,
+    @InjectRepository(LlamadaEntity)
+    private readonly llamadasRepo: Repository<LlamadaEntity>,
   ) {}
 
   async resumen(tenant: string): Promise<Resumen> {
@@ -73,6 +84,38 @@ export class MetricasService {
         .map(([agencia, t]) => ({ agencia, total: t }))
         .sort((a, b) => b.total - a.total),
       tiempos,
+    };
+  }
+
+  /**
+   * Reporte de la planta telefónica: cuántas llamadas entraron en cada
+   * estado y cuánto se demora en promedio contestar una — últimos 30 días,
+   * el mismo período que usan los tiempos de respuesta de casos.
+   */
+  async llamadas(tenant: string): Promise<ResumenLlamadas> {
+    const [porEstado, prom] = await Promise.all([
+      this.llamadasRepo
+        .createQueryBuilder('l')
+        .select('l.estado', 'clave')
+        .addSelect('COUNT(*)', 'total')
+        .where('l.tenant = :tenant', { tenant })
+        .andWhere('l."creadoEn" >= NOW() - INTERVAL \'30 days\'')
+        .groupBy('l.estado')
+        .getRawMany<{ clave: string; total: string }>(),
+      this.llamadasRepo.query(
+        `SELECT AVG(EXTRACT(EPOCH FROM ("atendidaEn" - "creadoEn")) / 60) AS prom
+           FROM llamadas
+          WHERE tenant = $1 AND "atendidaEn" IS NOT NULL AND "creadoEn" >= NOW() - INTERVAL '30 days'`,
+        [tenant],
+      ),
+    ]);
+    const porEstadoMap = Object.fromEntries(porEstado.map((f) => [f.clave, Number(f.total)]));
+    const total = Object.values(porEstadoMap).reduce((a, b) => a + b, 0);
+    const promedio = prom[0]?.['prom'];
+    return {
+      total,
+      porEstado: this.completar(porEstadoMap, ESTADOS_LLAMADA),
+      tiempoRespuestaProm: promedio === null || promedio === undefined ? null : Math.round(Number(promedio) * 10) / 10,
     };
   }
 

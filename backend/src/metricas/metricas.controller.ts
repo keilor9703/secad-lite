@@ -20,4 +20,10 @@ export class MetricasController {
   mapa(@Tenant() tenant: string, @Query('desde') desde?: string, @Query('hasta') hasta?: string, @Query('codigo') codigo?: string) {
     return this.metricas.mapa(tenant, { desde, hasta, codigo });
   }
+
+  /** GET /api/metricas/llamadas — reporte de la planta telefónica (PBX). */
+  @Get('llamadas')
+  llamadas(@Tenant() tenant: string) {
+    return this.metricas.llamadas(tenant);
+  }
 }

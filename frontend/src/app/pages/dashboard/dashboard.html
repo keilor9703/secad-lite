@@ -56,6 +56,33 @@
       </ng-template>
     </div>
 
+    <!-- Planta telefónica: cuántas llamadas entraron y qué tan rápido se contestan -->
+    <div class="panel card tiempos" *ngIf="llamadas() as ll">
+      <h2>Llamadas <span class="periodo">últimos 30 días</span></h2>
+      <ng-container *ngIf="ll.total; else sinLlamadas">
+        <div class="t-kpis">
+          <div class="t-kpi">
+            <span class="n">{{ ll.total }}</span>
+            <span class="l">Llamadas del período</span>
+          </div>
+          <div class="t-kpi">
+            <span class="n">{{ duracion(ll.tiempoRespuestaProm) }}</span>
+            <span class="l">Tiempo promedio de respuesta</span>
+          </div>
+        </div>
+        <div class="barras">
+          <div class="fila" *ngFor="let b of porEstadoLlamada()">
+            <span class="cap">{{ b.etiqueta }}</span>
+            <div class="track"><div class="fill ll" [style.width.%]="pct(b.valor, porEstadoLlamada())" [attr.data-clave]="b.clave"></div></div>
+            <span class="val">{{ b.valor }}</span>
+          </div>
+        </div>
+      </ng-container>
+      <ng-template #sinLlamadas>
+        <p class="vacio">Aún no hay llamadas registradas en los últimos 30 días.</p>
+      </ng-template>
+    </div>
+
     <div class="cols">
       <!-- Por canal -->
       <div class="panel card">

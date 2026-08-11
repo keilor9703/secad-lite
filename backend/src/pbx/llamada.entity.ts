@@ -60,6 +60,15 @@ export class LlamadaEntity {
   @Column({ type: 'varchar', length: 120, nullable: true })
   atendidaPor?: string | null;
 
+  /**
+   * Momento en que pasó a 'atendida'. No basta con `actualizadoEn`: esa
+   * columna se vuelve a pisar cuando la llamada luego pasa a 'finalizada'
+   * (cuelga), y con eso se perdería el instante real de la respuesta —
+   * es lo que mide el tiempo de respuesta del reporte.
+   */
+  @Column({ type: 'timestamptz', nullable: true })
+  atendidaEn?: Date | null;
+
   @CreateDateColumn({ type: 'timestamptz' })
   creadoEn!: Date;
 

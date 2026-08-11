@@ -48,6 +48,14 @@ export interface FiltroMapa {
   codigo?: string;
 }
 
+/** Reporte de la planta telefónica (PBX), últimos 30 días. */
+export interface ResumenLlamadas {
+  total: number;
+  porEstado: Record<string, number>;
+  /** Minutos promedio entre que timbra y que se atiende; null sin llamadas atendidas en el período. */
+  tiempoRespuestaProm: number | null;
+}
+
 @Injectable({ providedIn: 'root' })
 export class MetricasService {
   private http = inject(HttpClient);
@@ -63,5 +71,9 @@ export class MetricasService {
     if (filtro?.hasta) params = params.set('hasta', filtro.hasta);
     if (filtro?.codigo) params = params.set('codigo', filtro.codigo);
     return this.http.get<AnalisisMapa>(`${this.base}/mapa`, { params });
+  }
+
+  llamadas(): Observable<ResumenLlamadas> {
+    return this.http.get<ResumenLlamadas>(`${this.base}/llamadas`);
   }
 }

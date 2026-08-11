@@ -178,6 +178,7 @@ export class PbxService {
     llamada.estado = 'atendida';
     llamada.casoId = casoId;
     llamada.atendidaPor = actor.username;
+    llamada.atendidaEn = new Date();
     const guardada = await this.llamadas.save(llamada);
     this.eventos$.next({ tenant, tipo: 'cambio', llamada: guardada });
     return { llamada: guardada, casoId };
@@ -249,6 +250,7 @@ export class PbxService {
     llamada.estado = 'atendida';
     llamada.casoId = caso.id;
     llamada.atendidaPor = actor.username;
+    llamada.atendidaEn = new Date();
     const guardada = await this.llamadas.save(llamada);
     this.eventos$.next({ tenant, tipo: 'cambio', llamada: guardada });
     return guardada;

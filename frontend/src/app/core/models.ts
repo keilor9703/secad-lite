@@ -86,6 +86,7 @@ export interface Llamada {
   estado: EstadoLlamada;
   casoId?: string | null;
   atendidaPor?: string | null;
+  atendidaEn?: string | null;
   creadoEn: string;
   actualizadoEn: string;
 }
