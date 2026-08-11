@@ -163,9 +163,14 @@ export class MapaComponent implements OnInit, OnDestroy {
     }
 
     if (this.modoVista() === 'calor') {
+      // leaflet.heat calcula setLatLngs()→redraw() contra this._map sin
+      // comprobar que exista: si se llama con la capa recién desmontada (el
+      // remove-loop de arriba), _map ya es null pero _heat sigue viva desde
+      // el montaje anterior, y revienta leyendo _map._animating. Por eso hay
+      // que montarla ANTES de cargarle los puntos, no después.
+      if (this.capaCalor) this.mapa.addLayer(this.capaCalor);
       const datos: Array<[number, number, number]> = puntos.map((p) => [p.lat, p.lng, this.pesoPrioridad(p.prioridad)]);
       this.capaCalor?.setLatLngs(datos);
-      if (this.capaCalor) this.mapa.addLayer(this.capaCalor);
     } else if (this.modoVista() === 'cluster') {
       this.capaCluster?.clearLayers();
       for (const p of puntos) this.capaCluster?.addLayer(this.marcador(L, p));

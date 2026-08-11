@@ -84,8 +84,8 @@ export const MODULOS: ModuloPermisos[] = [
     permisos: ['recursos.ver', 'recursos.gestionar'],
   },
   {
-    clave: 'panel', etiqueta: 'Panel de gestión',
-    descripcion: 'Ver las métricas de casos por estado, canal y agencia.',
+    clave: 'panel', etiqueta: 'Panel de gestión y Mapa',
+    descripcion: 'Ver las métricas de casos por estado, canal y agencia, y el mapa estadístico y de calor por ubicación.',
     permisos: ['metricas.ver'],
   },
   {
