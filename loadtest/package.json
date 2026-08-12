@@ -1,0 +1,15 @@
+{
+  "name": "falcon-cad-loadtest",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Prueba de carga de FALCON CAD contra un ambiente de staging (NO producción).",
+  "scripts": {
+    "setup": "node setup.js",
+    "run": "node run.js",
+    "teardown": "node teardown.js"
+  },
+  "dependencies": {
+    "axios": "^1.7.9",
+    "socket.io-client": "^4.8.1"
+  }
+}
