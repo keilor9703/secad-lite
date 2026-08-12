@@ -219,13 +219,58 @@ despache con esto haría falta, como mínimo:
   la CA del proveedor.
 - **Copias de respaldo** con restauración probada, no solo configurada.
 - **Infraestructura que no se duerma**, con varias instancias y despliegue sin
-  corte.
-- **Límite de tasa** en el inicio de sesión y en las rutas de integración.
-- **Registro y alertas** centralizados.
+  corte — el código ya está preparado para esto (ver §8: `REDIS_URL`), falta
+  contratar el plan que da varias instancias y el Redis.
+- **Límite de tasa compartido entre instancias** — igual que el punto
+  anterior, ya implementado en código, condicionado a `REDIS_URL` (§8).
+- **Registro y alertas** centralizados (uptime + errores, con aviso a
+  celular/correo — no un panel que nadie mira).
 - **Rotación del `JWT_SECRET`** y expiración de sesión acorde a la política de
   la entidad.
+- **Un ambiente de staging separado de producción**, para no volver a probar
+  cambios directamente donde ya hay datos reales de ciudadanos.
+- **Dominio propio** en vez de `*.onrender.com` / `*.vercel.app`.
 - Revisar la retención de la bitácora y de la auditoría según lo que exija la
   normativa aplicable.
 
 Para infraestructura propia, el `docker-compose.yml` de la raíz ya levanta
 PostgreSQL, y el backend solo necesita las mismas variables de este documento.
+
+---
+
+## 8. Escalar a varias instancias: `REDIS_URL`
+
+Con **una sola instancia** del backend (lo que da el plan gratuito de Render,
+y lo que tiene hoy la demostración), no hace falta nada de esto: el aviso en
+vivo (Socket.IO: llamadas de la PBX, chat) y el límite de intentos de inicio
+de sesión viven en la memoria de esa única instancia, y les basta.
+
+En cuanto se contrate un plan con **más de una instancia** (necesario para
+que el sistema no tenga un único punto de falla y para desplegar sin cortar
+el servicio), eso deja de alcanzar: cada instancia lleva su propia cuenta por
+separado. Un operador conectado a la instancia A no se entera de un aviso
+generado en la instancia B, y el límite de 5 intentos de login por minuto se
+vuelve, en la práctica, "5 × número de instancias".
+
+El sistema ya trae el código para resolverlo — solo hace falta la variable de
+entorno:
+
+```
+REDIS_URL=redis://usuario:password@host:6379
+```
+
+Con ella configurada (en Render, o donde corra el backend):
+
+- El aviso en vivo de Socket.IO se reparte entre todas las instancias por
+  Redis pub/sub (`backend/src/common/redis-io.adapter.ts`).
+- El límite de intentos de login se cuenta en Redis, compartido entre todas
+  (`ThrottlerModule` en `backend/src/app.module.ts`).
+
+Sin la variable, el sistema arranca y funciona exactamente igual que hoy
+(memoria local) — no es un requisito para desplegar, solo para escalar a más
+de una instancia con garantías.
+
+**De dónde sacar el Redis**: Render ofrece su propio servicio de Redis/Key
+Value gestionado (misma cuenta, misma región que el backend, menor latencia);
+Upstash es una alternativa serverless que también funciona bien con este
+código. Cualquiera de los dos entrega una URL con el formato de arriba.

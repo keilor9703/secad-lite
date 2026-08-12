@@ -3,6 +3,7 @@ import { AuditoriaModule } from './auditoria/auditoria.module';
 import { ConfigModule, ConfigService } from '@nestjs/config';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { ThrottlerModule } from '@nestjs/throttler';
+import { ThrottlerStorageRedisService } from '@nest-lab/throttler-storage-redis';
 import { APP_GUARD } from '@nestjs/core';
 import { AppController } from './app.controller';
 import { AppService } from './app.service';
@@ -31,7 +32,23 @@ import { IntegracionModule } from './integracion/integracion.module';
     // Tope de intentos para las rutas que lo declaren (@UseGuards(ThrottlerGuard)):
     // hoy, el login. 5 por minuto por IP frena la fuerza bruta de contraseñas
     // sin estorbar el uso normal (un humano que se equivoca teclea menos que eso).
-    ThrottlerModule.forRoot({ throttlers: [{ ttl: 60_000, limit: 5 }] }),
+    ThrottlerModule.forRootAsync({
+      inject: [ConfigService],
+      useFactory: (config: ConfigService) => {
+        const redisUrl = config.get<string>('REDIS_URL')?.trim();
+        return {
+          throttlers: [{ ttl: 60_000, limit: 5 }],
+          // Sin REDIS_URL (desarrollo, o una sola instancia) el conteo vive en
+          // memoria, como siempre. Con más de una instancia detrás del
+          // balanceador eso deja de ser confiable —cada instancia cuenta por
+          // su cuenta, así que el tope real termina siendo (5 × instancias)—
+          // y hace falta un conteo compartido.
+          storage: redisUrl
+            ? new ThrottlerStorageRedisService(redisUrl)
+            : undefined,
+        };
+      },
+    }),
     TypeOrmModule.forRootAsync({
       inject: [ConfigService],
       useFactory: (config: ConfigService) => {
