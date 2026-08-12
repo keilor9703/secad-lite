@@ -152,7 +152,18 @@ asignada. Si no hay match, simplemente no dirige el aviso (cola compartida).
 
 Integración estándar de un webhook de Meta: verificación por `GET` y mensajes
 entrantes por `POST`. El número de WhatsApp Business (`phone_number_id`)
-identifica al tenant.
+identifica al tenant. Hay TRES credenciales distintas de por medio, que no hay
+que confundir:
+
+| Credencial | De dónde sale | Para qué |
+|---|---|---|
+| *Verify token* | Se configura en Administración (`falcon-cad` por defecto) | Verificar el webhook una sola vez, al configurarlo en Meta (2.1) |
+| *Access token* | Meta for Developers → la app de WhatsApp Business | Que FALCON CAD pueda **responder** mensajes por la Graph API |
+| *App Secret* | Meta for Developers → Configuración → Básica de la app | Que FALCON CAD **verifique la firma** de cada mensaje entrante (2.2) |
+
+El *App Secret* nunca se configura desde Administración: es una variable de
+entorno del servidor (`WHATSAPP_APP_SECRET`) — hay que pedírsela a quien
+administre la app de Meta y configurarla del lado de FALCON CAD.
 
 ### 2.1 `GET /api/whatsapp/webhook` — verificación de Meta
 
@@ -171,9 +182,25 @@ GET /api/whatsapp/webhook?hub.mode=subscribe&hub.verify_token=<verifyToken>&hub.
 ### 2.2 `POST /api/whatsapp/webhook` — mensajes entrantes
 
 **Quién lo llama**: la Cloud API de Meta, con el payload estándar de WhatsApp
-Business (sin autenticación adicional de FALCON CAD — la seguridad depende de
-que la URL del webhook no se filtre y de la validación implícita del
-`phone_number_id`).
+Business. Cada entrega la firma Meta automáticamente con el *App Secret* de
+la app (header `X-Hub-Signature-256`, HMAC-SHA256 del cuerpo) — es un
+comportamiento estándar de la plataforma, **no algo que la entidad/proveedor
+deba implementar aparte**: basta con que hayan configurado el webhook en el
+panel de Meta.
+
+```
+POST /api/whatsapp/webhook
+Content-Type: application/json
+x-hub-signature-256: sha256=<HMAC-SHA256 del cuerpo, calculado por Meta con el App Secret>
+```
+
+**Verificación de firma (obligatoria en producción)**: FALCON CAD valida esa
+firma con `WHATSAPP_APP_SECRET` (ver tabla de credenciales arriba). Sin esa
+variable configurada, en producción el endpoint responde siempre
+`403 Forbidden` — falla cerrado a propósito, para no aceptar payloads que no
+se puedan verificar como genuinos de Meta. En desarrollo (`NODE_ENV` distinto
+de `production`) acepta el payload sin firma, con una advertencia en el log,
+para poder probar sin tener el App Secret a mano.
 
 **Cuerpo**: el payload nativo de Meta (`entry[].changes[].value.messages[]`,
 etc.) — no se documenta aquí, es el formato oficial de la Cloud API. El
@@ -184,6 +211,10 @@ etc.) — no se documenta aquí, es el formato oficial de la Cloud API. El
 Cada mensaje crea o continúa un caso (canal `whatsapp`) del mismo número, y se
 enruta a la agencia/canales configurados en 2.4 — sin esa configuración, el
 caso solo lo ve un supervisor (`casos.ver_todos`), nunca un operador normal.
+
+**Errores**:
+- `403 Forbidden` — `WHATSAPP_APP_SECRET` no configurado en producción, firma
+  ausente/mal formada, o firma que no coincide con el cuerpo recibido.
 
 ### 2.3 `GET /api/whatsapp/config`
 
@@ -344,7 +375,7 @@ canal que no pertenezca a la agencia elegida se rechaza con `400`.
 | Integración | Quién presenta la credencial | Header | Qué identifica |
 |---|---|---|---|
 | PBX | La central telefónica | `x-api-key` | El **tenant** |
-| WhatsApp | Meta (vía `phone_number_id` en el payload) | — (webhook público) | El **tenant** |
+| WhatsApp | Meta, firmando con el App Secret de su app | `x-hub-signature-256` | El **tenant** (por `phone_number_id`) y que el mensaje es genuino de Meta |
 | Entidades externas | El backend de la empresa/entidad externa | `x-api-key` | La **entidad** (y, a través de ella, el tenant) |
 
 Ninguna de las tres usa usuario/contraseña: son integraciones
