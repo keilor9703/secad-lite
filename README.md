@@ -8,16 +8,57 @@ de decisiones para brindar una atención más rápida, eficiente y segura a la
 ciudadanía.
 
 Recepción de incidentes **multicanal** (llamada / chat / integración), gestión de
-casos **multi-agencia** y arquitectura **multi-inquilino** (una instancia por
-municipio/organización).
+casos **multi-agencia** y arquitectura **multi-inquilino**: todos los municipios
+comparten el mismo backend y la misma base de datos, aislados por una columna
+`tenant` — no hay una instancia de infraestructura por municipio.
 
 ## Estructura
 
 ```
 secad-lite/
 ├─ frontend/   Angular 20 (standalone) — UI (tema teal)
-└─ backend/    NestJS 10 — API: auth, casos (recepción), chat, métricas, administración
+├─ backend/    NestJS 10 — API: auth, casos (recepción), chat, métricas, administración
+│  └─ Dockerfile   imagen multi-stage, sin estado propio, lista para cualquier orquestador
+└─ loadtest/   herramienta de prueba de carga (varios tenants + operadores simulados)
 ```
+
+## Arquitectura
+
+Un **monolito modular**: un solo proceso, organizado internamente por dominio, sin
+llamadas de red entre sus propias partes. No guarda estado propio — todo vive en
+PostgreSQL — así que corre en cualquier número de réplicas idénticas detrás de un
+balanceador de carga, sin coordinación adicional entre ellas.
+
+```mermaid
+flowchart TD
+    A["Operador<br/>navegador web"] --> LB
+    B["Planta PBX<br/>SIP / API telefonía"] --> LB
+    C["WhatsApp<br/>Meta Cloud API"] --> LB
+    D["Sistema externo<br/>API"] --> LB
+
+    LB["Balanceador de carga<br/>TLS terminado aquí"] --> APP
+
+    APP["FALCON CAD<br/>instancias sin estado (N réplicas)<br/>Node.js / NestJS"]
+    APP -->|SQL| PG[("PostgreSQL<br/>una sola base · multi-tenant")]
+    APP -.->|"opcional, sin datos de negocio"| RD[("Redis<br/>caché · pub/sub en vivo")]
+```
+
+Dentro de cada instancia, toda petición pasa por las mismas capas en el mismo
+orden antes de tocar la base de datos:
+
+```mermaid
+flowchart TD
+    S1["Borde y seguridad<br/>TLS · cabeceras · CORS · límite de login"] --> S2
+    S2["Middleware y guardias<br/>tenant · sesión · vigencia · rol · permisos"] --> S3
+    S3["Controladores<br/>validan el cuerpo (DTO)"] --> S4
+    S4["Servicios<br/>lógica de negocio"] --> S5
+    S5["Acceso a datos<br/>repositorios TypeORM"] --> PG[("PostgreSQL")]
+    S4 -.-> RT["Canal en vivo<br/>Socket.IO — /pbx · /chat"]
+```
+
+El aislamiento entre tenants es responsabilidad de la **aplicación** (cada
+consulta filtra por `tenant`), no de PostgreSQL — hoy no hay Row-Level Security
+activo a nivel de motor.
 
 ## Requisitos
 
@@ -106,6 +147,17 @@ Pestaña *Ciudadano*: cualquier correo con contraseña `demo`.
 > Referencia técnica completa (URL, headers, autenticación, cuerpo y
 > respuesta de cada endpoint) de las tres integraciones anteriores:
 > [`docs/integraciones-externas.md`](docs/integraciones-externas.md).
+
+FALCON recibe eventos de sistemas externos por esos tres canales, cada uno con
+su propia credencial — ninguno depende de la sesión institucional:
+
+```mermaid
+flowchart LR
+    PBX["Planta PBX"] -->|"POST /api/pbx/webhook<br/>x-api-key del tenant"| F
+    WA["WhatsApp / Meta"] -->|"POST /api/whatsapp/webhook<br/>firma X-Hub-Signature-256"| F
+    EXT["Entidad externa"] -->|"POST /api/integracion/casos<br/>x-api-key de la entidad"| F["FALCON CAD"]
+    F -->|"respuesta del operador"| WA
+```
 
 ## Integración con WhatsApp (Cloud API de Meta)
 
@@ -226,9 +278,34 @@ orden de los pasos, las variables de entorno de cada servicio y los límites de
 los planes gratuitos. Los detalles de la parte de Vercel están en
 [`docs/despliegue-vercel.md`](docs/despliegue-vercel.md).
 
+## Producción y escalamiento
+
+El backend se empaqueta como una **imagen Docker** multi-stage
+(`backend/Dockerfile`) — sin estado propio, corre igual con una instancia o con
+varias, en cualquier orquestador (Kubernetes, ECS, o el mismo Render).
+
+Con **más de una instancia** corriendo a la vez hace falta `REDIS_URL` (ver
+`docs/despliegue-demo.md`, sección 8): sin ella, el aviso en vivo (Socket.IO) y
+el límite de intentos de login viven en la memoria de cada instancia por
+separado — correcto con una sola instancia, no con varias.
+
+Antes de comprometer un tamaño de plan/instancia en producción, valide la
+capacidad real con la herramienta de prueba de carga del repositorio
+(`loadtest/`): aprovisiona tenants de prueba, conecta operadores simulados por
+el canal en vivo, y genera casos y llamadas a un ritmo configurable, midiendo
+latencia y errores. Ver [`loadtest/README.md`](loadtest/README.md).
+
 ## Pendiente / a endurecer
 
 - Contraseñas **demo** para los usuarios sembrados → en producción se crean con
   contraseñas reales desde el módulo de administración.
 - Integración real con el flujo de llamadas al **123** y con las entidades de
   respuesta (interoperabilidad).
+- **Row-Level Security de Postgres**: el aislamiento entre tenants hoy es solo
+  de aplicación (columna `tenant` filtrada en cada consulta) — RLS agregaría
+  una segunda capa de defensa a nivel de motor, independiente de un bug en el
+  backend.
+- **Retención de la bitácora**: `casos_eventos` y `admin_bitacora` son de solo
+  escritura, sin purga ni archivado por antigüedad — crecen indefinidamente.
+- **Validación real del certificado TLS** contra la base de datos
+  (`DB_SSL_CA`) — sin ella, `DB_SSL=true` cifra pero no valida la cadena.
