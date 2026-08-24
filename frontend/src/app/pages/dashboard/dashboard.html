@@ -4,110 +4,126 @@
     <p>Indicadores de casos del municipio</p>
   </header>
 
-  <p class="error" *ngIf="error()">{{ error() }}</p>
-  <p class="cargando" *ngIf="cargando()">Cargando…</p>
+  @if (error()) {
+    <p class="error">{{ error() }}</p>
+  }
+  @if (cargando()) {
+    <p class="cargando">Cargando…</p>
+  }
 
-  <ng-container *ngIf="resumen() as r">
+  @if (resumen(); as r) {
     <!-- KPIs por estado -->
     <div class="kpis">
       <div class="kpi total"><span class="n">{{ r.total }}</span><span class="l">Total</span></div>
-      <div class="kpi" *ngFor="let b of porEstado()"><span class="n">{{ b.valor }}</span><span class="l">{{ b.etiqueta }}</span></div>
+      @for (b of porEstado(); track b) {
+        <div class="kpi"><span class="n">{{ b.valor }}</span><span class="l">{{ b.etiqueta }}</span></div>
+      }
     </div>
-
     <!-- Tiempos de respuesta: la medida real de un centro de despacho -->
-    <div class="panel card tiempos" *ngIf="tiempos() as t">
-      <h2>Tiempos de respuesta <span class="periodo">últimos 30 días</span></h2>
-      <ng-container *ngIf="t.global as g; else sinTiempos">
-        <div class="t-kpis">
-          <div class="t-kpi">
-            <span class="n">{{ duracion(g.tomaMin) }}</span>
-            <span class="l">Recepción → tomado</span>
+    @if (tiempos(); as t) {
+      <div class="panel card tiempos">
+        <h2>Tiempos de respuesta <span class="periodo">últimos 30 días</span></h2>
+        @if (t.global; as g) {
+          <div class="t-kpis">
+            <div class="t-kpi">
+              <span class="n">{{ duracion(g.tomaMin) }}</span>
+              <span class="l">Recepción → tomado</span>
+            </div>
+            <div class="t-kpi">
+              <span class="n">{{ duracion(g.despachoMin) }}</span>
+              <span class="l">Recepción → primer recurso</span>
+            </div>
+            <div class="t-kpi">
+              <span class="n">{{ duracion(g.cierreMin) }}</span>
+              <span class="l">Recepción → cierre</span>
+            </div>
+            <div class="t-kpi">
+              <span class="n">{{ g.total }}</span>
+              <span class="l">Casos del período</span>
+            </div>
           </div>
-          <div class="t-kpi">
-            <span class="n">{{ duracion(g.despachoMin) }}</span>
-            <span class="l">Recepción → primer recurso</span>
-          </div>
-          <div class="t-kpi">
-            <span class="n">{{ duracion(g.cierreMin) }}</span>
-            <span class="l">Recepción → cierre</span>
-          </div>
-          <div class="t-kpi">
-            <span class="n">{{ g.total }}</span>
-            <span class="l">Casos del período</span>
-          </div>
-        </div>
-        <table class="t-tabla" *ngIf="t.porPrioridad.length">
-          <thead>
-            <tr><th>Prioridad</th><th>Casos</th><th>Tomado</th><th>Primer recurso</th><th>Cierre</th></tr>
-          </thead>
-          <tbody>
-            <tr *ngFor="let f of t.porPrioridad">
-              <td><span class="prio" [attr.data-prio]="f.prioridad">{{ prioridadLabel(f.prioridad) }}</span></td>
-              <td class="num">{{ f.total }}</td>
-              <td class="num">{{ duracion(f.tomaMin) }}</td>
-              <td class="num">{{ duracion(f.despachoMin) }}</td>
-              <td class="num">{{ duracion(f.cierreMin) }}</td>
-            </tr>
-          </tbody>
-        </table>
-      </ng-container>
-      <ng-template #sinTiempos>
-        <p class="vacio">Aún no hay casos en los últimos 30 días para medir tiempos.</p>
-      </ng-template>
-    </div>
-
+          @if (t.porPrioridad.length) {
+            <table class="t-tabla">
+              <thead>
+                <tr><th>Prioridad</th><th>Casos</th><th>Tomado</th><th>Primer recurso</th><th>Cierre</th></tr>
+              </thead>
+              <tbody>
+                @for (f of t.porPrioridad; track f) {
+                  <tr>
+                    <td><span class="prio" [attr.data-prio]="f.prioridad">{{ prioridadLabel(f.prioridad) }}</span></td>
+                    <td class="num">{{ f.total }}</td>
+                    <td class="num">{{ duracion(f.tomaMin) }}</td>
+                    <td class="num">{{ duracion(f.despachoMin) }}</td>
+                    <td class="num">{{ duracion(f.cierreMin) }}</td>
+                  </tr>
+                }
+              </tbody>
+            </table>
+          }
+        } @else {
+          <p class="vacio">Aún no hay casos en los últimos 30 días para medir tiempos.</p>
+        }
+      </div>
+    }
     <!-- Planta telefónica: cuántas llamadas entraron y qué tan rápido se contestan -->
-    <div class="panel card tiempos" *ngIf="llamadas() as ll">
-      <h2>Llamadas <span class="periodo">últimos 30 días</span></h2>
-      <ng-container *ngIf="ll.total; else sinLlamadas">
-        <div class="t-kpis">
-          <div class="t-kpi">
-            <span class="n">{{ ll.total }}</span>
-            <span class="l">Llamadas del período</span>
+    @if (llamadas(); as ll) {
+      <div class="panel card tiempos">
+        <h2>Llamadas <span class="periodo">últimos 30 días</span></h2>
+        @if (ll.total) {
+          <div class="t-kpis">
+            <div class="t-kpi">
+              <span class="n">{{ ll.total }}</span>
+              <span class="l">Llamadas del período</span>
+            </div>
+            <div class="t-kpi">
+              <span class="n">{{ duracion(ll.tiempoRespuestaProm) }}</span>
+              <span class="l">Tiempo promedio de respuesta</span>
+            </div>
           </div>
-          <div class="t-kpi">
-            <span class="n">{{ duracion(ll.tiempoRespuestaProm) }}</span>
-            <span class="l">Tiempo promedio de respuesta</span>
+          <div class="barras">
+            @for (b of porEstadoLlamada(); track b) {
+              <div class="fila">
+                <span class="cap">{{ b.etiqueta }}</span>
+                <div class="track"><div class="fill ll" [style.width.%]="pct(b.valor, porEstadoLlamada())" [attr.data-clave]="b.clave"></div></div>
+                <span class="val">{{ b.valor }}</span>
+              </div>
+            }
           </div>
-        </div>
-        <div class="barras">
-          <div class="fila" *ngFor="let b of porEstadoLlamada()">
-            <span class="cap">{{ b.etiqueta }}</span>
-            <div class="track"><div class="fill ll" [style.width.%]="pct(b.valor, porEstadoLlamada())" [attr.data-clave]="b.clave"></div></div>
-            <span class="val">{{ b.valor }}</span>
-          </div>
-        </div>
-      </ng-container>
-      <ng-template #sinLlamadas>
-        <p class="vacio">Aún no hay llamadas registradas en los últimos 30 días.</p>
-      </ng-template>
-    </div>
-
+        } @else {
+          <p class="vacio">Aún no hay llamadas registradas en los últimos 30 días.</p>
+        }
+      </div>
+    }
     <div class="cols">
       <!-- Por canal -->
       <div class="panel card">
         <h2>Casos por canal</h2>
         <div class="barras">
-          <div class="fila" *ngFor="let b of porCanal()">
-            <span class="cap">{{ b.etiqueta }}</span>
-            <div class="track"><div class="fill" [style.width.%]="pct(b.valor, porCanal())" [attr.data-clave]="b.clave"></div></div>
-            <span class="val">{{ b.valor }}</span>
-          </div>
+          @for (b of porCanal(); track b) {
+            <div class="fila">
+              <span class="cap">{{ b.etiqueta }}</span>
+              <div class="track"><div class="fill" [style.width.%]="pct(b.valor, porCanal())" [attr.data-clave]="b.clave"></div></div>
+              <span class="val">{{ b.valor }}</span>
+            </div>
+          }
         </div>
       </div>
-
       <!-- Por agencia -->
       <div class="panel card">
         <h2>Casos por agencia</h2>
         <div class="barras">
-          <p class="vacio" *ngIf="r.porAgencia.length === 0">Sin datos.</p>
-          <div class="fila" *ngFor="let a of r.porAgencia">
-            <span class="cap">{{ a.agencia }}</span>
-            <div class="track"><div class="fill ag" [style.width.%]="(a.total / maxAgencia()) * 100"></div></div>
-            <span class="val">{{ a.total }}</span>
-          </div>
+          @if (r.porAgencia.length === 0) {
+            <p class="vacio">Sin datos.</p>
+          }
+          @for (a of r.porAgencia; track a) {
+            <div class="fila">
+              <span class="cap">{{ a.agencia }}</span>
+              <div class="track"><div class="fill ag" [style.width.%]="(a.total / maxAgencia()) * 100"></div></div>
+              <span class="val">{{ a.total }}</span>
+            </div>
+          }
         </div>
       </div>
     </div>
-  </ng-container>
+  }
 </section>

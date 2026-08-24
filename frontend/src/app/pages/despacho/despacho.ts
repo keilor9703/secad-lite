@@ -1,5 +1,5 @@
-import { Component, computed, effect, inject, signal } from '@angular/core';
-import { CommonModule } from '@angular/common';
+import { ChangeDetectionStrategy, Component, computed, effect, inject, signal } from '@angular/core';
+
 import { ActivatedRoute, Router, RouterLink } from '@angular/router';
 import { DetalleComponent } from '../detalle/detalle';
 import { CasosService } from '../../core/casos.service';
@@ -24,9 +24,10 @@ interface Columna {
 @Component({
   selector: 'app-despacho',
   standalone: true,
-  imports: [CommonModule, RouterLink, DetalleComponent],
+  imports: [RouterLink, DetalleComponent],
   templateUrl: './despacho.html',
   styleUrl: './despacho.scss',
+  changeDetection: ChangeDetectionStrategy.OnPush,
 })
 export class DespachoComponent {
   private casosSvc = inject(CasosService);

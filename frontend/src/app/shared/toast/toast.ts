@@ -1,14 +1,15 @@
-import { Component, inject } from '@angular/core';
-import { CommonModule } from '@angular/common';
+import { ChangeDetectionStrategy, Component, inject } from '@angular/core';
+
 import { Toast, ToastService } from './toast.service';
 
 /** Pila de notificaciones popup, montada una sola vez en el shell (y en Login, sin sesión aún). */
 @Component({
   selector: 'app-toast',
   standalone: true,
-  imports: [CommonModule],
+  imports: [],
   templateUrl: './toast.html',
   styleUrl: './toast.scss',
+  changeDetection: ChangeDetectionStrategy.OnPush,
 })
 export class ToastComponent {
   private readonly toastSvc = inject(ToastService);

@@ -1,5 +1,5 @@
-import { Component, inject } from '@angular/core';
-import { CommonModule } from '@angular/common';
+import { ChangeDetectionStrategy, Component, inject } from '@angular/core';
+
 import { Tema, TemaService } from '../../core/tema.service';
 
 interface Opcion { valor: Tema; icono: string; titulo: string; }
@@ -8,16 +8,18 @@ interface Opcion { valor: Tema; icono: string; titulo: string; }
 @Component({
   selector: 'app-tema-toggle',
   standalone: true,
-  imports: [CommonModule],
+  imports: [],
   template: `
     <div class="tema" role="group" aria-label="Tema de color">
-      <button *ngFor="let o of opciones" type="button" [title]="o.titulo"
-              [attr.aria-label]="o.titulo" [attr.aria-pressed]="tema.preferencia() === o.valor"
-              [class.on]="tema.preferencia() === o.valor" (click)="tema.elegir(o.valor)">
-        {{ o.icono }}
-      </button>
+      @for (o of opciones; track o) {
+        <button type="button" [title]="o.titulo"
+          [attr.aria-label]="o.titulo" [attr.aria-pressed]="tema.preferencia() === o.valor"
+          [class.on]="tema.preferencia() === o.valor" (click)="tema.elegir(o.valor)">
+          {{ o.icono }}
+        </button>
+      }
     </div>
-  `,
+    `,
   styles: [`
     .tema { display: inline-flex; gap: 2px; padding: 2px; border-radius: 999px;
             border: 1px solid var(--border); background: var(--surface-2); }
@@ -29,6 +31,7 @@ interface Opcion { valor: Tema; icono: string; titulo: string; }
                 box-shadow: 0 1px 2px rgba(0,0,0,0.15); }
     button:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
   `],
+  changeDetection: ChangeDetectionStrategy.OnPush,
 })
 export class TemaToggleComponent {
   readonly tema = inject(TemaService);

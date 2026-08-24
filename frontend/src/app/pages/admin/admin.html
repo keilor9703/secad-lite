@@ -2,396 +2,492 @@
   <header class="admin-head">
     <h1>Administración</h1>
     <p>Cuentas, roles e integraciones de esta instancia.</p>
-    <p class="ctx-nota" *ngIf="esSuperadmin()">Trabajando sobre
-      <strong>{{ tenantCtx() || 'ningún tenant' }}</strong> — cámbielo en la barra superior.</p>
-  </header>
+    @if (esSuperadmin()) {
+      <p class="ctx-nota">Trabajando sobre
+        <strong>{{ tenantCtx() || 'ningún tenant' }}</strong> — cámbielo en la barra superior.</p>
+      }
+    </header>
 
-  <p class="error" *ngIf="error()">{{ error() }}</p>
+    @if (error()) {
+      <p class="error">{{ error() }}</p>
+    }
 
-  <!-- Roles y permisos (RBAC dinámico) -->
-  <div class="panel card" *ngIf="puedeVerMatriz()">
-    <h2>🛡️ Roles y permisos<span class="ctx-tag" *ngIf="esSuperadmin()">{{ tenantCtx() }}</span></h2>
-    <p class="pbx-hint">Cree roles a medida y marque en la matriz qué puede hacer cada uno.
-      Los roles de sistema (Administrador, Supervisor, Operador) se pueden ajustar pero no eliminar.
-      <ng-container *ngIf="esSuperadmin()">Los roles son propios de cada tenant: cambie el
-      <strong>tenant en gestión</strong> en la barra superior para editar los de otra instancia.</ng-container></p>
-
-    <form class="crear-inline" (ngSubmit)="crearRol()">
-      <input [(ngModel)]="nuevoRol" name="nrol" placeholder="Nombre del nuevo rol (p. ej. Despachador)" />
-      <button type="submit" class="btn btn--primary" [disabled]="!nuevoRol.trim()">Crear rol</button>
-    </form>
-
-    <div class="tbl-wrap matriz-wrap" *ngIf="roles().length && modulos().length">
-      <table class="matriz">
-        <thead>
-          <tr>
-            <th class="permiso-col">Módulo</th>
-            <th *ngFor="let r of roles()" class="rol-col">
-              <div class="rol-head">
-                <span>{{ r.nombre }}</span>
-                <span class="rol-tag" *ngIf="r.esSistema">sistema</span>
-                <button *ngIf="!r.esSistema" type="button" class="btn btn--ghost mini"
-                        title="Eliminar rol" (click)="eliminarRol(r)">✕</button>
-              </div>
-            </th>
-          </tr>
-        </thead>
-        <tbody>
-          <tr class="grupo-row"><td [attr.colspan]="roles().length + 1">Módulos</td></tr>
-          <tr *ngFor="let m of modulos()">
-            <td class="permiso-col" [title]="m.descripcion">{{ m.etiqueta }}</td>
-            <td *ngFor="let r of roles()" class="check-col">
-              <input type="checkbox" [checked]="moduloActivo(r, m)" (change)="toggleModulo(r, m)"
-                     [attr.aria-label]="r.nombre + ': ' + m.etiqueta" />
-            </td>
-          </tr>
-          <tr class="grupo-row" *ngIf="transversales().length">
-            <td [attr.colspan]="roles().length + 1">
-              Funcionalidades transversales
-              <span class="ayuda-inline">— se suman a cualquier módulo marcado arriba</span>
-            </td>
-          </tr>
-          <tr *ngFor="let p of transversales()">
-            <td class="permiso-col" [title]="p.clave">{{ p.etiqueta }}</td>
-            <td *ngFor="let r of roles()" class="check-col">
-              <input type="checkbox" [checked]="tiene(r, p.clave)" (change)="toggle(r, p.clave)"
-                     [attr.aria-label]="r.nombre + ': ' + p.etiqueta" />
-            </td>
-          </tr>
-        </tbody>
-      </table>
-    </div>
-
-    <div class="matriz-acciones">
-      <span class="pbx-warn" *ngIf="rolesOk()">Permisos guardados. Los usuarios los verán al volver a iniciar sesión.</span>
-      <button type="button" class="btn btn--primary" [disabled]="!haySucios() || guardandoRoles" (click)="guardarRoles()">
-        {{ guardandoRoles ? 'Guardando…' : 'Guardar cambios' }}
-      </button>
-    </div>
-  </div>
-
-  <!-- Integración: planta telefónica (PBX) -->
-  <div class="panel card" *ngIf="pbxConfig() as cfg">
-    <h2>📞 Integración — Planta telefónica (PBX)</h2>
-    <p class="pbx-hint">Configure su central para que envíe un <code>POST</code> al webhook con el
-      header <code>x-api-key</code>. Al timbrar: <code>{{ '{' }}"evento":"entrante","numero":"3001234567","callId":"..."{{ '}' }}</code>;
-      al colgar: <code>{{ '{' }}"evento":"colgada","callId":"..."{{ '}' }}</code>.</p>
-
-    <div class="pbx-field">
-      <label>URL del webhook</label>
-      <div class="pbx-row">
-        <input class="mono" [value]="webhookUrl" readonly />
-        <button type="button" class="btn btn--ghost mini" (click)="copiar(webhookUrl, 'url')">
-          {{ copiado === 'url' ? '¡Copiado!' : 'Copiar' }}
-        </button>
-      </div>
-    </div>
-
-    <div class="pbx-field">
-      <label>API key del tenant</label>
-      <!-- La clave ya no se guarda en claro: solo se ve al rotarla, una vez. -->
-      <div class="pbx-row" *ngIf="cfg.apiKey; else keyOculta">
-        <input class="mono" [value]="cfg.apiKey" readonly />
-        <button type="button" class="btn btn--ghost mini" (click)="copiar(cfg.apiKey, 'key')">
-          {{ copiado === 'key' ? '¡Copiado!' : 'Copiar' }}
-        </button>
-        <button type="button" class="btn btn--ghost mini" (click)="rotarPbx()">Rotar</button>
-      </div>
-      <ng-template #keyOculta>
-        <div class="pbx-row">
-          <input class="mono"
-                 [value]="cfg.apiKeyConfigurada ? '•••••••••••••••••••••••• (emitida)' : 'Sin emitir'" readonly />
-          <button type="button" class="btn btn--ghost mini" (click)="rotarPbx()">
-            {{ cfg.apiKeyConfigurada ? 'Rotar' : 'Generar' }}
-          </button>
+    <!-- Roles y permisos (RBAC dinámico) -->
+    @if (puedeVerMatriz()) {
+      <div class="panel card">
+        <h2>🛡️ Roles y permisos@if (esSuperadmin()) {
+          <span class="ctx-tag">{{ tenantCtx() }}</span>
+        }</h2>
+        <p class="pbx-hint">Cree roles a medida y marque en la matriz qué puede hacer cada uno.
+          Los roles de sistema (Administrador, Supervisor, Operador) se pueden ajustar pero no eliminar.
+          @if (esSuperadmin()) {
+            Los roles son propios de cada tenant: cambie el
+            <strong>tenant en gestión</strong> en la barra superior para editar los de otra instancia.
+          }</p>
+          <form class="crear-inline" [formGroup]="rolForm" (ngSubmit)="crearRol()">
+            <input formControlName="nombre" placeholder="Nombre del nuevo rol (p. ej. Despachador)" />
+            <button type="submit" class="btn btn--primary" [disabled]="rolForm.invalid">Crear rol</button>
+          </form>
+          @if (roles().length && modulos().length) {
+            <div class="tbl-wrap matriz-wrap">
+              <table class="matriz">
+                <thead>
+                  <tr>
+                    <th class="permiso-col">Módulo</th>
+                    @for (r of roles(); track r) {
+                      <th class="rol-col">
+                        <div class="rol-head">
+                          <span>{{ r.nombre }}</span>
+                          @if (r.esSistema) {
+                            <span class="rol-tag">sistema</span>
+                          }
+                          @if (!r.esSistema) {
+                            <button type="button" class="btn btn--ghost mini"
+                            title="Eliminar rol" (click)="eliminarRol(r)">✕</button>
+                          }
+                        </div>
+                      </th>
+                    }
+                  </tr>
+                </thead>
+                <tbody>
+                  <tr class="grupo-row"><td [attr.colspan]="roles().length + 1">Módulos</td></tr>
+                  @for (m of modulos(); track m) {
+                    <tr>
+                      <td class="permiso-col" [title]="m.descripcion">{{ m.etiqueta }}</td>
+                      @for (r of roles(); track r) {
+                        <td class="check-col">
+                          <input type="checkbox" [checked]="moduloActivo(r, m)" (change)="toggleModulo(r, m)"
+                            [attr.aria-label]="r.nombre + ': ' + m.etiqueta" />
+                        </td>
+                      }
+                    </tr>
+                  }
+                  @if (transversales().length) {
+                    <tr class="grupo-row">
+                      <td [attr.colspan]="roles().length + 1">
+                        Funcionalidades transversales
+                        <span class="ayuda-inline">— se suman a cualquier módulo marcado arriba</span>
+                      </td>
+                    </tr>
+                  }
+                  @for (p of transversales(); track p) {
+                    <tr>
+                      <td class="permiso-col" [title]="p.clave">{{ p.etiqueta }}</td>
+                      @for (r of roles(); track r) {
+                        <td class="check-col">
+                          <input type="checkbox" [checked]="tiene(r, p.clave)" (change)="toggle(r, p.clave)"
+                            [attr.aria-label]="r.nombre + ': ' + p.etiqueta" />
+                        </td>
+                      }
+                    </tr>
+                  }
+                </tbody>
+              </table>
+            </div>
+          }
+          <div class="matriz-acciones">
+            @if (rolesOk()) {
+              <span class="pbx-warn">Permisos guardados. Los usuarios los verán al volver a iniciar sesión.</span>
+            }
+            <button type="button" class="btn btn--primary" [disabled]="!haySucios() || guardandoRoles()" (click)="guardarRoles()">
+              {{ guardandoRoles() ? 'Guardando…' : 'Guardar cambios' }}
+            </button>
+          </div>
         </div>
-      </ng-template>
-      <p class="pbx-warn" *ngIf="cfg.apiKey">Copie la clave AHORA: por seguridad no se vuelve a mostrar.
-        Actualícela en la PBX.</p>
-      <p class="pbx-warn" *ngIf="!cfg.apiKey">La clave no se puede volver a mostrar (solo se guarda su
-        huella). Si la perdió, rótela y configure la nueva en la PBX.</p>
-    </div>
-  </div>
+      }
 
-  <!-- Integración: WhatsApp -->
-  <div class="panel card" *ngIf="waConfig() as wcfg">
-    <h2>🟢 Integración — WhatsApp (Cloud API)</h2>
-    <p class="pbx-hint">Configure el webhook de su app de Meta con la URL y el <em>verify token</em>
-      de abajo, y registre aquí el <code>phone_number_id</code> del número y su token de acceso.</p>
-
-    <div class="pbx-field">
-      <label>URL del webhook</label>
-      <div class="pbx-row">
-        <input class="mono" [value]="waWebhookUrl" readonly />
-        <button type="button" class="btn btn--ghost mini" (click)="copiar(waWebhookUrl, 'waurl')">
-          {{ copiado === 'waurl' ? '¡Copiado!' : 'Copiar' }}
-        </button>
-      </div>
-    </div>
-
-    <div class="pbx-field">
-      <label>Verify token</label>
-      <div class="pbx-row">
-        <input class="mono" [value]="wcfg.verifyToken" readonly />
-        <button type="button" class="btn btn--ghost mini" (click)="copiar(wcfg.verifyToken, 'wavt')">
-          {{ copiado === 'wavt' ? '¡Copiado!' : 'Copiar' }}
-        </button>
-      </div>
-    </div>
-
-    <div class="pbx-field">
-      <label>phone_number_id</label>
-      <div class="pbx-row">
-        <input class="mono" [(ngModel)]="waPhoneNumberId" name="waPid" placeholder="p. ej. 109999888" />
-      </div>
-    </div>
-
-    <div class="pbx-field">
-      <label>A quién se envían los casos que entren por WhatsApp</label>
-      <div class="pbx-row">
-        <select [ngModel]="waAgenciaResponsableId" name="waAge" (ngModelChange)="cambiarAgenciaWa($event)">
-          <option [ngValue]="null">— agencia responsable —</option>
-          <option *ngFor="let a of agencias()" [ngValue]="a.id" [disabled]="!a.activo">{{ a.nombre }}</option>
-        </select>
-      </div>
-      <div class="canales-pick" *ngIf="waAgenciaResponsableId">
-        <label class="chip" *ngFor="let c of canalesDe(waAgenciaResponsableId)" [class.off]="!c.activo">
-          <input type="checkbox" [checked]="canalMarcadoWa(c.id)" (change)="alternarCanalWa(c.id)" />
-          <span>{{ c.codigo }} · {{ c.nombre }}</span>
-        </label>
-      </div>
-      <p class="pbx-hint" *ngIf="!waAgenciaResponsableId">
-        Sin esto, los casos de WhatsApp no llegan a ninguna bandeja de despacho — solo los ve
-        quien tenga permiso de supervisión.
-      </p>
-    </div>
-
-    <div class="pbx-field">
-      <label>Token de acceso {{ wcfg.tokenConfigurado ? '(configurado — deje vacío para conservarlo)' : '' }}</label>
-      <div class="pbx-row">
-        <input class="mono" [(ngModel)]="waAccessToken" name="waTok" type="password" placeholder="Bearer token de Meta" />
-        <button type="button" class="btn btn--primary mini" [disabled]="waGuardando" (click)="guardarWa()">
-          {{ waGuardando ? 'Guardando…' : 'Guardar' }}
-        </button>
-      </div>
-      <p class="pbx-warn" *ngIf="waOk()">Configuración de WhatsApp guardada.</p>
-    </div>
-  </div>
-
-  <!-- Entidades externas (API entrante) -->
-  <div class="panel card" *ngIf="gestionaEntidades && !!tenantActivo()">
-    <h2>🔌 Entidades externas — API entrante</h2>
-    <p class="pbx-hint">Registre las entidades (bomberos, salud, alarmas, apps...) autorizadas a
-      <strong>radicar casos</strong>. Cada una recibe su propia API key y envía un
-      <code>POST</code> con header <code>x-api-key</code> a:
-      <code>{{ integracionUrl }}</code> ·
-      cuerpo <code>{{ '{' }}"titulo":"...","descripcion":"...","telefono":"...","lat":4.6,"lng":-74.1,"referencia":"EXT-001"{{ '}' }}</code>.
-      Con <code>GET {{ '{' }}url{{ '}' }}/:casoId</code> consultan el estado de sus casos.</p>
-
-    <form class="crear-inline" (ngSubmit)="crearEntidad()">
-      <input [(ngModel)]="nuevaEntidad.nombre" name="enom" placeholder="Nombre (p. ej. Bomberos)" />
-      <select [ngModel]="nuevaEntidad.agenciaResponsableId" name="eage" (ngModelChange)="cambiarAgenciaEntidad($event)">
-        <option [ngValue]="null">— agencia responsable —</option>
-        <option *ngFor="let a of agencias()" [ngValue]="a.id" [disabled]="!a.activo">{{ a.nombre }}</option>
-      </select>
-      <button type="submit" class="btn btn--primary" [disabled]="!nuevaEntidad.nombre.trim()">Registrar entidad</button>
-    </form>
-    <!-- Canales de la agencia elegida: a dónde llegan los casos que radique. -->
-    <div class="canales-pick" *ngIf="nuevaEntidad.agenciaResponsableId">
-      <span class="canales-lbl">Canales de atención:</span>
-      <label class="chip" *ngFor="let c of canalesDe(nuevaEntidad.agenciaResponsableId)" [class.off]="!c.activo">
-        <input type="checkbox" [checked]="canalMarcadoEntidad(c.id)" (change)="alternarCanalEntidad(c.id)" />
-        <span>{{ c.codigo }} · {{ c.nombre }}</span>
-      </label>
-      <span class="vacio-inline" *ngIf="!canalesDe(nuevaEntidad.agenciaResponsableId).length">
-        Esa agencia todavía no tiene canales.
-      </span>
-    </div>
-    <p class="pbx-hint" *ngIf="!nuevaEntidad.agenciaResponsableId">
-      Sin agencia ni canales, los casos que radique esta entidad no llegan a ninguna bandeja de
-      despacho — solo los verá quien tenga permiso de supervisión.
-    </p>
-
-    <div class="tbl-wrap" *ngIf="entidades().length">
-      <table>
-        <thead><tr><th>Entidad</th><th>A quién se envía</th><th>API key</th><th>Estado</th><th></th></tr></thead>
-        <tbody>
-          <ng-container *ngFor="let e of entidades()">
-            <tr *ngIf="editandoEntidad() !== e.id">
-              <td>{{ e.nombre }}</td>
-              <td>
-                {{ e.agencia }}
-                <!-- e.canales puede ser NULL en entidades creadas antes de la migración de enrutamiento -->
-                <span class="mono" *ngIf="e.canales?.length"> ({{ nombresCanales(e.canales!) }})</span>
-                <span class="vacio-inline" *ngIf="!e.agenciaResponsableId"> — sin canal asignado</span>
-              </td>
-              <td class="mono ent-key">
-                <!-- La clave solo existe en claro al crearla o rotarla: si esta
-                     fila no la trae, ya no se puede volver a mostrar. -->
-                <ng-container *ngIf="e.apiKey; else entKeyOculta">
-                  <span>{{ keyVisible() === e.id ? e.apiKey : '••••••••••••' }}</span>
-                  <button type="button" class="btn btn--ghost mini"
-                          (click)="keyVisible.set(keyVisible() === e.id ? null : e.id)">
-                    {{ keyVisible() === e.id ? 'Ocultar' : 'Mostrar' }}
-                  </button>
-                  <button type="button" class="btn btn--ghost mini" (click)="copiar(e.apiKey, 'ek' + e.id)">
-                    {{ copiado === 'ek' + e.id ? '¡Copiado!' : 'Copiar' }}
-                  </button>
-                </ng-container>
-                <ng-template #entKeyOculta>
-                  <span title="Solo se muestra al crearla o rotarla">••••••••••••</span>
-                </ng-template>
-                <button type="button" class="btn btn--ghost mini" (click)="rotarEntidad(e)">Rotar</button>
-              </td>
-              <td><span class="badge" [class.on]="e.activa">{{ e.activa ? 'Activa' : 'Inactiva' }}</span></td>
-              <td>
-                <button type="button" class="btn btn--ghost mini" (click)="abrirEdicionEntidad(e)">Editar destino</button>
-                <button type="button" class="btn btn--ghost mini" (click)="toggleEntidad(e)">
-                  {{ e.activa ? 'Desactivar' : 'Activar' }}
+      <!-- Integración: planta telefónica (PBX) -->
+      @if (pbxConfig(); as cfg) {
+        <div class="panel card">
+          <h2>📞 Integración — Planta telefónica (PBX)</h2>
+          <p class="pbx-hint">Configure su central para que envíe un <code>POST</code> al webhook con el
+          header <code>x-api-key</code>. Al timbrar: <code>{{ '{' }}"evento":"entrante","numero":"3001234567","callId":"..."{{ '}' }}</code>;
+          al colgar: <code>{{ '{' }}"evento":"colgada","callId":"..."{{ '}' }}</code>.</p>
+          <div class="pbx-field">
+            <label>URL del webhook</label>
+            <div class="pbx-row">
+              <input class="mono" [value]="webhookUrl" readonly />
+              <button type="button" class="btn btn--ghost mini" (click)="copiar(webhookUrl, 'url')">
+                {{ copiado() === 'url' ? '¡Copiado!' : 'Copiar' }}
+              </button>
+            </div>
+          </div>
+          <div class="pbx-field">
+            <label>API key del tenant</label>
+            <!-- La clave ya no se guarda en claro: solo se ve al rotarla, una vez. -->
+            @if (cfg.apiKey) {
+              <div class="pbx-row">
+                <input class="mono" [value]="cfg.apiKey" readonly />
+                <button type="button" class="btn btn--ghost mini" (click)="copiar(cfg.apiKey, 'key')">
+                  {{ copiado() === 'key' ? '¡Copiado!' : 'Copiar' }}
                 </button>
-              </td>
-            </tr>
-            <tr *ngIf="editandoEntidad() === e.id" class="fila-edicion">
-              <td>{{ e.nombre }}</td>
-              <td colspan="3">
-                <select [ngModel]="entidadEdicion.agenciaResponsableId" [ngModelOptions]="{ standalone: true }"
-                        (ngModelChange)="cambiarAgenciaEdicionEntidad($event)">
-                  <option [ngValue]="null">— agencia responsable —</option>
-                  <option *ngFor="let a of agencias()" [ngValue]="a.id" [disabled]="!a.activo">{{ a.nombre }}</option>
-                </select>
-                <div class="canales-pick" *ngIf="entidadEdicion.agenciaResponsableId">
-                  <label class="chip" *ngFor="let c of canalesDe(entidadEdicion.agenciaResponsableId)" [class.off]="!c.activo">
-                    <input type="checkbox" [checked]="canalMarcadoEdicionEntidad(c.id)" (change)="alternarCanalEdicionEntidad(c.id)" />
+                <button type="button" class="btn btn--ghost mini" (click)="rotarPbx()">Rotar</button>
+              </div>
+            } @else {
+              <div class="pbx-row">
+                <input class="mono"
+                  [value]="cfg.apiKeyConfigurada ? '•••••••••••••••••••••••• (emitida)' : 'Sin emitir'" readonly />
+                <button type="button" class="btn btn--ghost mini" (click)="rotarPbx()">
+                  {{ cfg.apiKeyConfigurada ? 'Rotar' : 'Generar' }}
+                </button>
+              </div>
+            }
+            @if (cfg.apiKey) {
+              <p class="pbx-warn">Copie la clave AHORA: por seguridad no se vuelve a mostrar.
+              Actualícela en la PBX.</p>
+            }
+            @if (!cfg.apiKey) {
+              <p class="pbx-warn">La clave no se puede volver a mostrar (solo se guarda su
+              huella). Si la perdió, rótela y configure la nueva en la PBX.</p>
+            }
+          </div>
+        </div>
+      }
+
+      <!-- Integración: WhatsApp -->
+      @if (waConfig(); as wcfg) {
+        <div class="panel card">
+          <h2>🟢 Integración — WhatsApp (Cloud API)</h2>
+          <p class="pbx-hint">Configure el webhook de su app de Meta con la URL y el <em>verify token</em>
+          de abajo, y registre aquí el <code>phone_number_id</code> del número y su token de acceso.</p>
+          <div class="pbx-field">
+            <label>URL del webhook</label>
+            <div class="pbx-row">
+              <input class="mono" [value]="waWebhookUrl" readonly />
+              <button type="button" class="btn btn--ghost mini" (click)="copiar(waWebhookUrl, 'waurl')">
+                {{ copiado() === 'waurl' ? '¡Copiado!' : 'Copiar' }}
+              </button>
+            </div>
+          </div>
+          <div class="pbx-field">
+            <label>Verify token</label>
+            <div class="pbx-row">
+              <input class="mono" [value]="wcfg.verifyToken" readonly />
+              <button type="button" class="btn btn--ghost mini" (click)="copiar(wcfg.verifyToken, 'wavt')">
+                {{ copiado() === 'wavt' ? '¡Copiado!' : 'Copiar' }}
+              </button>
+            </div>
+          </div>
+          <form [formGroup]="waForm">
+          <div class="pbx-field">
+            <label>phone_number_id</label>
+            <div class="pbx-row">
+              <input class="mono" formControlName="phoneNumberId" placeholder="p. ej. 109999888" />
+            </div>
+          </div>
+          <div class="pbx-field">
+            <label>A quién se envían los casos que entren por WhatsApp</label>
+            <div class="pbx-row">
+              <select formControlName="agenciaResponsableId" (change)="waCanales.set([])">
+                <option [ngValue]="null">— agencia responsable —</option>
+                @for (a of agencias(); track a) {
+                  <option [ngValue]="a.id" [disabled]="!a.activo">{{ a.nombre }}</option>
+                }
+              </select>
+            </div>
+            @if (waForm.controls.agenciaResponsableId.value) {
+              <div class="canales-pick">
+                @for (c of canalesDe(waForm.controls.agenciaResponsableId.value); track c) {
+                  <label class="chip" [class.off]="!c.activo">
+                    <input type="checkbox" [checked]="canalMarcadoWa(c.id)" (change)="alternarCanalWa(c.id)" />
                     <span>{{ c.codigo }} · {{ c.nombre }}</span>
                   </label>
-                </div>
-              </td>
-              <td>
-                <button type="button" class="btn btn--primary mini" (click)="guardarEdicionEntidad(e)">Guardar</button>
-                <button type="button" class="btn btn--ghost mini" (click)="cancelarEdicionEntidad()">Cancelar</button>
-              </td>
-            </tr>
-          </ng-container>
-        </tbody>
-      </table>
-    </div>
-    <p class="vacio" *ngIf="!entidades().length">Aún no hay entidades registradas.</p>
-  </div>
-
-  <!-- Usuarios -->
-  <div class="panel card">
-    <h2>Usuarios</h2>
-    <form class="crear-usuario" (ngSubmit)="crearUsuario()">
-      <input [(ngModel)]="nuevoUsuario.username" name="uuser" placeholder="usuario" />
-      <input [(ngModel)]="nuevoUsuario.nombre" name="unom" placeholder="Nombre completo" />
-      <input [(ngModel)]="nuevoUsuario.contrasena" name="upass" type="password" placeholder="contraseña" />
-      <select [(ngModel)]="nuevoUsuario.rol" name="urol">
-        <option *ngFor="let r of rolesDisponibles()" [value]="r">{{ r }}</option>
-      </select>
-      <select [ngModel]="nuevoUsuario.agenciaId" name="uag" (ngModelChange)="cambiarAgenciaNuevo($event)">
-        <option [ngValue]="null">— agencia —</option>
-        <option *ngFor="let a of agencias()" [ngValue]="a.id" [disabled]="!a.activo">{{ a.nombre }}</option>
-      </select>
-      <input [(ngModel)]="nuevoUsuario.extension" name="uext" placeholder="extensión PBX (opcional)"
-             title="Extensión de la planta telefónica. La central dirige aquí las llamadas de este funcionario." />
-      <span class="ctx-tag" *ngIf="esSuperadmin()" title="Tenant en gestión">{{ tenantCtx() || '—' }}</span>
-      <button type="submit" class="btn btn--primary">Crear usuario</button>
-    </form>
-    <!-- Canales que atenderá: solo los de la agencia elegida. -->
-    <div class="canales-pick" *ngIf="nuevoUsuario.agenciaId">
-      <span class="canales-lbl">Canales de atención:</span>
-      <label class="chip" *ngFor="let c of canalesDe(nuevoUsuario.agenciaId!)" [class.off]="!c.activo">
-        <input type="checkbox" [checked]="canalMarcado(c.id)" (change)="alternarCanalNuevo(c.id)" />
-        <span>{{ c.codigo }} · {{ c.nombre }}</span>
-      </label>
-      <span class="vacio-inline" *ngIf="!canalesDe(nuevoUsuario.agenciaId!).length">
-        Esa agencia todavía no tiene canales.
-      </span>
-    </div>
-
-    <div class="tbl-wrap">
-      <table>
-        <thead><tr><th>Usuario</th><th>Nombre</th><th>Rol</th><th>Agencia</th><th>Canales</th><th>Extensión PBX</th><th>Tenant</th><th>Estado</th><th>Contraseña</th><th></th></tr></thead>
-        <tbody>
-          <tr *ngFor="let u of usuarios()">
-            <td class="mono">{{ u.username }}</td>
-            <td>{{ u.nombre }}</td>
-            <td>
-              <select *ngIf="puedeEditarRolDe(u); else rolPlano" class="acc"
-                      [ngModel]="u.rol" (ngModelChange)="cambiarRolUsuario(u, $event)">
-                <option *ngFor="let r of rolesDisponibles()" [value]="r">{{ r }}</option>
-              </select>
-              <ng-template #rolPlano><span class="rol">{{ u.rol }}</span></ng-template>
-            </td>
-            <td>{{ nombreAgencia(u.agenciaId) }}</td>
-            <td class="mono">{{ nombresCanales(u.canales) }}</td>
-            <td>
-              <input class="mono ext" [ngModel]="u.extension" [ngModelOptions]="{ standalone: true }"
-                     placeholder="—" (blur)="guardarExtension(u, $any($event.target).value)"
-                     [attr.aria-label]="'Extensión PBX de ' + u.username" />
-            </td>
-            <td class="mono">{{ u.tenant || '—' }}</td>
-            <td><span class="badge" [class.on]="u.activo">{{ u.activo ? 'Activo' : 'Inactivo' }}</span></td>
-            <td>
-              <ng-container *ngIf="cambiandoClave() !== u.id; else editandoClave">
-                <button type="button" class="btn btn--ghost mini" (click)="abrirCambioClave(u)">
-                  Cambiar
-                </button>
-                <span class="pbx-warn mini" *ngIf="claveOk() === u.id">Guardada.</span>
-              </ng-container>
-              <ng-template #editandoClave>
-                <span class="clave-edicion">
-                  <input type="password" class="mono" [(ngModel)]="claveNueva"
-                         [ngModelOptions]="{ standalone: true }" placeholder="nueva contraseña"
-                         (keyup.enter)="guardarClave(u)"
-                         [attr.aria-label]="'Nueva contraseña de ' + u.username" />
-                  <button type="button" class="btn btn--primary mini" (click)="guardarClave(u)">Guardar</button>
-                  <button type="button" class="btn btn--ghost mini" (click)="cancelarCambioClave()">Cancelar</button>
-                </span>
-              </ng-template>
-            </td>
-            <td>
-              <button type="button" class="btn btn--ghost mini"
-                      *ngIf="u.rol !== 'superadmin'" (click)="toggleActivo(u)">
-                {{ u.activo ? 'Desactivar' : 'Activar' }}
+                }
+              </div>
+            }
+            @if (!waForm.controls.agenciaResponsableId.value) {
+              <p class="pbx-hint">
+                Sin esto, los casos de WhatsApp no llegan a ninguna bandeja de despacho — solo los ve
+                quien tenga permiso de supervisión.
+              </p>
+            }
+          </div>
+          <div class="pbx-field">
+            <label>Token de acceso {{ wcfg.tokenConfigurado ? '(configurado — deje vacío para conservarlo)' : '' }}</label>
+            <div class="pbx-row">
+              <input class="mono" formControlName="accessToken" type="password" placeholder="Bearer token de Meta" />
+              <button type="button" class="btn btn--primary mini" [disabled]="waGuardando()" (click)="guardarWa()">
+                {{ waGuardando() ? 'Guardando…' : 'Guardar' }}
               </button>
-            </td>
-          </tr>
-        </tbody>
-      </table>
-    </div>
-  </div>
+            </div>
+            @if (waOk()) {
+              <p class="pbx-warn">Configuración de WhatsApp guardada.</p>
+            }
+          </div>
+          </form>
+        </div>
+      }
 
-  <!-- Bitácora de administración: quién cambió qué (usuarios, roles, claves). -->
-  <div class="panel card" *ngIf="!esSuperadmin() || tenantCtx()">
-    <h2>
-      🧾 Bitácora de administración
-      <button type="button" class="btn btn--ghost mini" (click)="alternarBitacora()">
-        {{ bitacoraAbierta() ? 'Ocultar' : 'Ver' }}
-      </button>
-      <button type="button" class="btn btn--ghost mini" *ngIf="bitacoraAbierta()" (click)="cargarBitacora()">
-        Actualizar
-      </button>
-    </h2>
-    <ng-container *ngIf="bitacoraAbierta()">
-      <p class="pbx-hint">Cambios en usuarios, roles, claves e integraciones de esta instancia,
-        con su autor. Los casos tienen su propia línea de tiempo; esto cubre la administración.</p>
-      <div class="tbl-wrap" *ngIf="bitacora().length; else bitacoraVacia">
-        <table>
-          <thead><tr><th>Cuándo</th><th>Quién</th><th>Acción</th><th>Detalle</th></tr></thead>
-          <tbody>
-            <tr *ngFor="let e of bitacora()">
-              <td class="mono">{{ e.creadoEn | date: 'dd/MM HH:mm' }}</td>
-              <td>{{ e.autor }}</td>
-              <td><span class="mono">{{ e.accion }}</span></td>
-              <td class="bit-detalle">{{ e.detalle }}</td>
-            </tr>
-          </tbody>
-        </table>
-      </div>
-      <ng-template #bitacoraVacia>
-        <p class="vacio-inline">Aún no hay movimientos registrados en esta instancia.</p>
-      </ng-template>
-    </ng-container>
-  </div>
-</section>
+      <!-- Entidades externas (API entrante) -->
+      @if (gestionaEntidades && !!tenantActivo()) {
+        <div class="panel card">
+          <h2>🔌 Entidades externas — API entrante</h2>
+          <p class="pbx-hint">Registre las entidades (bomberos, salud, alarmas, apps...) autorizadas a
+            <strong>radicar casos</strong>. Cada una recibe su propia API key y envía un
+            <code>POST</code> con header <code>x-api-key</code> a:
+            <code>{{ integracionUrl }}</code> ·
+            cuerpo <code>{{ '{' }}"titulo":"...","descripcion":"...","telefono":"...","lat":4.6,"lng":-74.1,"referencia":"EXT-001"{{ '}' }}</code>.
+            Con <code>GET {{ '{' }}url{{ '}' }}/:casoId</code> consultan el estado de sus casos.</p>
+            <form class="crear-inline" [formGroup]="entidadForm" (ngSubmit)="crearEntidad()">
+              <input formControlName="nombre" placeholder="Nombre (p. ej. Bomberos)" />
+              <select formControlName="agenciaResponsableId" (change)="entidadCanales.set([])">
+                <option [ngValue]="null">— agencia responsable —</option>
+                @for (a of agencias(); track a) {
+                  <option [ngValue]="a.id" [disabled]="!a.activo">{{ a.nombre }}</option>
+                }
+              </select>
+              <button type="submit" class="btn btn--primary" [disabled]="entidadForm.invalid">Registrar entidad</button>
+            </form>
+            <!-- Canales de la agencia elegida: a dónde llegan los casos que radique. -->
+            @if (entidadForm.controls.agenciaResponsableId.value; as entidadAgenciaId) {
+              <div class="canales-pick">
+                <span class="canales-lbl">Canales de atención:</span>
+                @for (c of canalesDe(entidadAgenciaId); track c) {
+                  <label class="chip" [class.off]="!c.activo">
+                    <input type="checkbox" [checked]="canalMarcadoEntidad(c.id)" (change)="alternarCanalEntidad(c.id)" />
+                    <span>{{ c.codigo }} · {{ c.nombre }}</span>
+                  </label>
+                }
+                @if (!canalesDe(entidadAgenciaId).length) {
+                  <span class="vacio-inline">
+                    Esa agencia todavía no tiene canales.
+                  </span>
+                }
+              </div>
+            }
+            @if (!entidadForm.controls.agenciaResponsableId.value) {
+              <p class="pbx-hint">
+                Sin agencia ni canales, los casos que radique esta entidad no llegan a ninguna bandeja de
+                despacho — solo los verá quien tenga permiso de supervisión.
+              </p>
+            }
+            @if (entidades().length) {
+              <div class="tbl-wrap">
+                <table>
+                  <thead><tr><th>Entidad</th><th>A quién se envía</th><th>API key</th><th>Estado</th><th></th></tr></thead>
+                  <tbody>
+                    @for (e of entidades(); track e) {
+                      @if (editandoEntidad() !== e.id) {
+                        <tr>
+                          <td>{{ e.nombre }}</td>
+                          <td>
+                            {{ e.agencia }}
+                            <!-- e.canales puede ser NULL en entidades creadas antes de la migración de enrutamiento -->
+                            @if (e.canales?.length) {
+                              <span class="mono"> ({{ nombresCanales(e.canales!) }})</span>
+                            }
+                            @if (!e.agenciaResponsableId) {
+                              <span class="vacio-inline"> — sin canal asignado</span>
+                            }
+                          </td>
+                          <td class="mono ent-key">
+                            <!-- La clave solo existe en claro al crearla o rotarla: si esta
+                            fila no la trae, ya no se puede volver a mostrar. -->
+                            @if (e.apiKey) {
+                              <span>{{ keyVisible() === e.id ? e.apiKey : '••••••••••••' }}</span>
+                              <button type="button" class="btn btn--ghost mini"
+                                (click)="keyVisible.set(keyVisible() === e.id ? null : e.id)">
+                                {{ keyVisible() === e.id ? 'Ocultar' : 'Mostrar' }}
+                              </button>
+                              <button type="button" class="btn btn--ghost mini" (click)="copiar(e.apiKey, 'ek' + e.id)">
+                                {{ copiado() === 'ek' + e.id ? '¡Copiado!' : 'Copiar' }}
+                              </button>
+                            } @else {
+                              <span title="Solo se muestra al crearla o rotarla">••••••••••••</span>
+                            }
+                            <button type="button" class="btn btn--ghost mini" (click)="rotarEntidad(e)">Rotar</button>
+                          </td>
+                          <td><span class="badge" [class.on]="e.activa">{{ e.activa ? 'Activa' : 'Inactiva' }}</span></td>
+                          <td>
+                            <button type="button" class="btn btn--ghost mini" (click)="abrirEdicionEntidad(e)">Editar destino</button>
+                            <button type="button" class="btn btn--ghost mini" (click)="toggleEntidad(e)">
+                              {{ e.activa ? 'Desactivar' : 'Activar' }}
+                            </button>
+                          </td>
+                        </tr>
+                      }
+                      @if (editandoEntidad() === e.id) {
+                        <tr class="fila-edicion">
+                          <td>{{ e.nombre }}</td>
+                          <td colspan="3" [formGroup]="entidadEdicionForm">
+                            <select formControlName="agenciaResponsableId" (change)="entidadEdicionCanales.set([])">
+                              <option [ngValue]="null">— agencia responsable —</option>
+                              @for (a of agencias(); track a) {
+                                <option [ngValue]="a.id" [disabled]="!a.activo">{{ a.nombre }}</option>
+                              }
+                            </select>
+                            @if (entidadEdicionForm.controls.agenciaResponsableId.value; as edicionAgenciaId) {
+                              <div class="canales-pick">
+                                @for (c of canalesDe(edicionAgenciaId); track c) {
+                                  <label class="chip" [class.off]="!c.activo">
+                                    <input type="checkbox" [checked]="canalMarcadoEdicionEntidad(c.id)" (change)="alternarCanalEdicionEntidad(c.id)" />
+                                    <span>{{ c.codigo }} · {{ c.nombre }}</span>
+                                  </label>
+                                }
+                              </div>
+                            }
+                          </td>
+                          <td>
+                            <button type="button" class="btn btn--primary mini" (click)="guardarEdicionEntidad(e)">Guardar</button>
+                            <button type="button" class="btn btn--ghost mini" (click)="cancelarEdicionEntidad()">Cancelar</button>
+                          </td>
+                        </tr>
+                      }
+                    }
+                  </tbody>
+                </table>
+              </div>
+            }
+            @if (!entidades().length) {
+              <p class="vacio">Aún no hay entidades registradas.</p>
+            }
+          </div>
+        }
+
+        <!-- Usuarios -->
+        <div class="panel card">
+          <h2>Usuarios</h2>
+          <form class="crear-usuario" [formGroup]="usuarioForm" (ngSubmit)="crearUsuario()">
+            <input formControlName="username" placeholder="usuario" />
+            <input formControlName="nombre" placeholder="Nombre completo" />
+            <input formControlName="contrasena" type="password" placeholder="contraseña" />
+            <select formControlName="rol">
+              @for (r of rolesDisponibles(); track r) {
+                <option [value]="r">{{ r }}</option>
+              }
+            </select>
+            <select formControlName="agenciaId" (change)="usuarioCanales.set([])">
+              <option [ngValue]="null">— agencia —</option>
+              @for (a of agencias(); track a) {
+                <option [ngValue]="a.id" [disabled]="!a.activo">{{ a.nombre }}</option>
+              }
+            </select>
+            <input formControlName="extension" placeholder="extensión PBX (opcional)"
+              title="Extensión de la planta telefónica. La central dirige aquí las llamadas de este funcionario." />
+            @if (esSuperadmin()) {
+              <span class="ctx-tag" title="Tenant en gestión">{{ tenantCtx() || '—' }}</span>
+            }
+            <button type="submit" class="btn btn--primary" [disabled]="usuarioForm.invalid">Crear usuario</button>
+          </form>
+          <!-- Canales que atenderá: solo los de la agencia elegida. -->
+          @if (usuarioForm.controls.agenciaId.value; as usuarioAgenciaId) {
+            <div class="canales-pick">
+              <span class="canales-lbl">Canales de atención:</span>
+              @for (c of canalesDe(usuarioAgenciaId); track c) {
+                <label class="chip" [class.off]="!c.activo">
+                  <input type="checkbox" [checked]="canalMarcado(c.id)" (change)="alternarCanalNuevo(c.id)" />
+                  <span>{{ c.codigo }} · {{ c.nombre }}</span>
+                </label>
+              }
+              @if (!canalesDe(usuarioAgenciaId).length) {
+                <span class="vacio-inline">
+                  Esa agencia todavía no tiene canales.
+                </span>
+              }
+            </div>
+          }
+
+          <div class="tbl-wrap">
+            <table>
+              <thead><tr><th>Usuario</th><th>Nombre</th><th>Rol</th><th>Agencia</th><th>Canales</th><th>Extensión PBX</th><th>Tenant</th><th>Estado</th><th>Contraseña</th><th></th></tr></thead>
+              <tbody>
+                @for (u of usuarios(); track u) {
+                  <tr>
+                    <td class="mono">{{ u.username }}</td>
+                    <td>{{ u.nombre }}</td>
+                    <td>
+                      @if (puedeEditarRolDe(u)) {
+                        <select class="acc"
+                          [value]="u.rol" (change)="cambiarRolUsuario(u, $any($event.target).value)">
+                          @for (r of rolesDisponibles(); track r) {
+                            <option [value]="r">{{ r }}</option>
+                          }
+                        </select>
+                      } @else {
+                        <span class="rol">{{ u.rol }}</span>
+                      }
+                    </td>
+                    <td>{{ nombreAgencia(u.agenciaId) }}</td>
+                    <td class="mono">{{ nombresCanales(u.canales) }}</td>
+                    <td>
+                      <input class="mono ext" [value]="u.extension"
+                        placeholder="—" (blur)="guardarExtension(u, $any($event.target).value)"
+                        [attr.aria-label]="'Extensión PBX de ' + u.username" />
+                    </td>
+                    <td class="mono">{{ u.tenant || '—' }}</td>
+                    <td><span class="badge" [class.on]="u.activo">{{ u.activo ? 'Activo' : 'Inactivo' }}</span></td>
+                    <td>
+                      @if (cambiandoClave() !== u.id) {
+                        <button type="button" class="btn btn--ghost mini" (click)="abrirCambioClave(u)">
+                          Cambiar
+                        </button>
+                        @if (claveOk() === u.id) {
+                          <span class="pbx-warn mini">Guardada.</span>
+                        }
+                      } @else {
+                        <span class="clave-edicion">
+                          <input type="password" class="mono" [formControl]="claveNuevaCtrl"
+                            placeholder="nueva contraseña"
+                            (keyup.enter)="guardarClave(u)"
+                            [attr.aria-label]="'Nueva contraseña de ' + u.username" />
+                          <button type="button" class="btn btn--primary mini" (click)="guardarClave(u)">Guardar</button>
+                          <button type="button" class="btn btn--ghost mini" (click)="cancelarCambioClave()">Cancelar</button>
+                        </span>
+                      }
+                    </td>
+                    <td>
+                      @if (u.rol !== 'superadmin') {
+                        <button type="button" class="btn btn--ghost mini"
+                          (click)="toggleActivo(u)">
+                          {{ u.activo ? 'Desactivar' : 'Activar' }}
+                        </button>
+                      }
+                    </td>
+                  </tr>
+                }
+              </tbody>
+            </table>
+          </div>
+        </div>
+
+        <!-- Bitácora de administración: quién cambió qué (usuarios, roles, claves). -->
+        @if (!esSuperadmin() || tenantCtx()) {
+          <div class="panel card">
+            <h2>
+              🧾 Bitácora de administración
+              <button type="button" class="btn btn--ghost mini" (click)="alternarBitacora()">
+                {{ bitacoraAbierta() ? 'Ocultar' : 'Ver' }}
+              </button>
+              @if (bitacoraAbierta()) {
+                <button type="button" class="btn btn--ghost mini" (click)="cargarBitacora()">
+                  Actualizar
+                </button>
+              }
+            </h2>
+            @if (bitacoraAbierta()) {
+              <p class="pbx-hint">Cambios en usuarios, roles, claves e integraciones de esta instancia,
+              con su autor. Los casos tienen su propia línea de tiempo; esto cubre la administración.</p>
+              @if (bitacora().length) {
+                <div class="tbl-wrap">
+                  <table>
+                    <thead><tr><th>Cuándo</th><th>Quién</th><th>Acción</th><th>Detalle</th></tr></thead>
+                    <tbody>
+                      @for (e of bitacora(); track e) {
+                        <tr>
+                          <td class="mono">{{ e.creadoEn | date: 'dd/MM HH:mm' }}</td>
+                          <td>{{ e.autor }}</td>
+                          <td><span class="mono">{{ e.accion }}</span></td>
+                          <td class="bit-detalle">{{ e.detalle }}</td>
+                        </tr>
+                      }
+                    </tbody>
+                  </table>
+                </div>
+              } @else {
+                <p class="vacio-inline">Aún no hay movimientos registrados en esta instancia.</p>
+              }
+            }
+          </div>
+        }
+      </section>

@@ -1,6 +1,6 @@
-import { Component, OnInit, computed, effect, inject, signal } from '@angular/core';
-import { CommonModule } from '@angular/common';
-import { FormsModule } from '@angular/forms';
+import { ChangeDetectionStrategy, Component, OnInit, computed, effect, inject, signal } from '@angular/core';
+import { DatePipe } from '@angular/common';
+import { FormControl, FormGroup, ReactiveFormsModule, Validators } from '@angular/forms';
 import { AdminService, CrearUsuario, EntradaBitacora } from '../../core/admin.service';
 import { AuthService } from '../../core/auth.service';
 import { PbxService } from '../../core/pbx.service';
@@ -25,9 +25,10 @@ const CLAVES_TRANSVERSALES = ['pbx.usar', 'whatsapp.responder'];
 @Component({
   selector: 'app-admin',
   standalone: true,
-  imports: [CommonModule, FormsModule],
+  imports: [DatePipe, ReactiveFormsModule],
   templateUrl: './admin.html',
   styleUrl: './admin.scss',
+  changeDetection: ChangeDetectionStrategy.OnPush,
 })
 export class AdminComponent implements OnInit {
   private admin = inject(AdminService);
@@ -68,8 +69,10 @@ export class AdminComponent implements OnInit {
   readonly haySucios = computed(() => this.sucios().size > 0);
   /** El superadmin ve la matriz solo cuando ya eligió un tenant. */
   readonly puedeVerMatriz = computed(() => this.gestionaRoles() && (!this.esSuperadmin() || !!this.tenantCtx()));
-  nuevoRol = '';
-  guardandoRoles = false;
+  readonly rolForm = new FormGroup({
+    nombre: new FormControl('', { nonNullable: true, validators: [Validators.required] }),
+  });
+  readonly guardandoRoles = signal(false);
   readonly rolesOk = signal(false);
 
   /** Roles asignables en el formulario de usuario (códigos del tenant). */
@@ -82,25 +85,33 @@ export class AdminComponent implements OnInit {
   // Entidades externas (API entrante)
   readonly entidades = signal<EntidadExterna[]>([]);
   readonly keyVisible = signal<string | null>(null);
-  nuevaEntidad: { nombre: string; agenciaResponsableId: string | null; canales: string[] } =
-    { nombre: '', agenciaResponsableId: null, canales: [] };
+  readonly entidadForm = new FormGroup({
+    nombre: new FormControl('', { nonNullable: true, validators: [Validators.required] }),
+    agenciaResponsableId: new FormControl<string | null>(null),
+  });
+  readonly entidadCanales = signal<string[]>([]);
 
   /** Edición en línea de a quién se envían los casos de una entidad ya creada. */
   readonly editandoEntidad = signal<string | null>(null);
-  entidadEdicion: { agenciaResponsableId: string | null; canales: string[] } = { agenciaResponsableId: null, canales: [] };
+  readonly entidadEdicionForm = new FormGroup({
+    agenciaResponsableId: new FormControl<string | null>(null),
+  });
+  readonly entidadEdicionCanales = signal<string[]>([]);
 
   // Integración PBX (planta telefónica)
   readonly pbxConfig = signal<PbxConfig | null>(null);
-  copiado = '';
+  readonly copiado = signal('');
 
   // Integración WhatsApp
   readonly waConfig = signal<WhatsappConfig | null>(null);
-  waPhoneNumberId = '';
+  readonly waForm = new FormGroup({
+    phoneNumberId: new FormControl('', { nonNullable: true }),
+    agenciaResponsableId: new FormControl<string | null>(null),
+    accessToken: new FormControl('', { nonNullable: true }),
+  });
   /** A quién se envían los casos que entran por WhatsApp. */
-  waAgenciaResponsableId: string | null = null;
-  waCanales: string[] = [];
-  waAccessToken = '';
-  waGuardando = false;
+  readonly waCanales = signal<string[]>([]);
+  readonly waGuardando = signal(false);
   readonly waOk = signal(false);
 
   // Formularios
@@ -142,7 +153,15 @@ export class AdminComponent implements OnInit {
     this.filtroCodigoSig.set(texto);
   }
 
-    nuevoUsuario: CrearUsuario = this.usuarioVacio();
+  readonly usuarioForm = new FormGroup({
+    username: new FormControl('', { nonNullable: true, validators: [Validators.required] }),
+    nombre: new FormControl('', { nonNullable: true, validators: [Validators.required] }),
+    contrasena: new FormControl('', { nonNullable: true, validators: [Validators.required] }),
+    rol: new FormControl('operador', { nonNullable: true }),
+    agenciaId: new FormControl<string | null>(null),
+    extension: new FormControl<string | null>(null),
+  });
+  readonly usuarioCanales = signal<string[]>([]);
 
   constructor() {
     // Todo lo que es propio de un tenant (roles, integraciones, entidades) se
@@ -158,7 +177,6 @@ export class AdminComponent implements OnInit {
       this.codigos.set([]);
       this.pbxConfig.set(null);
       this.waConfig.set(null);
-      this.nuevoUsuario.tenant = tenant ?? '';
       if (!tenant) return;
       if (this.gestionaRoles()) this.cargarRoles();
       this.cargarPbx();
@@ -252,7 +270,7 @@ export class AdminComponent implements OnInit {
   guardarRoles(): void {
     const pendientes = this.roles().filter((r) => this.sucios().has(r.id));
     if (!pendientes.length) return;
-    this.guardandoRoles = true;
+    this.guardandoRoles.set(true);
     this.error.set('');
     let restantes = pendientes.length;
     for (const rol of pendientes) {
@@ -260,10 +278,10 @@ export class AdminComponent implements OnInit {
         next: (act) => {
           this.roles.update((rs) => rs.map((r) => (r.id === act.id ? act : r)));
           this.sucios.update((s) => { const n = new Set(s); n.delete(act.id); return n; });
-          if (--restantes === 0) { this.guardandoRoles = false; this.rolesOk.set(true); this.toast.exito('Permisos guardados.'); }
+          if (--restantes === 0) { this.guardandoRoles.set(false); this.rolesOk.set(true); this.toast.exito('Permisos guardados.'); }
         },
         error: (e) => {
-          this.guardandoRoles = false;
+          this.guardandoRoles.set(false);
           this.error.set(e?.error?.message ?? 'No fue posible guardar los permisos.');
         },
       });
@@ -271,11 +289,11 @@ export class AdminComponent implements OnInit {
   }
 
   crearRol(): void {
-    const nombre = this.nuevoRol.trim();
+    const nombre = this.rolForm.controls.nombre.value.trim();
     if (!nombre) return;
     this.error.set('');
     this.rolesSvc.crear(nombre, []).subscribe({
-      next: (r) => { this.roles.update((rs) => [...rs, r]); this.nuevoRol = ''; this.toast.exito('Rol creado.'); },
+      next: (r) => { this.roles.update((rs) => [...rs, r]); this.rolForm.reset(); this.toast.exito('Rol creado.'); },
       error: (e) => this.error.set(e?.error?.message ?? 'No fue posible crear el rol.'),
     });
   }
@@ -299,13 +317,15 @@ export class AdminComponent implements OnInit {
   }
 
   crearEntidad(): void {
-    const nombre = this.nuevaEntidad.nombre.trim();
+    const nombre = this.entidadForm.controls.nombre.value.trim();
     if (!nombre) return;
     this.error.set('');
-    this.entidadesSvc.crear(nombre, this.nuevaEntidad.agenciaResponsableId, this.nuevaEntidad.canales).subscribe({
+    const { agenciaResponsableId } = this.entidadForm.getRawValue();
+    this.entidadesSvc.crear(nombre, agenciaResponsableId, this.entidadCanales()).subscribe({
       next: (e) => {
         this.entidades.update((es) => [...es, e]);
-        this.nuevaEntidad = { nombre: '', agenciaResponsableId: null, canales: [] };
+        this.entidadForm.reset({ nombre: '', agenciaResponsableId: null });
+        this.entidadCanales.set([]);
         this.keyVisible.set(e.id);
         this.toast.exito('Entidad creada.');
       },
@@ -313,20 +333,12 @@ export class AdminComponent implements OnInit {
     });
   }
 
-  /** Al cambiar de agencia se descartan los canales, que eran de la anterior. */
-  cambiarAgenciaEntidad(agenciaId: string | null): void {
-    this.nuevaEntidad.agenciaResponsableId = agenciaId;
-    this.nuevaEntidad.canales = [];
-  }
-
   canalMarcadoEntidad(id: string): boolean {
-    return this.nuevaEntidad.canales.includes(id);
+    return this.entidadCanales().includes(id);
   }
 
   alternarCanalEntidad(id: string): void {
-    this.nuevaEntidad.canales = this.canalMarcadoEntidad(id)
-      ? this.nuevaEntidad.canales.filter((c) => c !== id)
-      : [...this.nuevaEntidad.canales, id];
+    this.entidadCanales.update((cs) => (cs.includes(id) ? cs.filter((c) => c !== id) : [...cs, id]));
   }
 
   // --- Edición en línea de la entidad ya creada -------------------------------
@@ -334,33 +346,27 @@ export class AdminComponent implements OnInit {
   abrirEdicionEntidad(e: EntidadExterna): void {
     this.error.set('');
     this.editandoEntidad.set(e.id);
-    this.entidadEdicion = { agenciaResponsableId: e.agenciaResponsableId, canales: [...(e.canales ?? [])] };
+    this.entidadEdicionForm.reset({ agenciaResponsableId: e.agenciaResponsableId });
+    this.entidadEdicionCanales.set([...(e.canales ?? [])]);
   }
 
   cancelarEdicionEntidad(): void {
     this.editandoEntidad.set(null);
   }
 
-  cambiarAgenciaEdicionEntidad(agenciaId: string | null): void {
-    this.entidadEdicion.agenciaResponsableId = agenciaId;
-    this.entidadEdicion.canales = [];
-  }
-
   canalMarcadoEdicionEntidad(id: string): boolean {
-    return this.entidadEdicion.canales.includes(id);
+    return this.entidadEdicionCanales().includes(id);
   }
 
   alternarCanalEdicionEntidad(id: string): void {
-    this.entidadEdicion.canales = this.canalMarcadoEdicionEntidad(id)
-      ? this.entidadEdicion.canales.filter((c) => c !== id)
-      : [...this.entidadEdicion.canales, id];
+    this.entidadEdicionCanales.update((cs) => (cs.includes(id) ? cs.filter((c) => c !== id) : [...cs, id]));
   }
 
   guardarEdicionEntidad(e: EntidadExterna): void {
     this.error.set('');
     this.entidadesSvc.actualizar(e.id, {
-      agenciaResponsableId: this.entidadEdicion.agenciaResponsableId,
-      canales: this.entidadEdicion.canales,
+      agenciaResponsableId: this.entidadEdicionForm.controls.agenciaResponsableId.value,
+      canales: this.entidadEdicionCanales(),
     }).subscribe({
       next: (act) => {
         this.entidades.update((es) => es.map((x) => (x.id === act.id ? act : x)));
@@ -402,28 +408,23 @@ export class AdminComponent implements OnInit {
     this.wa.config().subscribe({
       next: (c) => {
         this.waConfig.set(c);
-        this.waPhoneNumberId = c.phoneNumberId ?? '';
-        this.waAgenciaResponsableId = c.agenciaResponsableId;
-        this.waCanales = [...(c.canales ?? [])];
+        this.waForm.reset({
+          phoneNumberId: c.phoneNumberId ?? '',
+          agenciaResponsableId: c.agenciaResponsableId,
+          accessToken: '',
+        });
+        this.waCanales.set([...(c.canales ?? [])]);
       },
       error: () => {},
     });
   }
 
-  /** Al cambiar de agencia se descartan los canales, que eran de la anterior. */
-  cambiarAgenciaWa(agenciaId: string | null): void {
-    this.waAgenciaResponsableId = agenciaId;
-    this.waCanales = [];
-  }
-
   canalMarcadoWa(id: string): boolean {
-    return this.waCanales.includes(id);
+    return this.waCanales().includes(id);
   }
 
   alternarCanalWa(id: string): void {
-    this.waCanales = this.canalMarcadoWa(id)
-      ? this.waCanales.filter((c) => c !== id)
-      : [...this.waCanales, id];
+    this.waCanales.update((cs) => (cs.includes(id) ? cs.filter((c) => c !== id) : [...cs, id]));
   }
 
   get waWebhookUrl(): string {
@@ -432,21 +433,22 @@ export class AdminComponent implements OnInit {
   }
 
   guardarWa(): void {
-    this.waGuardando = true;
+    this.waGuardando.set(true);
     this.waOk.set(false);
     this.error.set('');
+    const { phoneNumberId, agenciaResponsableId, accessToken } = this.waForm.getRawValue();
     this.wa.guardarConfig(
-      this.waPhoneNumberId.trim(), this.waAccessToken.trim() || undefined,
-      this.waAgenciaResponsableId, this.waCanales,
+      phoneNumberId.trim(), accessToken.trim() || undefined,
+      agenciaResponsableId, this.waCanales(),
     ).subscribe({
       next: (c) => {
         this.waConfig.set(c);
-        this.waAgenciaResponsableId = c.agenciaResponsableId;
-        this.waCanales = [...(c.canales ?? [])];
-        this.waAccessToken = ''; this.waGuardando = false; this.waOk.set(true);
+        this.waForm.patchValue({ agenciaResponsableId: c.agenciaResponsableId, accessToken: '' });
+        this.waCanales.set([...(c.canales ?? [])]);
+        this.waGuardando.set(false); this.waOk.set(true);
         this.toast.exito('Configuración de WhatsApp guardada.');
       },
-      error: (e) => { this.waGuardando = false; this.error.set(e?.error?.message ?? 'No fue posible guardar la configuración de WhatsApp.'); },
+      error: (e) => { this.waGuardando.set(false); this.error.set(e?.error?.message ?? 'No fue posible guardar la configuración de WhatsApp.'); },
     });
   }
 
@@ -466,8 +468,8 @@ export class AdminComponent implements OnInit {
   copiar(texto: string | undefined | null, que: string): void {
     if (!texto) return;
     navigator.clipboard?.writeText(texto).then(() => {
-      this.copiado = que;
-      setTimeout(() => { if (this.copiado === que) this.copiado = ''; }, 1500);
+      this.copiado.set(que);
+      setTimeout(() => { if (this.copiado() === que) this.copiado.set(''); }, 1500);
     }).catch(() => {});
   }
 
@@ -574,21 +576,12 @@ export class AdminComponent implements OnInit {
 
   // --- Adscripción del usuario (agencia + canales) ----------------------------
 
-  /** Al cambiar de agencia se descartan los canales, que son de la anterior. */
-  cambiarAgenciaNuevo(agenciaId: string): void {
-    this.nuevoUsuario.agenciaId = agenciaId || null;
-    this.nuevoUsuario.canales = [];
-  }
-
   canalMarcado(id: string): boolean {
-    return (this.nuevoUsuario.canales ?? []).includes(id);
+    return this.usuarioCanales().includes(id);
   }
 
   alternarCanalNuevo(id: string): void {
-    const actuales = this.nuevoUsuario.canales ?? [];
-    this.nuevoUsuario.canales = actuales.includes(id)
-      ? actuales.filter((c) => c !== id)
-      : [...actuales, id];
+    this.usuarioCanales.update((cs) => (cs.includes(id) ? cs.filter((c) => c !== id) : [...cs, id]));
   }
 
   // --- Tenants y usuarios -----------------------------------------------------
@@ -622,7 +615,12 @@ export class AdminComponent implements OnInit {
 
   crearUsuario(): void {
     this.error.set('');
-    const dto = { ...this.nuevoUsuario, username: this.nuevoUsuario.username.trim() };
+    const v = this.usuarioForm.getRawValue();
+    const dto: CrearUsuario = {
+      username: v.username.trim(), nombre: v.nombre.trim(), contrasena: v.contrasena, rol: v.rol,
+      tenant: this.tenantCtx() ?? undefined, agenciaId: v.agenciaId, canales: this.usuarioCanales(),
+      extension: v.extension,
+    };
     if (!dto.username || !dto.nombre.trim() || !dto.contrasena) {
       this.error.set('Usuario, nombre y contraseña son obligatorios.'); return;
     }
@@ -630,7 +628,8 @@ export class AdminComponent implements OnInit {
     this.admin.crearUsuario(dto).subscribe({
       next: (u) => {
         this.usuarios.update((us) => [...us, u]);
-        this.nuevoUsuario = this.usuarioVacio();
+        this.usuarioForm.reset({ username: '', nombre: '', contrasena: '', rol: 'operador', agenciaId: null, extension: null });
+        this.usuarioCanales.set([]);
         this.toast.exito('Usuario creado.');
       },
       error: (e) => this.error.set(e?.error?.message ?? 'No fue posible crear el usuario.'),
@@ -654,29 +653,29 @@ export class AdminComponent implements OnInit {
 
   /** Id del usuario cuya fila tiene el campo de nueva contraseña abierto. */
   readonly cambiandoClave = signal<string | null>(null);
-  claveNueva = '';
+  readonly claveNuevaCtrl = new FormControl('', { nonNullable: true });
   /** Id del usuario cuya contraseña se acaba de guardar (confirmación breve). */
   readonly claveOk = signal<string | null>(null);
 
   abrirCambioClave(u: UsuarioAdmin): void {
     this.cambiandoClave.set(u.id);
-    this.claveNueva = '';
+    this.claveNuevaCtrl.reset('');
     this.claveOk.set(null);
   }
 
   cancelarCambioClave(): void {
     this.cambiandoClave.set(null);
-    this.claveNueva = '';
+    this.claveNuevaCtrl.reset('');
   }
 
   guardarClave(u: UsuarioAdmin): void {
-    const clave = this.claveNueva.trim();
+    const clave = this.claveNuevaCtrl.value.trim();
     if (!clave) { this.error.set('Escriba la nueva contraseña.'); return; }
     this.error.set('');
     this.admin.cambiarContrasena(u.id, clave).subscribe({
       next: () => {
         this.cambiandoClave.set(null);
-        this.claveNueva = '';
+        this.claveNuevaCtrl.reset('');
         this.claveOk.set(u.id);
         setTimeout(() => { if (this.claveOk() === u.id) this.claveOk.set(null); }, 3000);
         this.toast.exito(`Contraseña de ${u.nombre} actualizada.`);
@@ -708,12 +707,5 @@ export class AdminComponent implements OnInit {
       next: (act) => this.usuarios.update((us) => us.map((x) => (x.id === act.id ? act : x))),
       error: (e) => this.error.set(e?.error?.message ?? 'No fue posible guardar la extensión.'),
     });
-  }
-
-  private usuarioVacio(): CrearUsuario {
-    return {
-      username: '', nombre: '', contrasena: '', rol: 'operador', tenant: this.tenantCtx(),
-      agenciaId: null, canales: [], extension: null,
-    };
   }
 }

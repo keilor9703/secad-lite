@@ -1,6 +1,6 @@
-import { Component, OnDestroy, OnInit, inject, signal } from '@angular/core';
+import { ChangeDetectionStrategy, Component, OnDestroy, OnInit, inject, signal } from '@angular/core';
 import { CommonModule } from '@angular/common';
-import { FormsModule } from '@angular/forms';
+import { FormControl, FormGroup, ReactiveFormsModule } from '@angular/forms';
 import { Subscription } from 'rxjs';
 import { ChatService } from '../../core/chat.service';
 import { AuthService } from '../../core/auth.service';
@@ -10,9 +10,10 @@ import { MensajeChat } from '../../core/models';
 @Component({
   selector: 'app-chat',
   standalone: true,
-  imports: [CommonModule, FormsModule],
+  imports: [CommonModule, ReactiveFormsModule],
   templateUrl: './chat.html',
   styleUrl: './chat.scss',
+  changeDetection: ChangeDetectionStrategy.OnPush,
 })
 export class ChatComponent implements OnInit, OnDestroy {
   private chat = inject(ChatService);
@@ -20,7 +21,7 @@ export class ChatComponent implements OnInit, OnDestroy {
 
   readonly mensajes = signal<MensajeChat[]>([]);
   readonly casoId = signal<string | null>(null);
-  texto = '';
+  readonly form = new FormGroup({ texto: new FormControl('', { nonNullable: true }) });
   private subs: Subscription[] = [];
 
   ngOnInit(): void {
@@ -40,11 +41,11 @@ export class ChatComponent implements OnInit, OnDestroy {
   }
 
   enviar(): void {
-    const t = this.texto.trim();
+    const t = this.form.controls.texto.value.trim();
     if (!t) return;
     if (!this.casoId()) this.chat.iniciar(t);
     else this.chat.enviar(this.casoId()!, t);
-    this.texto = '';
+    this.form.reset({ texto: '' });
   }
 
   get nombre(): string {

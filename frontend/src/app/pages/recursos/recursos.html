@@ -4,28 +4,38 @@
     <p>Flota operativa y disponibilidad</p>
   </header>
 
-  <p class="error" *ngIf="error()">{{ error() }}</p>
+  @if (error()) {
+    <p class="error">{{ error() }}</p>
+  }
 
-  <div class="panel card" *ngIf="gestiona()">
-    <h2>Nuevo recurso</h2>
-    <form class="crear" (ngSubmit)="crear()">
-      <input [(ngModel)]="nuevo.codigo" name="codigo" placeholder="código (P-03)" />
-      <input [(ngModel)]="nuevo.nombre" name="nombre" placeholder="Nombre" />
-      <select [(ngModel)]="nuevo.tipo" name="tipo">
-        <option *ngFor="let t of tipos" [value]="t">{{ t }}</option>
-      </select>
-      <!-- La agencia sale del catálogo: así la flota y los casos hablan de
-           las mismas entidades y el despacho por agencia cuadra. -->
-      <select [(ngModel)]="nuevo.agenciaId" name="agencia" aria-label="Agencia del recurso">
-        <option [ngValue]="null">— agencia —</option>
-        <option *ngFor="let a of agencias()" [ngValue]="a.id">{{ a.nombre }}</option>
-      </select>
-      <button type="submit" class="btn btn--primary">Crear</button>
-    </form>
-    <p class="hint" *ngIf="!agencias().length">
-      No hay agencias activas. Créelas primero en Catálogos operativos.
-    </p>
-  </div>
+  @if (gestiona()) {
+    <div class="panel card">
+      <h2>Nuevo recurso</h2>
+      <form class="crear" [formGroup]="nuevoForm" (ngSubmit)="crear()">
+        <input formControlName="codigo" placeholder="código (P-03)" />
+        <input formControlName="nombre" placeholder="Nombre" />
+        <select formControlName="tipo">
+          @for (t of tipos; track t) {
+            <option [value]="t">{{ t }}</option>
+          }
+        </select>
+        <!-- La agencia sale del catálogo: así la flota y los casos hablan de
+        las mismas entidades y el despacho por agencia cuadra. -->
+        <select formControlName="agenciaId" aria-label="Agencia del recurso">
+          <option [ngValue]="null">— agencia —</option>
+          @for (a of agencias(); track a) {
+            <option [ngValue]="a.id">{{ a.nombre }}</option>
+          }
+        </select>
+        <button type="submit" class="btn btn--primary" [disabled]="nuevoForm.invalid">Crear</button>
+      </form>
+      @if (!agencias().length) {
+        <p class="hint">
+          No hay agencias activas. Créelas primero en Catálogos operativos.
+        </p>
+      }
+    </div>
+  }
 
   <div class="panel card">
     <div class="tbl-wrap">
@@ -33,54 +43,69 @@
         <thead>
           <tr>
             <th>Código</th><th>Nombre</th><th>Tipo</th><th>Agencia</th><th>Estado</th>
-            <th *ngIf="gestiona()" class="acciones-col"></th>
+            @if (gestiona()) {
+              <th class="acciones-col"></th>
+            }
           </tr>
         </thead>
         <tbody>
-          <ng-container *ngFor="let r of recursos()">
+          @for (r of recursos(); track r) {
             <!-- Fila en lectura -->
-            <tr *ngIf="editando() !== r.id">
-              <td class="mono">{{ r.codigo }}</td>
-              <td>{{ r.nombre }}</td>
-              <td class="cap">{{ r.tipo }}</td>
-              <td>{{ r.agencia }}</td>
-              <td><span class="rbadge" [attr.data-estado]="r.estado">{{ estadoLabel(r.estado) }}</span></td>
-              <td *ngIf="gestiona()" class="acciones-col">
-                <button type="button" class="btn btn--ghost mini" (click)="abrirEdicion(r)">Editar</button>
-                <button type="button" class="btn btn--ghost mini" *ngIf="puedeToggle(r)" (click)="toggleServicio(r)">
-                  {{ r.estado === 'fuera_servicio' ? 'Poner en servicio' : 'Fuera de servicio' }}
-                </button>
-                <button type="button" class="btn btn--ghost mini peligro" (click)="eliminar(r)">Eliminar</button>
-              </td>
-            </tr>
-
+            @if (editando() !== r.id) {
+              <tr>
+                <td class="mono">{{ r.codigo }}</td>
+                <td>{{ r.nombre }}</td>
+                <td class="cap">{{ r.tipo }}</td>
+                <td>{{ r.agencia }}</td>
+                <td><span class="rbadge" [attr.data-estado]="r.estado">{{ estadoLabel(r.estado) }}</span></td>
+                @if (gestiona()) {
+                  <td class="acciones-col">
+                    <button type="button" class="btn btn--ghost mini" (click)="abrirEdicion(r)">Editar</button>
+                    @if (puedeToggle(r)) {
+                      <button type="button" class="btn btn--ghost mini" (click)="toggleServicio(r)">
+                        {{ r.estado === 'fuera_servicio' ? 'Poner en servicio' : 'Fuera de servicio' }}
+                      </button>
+                    }
+                    <button type="button" class="btn btn--ghost mini peligro" (click)="eliminar(r)">Eliminar</button>
+                  </td>
+                }
+              </tr>
+            }
             <!-- Fila en edición -->
-            <tr *ngIf="editando() === r.id" class="fila-edicion">
-              <td><input class="mono" [(ngModel)]="edicion.codigo" [ngModelOptions]="{ standalone: true }"
-                         aria-label="Código" /></td>
-              <td><input [(ngModel)]="edicion.nombre" [ngModelOptions]="{ standalone: true }"
-                         aria-label="Nombre" /></td>
-              <td>
-                <select [(ngModel)]="edicion.tipo" [ngModelOptions]="{ standalone: true }" aria-label="Tipo">
-                  <option *ngFor="let t of tipos" [value]="t">{{ t }}</option>
-                </select>
-              </td>
-              <td>
-                <select [(ngModel)]="edicion.agenciaId" [ngModelOptions]="{ standalone: true }" aria-label="Agencia">
-                  <option [ngValue]="null">— agencia —</option>
-                  <option *ngFor="let a of agencias()" [ngValue]="a.id">{{ a.nombre }}</option>
-                </select>
-              </td>
-              <td><span class="rbadge" [attr.data-estado]="r.estado">{{ estadoLabel(r.estado) }}</span></td>
-              <td class="acciones-col">
-                <button type="button" class="btn btn--primary mini" (click)="guardarEdicion(r)">Guardar</button>
-                <button type="button" class="btn btn--ghost mini" (click)="cancelarEdicion()">Cancelar</button>
-              </td>
+            @if (editando() === r.id) {
+              <tr class="fila-edicion" [formGroup]="edicionForm">
+                <td><input class="mono" formControlName="codigo"
+                aria-label="Código" /></td>
+                <td><input formControlName="nombre"
+                aria-label="Nombre" /></td>
+                <td>
+                  <select formControlName="tipo" aria-label="Tipo">
+                    @for (t of tipos; track t) {
+                      <option [value]="t">{{ t }}</option>
+                    }
+                  </select>
+                </td>
+                <td>
+                  <select formControlName="agenciaId" aria-label="Agencia">
+                    <option [ngValue]="null">— agencia —</option>
+                    @for (a of agencias(); track a) {
+                      <option [ngValue]="a.id">{{ a.nombre }}</option>
+                    }
+                  </select>
+                </td>
+                <td><span class="rbadge" [attr.data-estado]="r.estado">{{ estadoLabel(r.estado) }}</span></td>
+                <td class="acciones-col">
+                  <button type="button" class="btn btn--primary mini" [disabled]="edicionForm.invalid" (click)="guardarEdicion(r)">Guardar</button>
+                  <button type="button" class="btn btn--ghost mini" (click)="cancelarEdicion()">Cancelar</button>
+                </td>
+              </tr>
+            }
+          }
+          @if (!recursos().length) {
+            <tr>
+              <td colspan="6" class="vacio-inline">Sin recursos en la flota todavía.</td>
             </tr>
-          </ng-container>
-          <tr *ngIf="!recursos().length">
-            <td colspan="6" class="vacio-inline">Sin recursos en la flota todavía.</td>
-          </tr>
+          }
         </tbody>
       </table>
     </div>

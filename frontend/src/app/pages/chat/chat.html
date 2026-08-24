@@ -9,17 +9,21 @@
     </header>
 
     <div class="mensajes">
-      <p class="vacio" *ngIf="mensajes().length === 0">Cuéntenos qué está pasando.</p>
-      <div *ngFor="let m of mensajes()" class="msg" [class.propio]="m.autorTipo === 'ciudadano'">
-        <span class="autor">{{ m.autorTipo === 'ciudadano' ? 'Usted' : m.autorNombre }}</span>
-        <p class="texto">{{ m.texto }}</p>
-        <span class="hora">{{ m.creadoEn | date:'shortTime' }}</span>
-      </div>
+      @if (mensajes().length === 0) {
+        <p class="vacio">Cuéntenos qué está pasando.</p>
+      }
+      @for (m of mensajes(); track m) {
+        <div class="msg" [class.propio]="m.autorTipo === 'ciudadano'">
+          <span class="autor">{{ m.autorTipo === 'ciudadano' ? 'Usted' : m.autorNombre }}</span>
+          <p class="texto">{{ m.texto }}</p>
+          <span class="hora">{{ m.creadoEn | date:'shortTime' }}</span>
+        </div>
+      }
     </div>
 
-    <form class="entrada" (ngSubmit)="enviar()">
-      <input [(ngModel)]="texto" name="texto" placeholder="Escriba su mensaje…" autocomplete="off" />
-      <button type="submit" class="btn btn--primary" [disabled]="!texto.trim()">Enviar</button>
+    <form class="entrada" [formGroup]="form" (ngSubmit)="enviar()">
+      <input formControlName="texto" placeholder="Escriba su mensaje…" autocomplete="off" />
+      <button type="submit" class="btn btn--primary" [disabled]="!form.controls.texto.value.trim()">Enviar</button>
     </form>
   </div>
 </section>

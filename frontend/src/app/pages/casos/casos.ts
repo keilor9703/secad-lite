@@ -1,6 +1,6 @@
-import { Component, computed, effect, inject, signal } from '@angular/core';
+import { ChangeDetectionStrategy, Component, computed, effect, inject, signal } from '@angular/core';
 import { CommonModule } from '@angular/common';
-import { FormsModule } from '@angular/forms';
+import { FormControl, FormGroup, ReactiveFormsModule } from '@angular/forms';
 import { RouterLink } from '@angular/router';
 import { CasosService } from '../../core/casos.service';
 import { AuthService } from '../../core/auth.service';
@@ -14,9 +14,10 @@ import { Canal, Caso, EstadoCaso, PrioridadCaso } from '../../core/models';
 @Component({
   selector: 'app-casos',
   standalone: true,
-  imports: [CommonModule, FormsModule, RouterLink],
+  imports: [CommonModule, ReactiveFormsModule, RouterLink],
   templateUrl: './casos.html',
   styleUrl: './casos.scss',
+  changeDetection: ChangeDetectionStrategy.OnPush,
 })
 export class CasosComponent {
   private casosSvc = inject(CasosService);
@@ -29,15 +30,17 @@ export class CasosComponent {
 
   readonly estados: EstadoCaso[] = ['nuevo', 'en_gestion', 'despachado', 'derivado', 'cerrado'];
   readonly prioridades: PrioridadCaso[] = ['alta', 'media', 'baja'];
-  texto = '';
   private readonly busqueda = signal('');
   private readonly estadoFiltro = signal<EstadoCaso | ''>('');
-  estadoSel: EstadoCaso | '' = '';
   private readonly prioridadFiltro = signal<PrioridadCaso | ''>('');
-  prioridadSel: PrioridadCaso | '' = '';
   /** Rango por fecha de recepción; se aplica en el SERVIDOR al recargar. */
-  desde = '';
-  hasta = '';
+  readonly filtroForm = new FormGroup({
+    texto: new FormControl('', { nonNullable: true }),
+    estadoSel: new FormControl<EstadoCaso | ''>('', { nonNullable: true }),
+    prioridadSel: new FormControl<PrioridadCaso | ''>('', { nonNullable: true }),
+    desde: new FormControl('', { nonNullable: true }),
+    hasta: new FormControl('', { nonNullable: true }),
+  });
 
   readonly filtrados = computed(() => {
     const q = this.busqueda().trim().toLowerCase();
@@ -57,15 +60,15 @@ export class CasosComponent {
       this.auth.tenantActivo();
       this.cargar();
     });
+    this.filtroForm.controls.texto.valueChanges.subscribe((v) => this.busqueda.set(v));
+    this.filtroForm.controls.estadoSel.valueChanges.subscribe((v) => this.estadoFiltro.set(v));
+    this.filtroForm.controls.prioridadSel.valueChanges.subscribe((v) => this.prioridadFiltro.set(v));
   }
-
-  buscar(t: string): void { this.texto = t; this.busqueda.set(t); }
-  filtrarEstado(e: EstadoCaso | ''): void { this.estadoSel = e; this.estadoFiltro.set(e); }
-  filtrarPrioridad(p: PrioridadCaso | ''): void { this.prioridadSel = p; this.prioridadFiltro.set(p); }
 
   /** El rango de fechas cambia el conjunto: se vuelve a pedir al servidor. */
   aplicarFechas(): void {
-    if (this.desde && this.hasta && this.desde > this.hasta) {
+    const { desde, hasta } = this.filtroForm.getRawValue();
+    if (desde && hasta && desde > hasta) {
       this.error.set('La fecha inicial no puede ser posterior a la final.');
       return;
     }
@@ -73,14 +76,15 @@ export class CasosComponent {
   }
 
   limpiarFechas(): void {
-    this.desde = this.hasta = '';
+    this.filtroForm.patchValue({ desde: '', hasta: '' });
     this.cargar();
   }
 
   cargar(): void {
     this.cargando.set(true);
     this.error.set('');
-    this.casosSvc.listar({ limite: 500, desde: this.desde || undefined, hasta: this.hasta || undefined }).subscribe({
+    const { desde, hasta } = this.filtroForm.getRawValue();
+    this.casosSvc.listar({ limite: 500, desde: desde || undefined, hasta: hasta || undefined }).subscribe({
       next: (cs) => { this.casos.set(cs); this.cargando.set(false); },
       error: () => { this.error.set('No fue posible cargar los casos.'); this.cargando.set(false); },
     });

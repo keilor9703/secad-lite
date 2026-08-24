@@ -1,6 +1,6 @@
-import { Component, OnInit, inject, signal } from '@angular/core';
+import { ChangeDetectionStrategy, Component, OnInit, inject, signal } from '@angular/core';
 import { CommonModule } from '@angular/common';
-import { FormsModule } from '@angular/forms';
+import { FormControl, FormGroup, ReactiveFormsModule, Validators } from '@angular/forms';
 import { AdminService } from '../../core/admin.service';
 import { EstadoSuscripcion, PlanTenant, Tenant, UsuarioAdmin } from '../../core/models';
 
@@ -13,9 +13,10 @@ import { EstadoSuscripcion, PlanTenant, Tenant, UsuarioAdmin } from '../../core/
 @Component({
   selector: 'app-plataforma',
   standalone: true,
-  imports: [CommonModule, FormsModule],
+  imports: [CommonModule, ReactiveFormsModule],
   templateUrl: './plataforma.html',
   styleUrl: './plataforma.scss',
+  changeDetection: ChangeDetectionStrategy.OnPush,
 })
 export class PlataformaComponent implements OnInit {
   private admin = inject(AdminService);
@@ -32,7 +33,10 @@ export class PlataformaComponent implements OnInit {
     { clave: 'api', nombre: 'API entrante' },
   ];
 
-  nuevoTenant = { codigo: '', nombre: '' };
+  readonly nuevoTenantForm = new FormGroup({
+    codigo: new FormControl('', { nonNullable: true, validators: [Validators.required] }),
+    nombre: new FormControl('', { nonNullable: true, validators: [Validators.required] }),
+  });
 
   ngOnInit(): void {
     this.cargar();
@@ -70,10 +74,13 @@ export class PlataformaComponent implements OnInit {
 
   crearTenant(): void {
     this.error.set('');
-    const { codigo, nombre } = this.nuevoTenant;
-    if (!codigo.trim() || !nombre.trim()) { this.error.set('Código y nombre son obligatorios.'); return; }
+    if (this.nuevoTenantForm.invalid) { this.error.set('Código y nombre son obligatorios.'); return; }
+    const { codigo, nombre } = this.nuevoTenantForm.getRawValue();
     this.admin.crearTenant(codigo.trim(), nombre.trim()).subscribe({
-      next: (t) => { this.tenants.update((ts) => [...ts, t]); this.nuevoTenant = { codigo: '', nombre: '' }; },
+      next: (t) => {
+        this.tenants.update((ts) => [...ts, t]);
+        this.nuevoTenantForm.reset({ codigo: '', nombre: '' });
+      },
       error: (e) => this.error.set(e?.error?.message ?? 'No fue posible crear la instancia.'),
     });
   }

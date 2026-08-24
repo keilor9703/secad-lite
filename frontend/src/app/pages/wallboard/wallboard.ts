@@ -1,4 +1,4 @@
-import { Component, OnDestroy, OnInit, computed, inject, signal } from '@angular/core';
+import { ChangeDetectionStrategy, Component, OnDestroy, OnInit, computed, inject, signal } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { CasosService } from '../../core/casos.service';
 import { MetricasService, Resumen } from '../../core/metricas.service';
@@ -15,6 +15,7 @@ import { Caso } from '../../core/models';
   imports: [CommonModule],
   templateUrl: './wallboard.html',
   styleUrl: './wallboard.scss',
+  changeDetection: ChangeDetectionStrategy.OnPush,
 })
 export class WallboardComponent implements OnInit, OnDestroy {
   private casosSvc = inject(CasosService);

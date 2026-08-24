@@ -3,81 +3,112 @@
     <header class="desp-head">
       <div>
         <h1>Despacho</h1>
-        <p *ngIf="!veTodo()">
-          Su cola:
-          <ng-container *ngIf="misCanales().length; else sinCanal">
-            <strong *ngFor="let c of misCanales(); let i = index">{{ i ? ', ' : '' }}{{ c.codigo }} · {{ c.nombre }}</strong>
-          </ng-container>
-          <ng-template #sinCanal><strong>ningún canal asignado</strong></ng-template>
-        </p>
-        <p *ngIf="veTodo()">Todos los casos abiertos del secad.</p>
+        @if (!veTodo()) {
+          <p>
+            Su cola:
+            @if (misCanales().length) {
+              @for (c of misCanales(); track c; let i = $index) {
+                <strong>{{ i ? ', ' : '' }}{{ c.codigo }} · {{ c.nombre }}</strong>
+              }
+            } @else {
+              <strong>ningún canal asignado</strong>
+            }
+          </p>
+        }
+        @if (veTodo()) {
+          <p>Todos los casos abiertos del secad.</p>
+        }
       </div>
       <div class="desp-head-der">
         <a routerLink="/wallboard" class="btn btn--ghost" title="Pantalla grande para la sala">📺 Sala</a>
         <button type="button" class="btn btn--ghost timbre" (click)="alternarSonido()"
-                [title]="sonidoActivo() ? 'Silenciar el aviso de casos nuevos' : 'Activar el aviso sonoro de casos nuevos'"
-                [attr.aria-label]="sonidoActivo() ? 'Silenciar aviso de casos nuevos' : 'Activar aviso sonoro de casos nuevos'">
+          [title]="sonidoActivo() ? 'Silenciar el aviso de casos nuevos' : 'Activar el aviso sonoro de casos nuevos'"
+          [attr.aria-label]="sonidoActivo() ? 'Silenciar aviso de casos nuevos' : 'Activar aviso sonoro de casos nuevos'">
           {{ sonidoActivo() ? '🔔' : '🔕' }}
         </button>
-        <div class="marcador" *ngIf="total()">
-          <span class="pend" [class.hay]="sinTomar()">{{ sinTomar() }}</span>
-          <span class="lbl">sin tomar</span>
-        </div>
+        @if (total()) {
+          <div class="marcador">
+            <span class="pend" [class.hay]="sinTomar()">{{ sinTomar() }}</span>
+            <span class="lbl">sin tomar</span>
+          </div>
+        }
       </div>
     </header>
 
     <!-- Lo primero que necesita saber: qué acaba de llegar y qué no ha mirado -->
-    <div class="alertas" *ngIf="ultimo() as u">
-      <a class="alerta nuevo" (click)="abrir(u)" [class.sin-ver]="noVisto(u)">
-        <span class="etq">Último en llegar</span>
-        <strong>{{ u.titulo }}</strong>
-        <span class="hace">hace {{ espera(u) }}</span>
-      </a>
-      <div class="alerta pendiente" *ngIf="sinAbrir().length">
-        ⚠ <strong>{{ sinAbrir().length }}</strong>
-        {{ sinAbrir().length === 1 ? 'caso lleva' : 'casos llevan' }} más de 5 minutos sin que los abra
-      </div>
-    </div>
-
-    <p class="error" *ngIf="error()">{{ error() }}</p>
-
-    <div class="guia card" *ngIf="!veTodo() && !misCanales().length && !total()">
-      <h2>Todavía no atiende ningún canal</h2>
-      <p>Aquí llegan los casos que recepción envía a los canales de su agencia. Pídale al
-        administrador que le asigne al menos uno desde <strong>Administración → Usuarios</strong>.</p>
-    </div>
-
-    <div class="tablero" *ngIf="veTodo() || misCanales().length || total()">
-      <div class="col" *ngFor="let col of columnas()">
-        <div class="col-head">
-          <h2>{{ col.titulo }}</h2>
-          <span class="cuenta">{{ col.casos.length }}</span>
-        </div>
-        <p class="col-pista">{{ col.pista }}</p>
-
-        <button type="button" class="tarjeta" *ngFor="let c of col.casos" (click)="abrir(c)"
-                [attr.data-sem]="semaforo(c)" [class.activa]="seleccionado() === c.id"
-                [class.sin-ver]="noVisto(c)">
-          <div class="t-top">
-            <span class="prio" [attr.data-prio]="c.prioridad">{{ c.prioridad }}</span>
-            <span class="espera">{{ espera(c) }}</span>
+    @if (ultimo(); as u) {
+      <div class="alertas">
+        <a class="alerta nuevo" (click)="abrir(u)" [class.sin-ver]="noVisto(u)">
+          <span class="etq">Último en llegar</span>
+          <strong>{{ u.titulo }}</strong>
+          <span class="hace">hace {{ espera(u) }}</span>
+        </a>
+        @if (sinAbrir().length) {
+          <div class="alerta pendiente">
+            ⚠ <strong>{{ sinAbrir().length }}</strong>
+            {{ sinAbrir().length === 1 ? 'caso lleva' : 'casos llevan' }} más de 5 minutos sin que los abra
           </div>
-          <h3>{{ c.titulo }}</h3>
-          <p class="t-dir" *ngIf="c.direccion || c.barrio">📍 {{ c.direccion }}<span *ngIf="c.barrio"> · {{ c.barrio }}</span></p>
-          <p class="t-meta">
-            <span>{{ canalIcon(c) }} {{ c.ciudadano }}</span>
-            <span class="mono" *ngIf="canalesDe(c)">{{ canalesDe(c) }}</span>
-          </p>
-        </button>
-
-        <p class="col-vacia" *ngIf="!col.casos.length">Nada aquí.</p>
+        }
       </div>
-    </div>
-  </div>
+    }
 
-  <!-- Gestión del caso, sin salir del módulo: despacho de recursos, notas, remisión -->
-  <aside class="panel-caso" *ngIf="seleccionado() as id">
-    <button type="button" class="cerrar" (click)="cerrarPanel()" aria-label="Cerrar el caso">✕</button>
-    <app-detalle [casoId]="id" [incrustado]="true" (cambiado)="cargar(true)" />
-  </aside>
-</section>
+    @if (error()) {
+      <p class="error">{{ error() }}</p>
+    }
+
+    @if (!veTodo() && !misCanales().length && !total()) {
+      <div class="guia card">
+        <h2>Todavía no atiende ningún canal</h2>
+        <p>Aquí llegan los casos que recepción envía a los canales de su agencia. Pídale al
+          administrador que le asigne al menos uno desde <strong>Administración → Usuarios</strong>.</p>
+        </div>
+      }
+
+      @if (veTodo() || misCanales().length || total()) {
+        <div class="tablero">
+          @for (col of columnas(); track col) {
+            <div class="col">
+              <div class="col-head">
+                <h2>{{ col.titulo }}</h2>
+                <span class="cuenta">{{ col.casos.length }}</span>
+              </div>
+              <p class="col-pista">{{ col.pista }}</p>
+              @for (c of col.casos; track c) {
+                <button type="button" class="tarjeta" (click)="abrir(c)"
+                  [attr.data-sem]="semaforo(c)" [class.activa]="seleccionado() === c.id"
+                  [class.sin-ver]="noVisto(c)">
+                  <div class="t-top">
+                    <span class="prio" [attr.data-prio]="c.prioridad">{{ c.prioridad }}</span>
+                    <span class="espera">{{ espera(c) }}</span>
+                  </div>
+                  <h3>{{ c.titulo }}</h3>
+                  @if (c.direccion || c.barrio) {
+                    <p class="t-dir">📍 {{ c.direccion }}@if (c.barrio) {
+                      <span> · {{ c.barrio }}</span>
+                    }</p>
+                  }
+                  <p class="t-meta">
+                    <span>{{ canalIcon(c) }} {{ c.ciudadano }}</span>
+                    @if (canalesDe(c)) {
+                      <span class="mono">{{ canalesDe(c) }}</span>
+                    }
+                  </p>
+                </button>
+              }
+              @if (!col.casos.length) {
+                <p class="col-vacia">Nada aquí.</p>
+              }
+            </div>
+          }
+        </div>
+      }
+    </div>
+
+    <!-- Gestión del caso, sin salir del módulo: despacho de recursos, notas, remisión -->
+    @if (seleccionado(); as id) {
+      <aside class="panel-caso">
+        <button type="button" class="cerrar" (click)="cerrarPanel()" aria-label="Cerrar el caso">✕</button>
+        <app-detalle [casoId]="id" [incrustado]="true" (cambiado)="cargar(true)" />
+      </aside>
+    }
+  </section>

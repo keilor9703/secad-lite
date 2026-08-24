@@ -4,53 +4,81 @@
     <strong>FALCON <span>CAD</span></strong>
   </div>
 
-  <nav class="nav" *ngIf="sesion() as s">
-    <ng-container *ngIf="s.tipo === 'institucional'; else navCivil">
-      <ng-container *ngIf="operativoVisible()">
-        <a routerLink="/recepcion" *ngIf="puedeRecepcionar()" routerLinkActive="active">Recepción</a>
-        <a routerLink="/despacho" *ngIf="puedeVerDespacho()" routerLinkActive="active">Despacho</a>
-        <a routerLink="/casos" *ngIf="puedeConsultar()" routerLinkActive="active">Consulta</a>
-        <a routerLink="/recursos" *ngIf="puedeVerRecursos()" routerLinkActive="active">Recursos</a>
-        <!-- Mapa y Panel son las dos vistas de análisis (metricas.ver): van juntas. -->
-        <a routerLink="/dashboard" *ngIf="puedeVerPanel()" routerLinkActive="active">Panel</a>
-        <a routerLink="/mapa" *ngIf="puedeVerPanel()" routerLinkActive="active">Mapa</a>
-      </ng-container>
-      <!-- Indicador global de llamadas timbrando sin tomar: visible en cualquier
-           página, no solo dentro de Recepción, para que nadie deje de verlo. -->
-      <a routerLink="/recepcion" class="nav-llamadas" *ngIf="puedeVerLlamadas() && sonando().length > 0"
-         title="Hay llamadas en espera sin tomar">
-        📞 <span class="ring-badge">{{ sonando().length }}</span>
-      </a>
-      <a *ngIf="puedeVerCatalogos()" routerLink="/catalogos" routerLinkActive="active">Catálogos</a>
-      <a *ngIf="esAdmin()" routerLink="/admin" routerLinkActive="active">Administración</a>
-      <!-- Solo el dueño de la plataforma: instancias, suscripciones y módulos. -->
-      <a *ngIf="esSuperadmin()" routerLink="/plataforma" routerLinkActive="active">Plataforma</a>
-    </ng-container>
-    <ng-template #navCivil>
-      <a routerLink="/chat" routerLinkActive="active">Mi chat</a>
-    </ng-template>
-  </nav>
+  @if (sesion(); as s) {
+    <nav class="nav">
+      @if (s.tipo === 'institucional') {
+        @if (operativoVisible()) {
+          @if (puedeRecepcionar()) {
+            <a routerLink="/recepcion" routerLinkActive="active">Recepción</a>
+          }
+          @if (puedeVerDespacho()) {
+            <a routerLink="/despacho" routerLinkActive="active">Despacho</a>
+          }
+          @if (puedeConsultar()) {
+            <a routerLink="/casos" routerLinkActive="active">Consulta</a>
+          }
+          @if (puedeVerRecursos()) {
+            <a routerLink="/recursos" routerLinkActive="active">Recursos</a>
+          }
+          <!-- Mapa y Panel son las dos vistas de análisis (metricas.ver): van juntas. -->
+          @if (puedeVerPanel()) {
+            <a routerLink="/dashboard" routerLinkActive="active">Panel</a>
+          }
+          @if (puedeVerPanel()) {
+            <a routerLink="/mapa" routerLinkActive="active">Mapa</a>
+          }
+        }
+        <!-- Indicador global de llamadas timbrando sin tomar: visible en cualquier
+        página, no solo dentro de Recepción, para que nadie deje de verlo. -->
+        @if (puedeVerLlamadas() && sonando().length > 0) {
+          <a routerLink="/recepcion" class="nav-llamadas"
+            title="Hay llamadas en espera sin tomar">
+            📞 <span class="ring-badge">{{ sonando().length }}</span>
+          </a>
+        }
+        @if (puedeVerCatalogos()) {
+          <a routerLink="/catalogos" routerLinkActive="active">Catálogos</a>
+        }
+        @if (esAdmin()) {
+          <a routerLink="/admin" routerLinkActive="active">Administración</a>
+        }
+        <!-- Solo el dueño de la plataforma: instancias, suscripciones y módulos. -->
+        @if (esSuperadmin()) {
+          <a routerLink="/plataforma" routerLinkActive="active">Plataforma</a>
+        }
+      } @else {
+        <a routerLink="/chat" routerLinkActive="active">Mi chat</a>
+      }
+    </nav>
+  }
 
-  <div class="user" *ngIf="sesion() as s">
-    <label class="tenant-sel" *ngIf="esSuperadmin(); else tenantFijo" title="Tenant en gestión">
-      <select [value]="tenantCtx()" (change)="cambiarTenant($any($event.target).value)"
-              aria-label="Tenant en gestión">
-        <option value="" disabled>tenant…</option>
-        <option *ngFor="let t of tenants()" [value]="t.codigo">{{ t.codigo }}</option>
-      </select>
-    </label>
-    <ng-template #tenantFijo>
-      <span class="tenant" title="Tenant (instancia)">{{ s.tenant || 'global' }}</span>
-    </ng-template>
-    <span class="who">
-      <span class="name">{{ s.nombre }}</span>
-      <span class="tipo" [class.civil]="s.tipo === 'civil'">{{ s.rol }}</span>
-    </span>
-    <app-tema-toggle />
-    <button type="button" class="btn btn--ghost mini-clave" *ngIf="s.tipo === 'institucional'"
-            (click)="abrirCambioClave()" title="Cambiar mi contraseña" aria-label="Cambiar mi contraseña">🔑</button>
-    <button type="button" class="btn btn--ghost" (click)="salir()">Salir</button>
-  </div>
+  @if (sesion(); as s) {
+    <div class="user">
+      @if (esSuperadmin()) {
+        <label class="tenant-sel" title="Tenant en gestión">
+          <select [value]="tenantCtx()" (change)="cambiarTenant($any($event.target).value)"
+            aria-label="Tenant en gestión">
+            <option value="" disabled>tenant…</option>
+            @for (t of tenants(); track t) {
+              <option [value]="t.codigo">{{ t.codigo }}</option>
+            }
+          </select>
+        </label>
+      } @else {
+        <span class="tenant" title="Tenant (instancia)">{{ s.tenant || 'global' }}</span>
+      }
+      <span class="who">
+        <span class="name">{{ s.nombre }}</span>
+        <span class="tipo" [class.civil]="s.tipo === 'civil'">{{ s.rol }}</span>
+      </span>
+      <app-tema-toggle />
+      @if (s.tipo === 'institucional') {
+        <button type="button" class="btn btn--ghost mini-clave"
+        (click)="abrirCambioClave()" title="Cambiar mi contraseña" aria-label="Cambiar mi contraseña">🔑</button>
+      }
+      <button type="button" class="btn btn--ghost" (click)="salir()">Salir</button>
+    </div>
+  }
 </header>
 
 <main class="content">
@@ -58,28 +86,30 @@
 </main>
 
 <!-- Autoservicio: cambiar MI contraseña demostrando la actual. -->
-<div class="velo" *ngIf="cambioClaveAbierto()" (click)="cambioClaveAbierto.set(false)">
-  <form class="dialogo card" (click)="$event.stopPropagation()" (ngSubmit)="guardarClave()">
-    <h2>Cambiar mi contraseña</h2>
-    <div class="field">
-      <label for="claveActual">Contraseña actual</label>
-      <input id="claveActual" type="password" [(ngModel)]="claveActual" name="claveActual" autocomplete="current-password" />
-    </div>
-    <div class="field">
-      <label for="claveNueva">Contraseña nueva (mínimo 8 caracteres)</label>
-      <input id="claveNueva" type="password" [(ngModel)]="claveNueva" name="claveNueva" autocomplete="new-password" />
-    </div>
-    <div class="field">
-      <label for="claveConfirma">Confirme la contraseña nueva</label>
-      <input id="claveConfirma" type="password" [(ngModel)]="claveConfirma" name="claveConfirma" autocomplete="new-password" />
-    </div>
-    <div class="dialogo-acciones">
-      <button type="button" class="btn btn--ghost" (click)="cambioClaveAbierto.set(false)">Cancelar</button>
-      <button type="submit" class="btn btn--primary" [disabled]="guardandoClave()">
-        {{ guardandoClave() ? 'Guardando…' : 'Guardar' }}
-      </button>
-    </div>
-  </form>
-</div>
+@if (cambioClaveAbierto()) {
+  <div class="velo" (click)="cambioClaveAbierto.set(false)">
+    <form class="dialogo card" [formGroup]="claveForm" (click)="$event.stopPropagation()" (ngSubmit)="guardarClave()">
+      <h2>Cambiar mi contraseña</h2>
+      <div class="field">
+        <label for="claveActual">Contraseña actual</label>
+        <input id="claveActual" type="password" formControlName="claveActual" autocomplete="current-password" />
+      </div>
+      <div class="field">
+        <label for="claveNueva">Contraseña nueva (mínimo 8 caracteres)</label>
+        <input id="claveNueva" type="password" formControlName="claveNueva" autocomplete="new-password" />
+      </div>
+      <div class="field">
+        <label for="claveConfirma">Confirme la contraseña nueva</label>
+        <input id="claveConfirma" type="password" formControlName="claveConfirma" autocomplete="new-password" />
+      </div>
+      <div class="dialogo-acciones">
+        <button type="button" class="btn btn--ghost" (click)="cambioClaveAbierto.set(false)">Cancelar</button>
+        <button type="submit" class="btn btn--primary" [disabled]="guardandoClave()">
+          {{ guardandoClave() ? 'Guardando…' : 'Guardar' }}
+        </button>
+      </div>
+    </form>
+  </div>
+}
 
 <app-toast />

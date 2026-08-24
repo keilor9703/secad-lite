@@ -1,4 +1,4 @@
-import { Component, Input } from '@angular/core';
+import { ChangeDetectionStrategy, Component, input } from '@angular/core';
 
 /**
  * Marca FALCON CAD: el halcón geométrico, dibujado en SVG para que se vea
@@ -8,8 +8,8 @@ import { Component, Input } from '@angular/core';
   selector: 'app-logo',
   standalone: true,
   template: `
-    <svg [attr.width]="tam" [attr.height]="tam" viewBox="0 0 64 64" role="img"
-         [attr.aria-label]="etiqueta">
+    <svg [attr.width]="tam()" [attr.height]="tam()" viewBox="0 0 64 64" role="img"
+         [attr.aria-label]="etiqueta()">
       <defs>
         <linearGradient [attr.id]="idTeal" x1="0.1" y1="0" x2="0.9" y2="1">
           <stop offset="0" stop-color="#7CEDF3"/>
@@ -33,17 +33,18 @@ import { Component, Input } from '@angular/core';
       <path [attr.fill]="'url(#' + idTeal + ')'" d="M50 13 L63 20 L55 20 Z"/>
       <path [attr.fill]="'url(#' + idOscuro + ')'" d="M63 20 L56 18 L57 25 Z"/>
       <!-- quiebre en negativo: toma el color del fondo donde se coloque -->
-      <path [attr.fill]="fondo" d="M21 35 L33 30 L26 41 Z" opacity="0.95"/>
+      <path [attr.fill]="fondo()" d="M21 35 L33 30 L26 41 Z" opacity="0.95"/>
     </svg>
   `,
   styles: [`:host { display: inline-flex; line-height: 0; }`],
+  changeDetection: ChangeDetectionStrategy.OnPush,
 })
 export class LogoComponent {
   /** Lado del cuadro en píxeles. */
-  @Input() tam = 32;
+  readonly tam = input(32);
   /** Color del quiebre interno; debe coincidir con el fondo donde va la marca. */
-  @Input() fondo = 'var(--surface)';
-  @Input() etiqueta = 'FALCON CAD';
+  readonly fondo = input('var(--surface)');
+  readonly etiqueta = input('FALCON CAD');
 
   // Los degradados se referencian por id, así que cada instancia usa el suyo
   // para no colisionar cuando hay varias marcas en la misma página.

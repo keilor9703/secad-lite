@@ -1,19 +1,11 @@
-import { Component, effect, inject, signal } from '@angular/core';
-import { CommonModule } from '@angular/common';
-import { FormsModule } from '@angular/forms';
+import { ChangeDetectionStrategy, Component, effect, inject, signal } from '@angular/core';
+
+import { FormControl, FormGroup, ReactiveFormsModule, Validators } from '@angular/forms';
 import { CrearRecurso, DespachoService } from '../../core/despacho.service';
 import { AuthService } from '../../core/auth.service';
 import { CatalogosService } from '../../core/catalogos.service';
 import { Agencia, EstadoRecurso, Recurso, TipoRecurso } from '../../core/models';
 import { ToastService } from '../../shared/toast/toast.service';
-
-/** Lo editable de un recurso mientras está abierto en la fila. */
-interface Edicion {
-  codigo: string;
-  nombre: string;
-  tipo: TipoRecurso;
-  agenciaId: string | null;
-}
 
 /**
  * Gestión de la flota: alta, edición, baja y disponibilidad. La agencia sale
@@ -23,9 +15,10 @@ interface Edicion {
 @Component({
   selector: 'app-recursos',
   standalone: true,
-  imports: [CommonModule, FormsModule],
+  imports: [ReactiveFormsModule],
   templateUrl: './recursos.html',
   styleUrl: './recursos.scss',
+  changeDetection: ChangeDetectionStrategy.OnPush,
 })
 export class RecursosComponent {
   private despacho = inject(DespachoService);
@@ -41,11 +34,21 @@ export class RecursosComponent {
   readonly error = signal('');
   readonly tipos: TipoRecurso[] = ['patrulla', 'ambulancia', 'maquina', 'moto', 'otro'];
 
-  nuevo: CrearRecurso = this.vacio();
+  readonly nuevoForm = new FormGroup({
+    codigo: new FormControl('', { nonNullable: true, validators: [Validators.required] }),
+    nombre: new FormControl('', { nonNullable: true, validators: [Validators.required] }),
+    tipo: new FormControl<TipoRecurso>('patrulla', { nonNullable: true }),
+    agenciaId: new FormControl<string | null>(null),
+  });
 
   /** Id del recurso que se está editando en la tabla, y sus valores en curso. */
   readonly editando = signal<string | null>(null);
-  edicion: Edicion = { codigo: '', nombre: '', tipo: 'patrulla', agenciaId: null };
+  readonly edicionForm = new FormGroup({
+    codigo: new FormControl('', { nonNullable: true, validators: [Validators.required] }),
+    nombre: new FormControl('', { nonNullable: true, validators: [Validators.required] }),
+    tipo: new FormControl<TipoRecurso>('patrulla', { nonNullable: true }),
+    agenciaId: new FormControl<string | null>(null),
+  });
 
   constructor() {
     // La flota y el catálogo son del tenant activo (ver RecepcionComponent).
@@ -65,10 +68,15 @@ export class RecursosComponent {
 
   crear(): void {
     this.error.set('');
-    const dto = { ...this.nuevo, codigo: this.nuevo.codigo.trim(), nombre: this.nuevo.nombre.trim() };
-    if (!dto.codigo || !dto.nombre) { this.error.set('Código y nombre son obligatorios.'); return; }
+    if (this.nuevoForm.invalid) { this.error.set('Código y nombre son obligatorios.'); return; }
+    const v = this.nuevoForm.getRawValue();
+    const dto: CrearRecurso = { ...v, codigo: v.codigo.trim(), nombre: v.nombre.trim() };
     this.despacho.crearRecurso(dto).subscribe({
-      next: (r) => { this.recursos.update((rs) => [...rs, r]); this.nuevo = this.vacio(); this.toast.exito('Recurso creado.'); },
+      next: (r) => {
+        this.recursos.update((rs) => [...rs, r]);
+        this.nuevoForm.reset({ codigo: '', nombre: '', tipo: 'patrulla', agenciaId: null });
+        this.toast.exito('Recurso creado.');
+      },
       error: (e) => this.error.set(e?.error?.message ?? 'No fue posible crear el recurso.'),
     });
   }
@@ -78,7 +86,7 @@ export class RecursosComponent {
   abrirEdicion(r: Recurso): void {
     this.error.set('');
     this.editando.set(r.id);
-    this.edicion = { codigo: r.codigo, nombre: r.nombre, tipo: r.tipo, agenciaId: r.agenciaId ?? null };
+    this.edicionForm.reset({ codigo: r.codigo, nombre: r.nombre, tipo: r.tipo, agenciaId: r.agenciaId ?? null });
   }
 
   cancelarEdicion(): void {
@@ -87,11 +95,10 @@ export class RecursosComponent {
 
   guardarEdicion(r: Recurso): void {
     this.error.set('');
-    const codigo = this.edicion.codigo.trim();
-    const nombre = this.edicion.nombre.trim();
-    if (!codigo || !nombre) { this.error.set('Código y nombre son obligatorios.'); return; }
+    if (this.edicionForm.invalid) { this.error.set('Código y nombre son obligatorios.'); return; }
+    const v = this.edicionForm.getRawValue();
     this.despacho.actualizarRecurso(r.id, {
-      codigo, nombre, tipo: this.edicion.tipo, agenciaId: this.edicion.agenciaId,
+      codigo: v.codigo.trim(), nombre: v.nombre.trim(), tipo: v.tipo, agenciaId: v.agenciaId,
     }).subscribe({
       next: (act) => {
         this.recursos.update((rs) => rs.map((x) => (x.id === act.id ? act : x)));
@@ -132,9 +139,5 @@ export class RecursosComponent {
 
   puedeToggle(r: Recurso): boolean {
     return r.estado === 'disponible' || r.estado === 'fuera_servicio';
-  }
-
-  private vacio(): CrearRecurso {
-    return { codigo: '', nombre: '', tipo: 'patrulla', agenciaId: null };
   }
 }

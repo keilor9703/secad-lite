@@ -7,31 +7,41 @@
     <span class="conteo">{{ filtrados().length }} de {{ casos().length }}</span>
   </header>
 
-  <p class="alcance" *ngIf="!veTodo()">
-    Ve los casos de sus canales de atención y los que usted recepcionó.
-  </p>
-  <p class="error" *ngIf="error()">{{ error() }}</p>
+  @if (!veTodo()) {
+    <p class="alcance">
+      Ve los casos de sus canales de atención y los que usted recepcionó.
+    </p>
+  }
+  @if (error()) {
+    <p class="error">{{ error() }}</p>
+  }
 
-  <div class="filtros">
-    <input [ngModel]="texto" name="q" (ngModelChange)="buscar($event)"
-           placeholder="Buscar por motivo, ciudadano, dirección, código…" aria-label="Buscar casos" />
-    <select [ngModel]="estadoSel" name="est" (ngModelChange)="filtrarEstado($event)" aria-label="Filtrar por estado">
+  <div class="filtros" [formGroup]="filtroForm">
+    <input formControlName="texto"
+      placeholder="Buscar por motivo, ciudadano, dirección, código…" aria-label="Buscar casos" />
+    <select formControlName="estadoSel" aria-label="Filtrar por estado">
       <option value="">Todos los estados</option>
-      <option *ngFor="let e of estados" [value]="e">{{ estadoLabel(e) }}</option>
+      @for (e of estados; track e) {
+        <option [value]="e">{{ estadoLabel(e) }}</option>
+      }
     </select>
-    <select [ngModel]="prioridadSel" name="pri" (ngModelChange)="filtrarPrioridad($event)" aria-label="Filtrar por prioridad">
+    <select formControlName="prioridadSel" aria-label="Filtrar por prioridad">
       <option value="">Toda prioridad</option>
-      <option *ngFor="let p of prioridades" [value]="p">{{ p }}</option>
+      @for (p of prioridades; track p) {
+        <option [value]="p">{{ p }}</option>
+      }
     </select>
     <div class="rango">
       <label for="fdesde">Del</label>
-      <input id="fdesde" type="date" [(ngModel)]="desde" name="fdesde" (change)="aplicarFechas()" aria-label="Desde" />
+      <input id="fdesde" type="date" formControlName="desde" (change)="aplicarFechas()" aria-label="Desde" />
       <label for="fhasta">al</label>
-      <input id="fhasta" type="date" [(ngModel)]="hasta" name="fhasta" (change)="aplicarFechas()" aria-label="Hasta" />
-      <button type="button" class="btn btn--ghost mini" *ngIf="desde || hasta" (click)="limpiarFechas()">Quitar fechas</button>
+      <input id="fhasta" type="date" formControlName="hasta" (change)="aplicarFechas()" aria-label="Hasta" />
+      @if (filtroForm.controls.desde.value || filtroForm.controls.hasta.value) {
+        <button type="button" class="btn btn--ghost mini" (click)="limpiarFechas()">Quitar fechas</button>
+      }
     </div>
     <button type="button" class="btn btn--ghost" (click)="exportarCsv()" [disabled]="!filtrados().length"
-            title="Descarga lo que se está viendo, con los filtros aplicados">
+      title="Descarga lo que se está viendo, con los filtros aplicados">
       ⬇ Exportar CSV
     </button>
   </div>
@@ -45,19 +55,23 @@
         </tr>
       </thead>
       <tbody>
-        <tr *ngFor="let c of filtrados()">
-          <td class="mono">{{ c.codigoCaso || '—' }}</td>
-          <td class="titulo"><a [routerLink]="['/caso', c.id]">{{ canalIcon(c.canal) }} {{ c.titulo }}</a></td>
-          <td>{{ c.ciudadano }}</td>
-          <td class="ubic">{{ c.direccion || c.barrio || '—' }}</td>
-          <td>{{ c.agencia }}</td>
-          <td><span class="badge" [attr.data-estado]="c.estado">{{ estadoLabel(c.estado) }}</span></td>
-          <td class="mono fecha">{{ c.creadoEn | date: 'dd/MM HH:mm' }}</td>
-        </tr>
+        @for (c of filtrados(); track c) {
+          <tr>
+            <td class="mono">{{ c.codigoCaso || '—' }}</td>
+            <td class="titulo"><a [routerLink]="['/caso', c.id]">{{ canalIcon(c.canal) }} {{ c.titulo }}</a></td>
+            <td>{{ c.ciudadano }}</td>
+            <td class="ubic">{{ c.direccion || c.barrio || '—' }}</td>
+            <td>{{ c.agencia }}</td>
+            <td><span class="badge" [attr.data-estado]="c.estado">{{ estadoLabel(c.estado) }}</span></td>
+            <td class="mono fecha">{{ c.creadoEn | date: 'dd/MM HH:mm' }}</td>
+          </tr>
+        }
       </tbody>
     </table>
-    <p class="vacio" *ngIf="!filtrados().length && !cargando()">
-      {{ casos().length ? 'Ningún caso coincide con la búsqueda.' : 'Todavía no hay casos.' }}
-    </p>
+    @if (!filtrados().length && !cargando()) {
+      <p class="vacio">
+        {{ casos().length ? 'Ningún caso coincide con la búsqueda.' : 'Todavía no hay casos.' }}
+      </p>
+    }
   </div>
 </section>

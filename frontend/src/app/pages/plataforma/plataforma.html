@@ -4,7 +4,9 @@
     <p>Instancias contratadas, su suscripción y los módulos que tienen habilitados.</p>
   </header>
 
-  <p class="error" *ngIf="error()">{{ error() }}</p>
+  @if (error()) {
+    <p class="error">{{ error() }}</p>
+  }
 
   <div class="kpis">
     <div class="kpi"><span class="n">{{ tenants().length }}</span><span class="l">Instancias</span></div>
@@ -14,57 +16,66 @@
   <div class="panel card">
     <h2>Nueva instancia</h2>
     <p class="hint">Arranca con 30 días de prueba y todas las integraciones habilitadas.</p>
-    <form class="crear-inline" (ngSubmit)="crearTenant()">
-      <input [(ngModel)]="nuevoTenant.codigo" name="tcod" placeholder="código (p. ej. envigado)" />
-      <input [(ngModel)]="nuevoTenant.nombre" name="tnom" placeholder="Nombre del municipio u organización" />
-      <button type="submit" class="btn btn--primary">Crear</button>
+    <form class="crear-inline" [formGroup]="nuevoTenantForm" (ngSubmit)="crearTenant()">
+      <input formControlName="codigo" placeholder="código (p. ej. envigado)" />
+      <input formControlName="nombre" placeholder="Nombre del municipio u organización" />
+      <button type="submit" class="btn btn--primary" [disabled]="nuevoTenantForm.invalid">Crear</button>
     </form>
   </div>
 
-  <div class="tenant card" *ngFor="let t of tenants()">
-    <div class="t-head">
-      <div>
-        <h2>{{ t.nombre }} <span class="mono cod">{{ t.codigo }}</span></h2>
-        <p class="t-sub">{{ usuariosDe(t.codigo) }} cuentas · creada {{ t.creadoEn | date: 'dd/MM/yyyy' }}</p>
+  @for (t of tenants(); track t) {
+    <div class="tenant card">
+      <div class="t-head">
+        <div>
+          <h2>{{ t.nombre }} <span class="mono cod">{{ t.codigo }}</span></h2>
+          <p class="t-sub">{{ usuariosDe(t.codigo) }} cuentas · creada {{ t.creadoEn | date: 'dd/MM/yyyy' }}</p>
+        </div>
+        <span class="situacion" [attr.data-estado]="situacion(t).clase">{{ situacion(t).texto }}</span>
       </div>
-      <span class="situacion" [attr.data-estado]="situacion(t).clase">{{ situacion(t).texto }}</span>
+      @if (t.motivoBloqueo) {
+        <p class="motivo">🔒 {{ t.motivoBloqueo }}</p>
+      }
+      <div class="t-grid">
+        <label class="campo">
+          <span>Plan</span>
+          <select [value]="t.plan" (change)="actualizar(t, { plan: $any($event.target).value })">
+            @for (p of planes; track p) {
+              <option [value]="p">{{ p }}</option>
+            }
+          </select>
+        </label>
+        <label class="campo">
+          <span>Suscripción</span>
+          <select [value]="t.suscripcion" (change)="actualizar(t, { suscripcion: $any($event.target).value })">
+            @for (e of estados; track e) {
+              <option [value]="e">{{ e }}</option>
+            }
+          </select>
+        </label>
+        <label class="campo">
+          <span>Vence</span>
+          <input type="date" [value]="t.vence" (change)="actualizar(t, { vence: $any($event.target).value })" />
+        </label>
+      </div>
+      <div class="integraciones">
+        <span class="lbl">Integraciones habilitadas</span>
+        @for (i of integracionesPosibles; track i) {
+          <label class="chip">
+            <input type="checkbox" [checked]="tieneIntegracion(t, i.clave)" (change)="alternarIntegracion(t, i.clave)" />
+            <span>{{ i.nombre }}</span>
+          </label>
+        }
+      </div>
+      <div class="t-acciones">
+        @if (t.suscripcion !== 'suspendida' && t.activo) {
+          <button type="button" class="btn btn--ghost"
+          (click)="suspender(t)">Suspender servicio</button>
+        }
+        @if (t.suscripcion === 'suspendida' || !t.activo) {
+          <button type="button" class="btn btn--primary"
+          (click)="reactivar(t)">Reactivar</button>
+        }
+      </div>
     </div>
-
-    <p class="motivo" *ngIf="t.motivoBloqueo">🔒 {{ t.motivoBloqueo }}</p>
-
-    <div class="t-grid">
-      <label class="campo">
-        <span>Plan</span>
-        <select [ngModel]="t.plan" name="plan{{ t.id }}" (ngModelChange)="actualizar(t, { plan: $event })">
-          <option *ngFor="let p of planes" [value]="p">{{ p }}</option>
-        </select>
-      </label>
-      <label class="campo">
-        <span>Suscripción</span>
-        <select [ngModel]="t.suscripcion" name="sus{{ t.id }}" (ngModelChange)="actualizar(t, { suscripcion: $event })">
-          <option *ngFor="let e of estados" [value]="e">{{ e }}</option>
-        </select>
-      </label>
-      <label class="campo">
-        <span>Vence</span>
-        <input type="date" [ngModel]="t.vence" name="ven{{ t.id }}"
-               (ngModelChange)="actualizar(t, { vence: $event })" />
-      </label>
-    </div>
-
-    <div class="integraciones">
-      <span class="lbl">Integraciones habilitadas</span>
-      <label class="chip" *ngFor="let i of integracionesPosibles">
-        <input type="checkbox" [checked]="tieneIntegracion(t, i.clave)" (change)="alternarIntegracion(t, i.clave)" />
-        <span>{{ i.nombre }}</span>
-      </label>
-    </div>
-
-    <div class="t-acciones">
-      <button type="button" class="btn btn--ghost" *ngIf="t.suscripcion !== 'suspendida' && t.activo"
-              (click)="suspender(t)">Suspender servicio</button>
-      <button type="button" class="btn btn--primary" *ngIf="t.suscripcion === 'suspendida' || !t.activo"
-              (click)="reactivar(t)">Reactivar</button>
-    </div>
-  </div>
+  }
 </section>

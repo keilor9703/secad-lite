@@ -276,8 +276,9 @@ export interface EntidadExterna {
   agencia: string;
   /** Agencia responsable (agencias.id); null si no se configuró aún. */
   agenciaResponsableId: string | null;
-  /** Canales a los que se envían sus casos. */
-  canales: string[];
+  /** Canales a los que se envían sus casos; null en entidades creadas antes
+   *  de la migración de enrutamiento externo. */
+  canales: string[] | null;
   /** Solo viene (en claro) al crearla o rotarla: es el único momento de copiarla. */
   apiKey?: string;
   activa: boolean;

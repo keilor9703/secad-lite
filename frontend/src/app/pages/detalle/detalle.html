@@ -1,10 +1,16 @@
 <section class="det">
-  <a routerLink="/" class="volver" *ngIf="!incrustado">← Volver</a>
+  @if (!incrustado()) {
+    <a routerLink="/" class="volver">← Volver</a>
+  }
 
-  <p class="error" *ngIf="error()">{{ error() }}</p>
-  <p class="cargando" *ngIf="cargando()">Cargando…</p>
+  @if (error()) {
+    <p class="error">{{ error() }}</p>
+  }
+  @if (cargando()) {
+    <p class="cargando">Cargando…</p>
+  }
 
-  <ng-container *ngIf="caso() as c">
+  @if (caso(); as c) {
     <div class="grid">
       <!-- Ficha del caso -->
       <div class="ficha card">
@@ -14,263 +20,330 @@
         </div>
         <h1>{{ c.titulo }}</h1>
         <p class="mono id">{{ c.id }}</p>
-
         <dl class="datos">
-          <div *ngIf="c.codigoCaso"><dt>Código de caso</dt><dd class="mono">{{ c.codigoCaso }}</dd></div>
+          @if (c.codigoCaso) {
+            <div><dt>Código de caso</dt><dd class="mono">{{ c.codigoCaso }}</dd></div>
+          }
           <div><dt>Prioridad</dt><dd><span class="prio" [attr.data-prio]="c.prioridad">{{ c.prioridad || 'media' }}</span></dd></div>
           <div><dt>Quien reporta</dt><dd>{{ c.ciudadano }}</dd></div>
           <div><dt>Teléfono</dt><dd>{{ c.telefono || '—' }}</dd></div>
-          <div *ngIf="c.direccionLlamante"><dt>Dirección del llamante</dt><dd>{{ c.direccionLlamante }}</dd></div>
+          @if (c.direccionLlamante) {
+            <div><dt>Dirección del llamante</dt><dd>{{ c.direccionLlamante }}</dd></div>
+          }
           <div><dt>Entidad de origen</dt><dd>{{ nombreAgencia(c.agenciaOrigenId) }}</dd></div>
           <div><dt>Agencia responsable</dt><dd>{{ c.agencia }}</dd></div>
-          <div *ngIf="c.remitidoDeTenant"><dt>Llegó por remisión de</dt><dd class="mono">{{ c.remitidoDeTenant }}</dd></div>
-          <div *ngIf="c.remitidoATenant"><dt>Remitido a</dt><dd class="mono">{{ c.remitidoATenant }}</dd></div>
+          @if (c.remitidoDeTenant) {
+            <div><dt>Llegó por remisión de</dt><dd class="mono">{{ c.remitidoDeTenant }}</dd></div>
+          }
+          @if (c.remitidoATenant) {
+            <div><dt>Remitido a</dt><dd class="mono">{{ c.remitidoATenant }}</dd></div>
+          }
           <div><dt>Recepcionado por</dt><dd>{{ c.creadoPor }}</dd></div>
           <div><dt>Creado</dt><dd>{{ c.creadoEn | date:'short' }}</dd></div>
           <div><dt>Actualizado</dt><dd>{{ c.actualizadoEn | date:'short' }}</dd></div>
         </dl>
-
         <!-- Ubicación y canales: lo que se capturó en recepción. -->
-        <div class="ubic" *ngIf="c.direccion || c.barrio || c.ciudad || c.lat">
-          <span class="ubic-lbl">📍 Ubicación</span>
-          <span>{{ ubicacionTexto(c) }}</span>
-          <a *ngIf="c.lat && c.lng" class="mono coord"
-             [href]="'https://www.openstreetmap.org/?mlat=' + c.lat + '&mlon=' + c.lng + '#map=17/' + c.lat + '/' + c.lng"
-             target="_blank" rel="noopener">{{ c.lat }}, {{ c.lng }}</a>
-        </div>
-
-        <div class="canales-caso" *ngIf="(c.canales || []).length">
-          <span class="ubic-lbl">Canales de atención</span>
-          <span class="chip-ro" *ngFor="let id of c.canales ?? []">{{ nombreCanal(id) }}</span>
-        </div>
-
-        <p class="desc" *ngIf="c.descripcion">{{ c.descripcion }}</p>
-
+        @if (c.direccion || c.barrio || c.ciudad || c.lat) {
+          <div class="ubic">
+            <span class="ubic-lbl">📍 Ubicación</span>
+            <span>{{ ubicacionTexto(c) }}</span>
+            @if (c.lat && c.lng) {
+              <a class="mono coord"
+                [href]="'https://www.openstreetmap.org/?mlat=' + c.lat + '&mlon=' + c.lng + '#map=17/' + c.lat + '/' + c.lng"
+              target="_blank" rel="noopener">{{ c.lat }}, {{ c.lng }}</a>
+            }
+          </div>
+        }
+        @if ((c.canales || []).length) {
+          <div class="canales-caso">
+            <span class="ubic-lbl">Canales de atención</span>
+            @for (id of c.canales ?? []; track id) {
+              <span class="chip-ro">{{ nombreCanal(id) }}</span>
+            }
+          </div>
+        }
+        @if (c.descripcion) {
+          <p class="desc">{{ c.descripcion }}</p>
+        }
         <!-- Remisión a otra entidad -->
         <div class="remitir-caja">
-          <button type="button" class="btn btn--ghost" (click)="abrirRemitir()" *ngIf="!mostrarRemitir">
-            ↪ Remitir a otra entidad
-          </button>
-
-          <div class="remitir-form" *ngIf="mostrarRemitir">
-            <h3>Remitir el caso</h3>
-            <div class="field">
-              <label for="ragen">Agencia destino</label>
-              <select id="ragen" [ngModel]="remision.agenciaId" name="ragen"
-                      (ngModelChange)="cambiarAgenciaDestino($event)">
-                <option value="">— seleccione —</option>
-                <option *ngFor="let a of agenciasActivas()" [value]="a.id">{{ a.nombre }}</option>
-              </select>
-            </div>
-
-            <div class="canales-box" *ngIf="remision.agenciaId">
-              <span class="ubic-lbl">Canales destino</span>
-              <label class="chip" *ngFor="let c of canalesDestino()">
-                <input type="checkbox" [checked]="canalRemisionMarcado(c.id)"
-                       (change)="alternarCanalRemision(c.id)" />
-                <span>{{ c.codigo }} · {{ c.nombre }}</span>
+          @if (!mostrarRemitir()) {
+            <button type="button" class="btn btn--ghost" (click)="abrirRemitir()">
+              ↪ Remitir a otra entidad
+            </button>
+          }
+          @if (mostrarRemitir()) {
+            <div class="remitir-form" [formGroup]="remisionForm">
+              <h3>Remitir el caso</h3>
+              <div class="field">
+                <label for="ragen">Agencia destino</label>
+                <select id="ragen" formControlName="agenciaId" (change)="cambiarAgenciaDestino($any($event.target).value)">
+                  <option value="">— seleccione —</option>
+                  @for (a of agenciasActivas(); track a) {
+                    <option [value]="a.id">{{ a.nombre }}</option>
+                  }
+                </select>
+              </div>
+              @if (remisionForm.controls.agenciaId.value) {
+                <div class="canales-box">
+                  <span class="ubic-lbl">Canales destino</span>
+                  @for (c of canalesDestino(); track c) {
+                    <label class="chip">
+                      <input type="checkbox" [checked]="canalRemisionMarcado(c.id)"
+                        (change)="alternarCanalRemision(c.id)" />
+                      <span>{{ c.codigo }} · {{ c.nombre }}</span>
+                    </label>
+                  }
+                  @if (!canalesDestino().length) {
+                    <span class="vacio-inline">Esa agencia no tiene canales activos.</span>
+                  }
+                </div>
+              }
+              <div class="field">
+                <label for="robs">Motivo</label>
+                <input id="robs" formControlName="observacion"
+                  placeholder="Por qué se remite (queda en la bitácora)" />
+              </div>
+              <label class="chk">
+                <input type="checkbox" formControlName="exclusivo" />
+                <span>Trasladar: sacarlo de la cola de la agencia actual (si no, ambas lo atienden)</span>
               </label>
-              <span class="vacio-inline" *ngIf="!canalesDestino().length">Esa agencia no tiene canales activos.</span>
+              <div class="acciones-remitir">
+                <button type="button" class="btn btn--ghost" (click)="mostrarRemitir.set(false)">Cancelar</button>
+                <button type="button" class="btn btn--primary" (click)="remitir()" [disabled]="remitiendo()">
+                  {{ remitiendo() ? 'Remitiendo…' : 'Remitir' }}
+                </button>
+              </div>
             </div>
-
-            <div class="field">
-              <label for="robs">Motivo</label>
-              <input id="robs" [(ngModel)]="remision.observacion" name="robs"
-                     placeholder="Por qué se remite (queda en la bitácora)" />
-            </div>
-
-            <label class="chk">
-              <input type="checkbox" [(ngModel)]="remision.exclusivo" name="rexc" />
-              <span>Trasladar: sacarlo de la cola de la agencia actual (si no, ambas lo atienden)</span>
-            </label>
-
-            <div class="acciones-remitir">
-              <button type="button" class="btn btn--ghost" (click)="mostrarRemitir = false">Cancelar</button>
-              <button type="button" class="btn btn--primary" (click)="remitir()" [disabled]="remitiendo()">
-                {{ remitiendo() ? 'Remitiendo…' : 'Remitir' }}
-              </button>
-            </div>
-          </div>
+          }
         </div>
-
         <!-- Remisión a otra jurisdicción: el caso no le corresponde a este tenant -->
-        <div class="remitir-caja" *ngIf="puedeRemitirTenant() && c.estado !== 'cerrado'">
-          <button type="button" class="btn btn--ghost" (click)="abrirRemitirTenant()" *ngIf="!mostrarRemitirTenant">
-            🌐 Remitir a otra jurisdicción
-          </button>
-
-          <div class="remitir-form" *ngIf="mostrarRemitirTenant">
-            <h3>Remitir a otra jurisdicción</h3>
-            <p class="ayuda">
-              Úselo cuando el caso llegó a esta instancia pero le corresponde a otro municipio: este caso
-              queda derivado aquí y se crea uno nuevo allá, con la misma información.
-            </p>
-            <div class="field">
-              <label for="rtdest">Instancia destino</label>
-              <select id="rtdest" [(ngModel)]="remisionTenant.tenantDestino" name="rtdest">
-                <option value="">— seleccione —</option>
-                <option *ngFor="let t of tenantsDestino()" [value]="t.codigo">{{ t.nombre }}</option>
-              </select>
-              <span class="vacio-inline" *ngIf="!tenantsDestino().length">No hay otras instancias disponibles.</span>
-            </div>
-
-            <div class="field">
-              <label for="rtobs">Motivo *</label>
-              <input id="rtobs" [(ngModel)]="remisionTenant.observacion" name="rtobs"
-                     placeholder="Por qué corresponde a otra jurisdicción (queda en la bitácora)" />
-            </div>
-
-            <div class="acciones-remitir">
-              <button type="button" class="btn btn--ghost" (click)="mostrarRemitirTenant = false">Cancelar</button>
-              <button type="button" class="btn btn--primary" (click)="remitirTenant()" [disabled]="remitiendoTenant()">
-                {{ remitiendoTenant() ? 'Remitiendo…' : 'Remitir' }}
+        @if (puedeRemitirTenant() && c.estado !== 'cerrado') {
+          <div class="remitir-caja">
+            @if (!mostrarRemitirTenant()) {
+              <button type="button" class="btn btn--ghost" (click)="abrirRemitirTenant()">
+                🌐 Remitir a otra jurisdicción
               </button>
-            </div>
+            }
+            @if (mostrarRemitirTenant()) {
+              <div class="remitir-form" [formGroup]="remisionTenantForm">
+                <h3>Remitir a otra jurisdicción</h3>
+                <p class="ayuda">
+                  Úselo cuando el caso llegó a esta instancia pero le corresponde a otro municipio: este caso
+                  queda derivado aquí y se crea uno nuevo allá, con la misma información.
+                </p>
+                <div class="field">
+                  <label for="rtdest">Instancia destino</label>
+                  <select id="rtdest" formControlName="tenantDestino">
+                    <option value="">— seleccione —</option>
+                    @for (t of tenantsDestino(); track t) {
+                      <option [value]="t.codigo">{{ t.nombre }}</option>
+                    }
+                  </select>
+                  @if (!tenantsDestino().length) {
+                    <span class="vacio-inline">No hay otras instancias disponibles.</span>
+                  }
+                </div>
+                <div class="field">
+                  <label for="rtobs">Motivo *</label>
+                  <input id="rtobs" formControlName="observacion"
+                    placeholder="Por qué corresponde a otra jurisdicción (queda en la bitácora)" />
+                </div>
+                <div class="acciones-remitir">
+                  <button type="button" class="btn btn--ghost" (click)="mostrarRemitirTenant.set(false)">Cancelar</button>
+                  <button type="button" class="btn btn--primary" (click)="remitirTenant()" [disabled]="remitiendoTenant()">
+                    {{ remitiendoTenant() ? 'Remitiendo…' : 'Remitir' }}
+                  </button>
+                </div>
+              </div>
+            }
           </div>
-        </div>
-
+        }
         <!-- Caso cerrado: la reapertura pasa por autorización -->
-        <div class="reapertura" *ngIf="c.estado === 'cerrado'">
-          <p class="pendiente" *ngIf="c.reaperturaSolicitada">
-            ⏳ Reapertura solicitada por <strong>{{ c.reaperturaSolicitadaPor }}</strong>:
-            «{{ c.reaperturaMotivo }}»
-          </p>
-          <button type="button" class="btn btn--ghost" *ngIf="!mostrarReapertura"
-                  (click)="abrirReapertura()">
-            {{ puedeReabrir() ? '↩ Reabrir el caso' : '✋ Solicitar reapertura' }}
-          </button>
-          <div class="reapertura-form" *ngIf="mostrarReapertura">
-            <label for="rmot">{{ puedeReabrir() ? 'Observación de la reapertura' : 'Motivo de la solicitud' }}</label>
-            <textarea id="rmot" rows="2" [(ngModel)]="motivoReapertura" name="rmot"
-                      placeholder="Queda registrado en la trazabilidad del caso"></textarea>
-            <div class="acciones-remitir">
-              <button type="button" class="btn btn--ghost" (click)="mostrarReapertura = false">Cancelar</button>
-              <button type="button" class="btn btn--primary" (click)="enviarReapertura()"
-                      [disabled]="enviandoReapertura()">
-                {{ enviandoReapertura() ? 'Enviando…' : (puedeReabrir() ? 'Reabrir' : 'Enviar solicitud') }}
+        @if (c.estado === 'cerrado') {
+          <div class="reapertura">
+            @if (c.reaperturaSolicitada) {
+              <p class="pendiente">
+                ⏳ Reapertura solicitada por <strong>{{ c.reaperturaSolicitadaPor }}</strong>:
+                «{{ c.reaperturaMotivo }}»
+              </p>
+            }
+            @if (!mostrarReapertura()) {
+              <button type="button" class="btn btn--ghost"
+                (click)="abrirReapertura()">
+                {{ puedeReabrir() ? '↩ Reabrir el caso' : '✋ Solicitar reapertura' }}
               </button>
-            </div>
+            }
+            @if (mostrarReapertura()) {
+              <div class="reapertura-form">
+                <label for="rmot">{{ puedeReabrir() ? 'Observación de la reapertura' : 'Motivo de la solicitud' }}</label>
+                <textarea id="rmot" rows="2" [formControl]="motivoReaperturaCtrl"
+                placeholder="Queda registrado en la trazabilidad del caso"></textarea>
+                <div class="acciones-remitir">
+                  <button type="button" class="btn btn--ghost" (click)="mostrarReapertura.set(false)">Cancelar</button>
+                  <button type="button" class="btn btn--primary" (click)="enviarReapertura()"
+                    [disabled]="enviandoReapertura()">
+                    {{ enviandoReapertura() ? 'Enviando…' : (puedeReabrir() ? 'Reabrir' : 'Enviar solicitud') }}
+                  </button>
+                </div>
+              </div>
+            }
           </div>
-        </div>
+        }
         <!-- El ciclo avanza solo: tomar el caso al abrirlo, despachar un recurso
-             o remitirlo mueven el estado. Lo único que se decide es el cierre. -->
-        <div class="acciones" *ngIf="c.estado !== 'cerrado'">
-          <button type="button" class="btn btn--primary" *ngIf="puedeCerrar() && !mostrarCierre"
-                  (click)="abrirCierre()">✓ Cerrar caso</button>
-          <p class="auto-nota">El estado avanza solo según lo que haga con el caso.</p>
-
-          <div class="cierre-form" *ngIf="mostrarCierre">
-            <h3>Cerrar el caso</h3>
-            <div class="field">
-              <label for="ccod">Código de cierre *</label>
-              <select id="ccod" [(ngModel)]="cierre.codigo" name="ccod">
-                <option value="">— cómo terminó —</option>
-                <option *ngFor="let k of codigosCierre()" [value]="k.codigo">{{ k.etiqueta }}</option>
-              </select>
-            </div>
-            <div class="field">
-              <label for="ccom">Comentario de cierre *</label>
-              <textarea id="ccom" rows="3" [(ngModel)]="cierre.comentario" name="ccom"
-                        placeholder="Qué pasó y cómo se resolvió"></textarea>
-            </div>
-            <div class="acciones-remitir">
-              <button type="button" class="btn btn--ghost" (click)="mostrarCierre = false">Cancelar</button>
-              <button type="button" class="btn btn--primary" (click)="confirmarCierre()" [disabled]="cerrando()">
-                {{ cerrando() ? 'Cerrando…' : 'Cerrar caso' }}
-              </button>
-            </div>
+        o remitirlo mueven el estado. Lo único que se decide es el cierre. -->
+        @if (c.estado !== 'cerrado') {
+          <div class="acciones">
+            @if (puedeCerrar() && !mostrarCierre()) {
+              <button type="button" class="btn btn--primary"
+              (click)="abrirCierre()">✓ Cerrar caso</button>
+            }
+            <p class="auto-nota">El estado avanza solo según lo que haga con el caso.</p>
+            @if (mostrarCierre()) {
+              <div class="cierre-form" [formGroup]="cierreForm">
+                <h3>Cerrar el caso</h3>
+                <div class="field">
+                  <label for="ccod">Código de cierre *</label>
+                  <select id="ccod" formControlName="codigo">
+                    <option value="">— cómo terminó —</option>
+                    @for (k of codigosCierre(); track k) {
+                      <option [value]="k.codigo">{{ k.etiqueta }}</option>
+                    }
+                  </select>
+                </div>
+                <div class="field">
+                  <label for="ccom">Comentario de cierre *</label>
+                  <textarea id="ccom" rows="3" formControlName="comentario"
+                  placeholder="Qué pasó y cómo se resolvió"></textarea>
+                </div>
+                <div class="acciones-remitir">
+                  <button type="button" class="btn btn--ghost" (click)="mostrarCierre.set(false)">Cancelar</button>
+                  <button type="button" class="btn btn--primary" (click)="confirmarCierre()" [disabled]="cerrando()">
+                    {{ cerrando() ? 'Cerrando…' : 'Cerrar caso' }}
+                  </button>
+                </div>
+              </div>
+            }
           </div>
-        </div>
+        }
       </div>
-
       <div class="col-der">
-      <!-- Despacho de recursos -->
-      <div class="despacho-panel card">
-        <h2>🚓 Despacho</h2>
-        <div class="despachar-form" *ngIf="c.estado !== 'cerrado'">
-          <select [(ngModel)]="recursoSel" name="recursoSel">
-            <option value="" disabled>Recurso disponible…</option>
-            <option *ngFor="let r of disponibles()" [value]="r.id">
-              {{ r.codigo }} · {{ r.nombre }} ({{ r.agencia }})
-            </option>
-          </select>
-          <button type="button" class="btn btn--primary" [disabled]="!recursoSel" (click)="despachar()">Despachar</button>
+        <!-- Despacho de recursos -->
+        <div class="despacho-panel card">
+          <h2>🚓 Despacho</h2>
+          @if (c.estado !== 'cerrado') {
+            <div class="despachar-form">
+              <select [formControl]="recursoSelCtrl">
+                <option value="" disabled>Recurso disponible…</option>
+                @for (r of disponibles(); track r) {
+                  <option [value]="r.id">
+                    {{ r.codigo }} · {{ r.nombre }} ({{ r.agencia }})
+                  </option>
+                }
+              </select>
+              <button type="button" class="btn btn--primary" [disabled]="!recursoSelCtrl.value" (click)="despachar()">Despachar</button>
+            </div>
+          }
+          @if (asignaciones().length === 0) {
+            <p class="vacio">Sin recursos despachados.</p>
+          }
+          <ul class="asig-list">
+            @for (a of asignaciones(); track a) {
+              <li>
+                <div class="asig-head">
+                  <span class="mono">{{ a.recursoCodigo }} · {{ a.recursoNombre }}</span>
+                  <span class="asig-badge" [attr.data-estado]="a.estado">{{ estadoAsigLabel(a.estado) }}</span>
+                </div>
+                @if (activa(a)) {
+                  <div class="asig-acc">
+                    @for (e of siguientes(a); track e) {
+                      <button type="button" class="btn mini" (click)="avanzar(a, e)">{{ estadoAsigLabel(e) }}</button>
+                    }
+                    <button type="button" class="btn mini btn--ghost" (click)="avanzar(a, 'cancelada')">Cancelar</button>
+                  </div>
+                }
+                @if (a.motivo) {
+                  <p class="asig-motivo">Motivo: {{ a.motivo }}</p>
+                }
+              </li>
+            }
+          </ul>
         </div>
-        <p class="vacio" *ngIf="asignaciones().length === 0">Sin recursos despachados.</p>
-        <ul class="asig-list">
-          <li *ngFor="let a of asignaciones()">
-            <div class="asig-head">
-              <span class="mono">{{ a.recursoCodigo }} · {{ a.recursoNombre }}</span>
-              <span class="asig-badge" [attr.data-estado]="a.estado">{{ estadoAsigLabel(a.estado) }}</span>
+        <!-- Chat en vivo (solo canal chat) -->
+        @if (c.canal === 'chat') {
+          <div class="chat-panel card">
+            <h2>💬 Chat en vivo</h2>
+            <div class="chat-msgs">
+              @if (chatMensajes().length === 0) {
+                <p class="vacio">Sin mensajes aún.</p>
+              }
+              @for (m of chatMensajes(); track m) {
+                <div class="cmsg" [class.propio]="m.autorTipo === 'operador'">
+                  <span class="autor">{{ m.autorTipo === 'operador' ? m.autorNombre + ' (operador)' : m.autorNombre }}</span>
+                  <p class="texto">{{ m.texto }}</p>
+                  <span class="hora">{{ m.creadoEn | date:'shortTime' }}</span>
+                </div>
+              }
             </div>
-            <div class="asig-acc" *ngIf="activa(a)">
-              <button *ngFor="let e of siguientes(a)" type="button" class="btn mini" (click)="avanzar(a, e)">{{ estadoAsigLabel(e) }}</button>
-              <button type="button" class="btn mini btn--ghost" (click)="avanzar(a, 'cancelada')">Cancelar</button>
-            </div>
-            <p class="asig-motivo" *ngIf="a.motivo">Motivo: {{ a.motivo }}</p>
-          </li>
-        </ul>
-      </div>
-
-      <!-- Chat en vivo (solo canal chat) -->
-      <div class="chat-panel card" *ngIf="c.canal === 'chat'">
-        <h2>💬 Chat en vivo</h2>
-        <div class="chat-msgs">
-          <p class="vacio" *ngIf="chatMensajes().length === 0">Sin mensajes aún.</p>
-          <div *ngFor="let m of chatMensajes()" class="cmsg" [class.propio]="m.autorTipo === 'operador'">
-            <span class="autor">{{ m.autorTipo === 'operador' ? m.autorNombre + ' (operador)' : m.autorNombre }}</span>
-            <p class="texto">{{ m.texto }}</p>
-            <span class="hora">{{ m.creadoEn | date:'shortTime' }}</span>
+            <form class="chat-entrada" [formGroup]="chatForm" (ngSubmit)="enviarChat()">
+              <input formControlName="texto" placeholder="Responder al ciudadano…" autocomplete="off" />
+              <button type="submit" class="btn btn--primary" [disabled]="!chatForm.controls.texto.value.trim()">Enviar</button>
+            </form>
           </div>
-        </div>
-        <form class="chat-entrada" (ngSubmit)="enviarChat()">
-          <input [(ngModel)]="chatTexto" name="chatTexto" placeholder="Responder al ciudadano…" autocomplete="off" />
-          <button type="submit" class="btn btn--primary" [disabled]="!chatTexto.trim()">Enviar</button>
-        </form>
-      </div>
-
-      <!-- Conversación WhatsApp (solo canal whatsapp) -->
-      <div class="chat-panel card" *ngIf="c.canal === 'whatsapp'">
-        <h2>🟢 WhatsApp</h2>
-        <p class="error" *ngIf="waError()">{{ waError() }}</p>
-        <div class="chat-msgs">
-          <p class="vacio" *ngIf="waMensajes().length === 0">Sin mensajes aún.</p>
-          <div *ngFor="let m of waMensajes()" class="cmsg" [class.propio]="m.autorTipo === 'operador'">
-            <span class="autor">{{ m.autorTipo === 'operador' ? m.autorNombre + ' (operador)' : m.autorNombre }}</span>
-            <p class="texto">{{ m.texto }}</p>
-            <span class="hora">{{ m.creadoEn | date:'shortTime' }}</span>
-          </div>
-        </div>
-        <form class="chat-entrada" (ngSubmit)="responderWhatsapp()" *ngIf="c.estado !== 'cerrado'">
-          <input [(ngModel)]="waTexto" name="waTexto" placeholder="Responder por WhatsApp…" autocomplete="off" />
-          <button type="submit" class="btn btn--primary" [disabled]="waEnviando || !waTexto.trim()">Enviar</button>
-        </form>
-      </div>
-
-      <!-- Bitácora / línea de tiempo -->
-      <div class="bitacora card">
-        <h2>Bitácora</h2>
-
-        <form class="nota-form" (ngSubmit)="agregarNota()">
-          <textarea [(ngModel)]="nota" name="nota" rows="4"
-                    placeholder="Agregar una nota al caso…" maxlength="1000"></textarea>
-          <button type="submit" class="btn btn--primary" [disabled]="guardandoNota || !nota.trim()">
-            {{ guardandoNota ? 'Guardando…' : 'Agregar nota' }}
-          </button>
-        </form>
-
-        <ol class="timeline">
-          <li *ngFor="let ev of eventos()" [attr.data-tipo]="ev.tipo">
-            <span class="dot">{{ eventoIcon(ev.tipo) }}</span>
-            <div class="ev">
-              <p class="ev-desc">{{ ev.descripcion }}</p>
-              <p class="ev-meta">{{ ev.autor }} · {{ ev.creadoEn | date:'short' }}</p>
+        }
+        <!-- Conversación WhatsApp (solo canal whatsapp) -->
+        @if (c.canal === 'whatsapp') {
+          <div class="chat-panel card">
+            <h2>🟢 WhatsApp</h2>
+            @if (waError()) {
+              <p class="error">{{ waError() }}</p>
+            }
+            <div class="chat-msgs">
+              @if (waMensajes().length === 0) {
+                <p class="vacio">Sin mensajes aún.</p>
+              }
+              @for (m of waMensajes(); track m) {
+                <div class="cmsg" [class.propio]="m.autorTipo === 'operador'">
+                  <span class="autor">{{ m.autorTipo === 'operador' ? m.autorNombre + ' (operador)' : m.autorNombre }}</span>
+                  <p class="texto">{{ m.texto }}</p>
+                  <span class="hora">{{ m.creadoEn | date:'shortTime' }}</span>
+                </div>
+              }
             </div>
-          </li>
-          <li class="empty" *ngIf="!cargando() && eventos().length === 0">Sin eventos aún.</li>
-        </ol>
-      </div>
+            @if (c.estado !== 'cerrado') {
+              <form class="chat-entrada" [formGroup]="waForm" (ngSubmit)="responderWhatsapp()">
+                <input formControlName="texto" placeholder="Responder por WhatsApp…" autocomplete="off" />
+                <button type="submit" class="btn btn--primary" [disabled]="waEnviando() || !waForm.controls.texto.value.trim()">Enviar</button>
+              </form>
+            }
+          </div>
+        }
+        <!-- Bitácora / línea de tiempo -->
+        <div class="bitacora card">
+          <h2>Bitácora</h2>
+          <form class="nota-form" [formGroup]="notaForm" (ngSubmit)="agregarNota()">
+            <textarea formControlName="texto" rows="4"
+            placeholder="Agregar una nota al caso…" maxlength="1000"></textarea>
+            <button type="submit" class="btn btn--primary" [disabled]="guardandoNota() || !notaForm.controls.texto.value.trim()">
+              {{ guardandoNota() ? 'Guardando…' : 'Agregar nota' }}
+            </button>
+          </form>
+          <ol class="timeline">
+            @for (ev of eventos(); track ev) {
+              <li [attr.data-tipo]="ev.tipo">
+                <span class="dot">{{ eventoIcon(ev.tipo) }}</span>
+                <div class="ev">
+                  <p class="ev-desc">{{ ev.descripcion }}</p>
+                  <p class="ev-meta">{{ ev.autor }} · {{ ev.creadoEn | date:'short' }}</p>
+                </div>
+              </li>
+            }
+            @if (!cargando() && eventos().length === 0) {
+              <li class="empty">Sin eventos aún.</li>
+            }
+          </ol>
+        </div>
       </div>
     </div>
-  </ng-container>
+  }
 </section>

@@ -1,6 +1,6 @@
-import { Component, computed, effect, inject, signal } from '@angular/core';
-import { CommonModule } from '@angular/common';
-import { FormsModule } from '@angular/forms';
+import { ChangeDetectionStrategy, Component, computed, effect, inject, signal } from '@angular/core';
+
+import { FormControl, FormGroup, ReactiveFormsModule, Validators } from '@angular/forms';
 import { CatalogosService, ResultadoImportacion } from '../../core/catalogos.service';
 import { AuthService } from '../../core/auth.service';
 import { Agencia, CanalAtencion, CodigoCaso, CodigoCierre, PrioridadCaso, TipoAgencia } from '../../core/models';
@@ -25,9 +25,10 @@ interface Edicion {
 @Component({
   selector: 'app-catalogos',
   standalone: true,
-  imports: [CommonModule, FormsModule],
+  imports: [ReactiveFormsModule],
   templateUrl: './catalogos.html',
   styleUrl: './catalogos.scss',
+  changeDetection: ChangeDetectionStrategy.OnPush,
 })
 export class CatalogosComponent {
   private catalogos = inject(CatalogosService);
@@ -48,17 +49,47 @@ export class CatalogosComponent {
   readonly tiposAgencia: TipoAgencia[] = ['policia', 'bomberos', 'salud', 'transito', 'gestion_riesgo', 'otra'];
   readonly prioridades: PrioridadCaso[] = ['alta', 'media', 'baja'];
 
-  nuevaAgencia = { codigo: '', nombre: '', tipo: 'otra' as TipoAgencia };
-  nuevoCanal: Record<string, { codigo: string; nombre: string }> = {};
-  nuevoCodigo = { codigo: '', descripcion: '', prioridad: 'media' as PrioridadCaso, agenciaSugeridaId: '' };
-  nuevoCierre = { codigo: '', etiqueta: '' };
+  readonly agenciaForm = new FormGroup({
+    codigo: new FormControl('', { nonNullable: true, validators: [Validators.required] }),
+    nombre: new FormControl('', { nonNullable: true, validators: [Validators.required] }),
+    tipo: new FormControl<TipoAgencia>('otra', { nonNullable: true }),
+  });
+  readonly agenciaEdicionForm = new FormGroup({
+    codigo: new FormControl('', { nonNullable: true, validators: [Validators.required] }),
+    nombre: new FormControl('', { nonNullable: true, validators: [Validators.required] }),
+    tipo: new FormControl<TipoAgencia>('otra', { nonNullable: true }),
+  });
+  private readonly canalForms = new Map<string, FormGroup<{ codigo: FormControl<string>; nombre: FormControl<string> }>>();
+  readonly canalEdicionForm = new FormGroup({
+    codigo: new FormControl('', { nonNullable: true, validators: [Validators.required] }),
+    nombre: new FormControl('', { nonNullable: true, validators: [Validators.required] }),
+  });
+  readonly codigoForm = new FormGroup({
+    codigo: new FormControl('', { nonNullable: true, validators: [Validators.required] }),
+    descripcion: new FormControl('', { nonNullable: true, validators: [Validators.required] }),
+    prioridad: new FormControl<PrioridadCaso>('media', { nonNullable: true }),
+    agenciaSugeridaId: new FormControl('', { nonNullable: true }),
+  });
+  readonly codigoEdicionForm = new FormGroup({
+    codigo: new FormControl('', { nonNullable: true, validators: [Validators.required] }),
+    descripcion: new FormControl('', { nonNullable: true, validators: [Validators.required] }),
+    prioridad: new FormControl<PrioridadCaso>('media', { nonNullable: true }),
+    agenciaSugeridaId: new FormControl('', { nonNullable: true }),
+  });
+  readonly cierreForm = new FormGroup({
+    codigo: new FormControl('', { nonNullable: true, validators: [Validators.required] }),
+    etiqueta: new FormControl('', { nonNullable: true, validators: [Validators.required] }),
+  });
+  readonly cierreEdicionForm = new FormGroup({
+    codigo: new FormControl('', { nonNullable: true, validators: [Validators.required] }),
+    etiqueta: new FormControl('', { nonNullable: true, validators: [Validators.required] }),
+  });
 
-  /** Registro abierto para editar, y el borrador de sus campos. */
+  /** Registro abierto para editar. */
   readonly editando = signal<Edicion | null>(null);
-  borrador: Record<string, string> = {};
 
   /** Búsqueda dentro del catálogo de códigos, que puede traer miles. */
-  filtroCodigo = '';
+  readonly filtroCtrl = new FormControl('', { nonNullable: true });
   private readonly filtro = signal('');
   private readonly TOPE = 100;
   private readonly coincidencias = computed(() => {
@@ -75,7 +106,7 @@ export class CatalogosComponent {
   /** Contenido del archivo elegido y su nombre, a la espera de confirmación. */
   readonly archivoNombre = signal('');
   private csvPendiente = '';
-  existentes: 'omitir' | 'actualizar' = 'omitir';
+  readonly existentesCtrl = new FormControl<'omitir' | 'actualizar'>('omitir', { nonNullable: true });
   readonly importando = signal(false);
   readonly resultado = signal<ResultadoImportacion | null>(null);
 
@@ -86,11 +117,20 @@ export class CatalogosComponent {
       this.auth.tenantActivo();
       this.cargar();
     });
+    this.filtroCtrl.valueChanges.subscribe((v) => this.filtro.set(v));
   }
 
-  buscarCodigo(texto: string): void {
-    this.filtroCodigo = texto;
-    this.filtro.set(texto);
+  /** FormGroup del "crear canal" de una agencia, creado la primera vez que se pide. */
+  formCanal(agenciaId: string): FormGroup<{ codigo: FormControl<string>; nombre: FormControl<string> }> {
+    let f = this.canalForms.get(agenciaId);
+    if (!f) {
+      f = new FormGroup({
+        codigo: new FormControl('', { nonNullable: true }),
+        nombre: new FormControl('', { nonNullable: true }),
+      });
+      this.canalForms.set(agenciaId, f);
+    }
+    return f;
   }
 
   canalesDe(agenciaId: string): CanalAtencion[] {
@@ -116,15 +156,34 @@ export class CatalogosComponent {
     return e?.seccion === seccion && e.id === id;
   }
 
-  abrir(seccion: Edicion['seccion'], id: string, campos: Record<string, string>): void {
+  abrirAgencia(a: Agencia): void {
     this.limpiarMensajes();
-    this.editando.set({ seccion, id });
-    this.borrador = { ...campos };
+    this.editando.set({ seccion: 'agencia', id: a.id });
+    this.agenciaEdicionForm.reset({ codigo: a.codigo, nombre: a.nombre, tipo: a.tipo });
+  }
+
+  abrirCanal(c: CanalAtencion): void {
+    this.limpiarMensajes();
+    this.editando.set({ seccion: 'canal', id: c.id });
+    this.canalEdicionForm.reset({ codigo: c.codigo, nombre: c.nombre });
+  }
+
+  abrirCodigo(c: CodigoCaso): void {
+    this.limpiarMensajes();
+    this.editando.set({ seccion: 'codigo', id: c.id });
+    this.codigoEdicionForm.reset({
+      codigo: c.codigo, descripcion: c.descripcion, prioridad: c.prioridad, agenciaSugeridaId: c.agenciaSugeridaId ?? '',
+    });
+  }
+
+  abrirCierre(c: CodigoCierre): void {
+    this.limpiarMensajes();
+    this.editando.set({ seccion: 'cierre', id: c.id });
+    this.cierreEdicionForm.reset({ codigo: c.codigo, etiqueta: c.etiqueta });
   }
 
   cerrarEdicion(): void {
     this.editando.set(null);
-    this.borrador = {};
   }
 
   /** Mensaje de error del backend, que ya viene redactado para el operador. */
@@ -142,12 +201,12 @@ export class CatalogosComponent {
 
   crearAgencia(): void {
     this.limpiarMensajes();
-    const { codigo, nombre, tipo } = this.nuevaAgencia;
-    if (!codigo.trim() || !nombre.trim()) { this.error.set('Código y nombre de la agencia son obligatorios.'); return; }
+    if (this.agenciaForm.invalid) { this.error.set('Código y nombre de la agencia son obligatorios.'); return; }
+    const { codigo, nombre, tipo } = this.agenciaForm.getRawValue();
     this.catalogos.crearAgencia({ codigo: codigo.trim(), nombre: nombre.trim(), tipo }).subscribe({
       next: (a) => {
         this.agencias.update((as) => [...as, a]);
-        this.nuevaAgencia = { codigo: '', nombre: '', tipo: 'otra' };
+        this.agenciaForm.reset({ codigo: '', nombre: '', tipo: 'otra' });
         this.toast.exito('Agencia creada.');
       },
       error: (e) => this.fallo(e, 'No fue posible crear la agencia.'),
@@ -156,11 +215,10 @@ export class CatalogosComponent {
 
   guardarAgencia(a: Agencia): void {
     this.limpiarMensajes();
-    const codigo = (this.borrador['codigo'] ?? '').trim();
-    const nombre = (this.borrador['nombre'] ?? '').trim();
-    if (!codigo || !nombre) { this.error.set('Código y nombre son obligatorios.'); return; }
+    if (this.agenciaEdicionForm.invalid) { this.error.set('Código y nombre son obligatorios.'); return; }
+    const { codigo, nombre, tipo } = this.agenciaEdicionForm.getRawValue();
     this.catalogos.actualizarAgencia(a.id, {
-      codigo, nombre, tipo: (this.borrador['tipo'] ?? a.tipo) as TipoAgencia,
+      codigo: codigo.trim(), nombre: nombre.trim(), tipo,
     }).subscribe({
       next: (act) => {
         this.agencias.update((as) => as.map((x) => (x.id === act.id ? act : x)));
@@ -201,12 +259,13 @@ export class CatalogosComponent {
 
   crearCanal(agencia: Agencia): void {
     this.limpiarMensajes();
-    const dato = this.nuevoCanal[agencia.id] ?? { codigo: '', nombre: '' };
-    if (!dato.codigo.trim() || !dato.nombre.trim()) { this.error.set('Código y nombre del canal son obligatorios.'); return; }
-    this.catalogos.crearCanal({ agenciaId: agencia.id, codigo: dato.codigo.trim(), nombre: dato.nombre.trim() }).subscribe({
+    const form = this.formCanal(agencia.id);
+    const { codigo, nombre } = form.getRawValue();
+    if (!codigo.trim() || !nombre.trim()) { this.error.set('Código y nombre del canal son obligatorios.'); return; }
+    this.catalogos.crearCanal({ agenciaId: agencia.id, codigo: codigo.trim(), nombre: nombre.trim() }).subscribe({
       next: (c) => {
         this.canales.update((cs) => [...cs, c]);
-        this.nuevoCanal[agencia.id] = { codigo: '', nombre: '' };
+        form.reset({ codigo: '', nombre: '' });
         this.toast.exito('Canal creado.');
       },
       error: (e) => this.fallo(e, 'No fue posible crear el canal.'),
@@ -215,10 +274,9 @@ export class CatalogosComponent {
 
   guardarCanal(c: CanalAtencion): void {
     this.limpiarMensajes();
-    const codigo = (this.borrador['codigo'] ?? '').trim();
-    const nombre = (this.borrador['nombre'] ?? '').trim();
-    if (!codigo || !nombre) { this.error.set('Código y nombre son obligatorios.'); return; }
-    this.catalogos.actualizarCanal(c.id, { codigo, nombre }).subscribe({
+    if (this.canalEdicionForm.invalid) { this.error.set('Código y nombre son obligatorios.'); return; }
+    const { codigo, nombre } = this.canalEdicionForm.getRawValue();
+    this.catalogos.actualizarCanal(c.id, { codigo: codigo.trim(), nombre: nombre.trim() }).subscribe({
       next: (act) => {
         this.canales.update((cs) => cs.map((x) => (x.id === act.id ? act : x)));
         this.cerrarEdicion();
@@ -252,15 +310,15 @@ export class CatalogosComponent {
 
   crearCodigo(): void {
     this.limpiarMensajes();
-    const { codigo, descripcion, prioridad, agenciaSugeridaId } = this.nuevoCodigo;
-    if (!codigo.trim() || !descripcion.trim()) { this.error.set('Código y descripción son obligatorios.'); return; }
+    if (this.codigoForm.invalid) { this.error.set('Código y descripción son obligatorios.'); return; }
+    const { codigo, descripcion, prioridad, agenciaSugeridaId } = this.codigoForm.getRawValue();
     this.catalogos.crearCodigo({
       codigo: codigo.trim(), descripcion: descripcion.trim(), prioridad,
       agenciaSugeridaId: agenciaSugeridaId || null,
     }).subscribe({
       next: (c) => {
         this.codigos.update((cs) => [...cs, c]);
-        this.nuevoCodigo = { codigo: '', descripcion: '', prioridad: 'media', agenciaSugeridaId: '' };
+        this.codigoForm.reset({ codigo: '', descripcion: '', prioridad: 'media', agenciaSugeridaId: '' });
         this.toast.exito('Código de caso creado.');
       },
       error: (e) => this.fallo(e, 'No fue posible crear el código de caso.'),
@@ -269,13 +327,12 @@ export class CatalogosComponent {
 
   guardarCodigo(c: CodigoCaso): void {
     this.limpiarMensajes();
-    const codigo = (this.borrador['codigo'] ?? '').trim();
-    const descripcion = (this.borrador['descripcion'] ?? '').trim();
-    if (!codigo || !descripcion) { this.error.set('Código y descripción son obligatorios.'); return; }
+    if (this.codigoEdicionForm.invalid) { this.error.set('Código y descripción son obligatorios.'); return; }
+    const { codigo, descripcion, prioridad, agenciaSugeridaId } = this.codigoEdicionForm.getRawValue();
     this.catalogos.actualizarCodigo(c.id, {
-      codigo, descripcion,
-      prioridad: (this.borrador['prioridad'] ?? c.prioridad) as PrioridadCaso,
-      agenciaSugeridaId: this.borrador['agenciaSugeridaId'] || null,
+      codigo: codigo.trim(), descripcion: descripcion.trim(),
+      prioridad,
+      agenciaSugeridaId: agenciaSugeridaId || null,
     }).subscribe({
       next: (act) => {
         this.codigos.update((cs) => cs.map((x) => (x.id === act.id ? act : x)));
@@ -310,12 +367,12 @@ export class CatalogosComponent {
 
   crearCierre(): void {
     this.limpiarMensajes();
-    const { codigo, etiqueta } = this.nuevoCierre;
-    if (!codigo.trim() || !etiqueta.trim()) { this.error.set('Clave y etiqueta del cierre son obligatorias.'); return; }
+    if (this.cierreForm.invalid) { this.error.set('Clave y etiqueta del cierre son obligatorias.'); return; }
+    const { codigo, etiqueta } = this.cierreForm.getRawValue();
     this.catalogos.crearCierre({ codigo: codigo.trim(), etiqueta: etiqueta.trim() }).subscribe({
       next: (c) => {
         this.cierres.update((cs) => [...cs, c]);
-        this.nuevoCierre = { codigo: '', etiqueta: '' };
+        this.cierreForm.reset({ codigo: '', etiqueta: '' });
         this.toast.exito('Código de cierre creado.');
       },
       error: (e) => this.fallo(e, 'No fue posible crear el código de cierre.'),
@@ -324,10 +381,9 @@ export class CatalogosComponent {
 
   guardarCierre(c: CodigoCierre): void {
     this.limpiarMensajes();
-    const codigo = (this.borrador['codigo'] ?? '').trim();
-    const etiqueta = (this.borrador['etiqueta'] ?? '').trim();
-    if (!codigo || !etiqueta) { this.error.set('Clave y etiqueta son obligatorias.'); return; }
-    this.catalogos.actualizarCierre(c.id, { codigo, etiqueta }).subscribe({
+    if (this.cierreEdicionForm.invalid) { this.error.set('Clave y etiqueta son obligatorias.'); return; }
+    const { codigo, etiqueta } = this.cierreEdicionForm.getRawValue();
+    this.catalogos.actualizarCierre(c.id, { codigo: codigo.trim(), etiqueta: etiqueta.trim() }).subscribe({
       next: (act) => {
         this.cierres.update((cs) => cs.map((x) => (x.id === act.id ? act : x)));
         this.cerrarEdicion();
@@ -401,7 +457,7 @@ export class CatalogosComponent {
     if (!this.csvPendiente.trim()) { this.error.set('Elija primero un archivo.'); return; }
     this.limpiarMensajes();
     this.importando.set(true);
-    this.catalogos.importarCodigos(this.csvPendiente, { existentes: this.existentes, simulacion }).subscribe({
+    this.catalogos.importarCodigos(this.csvPendiente, { existentes: this.existentesCtrl.value, simulacion }).subscribe({
       next: (r) => {
         this.importando.set(false);
         this.resultado.set(r);

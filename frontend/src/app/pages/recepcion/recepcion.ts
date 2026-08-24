@@ -1,6 +1,6 @@
-import { Component, OnInit, computed, effect, inject, signal } from '@angular/core';
+import { ChangeDetectionStrategy, Component, OnInit, computed, effect, inject, signal } from '@angular/core';
 import { CommonModule } from '@angular/common';
-import { FormsModule } from '@angular/forms';
+import { FormControl, FormGroup, ReactiveFormsModule, Validators } from '@angular/forms';
 import { RouterLink } from '@angular/router';
 import { CasosService } from '../../core/casos.service';
 import { PbxService } from '../../core/pbx.service';
@@ -11,31 +11,13 @@ import {
   Agencia, Canal, CanalAtencion, Caso, CodigoCaso, CrearCaso, EstadoCaso, Llamada, PrioridadCaso,
 } from '../../core/models';
 
-/** Lo que el operador diligencia; se traduce a CrearCaso al guardar. */
-interface FormRecepcion {
-  canal: Canal;
-  ciudadano: string;
-  telefono: string;
-  direccionLlamante: string;
-  codigoCaso: string;
-  titulo: string;
-  prioridad: PrioridadCaso;
-  descripcion: string;
-  ciudad: string;
-  barrio: string;
-  direccion: string;
-  lat: number | null;
-  lng: number | null;
-  agenciaResponsableId: string | null;
-  canales: string[];
-}
-
 @Component({
   selector: 'app-recepcion',
   standalone: true,
-  imports: [CommonModule, FormsModule, RouterLink],
+  imports: [CommonModule, ReactiveFormsModule, RouterLink],
   templateUrl: './recepcion.html',
   styleUrl: './recepcion.scss',
+  changeDetection: ChangeDetectionStrategy.OnPush,
 })
 export class RecepcionComponent implements OnInit {
   private casosSvc = inject(CasosService);
@@ -93,7 +75,7 @@ export class RecepcionComponent implements OnInit {
     this.error.set('');
     this.pbx.reclamar(l.id).subscribe({
       next: (llamada) => {
-        this.form.telefono = llamada.numero;
+        this.form.controls.telefono.setValue(llamada.numero);
         this.llamadaEnCurso.set(llamada);
       },
       error: (e) => this.error.set(e?.error?.message ?? 'No fue posible tomar la llamada.'),
@@ -138,12 +120,12 @@ export class RecepcionComponent implements OnInit {
       .filter((g) => g.canales.length);
   });
 
-  /** Espejo de los canales marcados, para recalcular resumen y principal. */
-  private readonly marcados = signal<string[]>([]);
+  /** Canales de destino marcados, para recalcular resumen y principal. */
+  readonly canalesMarcados = signal<string[]>([]);
 
   /** Entidades con al menos un canal marcado. */
   readonly agenciasMarcadas = computed(() => {
-    const ids = new Set(this.marcados());
+    const ids = new Set(this.canalesMarcados());
     const canales = this.canalesAtencion();
     const conMarca = new Set(canales.filter((c) => ids.has(c.id)).map((c) => c.agenciaId));
     return this.agencias().filter((a) => conMarca.has(a.id));
@@ -151,7 +133,7 @@ export class RecepcionComponent implements OnInit {
 
   /** Frase de confirmación: «Policía Nacional (C1, C2) y Salud (A1)». */
   readonly resumenDestino = computed(() => {
-    const ids = new Set(this.marcados());
+    const ids = new Set(this.canalesMarcados());
     const partes = this.destinos()
       .map((g) => {
         const codigos = g.canales.filter((c) => ids.has(c.id)).map((c) => c.codigo);
@@ -165,10 +147,25 @@ export class RecepcionComponent implements OnInit {
 
   /** Siempre abierto: recepcionar es el trabajo de esta pantalla, no una opción. */
   mostrarForm = true;
-  form: FormRecepcion = this.formVacio();
+  readonly form = new FormGroup({
+    canal: new FormControl<Canal>('llamada', { nonNullable: true }),
+    ciudadano: new FormControl('', { nonNullable: true, validators: [Validators.required] }),
+    telefono: new FormControl('', { nonNullable: true }),
+    direccionLlamante: new FormControl('', { nonNullable: true }),
+    codigoCaso: new FormControl('', { nonNullable: true }),
+    titulo: new FormControl('', { nonNullable: true }),
+    prioridad: new FormControl<PrioridadCaso>('media', { nonNullable: true }),
+    descripcion: new FormControl('', { nonNullable: true }),
+    ciudad: new FormControl('', { nonNullable: true }),
+    barrio: new FormControl('', { nonNullable: true }),
+    direccion: new FormControl('', { nonNullable: true }),
+    lat: new FormControl<number | null>(null),
+    lng: new FormControl<number | null>(null),
+    agenciaResponsableId: new FormControl<string | null>(null),
+  });
   /** Hora de apertura del formulario, como referencia visible del registro. */
-  abiertoEn = new Date();
-  buscandoDireccion = false;
+  readonly abiertoEn = signal(new Date());
+  readonly buscandoDireccion = signal(false);
 
   private mapa?: import('leaflet').Map;
   private marcador?: import('leaflet').Marker;
@@ -181,6 +178,8 @@ export class RecepcionComponent implements OnInit {
       this.cargarCatalogos();
       this.cargar();
     });
+    // El asistente de tipificación reacciona a lo que se va escribiendo en el relato.
+    this.form.controls.descripcion.valueChanges.subscribe((v) => this.relato.set(v));
   }
 
   cargar(): void {
@@ -217,10 +216,10 @@ export class RecepcionComponent implements OnInit {
       this.pbx.soltar(enCurso.id).subscribe({ error: () => {} });
       this.llamadaEnCurso.set(null);
     }
-    this.form = this.formVacio();
-    this.marcados.set([]);
+    this.form.reset(this.formVacio());
+    this.canalesMarcados.set([]);
     this.sugeridaPorCodigo.set(null);
-    this.abiertoEn = new Date();
+    this.abiertoEn.set(new Date());
     this.error.set('');
   }
 
@@ -230,11 +229,11 @@ export class RecepcionComponent implements OnInit {
    * tipificación arrastra el resto del formulario.
    */
   aplicarCodigo(): void {
-    const codigo = this.form.codigoCaso.trim().toUpperCase();
+    const codigo = this.form.controls.codigoCaso.value.trim().toUpperCase();
     const def = this.codigos().find((c) => c.codigo.toUpperCase() === codigo);
     if (!def) return;
-    this.form.titulo = def.descripcion;
-    this.form.prioridad = def.prioridad;
+    this.form.controls.titulo.setValue(def.descripcion);
+    this.form.controls.prioridad.setValue(def.prioridad);
     // La tipificación sugiere quién suele atenderlo —se destaca en la lista—,
     // pero no marca canales por su cuenta: a quién se envía lo decide el
     // operador, que oye la llamada. Es una pista aparte de quién termine
@@ -250,11 +249,6 @@ export class RecepcionComponent implements OnInit {
   /** Espejo del relato que escribe el operador, para reaccionar mientras teclea. */
   private readonly relato = signal('');
 
-  actualizarRelato(texto: string): void {
-    this.form.descripcion = texto;
-    this.relato.set(texto);
-  }
-
   /**
    * Sugerencias de código de caso a partir del relato: puntúa cada código del
    * catálogo por cuántas palabras significativas comparte su descripción con
@@ -268,7 +262,7 @@ export class RecepcionComponent implements OnInit {
     if (texto.length < 8) return [];
     const palabras = new Set(texto.split(/[^a-z0-9]+/).filter((p) => p.length >= 4));
     if (!palabras.size) return [];
-    const actual = this.form.codigoCaso?.trim().toUpperCase();
+    const actual = this.form.controls.codigoCaso.value.trim().toUpperCase();
     return this.codigos()
       .filter((c) => c.activo !== false && c.codigo.toUpperCase() !== actual)
       .map((c) => {
@@ -283,7 +277,7 @@ export class RecepcionComponent implements OnInit {
   });
 
   aplicarSugerencia(codigo: string): void {
-    this.form.codigoCaso = codigo;
+    this.form.controls.codigoCaso.setValue(codigo);
     this.aplicarCodigo();
   }
 
@@ -298,21 +292,18 @@ export class RecepcionComponent implements OnInit {
 
   /** Quién encabeza el caso. Si no se elige, manda la del primer canal marcado. */
   cambiarPrincipal(id: string | null): void {
-    this.form.agenciaResponsableId = id;
+    this.form.controls.agenciaResponsableId.setValue(id);
   }
 
   canalMarcado(id: string): boolean {
-    return this.form.canales.includes(id);
+    return this.canalesMarcados().includes(id);
   }
 
   alternarCanal(id: string): void {
-    this.form.canales = this.canalMarcado(id)
-      ? this.form.canales.filter((c) => c !== id)
-      : [...this.form.canales, id];
-    this.marcados.set([...this.form.canales]);
+    this.canalesMarcados.update((cs) => (cs.includes(id) ? cs.filter((c) => c !== id) : [...cs, id]));
     // Si la principal se queda sin canales marcados, deja de encabezar el caso.
-    const sigue = this.agenciasMarcadas().some((a) => a.id === this.form.agenciaResponsableId);
-    if (!sigue) this.form.agenciaResponsableId = this.agenciasMarcadas()[0]?.id ?? null;
+    const sigue = this.agenciasMarcadas().some((a) => a.id === this.form.controls.agenciaResponsableId.value);
+    if (!sigue) this.form.controls.agenciaResponsableId.setValue(this.agenciasMarcadas()[0]?.id ?? null);
   }
 
   /** Marca o desmarca de un golpe todos los canales de una entidad. */
@@ -320,44 +311,45 @@ export class RecepcionComponent implements OnInit {
     const grupo = this.destinos().find((g) => g.agencia.id === agenciaId);
     if (!grupo) return;
     const ids = grupo.canales.map((c) => c.id);
-    const todos = ids.every((id) => this.form.canales.includes(id));
-    this.form.canales = todos
-      ? this.form.canales.filter((id) => !ids.includes(id))
-      : [...new Set([...this.form.canales, ...ids])];
-    this.marcados.set([...this.form.canales]);
-    if (!this.agenciasMarcadas().some((a) => a.id === this.form.agenciaResponsableId)) {
-      this.form.agenciaResponsableId = this.agenciasMarcadas()[0]?.id ?? null;
+    const actuales = this.canalesMarcados();
+    const todos = ids.every((id) => actuales.includes(id));
+    this.canalesMarcados.set(
+      todos ? actuales.filter((id) => !ids.includes(id)) : [...new Set([...actuales, ...ids])],
+    );
+    if (!this.agenciasMarcadas().some((a) => a.id === this.form.controls.agenciaResponsableId.value)) {
+      this.form.controls.agenciaResponsableId.setValue(this.agenciasMarcadas()[0]?.id ?? null);
     }
   }
 
   /** Cuántos canales de esa entidad están marcados (para el contador del grupo). */
   marcadosDe(agenciaId: string): number {
     const grupo = this.destinos().find((g) => g.agencia.id === agenciaId);
-    return grupo ? grupo.canales.filter((c) => this.form.canales.includes(c.id)).length : 0;
+    return grupo ? grupo.canales.filter((c) => this.canalesMarcados().includes(c.id)).length : 0;
   }
 
   crear(): void {
     this.error.set('');
-    if (!this.form.ciudadano.trim()) { this.error.set('Indique quién reporta.'); return; }
-    if (!this.form.codigoCaso.trim() && !this.form.titulo.trim()) {
+    const v = this.form.getRawValue();
+    if (!v.ciudadano.trim()) { this.error.set('Indique quién reporta.'); return; }
+    if (!v.codigoCaso.trim() && !v.titulo.trim()) {
       this.error.set('Indique el código de caso o un título.'); return;
     }
     const dto: CrearCaso = {
-      canal: this.form.canal,
-      titulo: this.form.titulo.trim() || undefined,
-      descripcion: this.form.descripcion.trim(),
-      ciudadano: this.form.ciudadano.trim(),
-      telefono: this.form.telefono.trim() || undefined,
-      direccionLlamante: this.form.direccionLlamante.trim() || undefined,
-      codigoCaso: this.form.codigoCaso.trim() || undefined,
-      prioridad: this.form.prioridad,
-      ciudad: this.form.ciudad.trim() || undefined,
-      barrio: this.form.barrio.trim() || undefined,
-      direccion: this.form.direccion.trim() || undefined,
-      lat: this.form.lat,
-      lng: this.form.lng,
-      agenciaResponsableId: this.form.agenciaResponsableId ?? undefined,
-      canales: this.form.canales,
+      canal: v.canal,
+      titulo: v.titulo.trim() || undefined,
+      descripcion: v.descripcion.trim(),
+      ciudadano: v.ciudadano.trim(),
+      telefono: v.telefono.trim() || undefined,
+      direccionLlamante: v.direccionLlamante.trim() || undefined,
+      codigoCaso: v.codigoCaso.trim() || undefined,
+      prioridad: v.prioridad,
+      ciudad: v.ciudad.trim() || undefined,
+      barrio: v.barrio.trim() || undefined,
+      direccion: v.direccion.trim() || undefined,
+      lat: v.lat,
+      lng: v.lng,
+      agenciaResponsableId: v.agenciaResponsableId ?? undefined,
+      canales: this.canalesMarcados(),
     };
     const destino = this.resumenDestino();
     this.guardando.set(true);
@@ -423,8 +415,7 @@ export class RecepcionComponent implements OnInit {
 
   /** Coloca el marcador y refleja las coordenadas en el formulario. */
   private async fijarPunto(lat: number, lng: number, centrar = false): Promise<void> {
-    this.form.lat = Number(lat.toFixed(6));
-    this.form.lng = Number(lng.toFixed(6));
+    this.form.patchValue({ lat: Number(lat.toFixed(6)), lng: Number(lng.toFixed(6)) });
     if (!this.mapa) return;
     const L = await this.leaflet();
     // Marcador dibujado en HTML: evita depender de los PNG de Leaflet, que el
@@ -443,30 +434,34 @@ export class RecepcionComponent implements OnInit {
       .then((d) => {
         const a = d?.address ?? {};
         const via = [a.road, a.house_number].filter(Boolean).join(' # ');
-        if (via) this.form.direccion = via;
-        this.form.barrio = a.neighbourhood ?? a.suburb ?? a.quarter ?? this.form.barrio;
-        this.form.ciudad = a.city ?? a.town ?? a.village ?? a.municipality ?? this.form.ciudad;
+        const actual = this.form.getRawValue();
+        this.form.patchValue({
+          direccion: via || actual.direccion,
+          barrio: a.neighbourhood ?? a.suburb ?? a.quarter ?? actual.barrio,
+          ciudad: a.city ?? a.town ?? a.village ?? a.municipality ?? actual.ciudad,
+        });
       })
       .catch(() => this.error.set('No fue posible obtener la dirección del punto (sin conexión al mapa).'));
   }
 
   /** De la dirección al punto: centra el mapa en lo que escribió el operador. */
   buscarDireccion(): void {
-    const partes = [this.form.direccion, this.form.barrio, this.form.ciudad].filter((p) => p?.trim());
+    const v = this.form.getRawValue();
+    const partes = [v.direccion, v.barrio, v.ciudad].filter((p) => p?.trim());
     if (!partes.length) { this.error.set('Escriba una dirección para buscarla.'); return; }
-    this.buscandoDireccion = true;
+    this.buscandoDireccion.set(true);
     const q = encodeURIComponent(partes.join(', '));
     fetch(`https://nominatim.openstreetmap.org/search?q=${q}&format=json&limit=1`, {
       headers: { 'Accept-Language': 'es' },
     })
       .then((r) => r.json())
       .then((d) => {
-        this.buscandoDireccion = false;
+        this.buscandoDireccion.set(false);
         if (!d?.length) { this.error.set('No se encontró esa dirección.'); return; }
         this.fijarPunto(Number(d[0].lat), Number(d[0].lon), true);
       })
       .catch(() => {
-        this.buscandoDireccion = false;
+        this.buscandoDireccion.set(false);
         this.error.set('No fue posible buscar la dirección (sin conexión al mapa).');
       });
   }
@@ -481,12 +476,12 @@ export class RecepcionComponent implements OnInit {
     return { llamada: '📞', chat: '💬', whatsapp: '🟢', integracion: '🔌' }[c];
   }
 
-  private formVacio(): FormRecepcion {
+  private formVacio() {
     return {
-      canal: 'llamada', ciudadano: '', telefono: '', direccionLlamante: '',
-      codigoCaso: '', titulo: '', prioridad: 'media', descripcion: '',
+      canal: 'llamada' as Canal, ciudadano: '', telefono: '', direccionLlamante: '',
+      codigoCaso: '', titulo: '', prioridad: 'media' as PrioridadCaso, descripcion: '',
       ciudad: '', barrio: '', direccion: '', lat: null, lng: null,
-      agenciaResponsableId: null, canales: [],
+      agenciaResponsableId: null,
     };
   }
 }

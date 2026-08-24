@@ -6,29 +6,39 @@
     </div>
     <div class="mapa-datos">
       <span class="dato"><strong>{{ totalCasos() }}</strong> casos en el período</span>
-      <span class="dato" *ngIf="analisis() as a">
-        <strong>{{ a.totalConUbicacion }}</strong> con ubicación
-        <ng-container *ngIf="a.totalSinUbicacion > 0"> · {{ a.totalSinUbicacion }} sin ubicar</ng-container>
-      </span>
+      @if (analisis(); as a) {
+        <span class="dato">
+          <strong>{{ a.totalConUbicacion }}</strong> con ubicación
+          @if (a.totalSinUbicacion > 0) {
+            · {{ a.totalSinUbicacion }} sin ubicar
+          }
+        </span>
+      }
     </div>
   </header>
 
-  <p class="error" *ngIf="error()">{{ error() }}</p>
+  @if (error()) {
+    <p class="error">{{ error() }}</p>
+  }
 
-  <div class="filtros">
+  <div class="filtros" [formGroup]="filtroForm">
     <div class="rango">
       <label for="fdesde">Del</label>
-      <input id="fdesde" type="date" [(ngModel)]="desde" name="fdesde" (change)="aplicarFechas()" aria-label="Desde" />
+      <input id="fdesde" type="date" formControlName="desde" (change)="aplicarFechas()" aria-label="Desde" />
       <label for="fhasta">al</label>
-      <input id="fhasta" type="date" [(ngModel)]="hasta" name="fhasta" (change)="aplicarFechas()" aria-label="Hasta" />
+      <input id="fhasta" type="date" formControlName="hasta" (change)="aplicarFechas()" aria-label="Hasta" />
     </div>
-    <select [(ngModel)]="codigoSel" name="codigo" (ngModelChange)="cargar()" aria-label="Filtrar por código de caso">
+    <select formControlName="codigoSel" (change)="cargar()" aria-label="Filtrar por código de caso">
       <option value="">Todos los códigos</option>
-      <option *ngFor="let c of codigos()" [value]="c.codigo">{{ c.codigo }} — {{ c.descripcion }}</option>
+      @for (c of codigos(); track c) {
+        <option [value]="c.codigo">{{ c.codigo }} — {{ c.descripcion }}</option>
+      }
     </select>
-    <button type="button" class="btn btn--ghost mini" *ngIf="desde || hasta || codigoSel" (click)="limpiarFiltros()">
-      Quitar filtros
-    </button>
+    @if (filtroForm.controls.desde.value || filtroForm.controls.hasta.value || filtroForm.controls.codigoSel.value) {
+      <button type="button" class="btn btn--ghost mini" (click)="limpiarFiltros()">
+        Quitar filtros
+      </button>
+    }
 
     <div class="modos" role="group" aria-label="Modo de visualización">
       <button type="button" class="btn mini" [class.activo]="modoVista() === 'calor'" (click)="cambiarVista('calor')">🔥 Calor</button>
@@ -39,48 +49,66 @@
 
   <div id="mapaCasos" class="lienzo card"></div>
 
-  <div class="leyenda card" *ngIf="modoVista() !== 'calor'">
-    <span class="ley"><span class="pin-caso" data-prio="alta"></span> Prioridad alta</span>
-    <span class="ley"><span class="pin-caso" data-prio="media"></span> Media</span>
-    <span class="ley"><span class="pin-caso" data-prio="baja"></span> Baja</span>
-  </div>
+  @if (modoVista() !== 'calor') {
+    <div class="leyenda card">
+      <span class="ley"><span class="pin-caso" data-prio="alta"></span> Prioridad alta</span>
+      <span class="ley"><span class="pin-caso" data-prio="media"></span> Media</span>
+      <span class="ley"><span class="pin-caso" data-prio="baja"></span> Baja</span>
+    </div>
+  }
 
   <div class="cols">
     <div class="panel card">
       <h2>Días de mayor afectación</h2>
-      <p class="pico" *ngIf="diaPico() as d">Mayor incidencia: <strong>{{ d.etiqueta }}</strong> ({{ d.valor }} casos)</p>
+      @if (diaPico(); as d) {
+        <p class="pico">Mayor incidencia: <strong>{{ d.etiqueta }}</strong> ({{ d.valor }} casos)</p>
+      }
       <div class="barras">
-        <p class="vacio" *ngIf="porDiaSemana().length === 0">Sin datos.</p>
-        <div class="fila" *ngFor="let b of porDiaSemana()">
-          <span class="cap">{{ b.etiqueta }}</span>
-          <div class="track"><div class="fill" [style.width.%]="pct(b.valor, porDiaSemana())"></div></div>
-          <span class="val">{{ b.valor }}</span>
-        </div>
+        @if (porDiaSemana().length === 0) {
+          <p class="vacio">Sin datos.</p>
+        }
+        @for (b of porDiaSemana(); track b) {
+          <div class="fila">
+            <span class="cap">{{ b.etiqueta }}</span>
+            <div class="track"><div class="fill" [style.width.%]="pct(b.valor, porDiaSemana())"></div></div>
+            <span class="val">{{ b.valor }}</span>
+          </div>
+        }
       </div>
     </div>
 
     <div class="panel card">
       <h2>Top 5 códigos de caso</h2>
       <div class="barras">
-        <p class="vacio" *ngIf="topCodigos().length === 0">Sin datos.</p>
-        <div class="fila fila-codigo" *ngFor="let c of topCodigos()">
-          <span class="cap" [title]="c.descripcion ?? ''">{{ c.codigo }}<small *ngIf="c.descripcion"> — {{ c.descripcion }}</small></span>
-          <div class="track"><div class="fill ag" [style.width.%]="(c.total / maxTopCodigo()) * 100"></div></div>
-          <span class="val">{{ c.total }}</span>
-        </div>
+        @if (topCodigos().length === 0) {
+          <p class="vacio">Sin datos.</p>
+        }
+        @for (c of topCodigos(); track c) {
+          <div class="fila fila-codigo">
+            <span class="cap" [title]="c.descripcion ?? ''">{{ c.codigo }}@if (c.descripcion) {
+              <small> — {{ c.descripcion }}</small>
+            }</span>
+            <div class="track"><div class="fill ag" [style.width.%]="(c.total / maxTopCodigo()) * 100"></div></div>
+            <span class="val">{{ c.total }}</span>
+          </div>
+        }
       </div>
     </div>
   </div>
 
   <div class="panel card horas">
     <h2>Horarios de mayor afectación</h2>
-    <p class="pico" *ngIf="horaPico() as h">Mayor incidencia: <strong>{{ h.etiqueta }}</strong> ({{ h.valor }} casos)</p>
+    @if (horaPico(); as h) {
+      <p class="pico">Mayor incidencia: <strong>{{ h.etiqueta }}</strong> ({{ h.valor }} casos)</p>
+    }
     <div class="barras barras-horas">
-      <div class="fila fila-hora" *ngFor="let b of porHora()">
-        <span class="cap">{{ b.etiqueta }}</span>
-        <div class="track vert"><div class="fill" [style.height.%]="pct(b.valor, porHora())"></div></div>
-        <span class="val">{{ b.valor }}</span>
-      </div>
+      @for (b of porHora(); track b) {
+        <div class="fila fila-hora">
+          <span class="cap">{{ b.etiqueta }}</span>
+          <div class="track vert"><div class="fill" [style.height.%]="pct(b.valor, porHora())"></div></div>
+          <span class="val">{{ b.valor }}</span>
+        </div>
+      }
     </div>
   </div>
 </section>

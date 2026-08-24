@@ -9,23 +9,25 @@
       </div>
     </div>
 
-    <form (ngSubmit)="entrar()">
+    <form [formGroup]="form" (ngSubmit)="entrar()">
       <div class="field">
         <label for="usuario">Usuario</label>
-        <input id="usuario" name="usuario" [(ngModel)]="usuario"
-               placeholder="p. ej. operador1" autocomplete="username" />
+        <input id="usuario" formControlName="usuario"
+          placeholder="p. ej. operador1" autocomplete="username" />
       </div>
 
       <div class="field">
         <label for="clave">Contraseña</label>
-        <input id="clave" name="clave" type="password" [(ngModel)]="contrasena"
-               placeholder="••••••" autocomplete="current-password" />
+        <input id="clave" type="password" formControlName="contrasena"
+          placeholder="••••••" autocomplete="current-password" />
       </div>
 
-      <p class="error" *ngIf="error">{{ error }}</p>
+      @if (error()) {
+        <p class="error">{{ error() }}</p>
+      }
 
-      <button type="submit" class="btn btn--primary full" [disabled]="cargando">
-        {{ cargando ? 'Ingresando…' : 'Ingresar' }}
+      <button type="submit" class="btn btn--primary full" [disabled]="cargando()">
+        {{ cargando() ? 'Ingresando…' : 'Ingresar' }}
       </button>
     </form>
   </div>

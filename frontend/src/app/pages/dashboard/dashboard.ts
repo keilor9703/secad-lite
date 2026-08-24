@@ -1,5 +1,5 @@
-import { Component, computed, effect, inject, signal } from '@angular/core';
-import { CommonModule } from '@angular/common';
+import { ChangeDetectionStrategy, Component, computed, effect, inject, signal } from '@angular/core';
+
 import { AuthService } from '../../core/auth.service';
 import { MetricasService, Resumen, ResumenLlamadas } from '../../core/metricas.service';
 
@@ -8,9 +8,10 @@ interface Barra { etiqueta: string; valor: number; clave: string; }
 @Component({
   selector: 'app-dashboard',
   standalone: true,
-  imports: [CommonModule],
+  imports: [],
   templateUrl: './dashboard.html',
   styleUrl: './dashboard.scss',
+  changeDetection: ChangeDetectionStrategy.OnPush,
 })
 export class DashboardComponent {
   private metricas = inject(MetricasService);

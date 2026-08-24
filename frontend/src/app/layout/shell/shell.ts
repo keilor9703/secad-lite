@@ -1,11 +1,11 @@
-import { Component, OnInit, computed, inject, signal } from '@angular/core';
-import { CommonModule } from '@angular/common';
+import { ChangeDetectionStrategy, Component, OnInit, computed, inject, signal } from '@angular/core';
+
 import { Router, RouterLink, RouterLinkActive, RouterOutlet } from '@angular/router';
 import { AuthService } from '../../core/auth.service';
 import { AdminService } from '../../core/admin.service';
 import { PbxService } from '../../core/pbx.service';
 import { Tenant } from '../../core/models';
-import { FormsModule } from '@angular/forms';
+import { FormControl, FormGroup, ReactiveFormsModule, Validators } from '@angular/forms';
 import { ToastService } from '../../shared/toast/toast.service';
 import { TemaToggleComponent } from '../../shared/tema-toggle/tema-toggle';
 import { LogoComponent } from '../../shared/logo/logo';
@@ -14,9 +14,10 @@ import { ToastComponent } from '../../shared/toast/toast';
 @Component({
   selector: 'app-shell',
   standalone: true,
-  imports: [CommonModule, FormsModule, RouterOutlet, RouterLink, RouterLinkActive, TemaToggleComponent, LogoComponent, ToastComponent],
+  imports: [ReactiveFormsModule, RouterOutlet, RouterLink, RouterLinkActive, TemaToggleComponent, LogoComponent, ToastComponent],
   templateUrl: './shell.html',
   styleUrl: './shell.scss',
+  changeDetection: ChangeDetectionStrategy.OnPush,
 })
 export class ShellComponent implements OnInit {
   private auth = inject(AuthService);
@@ -89,27 +90,30 @@ export class ShellComponent implements OnInit {
 
   // --- Cambiar MI contraseña (autoservicio) --------------------------------
   readonly cambioClaveAbierto = signal(false);
-  claveActual = '';
-  claveNueva = '';
-  claveConfirma = '';
+  readonly claveForm = new FormGroup({
+    claveActual: new FormControl('', { nonNullable: true, validators: [Validators.required] }),
+    claveNueva: new FormControl('', { nonNullable: true, validators: [Validators.required] }),
+    claveConfirma: new FormControl('', { nonNullable: true, validators: [Validators.required] }),
+  });
   readonly guardandoClave = signal(false);
 
   abrirCambioClave(): void {
-    this.claveActual = this.claveNueva = this.claveConfirma = '';
+    this.claveForm.reset({ claveActual: '', claveNueva: '', claveConfirma: '' });
     this.cambioClaveAbierto.set(true);
   }
 
   guardarClave(): void {
-    if (!this.claveActual || !this.claveNueva) {
+    const { claveActual, claveNueva, claveConfirma } = this.claveForm.getRawValue();
+    if (!claveActual || !claveNueva) {
       this.toast.advertencia('Diligencie la contraseña actual y la nueva.');
       return;
     }
-    if (this.claveNueva !== this.claveConfirma) {
+    if (claveNueva !== claveConfirma) {
       this.toast.advertencia('La confirmación no coincide con la contraseña nueva.');
       return;
     }
     this.guardandoClave.set(true);
-    this.auth.cambiarContrasena(this.claveActual, this.claveNueva).subscribe({
+    this.auth.cambiarContrasena(claveActual, claveNueva).subscribe({
       next: () => {
         this.guardandoClave.set(false);
         this.cambioClaveAbierto.set(false);

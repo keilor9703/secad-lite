@@ -1,6 +1,6 @@
-import { Component, EventEmitter, Input, OnChanges, OnDestroy, OnInit, Output, computed, inject, signal } from '@angular/core';
+import { ChangeDetectionStrategy, Component, OnDestroy, OnInit, computed, effect, inject, input, output, signal } from '@angular/core';
 import { CommonModule } from '@angular/common';
-import { FormsModule } from '@angular/forms';
+import { FormControl, FormGroup, ReactiveFormsModule, Validators } from '@angular/forms';
 import { ActivatedRoute, RouterLink } from '@angular/router';
 import { Subscription } from 'rxjs';
 import { CasosService } from '../../core/casos.service';
@@ -18,11 +18,12 @@ import {
 @Component({
   selector: 'app-detalle',
   standalone: true,
-  imports: [CommonModule, FormsModule, RouterLink],
+  imports: [CommonModule, ReactiveFormsModule, RouterLink],
   templateUrl: './detalle.html',
   styleUrl: './detalle.scss',
+  changeDetection: ChangeDetectionStrategy.OnPush,
 })
-export class DetalleComponent implements OnInit, OnChanges, OnDestroy {
+export class DetalleComponent implements OnInit, OnDestroy {
   private route = inject(ActivatedRoute);
   private casosSvc = inject(CasosService);
   private auth = inject(AuthService);
@@ -38,7 +39,7 @@ export class DetalleComponent implements OnInit, OnChanges, OnDestroy {
   // Despacho
   readonly asignaciones = signal<Asignacion[]>([]);
   readonly disponibles = signal<Recurso[]>([]);
-  recursoSel = '';
+  readonly recursoSelCtrl = new FormControl('', { nonNullable: true });
 
   readonly caso = signal<Caso | null>(null);
   /** Catálogos para traducir los ids de agencia y canal a nombres. */
@@ -50,44 +51,51 @@ export class DetalleComponent implements OnInit, OnChanges, OnDestroy {
 
   // Chat en vivo (solo casos de canal 'chat').
   readonly chatMensajes = signal<MensajeChat[]>([]);
-  chatTexto = '';
+  readonly chatForm = new FormGroup({ texto: new FormControl('', { nonNullable: true }) });
   private chatSubs: Subscription[] = [];
 
   // Conversación WhatsApp (solo casos de canal 'whatsapp').
   readonly waMensajes = signal<MensajeChat[]>([]);
-  waTexto = '';
-  waEnviando = false;
+  readonly waForm = new FormGroup({ texto: new FormControl('', { nonNullable: true }) });
+  readonly waEnviando = signal(false);
   readonly waError = signal('');
   private waPoll?: ReturnType<typeof setInterval>;
 
   readonly estados: EstadoCaso[] = ['nuevo', 'en_gestion', 'derivado', 'cerrado'];
 
-  nota = '';
-  guardandoNota = false;
+  readonly notaForm = new FormGroup({ texto: new FormControl('', { nonNullable: true }) });
+  readonly guardandoNota = signal(false);
   /**
    * Caso a mostrar. Cuando el detalle se incrusta dentro del módulo de despacho
    * llega por aquí; como página propia, se toma de la ruta.
    */
-  @Input() casoId?: string;
+  readonly casoId = input<string>();
   /** Oculta el enlace de volver cuando ya se está dentro de otro módulo. */
-  @Input() incrustado = false;
+  readonly incrustado = input(false);
   /** Avisa al módulo que lo contiene: el tablero se recarga y el caso se mueve. */
-  @Output() cambiado = new EventEmitter<void>();
+  readonly cambiado = output<void>();
 
   /**
    * Cierre clasificado: sin código ni comentario no se puede cerrar. Los
    * desenlaces son catálogo del secad, así que solo se ofrecen los vigentes.
    */
   readonly codigosCierre = signal<CodigoCierre[]>([]);
-  mostrarCierre = false;
-  cierre = { codigo: '', comentario: '' };
+  readonly mostrarCierre = signal(false);
+  readonly cierreForm = new FormGroup({
+    codigo: new FormControl('', { nonNullable: true }),
+    comentario: new FormControl('', { nonNullable: true }),
+  });
   readonly cerrando = signal(false);
 
   private id = '';
 
-  ngOnChanges(): void {
-    // Al cambiar de caso dentro del tablero hay que recargarlo todo.
-    const nuevo = this.casoId ?? '';
+  /**
+   * Reacciona al caso a mostrar: corre una vez al montar (ruta propia o
+   * `casoId` inicial cuando está embebido) y de nuevo cada vez que el tablero
+   * que lo contiene cambia de `casoId`. Reemplaza el `ngOnChanges` clásico.
+   */
+  private readonly cargarAlCambiarCaso = effect(() => {
+    const nuevo = this.casoId() ?? this.route.snapshot.paramMap.get('id') ?? '';
     if (nuevo && nuevo !== this.id) {
       this.id = nuevo;
       this.caso.set(null);
@@ -95,12 +103,10 @@ export class DetalleComponent implements OnInit, OnChanges, OnDestroy {
       this.cargarAuditoria();
       this.cargarDespacho();
     }
-  }
+  });
 
   ngOnInit(): void {
-    this.id = this.casoId ?? this.route.snapshot.paramMap.get('id') ?? '';
     this.catalogos.cierres(true).subscribe({ next: (c) => this.codigosCierre.set(c), error: () => {} });
-    this.cargar();
     this.catalogos.agencias().subscribe({ next: (a) => this.agencias.set(a), error: () => {} });
     this.catalogos.canales().subscribe({ next: (c) => this.canalesAtencion.set(c), error: () => {} });
   }
@@ -110,13 +116,13 @@ export class DetalleComponent implements OnInit, OnChanges, OnDestroy {
   /** Solo un supervisor (casos.reabrir) reabre; el resto lo solicita. */
   readonly puedeReabrir = computed(() => this.auth.tienePermiso('casos.reabrir'));
   readonly puedeCerrar = computed(() => this.auth.tienePermiso('casos.cerrar'));
-  mostrarReapertura = false;
-  motivoReapertura = '';
+  readonly mostrarReapertura = signal(false);
+  readonly motivoReaperturaCtrl = new FormControl('', { nonNullable: true });
   readonly enviandoReapertura = signal(false);
 
   abrirReapertura(): void {
-    this.motivoReapertura = '';
-    this.mostrarReapertura = true;
+    this.motivoReaperturaCtrl.reset('');
+    this.mostrarReapertura.set(true);
   }
 
   /**
@@ -125,7 +131,7 @@ export class DetalleComponent implements OnInit, OnChanges, OnDestroy {
    * la trazabilidad.
    */
   enviarReapertura(): void {
-    const motivo = this.motivoReapertura.trim();
+    const motivo = this.motivoReaperturaCtrl.value.trim();
     if (!motivo) { this.error.set('Escriba el motivo.'); return; }
     this.enviandoReapertura.set(true);
     const peticion = this.puedeReabrir()
@@ -135,7 +141,7 @@ export class DetalleComponent implements OnInit, OnChanges, OnDestroy {
       next: (c) => {
         this.caso.set(c);
         this.enviandoReapertura.set(false);
-        this.mostrarReapertura = false;
+        this.mostrarReapertura.set(false);
         this.cargarAuditoria();
         this.cambiado.emit();
         this.toast.exito(this.puedeReabrir() ? 'Caso reabierto.' : 'Solicitud de reapertura enviada.');
@@ -158,8 +164,13 @@ export class DetalleComponent implements OnInit, OnChanges, OnDestroy {
 
     // --- Remisión a otra entidad ------------------------------------------------
 
-  mostrarRemitir = false;
-  remision = { agenciaId: '', canales: [] as string[], observacion: '', exclusivo: false };
+  readonly mostrarRemitir = signal(false);
+  readonly remisionForm = new FormGroup({
+    agenciaId: new FormControl('', { nonNullable: true }),
+    observacion: new FormControl('', { nonNullable: true }),
+    exclusivo: new FormControl(false, { nonNullable: true }),
+  });
+  readonly remisionCanales = signal<string[]>([]);
   readonly remitiendo = signal(false);
 
   /** Agencias a las que se puede remitir. */
@@ -169,50 +180,50 @@ export class DetalleComponent implements OnInit, OnChanges, OnDestroy {
 
   /** Canales de la agencia elegida como destino. */
   canalesDestino(): CanalAtencion[] {
-    const id = this.remision.agenciaId;
+    const id = this.remisionForm.controls.agenciaId.value;
     return id ? this.canalesAtencion().filter((c) => c.agenciaId === id && c.activo) : [];
   }
 
   abrirRemitir(): void {
-    this.remision = { agenciaId: '', canales: [], observacion: '', exclusivo: false };
-    this.mostrarRemitir = true;
+    this.remisionForm.reset({ agenciaId: '', observacion: '', exclusivo: false });
+    this.remisionCanales.set([]);
+    this.mostrarRemitir.set(true);
   }
 
   cambiarAgenciaDestino(id: string): void {
-    this.remision.agenciaId = id;
-    this.remision.canales = []; // los canales eran de la agencia anterior
+    this.remisionForm.controls.agenciaId.setValue(id);
+    this.remisionCanales.set([]); // los canales eran de la agencia anterior
   }
 
   canalRemisionMarcado(id: string): boolean {
-    return this.remision.canales.includes(id);
+    return this.remisionCanales().includes(id);
   }
 
   alternarCanalRemision(id: string): void {
-    this.remision.canales = this.canalRemisionMarcado(id)
-      ? this.remision.canales.filter((c) => c !== id)
-      : [...this.remision.canales, id];
+    this.remisionCanales.update((cs) => (cs.includes(id) ? cs.filter((c) => c !== id) : [...cs, id]));
   }
 
   remitir(): void {
-    if (!this.remision.agenciaId || !this.remision.canales.length) {
+    const v = this.remisionForm.getRawValue();
+    if (!v.agenciaId || !this.remisionCanales().length) {
       this.error.set('Elija la agencia destino y al menos un canal.');
       return;
     }
-    if (this.remision.exclusivo &&
+    if (v.exclusivo &&
         !window.confirm('El caso saldrá de la cola de la agencia actual y quedará solo en la nueva. ¿Continuar?')) {
       return;
     }
     this.remitiendo.set(true);
     this.casosSvc.remitir(this.id, {
-      agenciaResponsableId: this.remision.agenciaId,
-      canales: this.remision.canales,
-      observacion: this.remision.observacion.trim() || undefined,
-      exclusivo: this.remision.exclusivo,
+      agenciaResponsableId: v.agenciaId,
+      canales: this.remisionCanales(),
+      observacion: v.observacion.trim() || undefined,
+      exclusivo: v.exclusivo,
     }).subscribe({
       next: (c) => {
         this.caso.set(c);
         this.remitiendo.set(false);
-        this.mostrarRemitir = false;
+        this.mostrarRemitir.set(false);
         this.cargarAuditoria();
         this.cambiado.emit();
         this.toast.exito('Caso remitido a la agencia destino.');
@@ -227,14 +238,17 @@ export class DetalleComponent implements OnInit, OnChanges, OnDestroy {
   // --- Remisión a otra jurisdicción (otro tenant) -----------------------------
 
   readonly puedeRemitirTenant = computed(() => this.auth.tienePermiso('casos.remitir_tenant'));
-  mostrarRemitirTenant = false;
+  readonly mostrarRemitirTenant = signal(false);
   readonly tenantsDestino = signal<TenantDirectorio[]>([]);
-  remisionTenant = { tenantDestino: '', observacion: '' };
+  readonly remisionTenantForm = new FormGroup({
+    tenantDestino: new FormControl('', { nonNullable: true }),
+    observacion: new FormControl('', { nonNullable: true }),
+  });
   readonly remitiendoTenant = signal(false);
 
   abrirRemitirTenant(): void {
-    this.remisionTenant = { tenantDestino: '', observacion: '' };
-    this.mostrarRemitirTenant = true;
+    this.remisionTenantForm.reset({ tenantDestino: '', observacion: '' });
+    this.mostrarRemitirTenant.set(true);
     if (!this.tenantsDestino().length) {
       this.casosSvc.tenantsRemitibles().subscribe({
         next: (ts) => this.tenantsDestino.set(ts),
@@ -244,29 +258,30 @@ export class DetalleComponent implements OnInit, OnChanges, OnDestroy {
   }
 
   remitirTenant(): void {
-    if (!this.remisionTenant.tenantDestino) {
+    const v = this.remisionTenantForm.getRawValue();
+    if (!v.tenantDestino) {
       this.error.set('Elija la instancia destino.');
       return;
     }
-    if (!this.remisionTenant.observacion.trim()) {
+    if (!v.observacion.trim()) {
       this.error.set('Indique el motivo de la remisión.');
       return;
     }
-    const destino = this.tenantsDestino().find((t) => t.codigo === this.remisionTenant.tenantDestino);
+    const destino = this.tenantsDestino().find((t) => t.codigo === v.tenantDestino);
     if (!window.confirm(
-      `El caso quedará derivado en esta instancia y se creará uno nuevo en ${destino?.nombre ?? this.remisionTenant.tenantDestino}. ¿Continuar?`,
+      `El caso quedará derivado en esta instancia y se creará uno nuevo en ${destino?.nombre ?? v.tenantDestino}. ¿Continuar?`,
     )) {
       return;
     }
     this.remitiendoTenant.set(true);
     this.casosSvc.remitirTenant(this.id, {
-      tenantDestino: this.remisionTenant.tenantDestino,
-      observacion: this.remisionTenant.observacion.trim(),
+      tenantDestino: v.tenantDestino,
+      observacion: v.observacion.trim(),
     }).subscribe({
       next: (c) => {
         this.caso.set(c);
         this.remitiendoTenant.set(false);
-        this.mostrarRemitirTenant = false;
+        this.mostrarRemitirTenant.set(false);
         this.cargarAuditoria();
         this.cambiado.emit();
         this.toast.exito('Caso remitido a otra jurisdicción.');
@@ -291,24 +306,25 @@ export class DetalleComponent implements OnInit, OnChanges, OnDestroy {
   }
 
   abrirCierre(): void {
-    this.cierre = { codigo: '', comentario: '' };
-    this.mostrarCierre = true;
+    this.cierreForm.reset({ codigo: '', comentario: '' });
+    this.mostrarCierre.set(true);
   }
 
   /** Cierra el caso con su clasificación; el resto de estados van solos. */
   confirmarCierre(): void {
-    if (!this.cierre.codigo) { this.error.set('Elija el código de cierre.'); return; }
-    if (!this.cierre.comentario.trim()) { this.error.set('Escriba el comentario de cierre.'); return; }
+    const v = this.cierreForm.getRawValue();
+    if (!v.codigo) { this.error.set('Elija el código de cierre.'); return; }
+    if (!v.comentario.trim()) { this.error.set('Escriba el comentario de cierre.'); return; }
     if (this.asignaciones().some((a) => this.activa(a))
         && !window.confirm('El caso tiene recursos en atención. Al cerrar se liberarán automáticamente. ¿Continuar?')) {
       return;
     }
     this.cerrando.set(true);
-    this.casosSvc.cerrar(this.id, this.cierre.codigo, this.cierre.comentario.trim()).subscribe({
+    this.casosSvc.cerrar(this.id, v.codigo, v.comentario.trim()).subscribe({
       next: (c) => {
         this.caso.set(c);
         this.cerrando.set(false);
-        this.mostrarCierre = false;
+        this.mostrarCierre.set(false);
         this.cargarAuditoria();
         this.cargarDespacho();
         this.cambiado.emit();
@@ -355,13 +371,13 @@ export class DetalleComponent implements OnInit, OnChanges, OnDestroy {
   }
 
   responderWhatsapp(): void {
-    const t = this.waTexto.trim();
+    const t = this.waForm.controls.texto.value.trim();
     if (!t) return;
-    this.waEnviando = true;
+    this.waEnviando.set(true);
     this.waError.set('');
     this.whatsappSvc.responder(this.id, t).subscribe({
-      next: (m) => { this.waMensajes.update((arr) => [...arr, m]); this.waTexto = ''; this.waEnviando = false; },
-      error: (e) => { this.waEnviando = false; this.waError.set(e?.error?.message ?? 'No fue posible enviar la respuesta.'); },
+      next: (m) => { this.waMensajes.update((arr) => [...arr, m]); this.waForm.reset({ texto: '' }); this.waEnviando.set(false); },
+      error: (e) => { this.waEnviando.set(false); this.waError.set(e?.error?.message ?? 'No fue posible enviar la respuesta.'); },
     });
   }
 
@@ -380,10 +396,10 @@ export class DetalleComponent implements OnInit, OnChanges, OnDestroy {
   }
 
   enviarChat(): void {
-    const t = this.chatTexto.trim();
+    const t = this.chatForm.controls.texto.value.trim();
     if (!t) return;
     this.chat.enviar(this.id, t);
-    this.chatTexto = '';
+    this.chatForm.reset({ texto: '' });
   }
 
   cargar(): void {
@@ -437,9 +453,10 @@ export class DetalleComponent implements OnInit, OnChanges, OnDestroy {
   }
 
   despachar(): void {
-    if (!this.recursoSel) return;
-    this.despachoSvc.despachar(this.id, this.recursoSel).subscribe({
-      next: () => { this.recursoSel = ''; this.refrescarTrasDespacho(); this.toast.exito('Recurso despachado.'); },
+    const recursoSel = this.recursoSelCtrl.value;
+    if (!recursoSel) return;
+    this.despachoSvc.despachar(this.id, recursoSel).subscribe({
+      next: () => { this.recursoSelCtrl.reset(''); this.refrescarTrasDespacho(); this.toast.exito('Recurso despachado.'); },
       error: (e) => this.error.set(e?.error?.message ?? 'No fue posible despachar el recurso.'),
     });
   }
@@ -477,12 +494,12 @@ export class DetalleComponent implements OnInit, OnChanges, OnDestroy {
   }
 
   agregarNota(): void {
-    const t = this.nota.trim();
+    const t = this.notaForm.controls.texto.value.trim();
     if (!t) return;
-    this.guardandoNota = true;
+    this.guardandoNota.set(true);
     this.casosSvc.agregarNota(this.id, t).subscribe({
-      next: (ev) => { this.eventos.update((e) => [...e, ev]); this.nota = ''; this.guardandoNota = false; this.toast.exito('Nota agregada.'); },
-      error: () => { this.error.set('No fue posible guardar la nota.'); this.guardandoNota = false; },
+      next: (ev) => { this.eventos.update((e) => [...e, ev]); this.notaForm.reset({ texto: '' }); this.guardandoNota.set(false); this.toast.exito('Nota agregada.'); },
+      error: () => { this.error.set('No fue posible guardar la nota.'); this.guardandoNota.set(false); },
     });
   }
 

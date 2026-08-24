@@ -1,6 +1,6 @@
-import { Component, OnDestroy, OnInit, computed, inject, signal } from '@angular/core';
-import { CommonModule } from '@angular/common';
-import { FormsModule } from '@angular/forms';
+import { ChangeDetectionStrategy, Component, OnDestroy, OnInit, computed, inject, signal } from '@angular/core';
+
+import { FormControl, FormGroup, ReactiveFormsModule } from '@angular/forms';
 import { Router } from '@angular/router';
 import { AuthService } from '../../core/auth.service';
 import { CatalogosService } from '../../core/catalogos.service';
@@ -21,9 +21,10 @@ interface Barra { etiqueta: string; valor: number; }
 @Component({
   selector: 'app-mapa',
   standalone: true,
-  imports: [CommonModule, FormsModule],
+  imports: [ReactiveFormsModule],
   templateUrl: './mapa.html',
   styleUrl: './mapa.scss',
+  changeDetection: ChangeDetectionStrategy.OnPush,
 })
 export class MapaComponent implements OnInit, OnDestroy {
   private metricasSvc = inject(MetricasService);
@@ -37,9 +38,11 @@ export class MapaComponent implements OnInit, OnDestroy {
   readonly error = signal('');
   readonly modoVista = signal<ModoVista>('calor');
 
-  desde = '';
-  hasta = '';
-  codigoSel = '';
+  readonly filtroForm = new FormGroup({
+    desde: new FormControl('', { nonNullable: true }),
+    hasta: new FormControl('', { nonNullable: true }),
+    codigoSel: new FormControl('', { nonNullable: true }),
+  });
 
   /** Sin `casos.ver` el popup no debe ofrecer un enlace que llevaría a un 403. */
   readonly puedeAbrirCaso = this.auth.tienePermiso('casos.ver');
@@ -103,8 +106,9 @@ export class MapaComponent implements OnInit, OnDestroy {
   cargar(): void {
     this.cargando.set(true);
     this.error.set('');
+    const { desde, hasta, codigoSel } = this.filtroForm.getRawValue();
     this.metricasSvc
-      .mapa({ desde: this.desde || undefined, hasta: this.hasta || undefined, codigo: this.codigoSel || undefined })
+      .mapa({ desde: desde || undefined, hasta: hasta || undefined, codigo: codigoSel || undefined })
       .subscribe({
         next: (a) => { this.analisis.set(a); this.cargando.set(false); this.pintar(); },
         error: () => { this.error.set('No fue posible cargar el mapa.'); this.cargando.set(false); },
@@ -112,12 +116,13 @@ export class MapaComponent implements OnInit, OnDestroy {
   }
 
   aplicarFechas(): void {
-    if (this.desde && this.hasta && this.desde > this.hasta) [this.desde, this.hasta] = [this.hasta, this.desde];
+    const { desde, hasta } = this.filtroForm.getRawValue();
+    if (desde && hasta && desde > hasta) this.filtroForm.patchValue({ desde: hasta, hasta: desde });
     this.cargar();
   }
 
   limpiarFiltros(): void {
-    this.desde = this.hasta = this.codigoSel = '';
+    this.filtroForm.reset({ desde: '', hasta: '', codigoSel: '' });
     this.cargar();
   }
 
