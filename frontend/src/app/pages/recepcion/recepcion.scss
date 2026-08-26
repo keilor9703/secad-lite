@@ -17,6 +17,7 @@
 .mono { font-family: var(--mono); color: var(--ink-soft); }
 
 /* --- Formulario de recepción (estilo CAD) --------------------------------- */
+.form-panel { padding: 1.3rem 1.5rem; display: flex; flex-direction: column; gap: 0.9rem; }
 .fp-head { display: flex; align-items: baseline; justify-content: space-between; gap: 1rem; flex-wrap: wrap; }
 .fp-meta { font-size: 0.8rem; color: var(--muted); font-family: var(--mono); }
 
@@ -59,7 +60,6 @@
 /* Las teselas y controles del mapa se atenúan en modo oscuro. */
 :host ::ng-deep .leaflet-control-attribution { font-size: 0.65rem; }
 
-/* Destinos: una tarjeta por entidad, canales marcables de varias a la vez. */
 .destinos { display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
             gap: 0.6rem; margin-top: 0.6rem; }
 .destino { border: 1px solid var(--border); border-radius: var(--radius-sm); padding: 0.55rem 0.7rem; }

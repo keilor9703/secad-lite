@@ -213,12 +213,13 @@
                 </div>
                 <div class="field">
                   <label for="ccasof">Tipificación (código de caso)</label>
-                  <select id="ccasof" formControlName="codigoCasoFinal">
-                    <option value="">— sin corregir —</option>
+                  <input id="ccasof" formControlName="codigoCasoFinal" list="codigosCasoCierre"
+                    placeholder="Déjelo vacío si no cambió" />
+                  <datalist id="codigosCasoCierre">
                     @for (k of codigosCaso(); track k) {
                       <option [value]="k.codigo">{{ k.codigo }} — {{ k.descripcion }}</option>
                     }
-                  </select>
+                  </datalist>
                   <small class="ayuda">Corríjala solo si el caso resultó ser otra cosa distinta a como se
                     recepcionó (p. ej. empezó como riña y terminó siendo ruido/fiesta). No es el desenlace.</small>
                 </div>
