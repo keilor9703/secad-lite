@@ -429,16 +429,24 @@ export class CasosService implements OnModuleInit {
     // Cerrar exige decir cómo terminó y por qué: es lo que alimenta los reportes.
     // El desenlace se valida contra el catálogo del secad, que cada uno ajusta.
     let cierre: { codigo: string; etiqueta: string } | null = null;
+    let tipificacionFinal: { codigo: string; descripcion: string } | null = null;
     if (dto.estado === 'cerrado') {
       cierre = await this.catalogos.cierreVigente(tenant, dto.codigoCierre);
       if (!dto.comentario?.trim()) throw new BadRequestException('Escriba el comentario de cierre.');
+      if (dto.codigoCasoFinal?.trim()) {
+        tipificacionFinal = await this.tipificar(tenant, dto.codigoCasoFinal);
+        if (!tipificacionFinal) throw new BadRequestException('Código de caso inválido.');
+      }
     }
 
     const anterior = caso.estado;
     const agenciaAnterior = caso.agencia;
+    const codigoCasoAnterior = caso.codigoCaso;
     caso.estado = dto.estado;
     if (dto.estado === 'cerrado') caso.codigoCierre = cierre!.codigo;
     if (dto.estado === 'derivado') caso.agencia = dto.agencia!.trim();
+    const corrigioTipificacion = !!tipificacionFinal && tipificacionFinal.codigo !== codigoCasoAnterior;
+    if (corrigioTipificacion) caso.codigoCaso = tipificacionFinal!.codigo;
     const guardado = await this.repo.save(caso);
 
     // Al cerrar, se liberan automáticamente los recursos aún comprometidos.
@@ -452,10 +460,13 @@ export class CasosService implements OnModuleInit {
         `Derivado de ${agenciaAnterior} a ${caso.agencia}.`, usuario, anterior, dto.estado,
       );
     } else {
+      const correccion = corrigioTipificacion
+        ? ` Tipificación corregida a ${tipificacionFinal!.codigo} (${tipificacionFinal!.descripcion}).`
+        : '';
       await this.registrar(
         tenant, id, 'estado',
         dto.estado === 'cerrado'
-          ? `Cerrado como «${cierre!.etiqueta}». ${dto.comentario!.trim()}`
+          ? `Cerrado como «${cierre!.etiqueta}». ${dto.comentario!.trim()}${correccion}`
           : `Estado: ${this.label(anterior)} → ${this.label(dto.estado)}.`,
         usuario, anterior, dto.estado,
       );

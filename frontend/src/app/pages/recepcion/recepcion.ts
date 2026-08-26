@@ -402,7 +402,7 @@ export class RecepcionComponent implements OnInit {
     }).addTo(this.mapa);
     this.mapa.on('click', (e: import('leaflet').LeafletMouseEvent) => {
       this.fijarPunto(e.latlng.lat, e.latlng.lng);
-      this.geocodificarInverso(e.latlng.lat, e.latlng.lng);
+      this.geocodificarInverso(e.latlng.lat, e.latlng.lng, true);
     });
     setTimeout(() => this.mapa?.invalidateSize(), 100);
   }
@@ -426,8 +426,13 @@ export class RecepcionComponent implements OnInit {
     if (centrar) this.mapa.setView([lat, lng], 16);
   }
 
-  /** Del punto a la dirección: rellena ciudad, barrio y dirección del caso. */
-  private geocodificarInverso(lat: number, lng: number): void {
+  /**
+   * Del punto a la dirección: rellena ciudad y barrio siempre. La dirección
+   * solo se sobrescribe cuando el punto vino de un clic en el mapa
+   * (`sobrescribirDireccion`); si vino de una búsqueda por dirección, se
+   * respeta lo que el operador ya escribió.
+   */
+  private geocodificarInverso(lat: number, lng: number, sobrescribirDireccion: boolean): void {
     const url = `https://nominatim.openstreetmap.org/reverse?lat=${lat}&lon=${lng}&format=json&addressdetails=1`;
     fetch(url, { headers: { 'Accept-Language': 'es' } })
       .then((r) => r.json())
@@ -436,7 +441,7 @@ export class RecepcionComponent implements OnInit {
         const via = [a.road, a.house_number].filter(Boolean).join(' # ');
         const actual = this.form.getRawValue();
         this.form.patchValue({
-          direccion: via || actual.direccion,
+          direccion: sobrescribirDireccion ? (via || actual.direccion) : actual.direccion,
           barrio: a.neighbourhood ?? a.suburb ?? a.quarter ?? actual.barrio,
           ciudad: a.city ?? a.town ?? a.village ?? a.municipality ?? actual.ciudad,
         });
@@ -458,12 +463,27 @@ export class RecepcionComponent implements OnInit {
       .then((d) => {
         this.buscandoDireccion.set(false);
         if (!d?.length) { this.error.set('No se encontró esa dirección.'); return; }
-        this.fijarPunto(Number(d[0].lat), Number(d[0].lon), true);
+        const lat = Number(d[0].lat);
+        const lng = Number(d[0].lon);
+        this.fijarPunto(lat, lng, true);
+        this.geocodificarInverso(lat, lng, false);
       })
       .catch(() => {
         this.buscandoDireccion.set(false);
         this.error.set('No fue posible buscar la dirección (sin conexión al mapa).');
       });
+  }
+
+  // --- Prioridad ----------------------------------------------------------
+
+  prioridadIcon(p: PrioridadCaso): string {
+    return { alta: '🔴', media: '🟡', baja: '🟢' }[p];
+  }
+  prioridadLabel(p: PrioridadCaso): string {
+    return { alta: 'Alta', media: 'Media', baja: 'Baja' }[p];
+  }
+  elegirPrioridad(p: PrioridadCaso): void {
+    this.form.controls.prioridad.setValue(p);
   }
 
 

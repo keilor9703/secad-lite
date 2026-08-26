@@ -14,40 +14,7 @@
 
 .error { color: var(--danger); font-size: 0.87rem; margin: 0; }
 
-.form-panel { padding: 1.1rem 1.2rem; display: flex; flex-direction: column; gap: 0.9rem; }
-.form-panel h2 { margin: 0; font-size: 1.05rem; }
-.form-panel .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 0.8rem; }
-.form-panel .span2 { grid-column: 1 / -1; }
-.form-actions { display: flex; justify-content: flex-end; gap: 0.6rem; }
-@media (max-width: 560px) { .form-panel .grid { grid-template-columns: 1fr; } }
-
-.tbl-wrap { overflow-x: auto; }
-table { border-collapse: collapse; width: 100%; font-size: 0.88rem; }
-th, td { text-align: left; padding: 0.6rem 0.8rem; border-bottom: 1px solid var(--border); white-space: nowrap; }
-thead th {
-  font-size: 0.72rem; text-transform: uppercase; letter-spacing: 0.05em;
-  color: var(--muted); background: var(--surface-2);
-}
-tbody tr:last-child td { border-bottom: none; }
 .mono { font-family: var(--mono); color: var(--ink-soft); }
-.titulo { white-space: normal; min-width: 180px; font-weight: 500; }
-.titulo a { color: var(--accent); text-decoration: none; }
-.titulo a:hover { text-decoration: underline; }
-.canal { white-space: nowrap; }
-.empty { text-align: center; color: var(--muted); padding: 1.5rem; }
-
-.badge {
-  display: inline-block; padding: 0.2rem 0.55rem; border-radius: 999px;
-  font-size: 0.74rem; font-weight: 600;
-  background: var(--surface-2); color: var(--ink-soft);
-}
-.badge[data-estado="nuevo"]      { background: var(--accent-soft); color: var(--accent); }
-.badge[data-estado="en_gestion"] { background: var(--tag-warn-bg); color: var(--tag-warn-fg); }
-.badge[data-estado="despachado"] { background: var(--tag-teal-bg); color: var(--tag-teal-fg); }
-.badge[data-estado="derivado"]   { background: var(--tag-info-bg); color: var(--tag-info-fg); }
-.badge[data-estado="cerrado"]    { background: var(--surface-2); color: var(--muted); }
-
-.acc { width: auto; min-width: 130px; padding: 0.35rem 0.5rem; font-size: 0.82rem; }
 
 /* --- Formulario de recepción (estilo CAD) --------------------------------- */
 .fp-head { display: flex; align-items: baseline; justify-content: space-between; gap: 1rem; flex-wrap: wrap; }
@@ -61,25 +28,38 @@ tbody tr:last-child td { border-bottom: none; }
   padding: 0 0.4rem; font-size: 0.78rem; font-weight: 700;
   text-transform: uppercase; letter-spacing: 0.06em; color: var(--accent);
 }
-.form-panel .grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 0.7rem; }
-.form-panel .grid .span2 { grid-column: span 2; }
-.form-panel .grid .span4 { grid-column: 1 / -1; }
-.form-panel .grid.coords { grid-template-columns: repeat(4, 1fr); margin-top: 0.6rem; }
+.form-panel .grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 0.7rem; }
+.form-panel .grid .span2 { grid-column: 1 / -1; }
 .form-panel input[readonly] { background: var(--surface-2); color: var(--muted); }
 
 .con-boton { display: flex; gap: 0.4rem; }
 .con-boton input { flex: 1; }
 .con-boton .btn { white-space: nowrap; }
 
+/* Dos columnas: origen/tipificación y ubicación+mapa, sin scroll. */
+.form-cols { display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; align-items: start; }
+.form-col fieldset:first-child { margin-top: 0; }
+@media (max-width: 1100px) { .form-cols { grid-template-columns: 1fr; } }
+
+.prioridad-chips { display: flex; gap: 0.4rem; }
+.chip-prio {
+  flex: 1; display: flex; flex-direction: column; align-items: center; gap: 0.15rem;
+  border: 1px solid var(--border-2); border-radius: var(--radius-sm); background: var(--surface);
+  padding: 0.35rem 0.3rem; font: inherit; font-size: 0.76rem; color: var(--ink-soft); cursor: pointer;
+}
+.chip-prio .ico { font-size: 1.1rem; line-height: 1; }
+.chip-prio[data-prio="alta"].on  { border-color: var(--tag-danger-fg); background: var(--tag-danger-bg); color: var(--tag-danger-fg); }
+.chip-prio[data-prio="media"].on { border-color: var(--tag-warn-fg);   background: var(--tag-warn-bg);   color: var(--tag-warn-fg); }
+.chip-prio[data-prio="baja"].on  { border-color: var(--tag-ok-fg);     background: var(--tag-ok-bg);     color: var(--tag-ok-fg); }
+
 .mapa-hint { margin: 0.8rem 0 0.4rem; font-size: 0.8rem; color: var(--muted); }
-.mapa { height: clamp(280px, 34vh, 460px); border-radius: var(--radius-sm); border: 1px solid var(--border-2); overflow: hidden; }
+.mapa { height: clamp(160px, 22vh, 260px); border-radius: var(--radius-sm); border: 1px solid var(--border-2); overflow: hidden; }
 /* El marcador se dibuja en HTML para no depender de los PNG de Leaflet. */
 :host ::ng-deep .pin-caso { font-size: 1.5rem; line-height: 1; text-align: center; }
 /* Las teselas y controles del mapa se atenúan en modo oscuro. */
 :host ::ng-deep .leaflet-control-attribution { font-size: 0.65rem; }
 
-/* Destinos: una tarjeta por entidad, con sus canales marcables. El operador
-   puede marcar canales de varias a la vez — el caso llega a todas. */
+/* Destinos: una tarjeta por entidad, canales marcables de varias a la vez. */
 .destinos { display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
             gap: 0.6rem; margin-top: 0.6rem; }
 .destino { border: 1px solid var(--border); border-radius: var(--radius-sm); padding: 0.55rem 0.7rem; }
@@ -108,22 +88,7 @@ tbody tr:last-child td { border-bottom: none; }
 
 .acciones { display: flex; justify-content: flex-end; gap: 0.6rem; margin-top: 1rem; }
 
-@media (max-width: 900px) {
-  .form-panel .grid, .form-panel .grid.coords { grid-template-columns: 1fr 1fr; }
-  .form-panel .grid .span2, .form-panel .grid .span4 { grid-column: 1 / -1; }
-}
-
-/* Aviso del alcance de la bandeja (lo aplica el servidor). */
 .alcance { margin: 0; font-size: 0.82rem; color: var(--muted); }
-
-/* Alternar entre la cola de mi entidad y toda la bandeja del secad. */
-.vista-tabs { display: inline-flex; gap: 2px; padding: 2px; margin-bottom: 0.2rem;
-              border: 1px solid var(--border); border-radius: 999px; background: var(--surface-2); }
-.vista-tabs button { border: none; background: transparent; cursor: pointer; color: var(--ink-soft);
-                     font: inherit; font-size: 0.85rem; padding: 0.3rem 0.9rem; border-radius: 999px; }
-.vista-tabs button.on { background: var(--surface); color: var(--accent); font-weight: 600;
-                        box-shadow: 0 1px 2px rgba(0,0,0,0.12); }
-.canales-col { font-size: 0.8rem; color: var(--ink-soft); }
 
 /* La cola de llamadas y el formulario son una sola mesa de trabajo. */
 .entrantes { padding: 0.8rem 1rem; }
@@ -150,22 +115,11 @@ tbody tr:last-child td { border-bottom: none; }
 .mia .magencia { font-size: 0.78rem; color: var(--muted); }
 .ver-todo { font-size: 0.8rem; color: var(--accent); text-decoration: none; margin-top: 0.3rem; }
 
-/*
- * .rec-body agrupa la columna angosta (.rec-side: llamadas, contadores,
- * últimas recepciones) y el formulario. .rec-side apila su contenido con
- * flexbox, así que su alto depende solo de SU propio contenido — nunca de lo
- * largo que sea el formulario. (Antes eran hermanos sueltos dentro de una
- * sola grilla de 2 columnas: como .form-panel ocupaba un único tramo alto de
- * varias filas, cualquier bloque de la columna angosta sin fila fija —o
- * cuya fila caía dentro del tramo del formulario— quedaba empujado hasta
- * DESPUÉS de que el formulario terminara, en vez de junto a los demás
- * bloques de su propia columna.)
- */
+/* .rec-side apila con flexbox: su alto depende solo de su propio contenido. */
 .rec-body { display: flex; flex-direction: column; gap: 1.1rem; }
 .rec-side { display: flex; flex-direction: column; gap: 1.1rem; }
 
-/* En pantalla ancha, la cola de llamadas queda a la izquierda y el formulario a
-   la derecha: el operador ve quién espera mientras escribe. */
+/* Pantalla ancha: cola de llamadas a la izquierda, formulario a la derecha. */
 @media (min-width: 1280px) {
   .rec-body {
     display: grid; grid-template-columns: minmax(260px, 22%) 1fr; gap: 1rem; align-items: start;

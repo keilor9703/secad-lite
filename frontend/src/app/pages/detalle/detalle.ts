@@ -11,7 +11,7 @@ import { DespachoService } from '../../core/despacho.service';
 import { WhatsappService } from '../../core/whatsapp.service';
 import { ToastService } from '../../shared/toast/toast.service';
 import {
-  Agencia, Asignacion, Canal, CanalAtencion, Caso, CodigoCierre, EstadoAsignacion, EstadoCaso,
+  Agencia, Asignacion, Canal, CanalAtencion, Caso, CodigoCaso, CodigoCierre, EstadoAsignacion, EstadoCaso,
   EventoCaso, MensajeChat, Recurso, TenantDirectorio, TipoEvento,
 } from '../../core/models';
 
@@ -80,9 +80,12 @@ export class DetalleComponent implements OnInit, OnDestroy {
    * desenlaces son catálogo del secad, así que solo se ofrecen los vigentes.
    */
   readonly codigosCierre = signal<CodigoCierre[]>([]);
+  /** Mismo catálogo de recepción, para poder corregir la tipificación al cerrar. */
+  readonly codigosCaso = signal<CodigoCaso[]>([]);
   readonly mostrarCierre = signal(false);
   readonly cierreForm = new FormGroup({
     codigo: new FormControl('', { nonNullable: true }),
+    codigoCasoFinal: new FormControl('', { nonNullable: true }),
     comentario: new FormControl('', { nonNullable: true }),
   });
   readonly cerrando = signal(false);
@@ -107,6 +110,7 @@ export class DetalleComponent implements OnInit, OnDestroy {
 
   ngOnInit(): void {
     this.catalogos.cierres(true).subscribe({ next: (c) => this.codigosCierre.set(c), error: () => {} });
+    this.catalogos.codigos(true).subscribe({ next: (c) => this.codigosCaso.set(c), error: () => {} });
     this.catalogos.agencias().subscribe({ next: (a) => this.agencias.set(a), error: () => {} });
     this.catalogos.canales().subscribe({ next: (c) => this.canalesAtencion.set(c), error: () => {} });
   }
@@ -306,7 +310,7 @@ export class DetalleComponent implements OnInit, OnDestroy {
   }
 
   abrirCierre(): void {
-    this.cierreForm.reset({ codigo: '', comentario: '' });
+    this.cierreForm.reset({ codigo: '', codigoCasoFinal: this.caso()?.codigoCaso ?? '', comentario: '' });
     this.mostrarCierre.set(true);
   }
 
@@ -320,7 +324,7 @@ export class DetalleComponent implements OnInit, OnDestroy {
       return;
     }
     this.cerrando.set(true);
-    this.casosSvc.cerrar(this.id, v.codigo, v.comentario.trim()).subscribe({
+    this.casosSvc.cerrar(this.id, v.codigo, v.comentario.trim(), v.codigoCasoFinal.trim() || undefined).subscribe({
       next: (c) => {
         this.caso.set(c);
         this.cerrando.set(false);

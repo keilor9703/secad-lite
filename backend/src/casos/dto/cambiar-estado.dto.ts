@@ -16,4 +16,14 @@ export class CambiarEstadoDto {
   /** Obligatorio al cerrar: qué pasó, en palabras del despachador. */
   @IsOptional() @IsString() @MaxLength(2000)
   comentario?: string;
+
+  /**
+   * Opcional al cerrar: corrige la tipificación del caso contra el mismo
+   * catálogo de códigos de caso que se usa en recepción. Un caso puede
+   * arrancar como una cosa (p. ej. una riña) y terminar siendo otra (una
+   * fiesta con ruido) — esto no es el desenlace (`codigoCierre`), es de qué
+   * se trataba en realidad.
+   */
+  @IsOptional() @IsString() @MaxLength(40)
+  codigoCasoFinal?: string;
 }

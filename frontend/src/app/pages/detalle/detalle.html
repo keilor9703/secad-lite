@@ -212,6 +212,17 @@
                   </select>
                 </div>
                 <div class="field">
+                  <label for="ccasof">Tipificación (código de caso)</label>
+                  <select id="ccasof" formControlName="codigoCasoFinal">
+                    <option value="">— sin corregir —</option>
+                    @for (k of codigosCaso(); track k) {
+                      <option [value]="k.codigo">{{ k.codigo }} — {{ k.descripcion }}</option>
+                    }
+                  </select>
+                  <small class="ayuda">Corríjala solo si el caso resultó ser otra cosa distinta a como se
+                    recepcionó (p. ej. empezó como riña y terminó siendo ruido/fiesta). No es el desenlace.</small>
+                </div>
+                <div class="field">
                   <label for="ccom">Comentario de cierre *</label>
                   <textarea id="ccom" rows="3" formControlName="comentario"
                   placeholder="Qué pasó y cómo se resolvió"></textarea>

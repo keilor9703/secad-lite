@@ -90,123 +90,132 @@
         <span class="fp-meta">{{ abiertoEn() | date: 'dd/MM/yyyy HH:mm' }} · {{ sesionUsuario() }}</span>
       </div>
 
-      <!-- 1. Cómo entra y quién reporta -->
-      <fieldset [formGroup]="form">
-        <legend>Origen y reportante</legend>
-        <div class="grid">
-          <div class="field">
-            <label for="fmedio">Medio de comunicación</label>
-            <select id="fmedio" formControlName="canal">
-              @for (c of canales; track c) {
-                <option [value]="c">{{ canalIcon(c) }} {{ canalLabel(c) }}</option>
-              }
-            </select>
-          </div>
-          <div class="field">
-            <label>Entidad de origen</label>
-            <input [value]="agenciaOrigen()?.nombre || 'Sin agencia asignada'" readonly
-              title="La entidad del funcionario que recepciona; no se edita." />
-          </div>
-          <div class="field">
-            <label for="fllam">Quién reporta *</label>
-            <input id="fllam" formControlName="ciudadano" placeholder="Nombre del llamante" />
-          </div>
-          <div class="field">
-            <label for="ftel">Teléfono</label>
-            <input id="ftel" formControlName="telefono" placeholder="Abonado" />
-          </div>
-          <div class="field span2">
-            <label for="fdirll">Dirección de quien llama</label>
-            <input id="fdirll" formControlName="direccionLlamante"
-              placeholder="Solo si es distinta a la del caso" />
-          </div>
-        </div>
-      </fieldset>
+      <div class="form-cols">
+        <div class="form-col">
+          <!-- 1. Cómo entra y quién reporta -->
+          <fieldset [formGroup]="form">
+            <legend>Origen y reportante</legend>
+            <div class="grid">
+              <div class="field">
+                <label for="fmedio">Medio de comunicación</label>
+                <select id="fmedio" formControlName="canal">
+                  @for (c of canales; track c) {
+                    <option [value]="c">{{ canalIcon(c) }} {{ canalLabel(c) }}</option>
+                  }
+                </select>
+              </div>
+              <div class="field">
+                <label>Entidad de origen</label>
+                <input [value]="agenciaOrigen()?.nombre || 'Sin agencia asignada'" readonly
+                  title="La entidad del funcionario que recepciona; no se edita." />
+              </div>
+              <div class="field">
+                <label for="fllam">Quién reporta *</label>
+                <input id="fllam" formControlName="ciudadano" placeholder="Nombre del llamante" />
+              </div>
+              <div class="field">
+                <label for="ftel">Teléfono</label>
+                <input id="ftel" formControlName="telefono" placeholder="Abonado" />
+              </div>
+              <div class="field span2">
+                <label for="fdirll">Dirección de quien llama</label>
+                <input id="fdirll" formControlName="direccionLlamante"
+                  placeholder="Solo si es distinta a la del caso" />
+              </div>
+            </div>
+          </fieldset>
 
-      <!-- 2. Tipificación -->
-      <fieldset [formGroup]="form">
-        <legend>Tipificación del caso</legend>
-        <div class="grid">
-          <div class="field">
-            <label for="fcod">Código de caso</label>
-            <input id="fcod" formControlName="codigoCaso" list="codigosCaso"
-              (change)="aplicarCodigo()" placeholder="p. ej. 102" />
-            <datalist id="codigosCaso">
-              @for (c of codigos(); track c) {
-                <option [value]="c.codigo">{{ c.codigo }} — {{ c.descripcion }}</option>
-              }
-            </datalist>
-          </div>
-          <div class="field">
-            <label for="fpri">Prioridad</label>
-            <select id="fpri" formControlName="prioridad">
-              @for (p of prioridades; track p) {
-                <option [value]="p">{{ p }}</option>
-              }
-            </select>
-          </div>
-          <div class="field span2">
-            <label for="ftit">Descripción del caso</label>
-            <input id="ftit" formControlName="titulo"
-              placeholder="Se completa con el código; puede ajustarla" />
-          </div>
-          <div class="field span4">
-            <label for="fcom">Comentario / relato</label>
-            <textarea id="fcom" formControlName="descripcion"
-            rows="3" placeholder="Lo que narra quien reporta"></textarea>
-            <!-- El catálogo leyó el relato: sugiere la tipificación, el operador decide. -->
-            @if (sugerenciasCodigo().length) {
-              <div class="sugerencias">
-                <span class="sug-lbl">¿Se trata de…?</span>
-                @for (c of sugerenciasCodigo(); track c) {
-                  <button type="button" class="sug-chip"
-                    (click)="aplicarSugerencia(c.codigo)"
-                    [title]="'Aplica el código ' + c.codigo + ' con su prioridad y agencia sugerida'">
-                    {{ c.codigo }} · {{ c.descripcion }}
-                  </button>
+          <!-- 2. Tipificación -->
+          <fieldset [formGroup]="form">
+            <legend>Tipificación del caso</legend>
+            <div class="grid">
+              <div class="field">
+                <label for="fcod">Código de caso</label>
+                <input id="fcod" formControlName="codigoCaso" list="codigosCaso"
+                  (change)="aplicarCodigo()" placeholder="p. ej. 102" />
+                <datalist id="codigosCaso">
+                  @for (c of codigos(); track c) {
+                    <option [value]="c.codigo">{{ c.codigo }} — {{ c.descripcion }}</option>
+                  }
+                </datalist>
+              </div>
+              <div class="field">
+                <label>Prioridad</label>
+                <div class="prioridad-chips">
+                  @for (p of prioridades; track p) {
+                    <button type="button" class="chip-prio" [attr.data-prio]="p"
+                      [class.on]="form.controls.prioridad.value === p"
+                      (click)="elegirPrioridad(p)">
+                      <span class="ico">{{ prioridadIcon(p) }}</span>
+                      <span>{{ prioridadLabel(p) }}</span>
+                    </button>
+                  }
+                </div>
+              </div>
+              <div class="field span2">
+                <label for="ftit">Descripción del caso</label>
+                <input id="ftit" formControlName="titulo"
+                  placeholder="Se completa con el código; puede ajustarla" />
+              </div>
+              <div class="field span2">
+                <label for="fcom">Comentario / relato</label>
+                <textarea id="fcom" formControlName="descripcion"
+                rows="3" placeholder="Lo que narra quien reporta"></textarea>
+                <!-- El catálogo leyó el relato: sugiere la tipificación, el operador decide. -->
+                @if (sugerenciasCodigo().length) {
+                  <div class="sugerencias">
+                    <span class="sug-lbl">¿Se trata de…?</span>
+                    @for (c of sugerenciasCodigo(); track c) {
+                      <button type="button" class="sug-chip"
+                        (click)="aplicarSugerencia(c.codigo)"
+                        [title]="'Aplica el código ' + c.codigo + ' con su prioridad y agencia sugerida'">
+                        {{ c.codigo }} · {{ c.descripcion }}
+                      </button>
+                    }
+                  </div>
                 }
               </div>
-            }
-          </div>
-        </div>
-      </fieldset>
-
-      <!-- 3. Ubicación -->
-      <fieldset [formGroup]="form">
-        <legend>Ubicación del caso</legend>
-        <div class="grid">
-          <div class="field">
-            <label for="fciu">Ciudad / Municipio</label>
-            <input id="fciu" formControlName="ciudad" />
-          </div>
-          <div class="field">
-            <label for="fbar">Barrio</label>
-            <input id="fbar" formControlName="barrio" />
-          </div>
-          <div class="field span2">
-            <label for="fdir">Dirección del caso</label>
-            <div class="con-boton">
-              <input id="fdir" formControlName="direccion" placeholder="Cra 43 # 38-50" />
-              <button type="button" class="btn btn--ghost" (click)="buscarDireccion()" [disabled]="buscandoDireccion()">
-                {{ buscandoDireccion() ? 'Buscando…' : 'Buscar en el mapa' }}
-              </button>
             </div>
-          </div>
+          </fieldset>
         </div>
-        <p class="mapa-hint">Haga clic en el mapa para fijar el punto: la dirección, el barrio y la
-        ciudad se completan solos.</p>
-        <div id="mapaCaso" class="mapa"></div>
-        <div class="grid coords">
-          <div class="field">
-            <label for="flat">Latitud</label>
-            <input id="flat" type="number" formControlName="lat" step="0.000001" />
-          </div>
-          <div class="field">
-            <label for="flng">Longitud</label>
-            <input id="flng" type="number" formControlName="lng" step="0.000001" />
-          </div>
+
+        <div class="form-col">
+          <!-- 3. Ubicación -->
+          <fieldset [formGroup]="form">
+            <legend>Ubicación del caso</legend>
+            <div class="grid">
+              <div class="field">
+                <label for="fciu">Ciudad / Municipio</label>
+                <input id="fciu" formControlName="ciudad" />
+              </div>
+              <div class="field">
+                <label for="fbar">Barrio</label>
+                <input id="fbar" formControlName="barrio" />
+              </div>
+              <div class="field span2">
+                <label for="fdir">Dirección del caso</label>
+                <div class="con-boton">
+                  <input id="fdir" formControlName="direccion" placeholder="Cra 43 # 38-50" />
+                  <button type="button" class="btn btn--ghost" (click)="buscarDireccion()" [disabled]="buscandoDireccion()">
+                    {{ buscandoDireccion() ? 'Buscando…' : 'Buscar en el mapa' }}
+                  </button>
+                </div>
+              </div>
+              <div class="field">
+                <label for="flat">Latitud</label>
+                <input id="flat" type="number" formControlName="lat" step="0.000001" />
+              </div>
+              <div class="field">
+                <label for="flng">Longitud</label>
+                <input id="flng" type="number" formControlName="lng" step="0.000001" />
+              </div>
+            </div>
+            <p class="mapa-hint">Haga clic en el mapa para fijar el punto: la dirección, el barrio y la
+            ciudad se completan solos.</p>
+            <div id="mapaCaso" class="mapa"></div>
+          </fieldset>
         </div>
-      </fieldset>
+      </div>
 
       <!-- 4. A quién se envía: puede ser más de una entidad a la vez -->
       <fieldset [formGroup]="form">
@@ -273,7 +282,7 @@
       <div class="acciones">
         <button type="button" class="btn btn--ghost" (click)="limpiarForm()">Limpiar</button>
         <button type="button" class="btn btn--primary" (click)="crear()" [disabled]="guardando()">
-          {{ guardando() ? 'Guardando…' : 'Guardar caso' }}
+          {{ guardando() ? 'Enviando…' : 'Enviar' }}
         </button>
       </div>
     </div>
