@@ -310,8 +310,26 @@ export class DetalleComponent implements OnInit, OnDestroy {
   }
 
   abrirCierre(): void {
-    this.cierreForm.reset({ codigo: '', codigoCasoFinal: this.caso()?.codigoCaso ?? '', comentario: '' });
+    const actual = this.caso()?.codigoCaso ?? '';
+    this.cierreForm.reset({ codigo: '', codigoCasoFinal: this.etiquetaCodigoCaso(actual), comentario: '' });
     this.mostrarCierre.set(true);
+  }
+
+  /**
+   * «102 — Hurto en curso» si el código existe en el catálogo; si no,
+   * lo que se haya escrito tal cual (código suelto o vacío).
+   */
+  private etiquetaCodigoCaso(valor: string): string {
+    const codigo = valor.split(' — ')[0].trim().toUpperCase();
+    if (!codigo) return '';
+    const def = this.codigosCaso().find((c) => c.codigo.toUpperCase() === codigo);
+    return def ? `${def.codigo} — ${def.descripcion}` : valor;
+  }
+
+  /** Al elegir de la lista o escribir un código válido, se completa con su descripción. */
+  aplicarCodigoCierreFinal(): void {
+    const actual = this.cierreForm.controls.codigoCasoFinal.value;
+    this.cierreForm.controls.codigoCasoFinal.setValue(this.etiquetaCodigoCaso(actual));
   }
 
   /** Cierra el caso con su clasificación; el resto de estados van solos. */
@@ -323,8 +341,9 @@ export class DetalleComponent implements OnInit, OnDestroy {
         && !window.confirm('El caso tiene recursos en atención. Al cerrar se liberarán automáticamente. ¿Continuar?')) {
       return;
     }
+    const codigoCasoFinal = v.codigoCasoFinal.split(' — ')[0].trim() || undefined;
     this.cerrando.set(true);
-    this.casosSvc.cerrar(this.id, v.codigo, v.comentario.trim(), v.codigoCasoFinal.trim() || undefined).subscribe({
+    this.casosSvc.cerrar(this.id, v.codigo, v.comentario.trim(), codigoCasoFinal).subscribe({
       next: (c) => {
         this.caso.set(c);
         this.cerrando.set(false);

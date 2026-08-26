@@ -214,7 +214,7 @@
                 <div class="field">
                   <label for="ccasof">Tipificación (código de caso)</label>
                   <input id="ccasof" formControlName="codigoCasoFinal" list="codigosCasoCierre"
-                    placeholder="Déjelo vacío si no cambió" />
+                    (change)="aplicarCodigoCierreFinal()" placeholder="Déjelo vacío si no cambió" />
                   <datalist id="codigosCasoCierre">
                     @for (k of codigosCaso(); track k) {
                       <option [value]="k.codigo">{{ k.codigo }} — {{ k.descripcion }}</option>
