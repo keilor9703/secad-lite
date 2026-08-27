@@ -164,10 +164,12 @@ export class AdminComponent implements OnInit {
   readonly usuarioCanales = signal<string[]>([]);
 
   constructor() {
-    // Todo lo que es propio de un tenant (roles, integraciones, entidades) se
-    // recarga solo cuando cambia el tenant en gestión desde la barra superior.
+    // Todo lo que es propio de un tenant (usuarios, roles, integraciones,
+    // entidades) se recarga solo cuando cambia el tenant en gestión desde la
+    // barra superior — de lo contrario queda la tanda del tenant anterior.
     effect(() => {
       const tenant = this.tenantActivo();
+      this.usuarios.set([]);
       this.roles.set([]);
       this.sucios.set(new Set());
       this.rolesOk.set(false);
@@ -177,7 +179,10 @@ export class AdminComponent implements OnInit {
       this.codigos.set([]);
       this.pbxConfig.set(null);
       this.waConfig.set(null);
+      // Sin tenant resuelto (superadmin antes de que la barra superior elija
+      // uno) el backend rechaza la petición: no vale la pena intentarla.
       if (!tenant) return;
+      this.cargarUsuarios();
       if (this.gestionaRoles()) this.cargarRoles();
       this.cargarPbx();
       this.cargarWa();
@@ -189,7 +194,6 @@ export class AdminComponent implements OnInit {
   }
 
   ngOnInit(): void {
-    this.cargarUsuarios();
     if (this.gestionaRoles()) {
       this.rolesSvc.catalogo().subscribe({
         next: (c) => { this.modulos.set(c.modulos); this.permisos.set(c.permisos); },

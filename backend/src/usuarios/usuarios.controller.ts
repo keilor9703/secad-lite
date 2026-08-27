@@ -2,6 +2,7 @@ import { Body, Controller, Get, Param, Patch, Post } from '@nestjs/common';
 import { ActualizarUsuarioDto, CrearUsuarioDto, UsuariosService } from './usuarios.service';
 import { Permisos } from '../auth/permisos.decorator';
 import { Usuario } from '../common/usuario.decorator';
+import { Tenant } from '../common/tenant.decorator';
 import { JwtPayload } from '../auth/auth.service';
 import { AuditoriaAdminService } from '../auditoria/auditoria-admin.service';
 
@@ -14,9 +15,15 @@ export class UsuariosController {
     private readonly auditoria: AuditoriaAdminService,
   ) {}
 
+  /**
+   * Usuarios DEL TENANT EN GESTIÓN (el que el superadmin eligió en la barra
+   * superior) — igual que roles, agencias, canales y demás recursos de
+   * Administración. `@Tenant()` ya resuelve esto (y exige que el superadmin
+   * haya elegido uno); antes se ignoraba y siempre se listaba todo.
+   */
   @Get()
-  listar(@Usuario() actor: JwtPayload) {
-    return this.usuarios.listar(actor);
+  listar(@Tenant() tenant: string) {
+    return this.usuarios.listar(tenant);
   }
 
   @Post()

@@ -109,10 +109,15 @@ export class UsuariosService implements OnModuleInit {
 
   // --- Gestión (usuarios.gestionar) -----------------------------------------
 
-  /** Superadmin ve todos; los demás ven solo los de su tenant. */
-  async listar(actor: Actor): Promise<UsuarioDto[]> {
-    const where = actor.rol === 'superadmin' ? {} : { tenant: actor.tenant ?? '' };
-    const usuarios = await this.repo.find({ where, order: { username: 'ASC' } });
+  /**
+   * Usuarios del tenant en gestión — el propio para un admin de tenant, o el
+   * elegido en la barra superior para el superadmin (`@Tenant()` ya resuelve
+   * cuál es). Antes el superadmin veía TODOS los tenants mezclados sin
+   * importar cuál tuviera seleccionado; quedaba fuera del aislamiento que sí
+   * respeta el resto de Administración (roles, agencias, canales…).
+   */
+  async listar(tenant: string): Promise<UsuarioDto[]> {
+    const usuarios = await this.repo.find({ where: { tenant }, order: { username: 'ASC' } });
     return usuarios.map((u) => this.aDto(u));
   }
 
