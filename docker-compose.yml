@@ -29,16 +29,19 @@ services:
   #     (`ssh -L 5050:127.0.0.1:5050 usuario@servidor`), nunca exponerlo tal cual.
   # Encenderlo cuando haga falta: `docker compose --profile admin up -d pgadmin`
   # Apagarlo al terminar:         `docker compose stop pgadmin`
+  # Correo/clave/puerto salen de variables de entorno (.env, no comiteado):
+  # PGADMIN_EMAIL, PGADMIN_PASSWORD, PGADMIN_PORT — con valores por defecto
+  # si no están definidas.
   pgadmin:
     image: dpage/pgadmin4:latest
     container_name: secad-lite-pgadmin
     profiles: ["admin"]
     restart: "no"
     environment:
-      PGADMIN_DEFAULT_EMAIL: admin@falconcad.local
-      PGADMIN_DEFAULT_PASSWORD: cambiar-esta-clave
+      PGADMIN_DEFAULT_EMAIL: ${PGADMIN_EMAIL:-admin@falconcad.local}
+      PGADMIN_DEFAULT_PASSWORD: ${PGADMIN_PASSWORD:-cambiar-esta-clave}
     ports:
-      - "127.0.0.1:5050:80"
+      - "127.0.0.1:${PGADMIN_PORT:-5050}:80"
 
 volumes:
   secad_lite_pg:
