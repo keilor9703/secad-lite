@@ -267,8 +267,8 @@
         </div>
       }
 
-      <!-- Entidades externas (API entrante) -->
-      @if (gestionaEntidades && !!tenantActivo()) {
+      <!-- Entidades externas (API entrante): solo si el tenant la contrató -->
+      @if (gestionaEntidades && !!tenantActivo() && tieneIntegracion('api')) {
         <div class="panel card">
           <h2>🔌 Entidades externas — API entrante</h2>
           <p class="pbx-hint">Registre las entidades (bomberos, salud, alarmas, apps...) autorizadas a

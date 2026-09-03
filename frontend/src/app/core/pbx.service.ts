@@ -120,14 +120,6 @@ export class PbxService {
     } catch { /* sin audio disponible */ }
   }
 
-  /** Reabre la cola tras cambiar de tenant en gestión (superadmin). */
-  reconectar(): void {
-    this.desconectar();
-    this.llamadas.set([]);
-    this.ultimaEntrante.set(null);
-    this.conectar();
-  }
-
   desconectar(): void {
     this.socket?.disconnect();
     this.socket = undefined;

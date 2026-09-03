@@ -188,12 +188,17 @@ export class AdminComponent implements OnInit {
       // Sin tenant resuelto (superadmin antes de que la barra superior elija
       // uno) el backend rechaza la petición: no vale la pena intentarla.
       if (!tenant) return;
+      // Nota: para el superadmin, `this.tenants()` puede llegar vacío en esta
+      // primera pasada (su propia carga de instancias corre aparte, en
+      // paralelo) — en ese caso los paneles de integración simplemente no
+      // se piden todavía, y este efecto vuelve a correr solo cuando
+      // `this.tenants()` cambie (se lee dentro de tieneIntegracion(), así que Angular lo sigue).
       this.cargarUsuarios();
       if (this.gestionaRoles()) this.cargarRoles();
-      this.cargarPbx();
-      this.cargarCti();
-      this.cargarWa();
-      if (this.gestionaEntidades) this.cargarEntidades();
+      if (this.tieneIntegracion('pbx')) this.cargarPbx();
+      if (this.tieneIntegracion('cti')) this.cargarCti();
+      if (this.tieneIntegracion('whatsapp')) this.cargarWa();
+      if (this.gestionaEntidades && this.tieneIntegracion('api')) this.cargarEntidades();
       this.cargarCatalogos();
       this.bitacora.set([]);
       if (this.bitacoraAbierta()) this.cargarBitacora();
@@ -411,6 +416,20 @@ export class AdminComponent implements OnInit {
   }
 
   // --- Integraciones ----------------------------------------------------------
+
+  /**
+   * ¿El tenant en gestión tiene esta integración contratada? Para un usuario
+   * de un tenant, sale de su sesión (la resuelve el backend en el login). El
+   * superadmin no pertenece a ninguno fijo: se resuelve con la lista de
+   * tenants que esta misma página ya carga para el bloque de Instancias.
+   */
+  tieneIntegracion(clave: string): boolean {
+    if (this.esSuperadmin()) {
+      return (this.tenants().find((t) => t.codigo === this.tenantActivo())?.integraciones ?? []).includes(clave);
+    }
+    return this.auth.tieneIntegracion(clave);
+  }
+
   private cargarPbx(): void {
     this.pbx.config().subscribe({ next: (c) => this.pbxConfig.set(c), error: () => {} });
   }

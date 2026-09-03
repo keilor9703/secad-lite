@@ -61,8 +61,11 @@ export class ShellComponent implements OnInit {
     const s = this.sesion();
     if (s?.tipo !== 'institucional') return;
     if (!this.esSuperadmin()) {
-      // Sin pbx.usar no se consulta la planta: evita un 403 en cada carga.
-      if (this.puedeVerLlamadas()) this.pbx.conectar();
+      // Sin pbx.usar, o sin que el tenant haya contratado la planta, no se
+      // consulta: pbx.usar es transversal (lo puede tener el rol aunque el
+      // municipio no haya comprado PBX) — sin la segunda condición, cada
+      // carga de la aplicación topaba con un 403 y su aviso.
+      if (this.puedeVerLlamadas() && this.auth.tieneIntegracion('pbx')) this.pbx.conectar();
       return;
     }
     this.admin.listarTenants().subscribe({
@@ -70,17 +73,25 @@ export class ShellComponent implements OnInit {
         this.tenants.set(ts);
         // Arranca sobre la primera instancia para no dejar la sesión sin contexto.
         if (!this.tenantCtx() && ts.length) this.cambiarTenant(ts[0].codigo, false);
-        else if (this.tenantCtx()) this.pbx.conectar();
+        else if (this.tenantCtx() && this.tieneIntegracionTenant(ts, this.tenantCtx(), 'pbx')) this.pbx.conectar();
       },
       error: () => {},
     });
+  }
+
+  /** ¿El tenant (de la lista ya cargada) tiene esta integración? Para el superadmin, que no tiene una propia. */
+  private tieneIntegracionTenant(tenants: Tenant[], codigo: string, clave: string): boolean {
+    return (tenants.find((t) => t.codigo === codigo)?.integraciones ?? []).includes(clave);
   }
 
   /** Cambia el tenant en gestión: reabre la cola en vivo y recarga la vista. */
   cambiarTenant(codigo: string, recargarVista = true): void {
     if (!codigo || codigo === this.tenantCtx()) return;
     this.auth.setTenantCtx(codigo);
-    this.pbx.reconectar();
+    this.pbx.desconectar();
+    this.pbx.llamadas.set([]);
+    this.pbx.ultimaEntrante.set(null);
+    if (this.tieneIntegracionTenant(this.tenants(), codigo, 'pbx')) this.pbx.conectar();
     if (!recargarVista) return;
     // Cada página se recarga sola al cambiar el tenant activo; solo el detalle
     // de un caso queda huérfano (su id es de la otra instancia), así que desde

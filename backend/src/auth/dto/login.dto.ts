@@ -29,4 +29,12 @@ export interface LoginResult {
   tenant: string | null;
   /** Agencia del funcionario (agencias.id); nula para superadmin y ciudadanos. */
   agencia?: string | null;
+  /**
+   * Integraciones contratadas por SU tenant (pbx, whatsapp, api, cti…). Sin
+   * esto la interfaz no tenía forma de saber, para un usuario que no es
+   * superadmin, qué módulos están habilitados — terminaba pidiendo la
+   * configuración de todos y mostrando un aviso de "no habilitado" por cada
+   * uno que no se contrató.
+   */
+  integraciones: string[];
 }

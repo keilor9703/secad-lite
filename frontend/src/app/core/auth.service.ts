@@ -51,19 +51,33 @@ export class AuthService {
   }
 
   /**
+   * ¿SU tenant tiene esta integración contratada? Sirve para no pedir la
+   * configuración de un módulo que el municipio no compró (y toparse con el
+   * aviso de "no habilitado" en cada carga). Solo tiene sentido para la
+   * sesión de un tenant: el superadmin no pertenece a ninguno fijo — en las
+   * vistas donde él elige un tenant, se resuelve aparte con la lista que ya
+   * tiene cargada, no con esto.
+   */
+  tieneIntegracion(clave: string): boolean {
+    const s = this._sesion();
+    if (!s || s.rol === 'superadmin') return true;
+    return (s.integraciones ?? []).includes(clave);
+  }
+
+  /**
    * Trae del servidor el rol, los permisos, la agencia y los canales vigentes y
    * los aplica a la sesión guardada. Los del token quedaron congelados al
    * iniciar sesión: sin esto, un permiso retirado seguiría pintando su módulo.
    */
   refrescarPerfil(): void {
     if (!this._sesion()) return;
-    this.http.get<Partial<Sesion> & { permisos: string[]; canales: string[] }>(`${this.base}/auth/perfil`).subscribe({
+    this.http.get<Partial<Sesion> & { permisos: string[]; canales: string[]; integraciones: string[] }>(`${this.base}/auth/perfil`).subscribe({
       next: (p) => {
         const actual = this._sesion();
         if (!actual) return;
         const fresca: Sesion = {
           ...actual, rol: p.rol ?? actual.rol, permisos: p.permisos,
-          agencia: p.agencia ?? null, canales: p.canales ?? [],
+          agencia: p.agencia ?? null, canales: p.canales ?? [], integraciones: p.integraciones ?? [],
         };
         this._sesion.set(fresca);
         try { localStorage.setItem(STORAGE_KEY, JSON.stringify(fresca)); } catch { /* sin almacenamiento */ }
