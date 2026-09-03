@@ -2,6 +2,7 @@ import { ChangeDetectionStrategy, Component, computed, effect, inject, signal } 
 
 import { AuthService } from '../../core/auth.service';
 import { MetricasService, Resumen, ResumenLlamadas } from '../../core/metricas.service';
+import { ExportarService } from '../../core/exportar.service';
 
 interface Barra { etiqueta: string; valor: number; clave: string; }
 
@@ -16,11 +17,16 @@ interface Barra { etiqueta: string; valor: number; clave: string; }
 export class DashboardComponent {
   private metricas = inject(MetricasService);
   private auth = inject(AuthService);
+  private exportar = inject(ExportarService);
 
   readonly resumen = signal<Resumen | null>(null);
   readonly llamadas = signal<ResumenLlamadas | null>(null);
   readonly cargando = signal(true);
   readonly error = signal('');
+
+  exportarCsv(): void {
+    this.exportar.descargarCasos();
+  }
 
   private readonly estadoLabels: Record<string, string> = {
     nuevo: 'Nuevo', en_gestion: 'En gestión', despachado: 'Despachado', derivado: 'Derivado', cerrado: 'Cerrado',

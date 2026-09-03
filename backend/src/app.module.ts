@@ -1,4 +1,5 @@
-import { MiddlewareConsumer, Module, NestModule } from '@nestjs/common';
+import { MiddlewareConsumer, Module, NestModule, Logger } from '@nestjs/common';
+import { ScheduleModule } from '@nestjs/schedule';
 import { AuditoriaModule } from './auditoria/auditoria.module';
 import { ConfigModule, ConfigService } from '@nestjs/config';
 import { TypeOrmModule } from '@nestjs/typeorm';
@@ -27,6 +28,7 @@ import { IntegracionModule } from './integracion/integracion.module';
 
 @Module({
   imports: [
+    ScheduleModule.forRoot(),
     AuditoriaModule,
     ConfigModule.forRoot({ isGlobal: true }),
     // Tope de intentos para las rutas que lo declaren (@UseGuards(ThrottlerGuard)):
@@ -71,6 +73,13 @@ import { IntegracionModule } from './integracion/integracion.module';
               ? { rejectUnauthorized: true, ca }
               : { rejectUnauthorized: false }
             : undefined;
+            
+        if (config.get<string>('DB_SSL', 'false') === 'true' && !ca && process.env.NODE_ENV === 'production') {
+          new Logger('Database').warn(
+            'DB_SSL=true sin DB_SSL_CA: la conexión está cifrada pero el certificado del servidor ' +
+            'NO se valida. Para producción real, configure DB_SSL_CA con el PEM del proveedor.',
+          );
+        }
         return {
           type: 'postgres' as const,
           url,

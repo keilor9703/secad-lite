@@ -5,6 +5,8 @@ import { DetalleComponent } from '../detalle/detalle';
 import { CasosService } from '../../core/casos.service';
 import { CatalogosService } from '../../core/catalogos.service';
 import { AuthService } from '../../core/auth.service';
+import { NotificacionesService } from '../../core/notificaciones.service';
+import { CasosWsService } from '../../core/casos-ws.service';
 import { CanalAtencion, Caso, EstadoCaso } from '../../core/models';
 import { ToastService } from '../../shared/toast/toast.service';
 
@@ -36,6 +38,8 @@ export class DespachoComponent {
   private router = inject(Router);
   private ruta = inject(ActivatedRoute);
   private toast = inject(ToastService);
+  private notif = inject(NotificacionesService);
+  private casosWs = inject(CasosWsService);
 
   readonly casos = signal<Caso[]>([]);
   readonly canales = signal<CanalAtencion[]>([]);
@@ -105,8 +109,19 @@ export class DespachoComponent {
       this.cargar();
       this.catalogos.canales().subscribe({ next: (c) => this.canales.set(c), error: () => {} });
     });
+    this.casosWs.conectar();
+    this.casosWs.eventos.subscribe(({ tipo, caso }) => {
+      if (tipo === 'nuevo') {
+        this.casos.update(cs => {
+          const existe = cs.some(c => c.id === caso.id);
+          return existe ? cs.map(c => c.id === caso.id ? caso : c) : [caso, ...cs];
+        });
+      } else {
+        this.casos.update(cs => cs.map(c => c.id === caso.id ? caso : c));
+      }
+    });
     // La cola cambia sola: se refresca sin que el despachador tenga que recargar.
-    setInterval(() => { this.ahora.set(Date.now()); if (!document.hidden) this.cargar(true); }, 30_000);
+    setInterval(() => { this.ahora.set(Date.now()); if (!document.hidden) this.cargar(true); }, 60_000);
   }
 
   /**
@@ -187,6 +202,13 @@ export class DespachoComponent {
     this.toast.info(nuevos.length === 1
       ? `Caso nuevo en la cola: ${primero.titulo}`
       : `${nuevos.length} casos nuevos en la cola.`);
+    
+    if (nuevos.length === 1) {
+      this.notif.notificar('Caso nuevo en la cola', primero.titulo);
+    } else {
+      this.notif.notificar('Casos nuevos en la cola', `${nuevos.length} casos esperan atención`);
+    }
+
     if (this.sonidoActivo()) this.timbre();
   }
 
@@ -257,5 +279,15 @@ export class DespachoComponent {
 
   canalIcon(c: Caso): string {
     return { llamada: '📞', chat: '💬', whatsapp: '🟢', integracion: '🔌' }[c.canal] ?? '•';
+  }
+
+  canalIconData(c: Caso): { emoji: string; label: string } {
+    const map: Record<string, { emoji: string; label: string }> = {
+      llamada: { emoji: '📞', label: 'Llamada telefónica' },
+      chat: { emoji: '💬', label: 'Chat en línea' },
+      whatsapp: { emoji: '🟢', label: 'WhatsApp' },
+      integracion: { emoji: '🔌', label: 'Integración externa' },
+    };
+    return map[c.canal] ?? { emoji: '•', label: c.canal };
   }
 }

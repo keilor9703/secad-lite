@@ -93,7 +93,7 @@ export class CasoEntity {
   agenciaResponsableId?: string | null;
 
   /** Canales de atención a los que se envió (canales.id). */
-  @Column({ type: 'simple-array', nullable: true })
+  @Column({ type: 'text', array: true, nullable: true, default: [] })
   canales?: string[] | null;
 
   @Column({ type: 'varchar', length: 20, default: 'nuevo' })

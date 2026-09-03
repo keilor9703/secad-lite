@@ -1,12 +1,13 @@
-import { BadRequestException, ForbiddenException, Injectable, NotFoundException, OnModuleInit } from '@nestjs/common';
+import { BadRequestException, ForbiddenException, Injectable, NotFoundException, OnModuleInit, Inject, forwardRef, Optional, Logger } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Between, EntityManager, FindOptionsWhere, LessThan, MoreThanOrEqual, Not, Repository } from 'typeorm';
+import { Between, EntityManager, FindOptionsWhere, LessThan, MoreThanOrEqual, Not, Repository, Brackets } from 'typeorm';
 import { CasoEntity } from './caso.entity';
 import { EventoCasoEntity, TipoEvento } from './evento.entity';
 import { CANALES, EstadoCaso, ESTADOS, PRIORIDADES } from './caso.model';
 import { CatalogosService } from '../catalogos/catalogos.service';
 import { DespachoService } from '../despacho/despacho.service';
 import { TenantsService } from '../tenants/tenants.service';
+import { CasosGateway } from './casos.gateway';
 
 /**
  * Quién actúa. `permisos` son los VIGENTES (resueltos contra la base por
@@ -41,6 +42,9 @@ export class CasosService implements OnModuleInit {
     private readonly despacho: DespachoService,
     private readonly catalogos: CatalogosService,
     private readonly tenants: TenantsService,
+    @Optional()
+    @Inject(forwardRef(() => CasosGateway))
+    private readonly gateway?: CasosGateway,
   ) {}
 
   async onModuleInit(): Promise<void> {
@@ -71,6 +75,27 @@ export class CasosService implements OnModuleInit {
     if (desde && finExclusivo) where.creadoEn = Between(desde, finExclusivo);
     else if (desde) where.creadoEn = MoreThanOrEqual(desde);
     else if (finExclusivo) where.creadoEn = LessThan(finExclusivo);
+
+    if (actor.rol !== 'superadmin' && !actor.permisos.includes('casos.ver_todos')) {
+      const qb = this.repo.createQueryBuilder('caso')
+        .where('caso.tenant = :tenant', { tenant });
+      if (opts?.abiertos) qb.andWhere('caso.estado != :estado', { estado: 'cerrado' });
+      if (desde && finExclusivo) qb.andWhere('caso.creadoEn >= :desde AND caso.creadoEn < :hasta', { desde, hasta: finExclusivo });
+      else if (desde) qb.andWhere('caso.creadoEn >= :desde', { desde });
+      else if (finExclusivo) qb.andWhere('caso.creadoEn < :hasta', { hasta: finExclusivo });
+
+      const ids = actor.canales ?? [];
+      qb.andWhere(
+        new Brackets((qbInner) => {
+          qbInner.where('caso.creadoPor = :sub', { sub: actor.sub });
+          ids.forEach((id, idx) => {
+            qbInner.orWhere(`caso.canales LIKE :id${idx}`, { [`id${idx}`]: `%${id}%` });
+          });
+        }),
+      );
+      return qb.orderBy('caso.creadoEn', 'DESC').take(limite).getMany();
+    }
+
     const casos = await this.repo.find({ where, order: { creadoEn: 'DESC' }, take: limite });
     return casos.filter((c) => this.alcanza(c, actor));
   }
@@ -128,7 +153,7 @@ export class CasosService implements OnModuleInit {
       tenant, dto, tipificacion?.agenciaSugeridaId ?? null,
     );
 
-    const caso = await this.repo.save(
+    const guardado = await this.repo.save(
       this.repo.create({
         tenant,
         canal: dto.canal,
@@ -156,8 +181,9 @@ export class CasosService implements OnModuleInit {
       }),
     );
     const destino = canales.length ? ` Enviado a ${this.describirDestino(canales, agencias)}.` : '';
-    await this.registrar(tenant, caso.id, 'creacion', `Caso recepcionado por ${caso.canal}.${destino}`, usuario);
-    return caso;
+    await this.registrar(tenant, guardado.id, 'creacion', `Caso recepcionado por ${guardado.canal}.${destino}`, usuario);
+    this.gateway?.emitirNuevo(tenant, guardado);
+    return guardado;
   }
 
   /**
@@ -250,6 +276,7 @@ export class CasosService implements OnModuleInit {
     const modo = dto.exclusivo ? `Trasladado de ${agenciaPrevia} a` : 'Remitido además a';
     const motivo = dto.observacion?.trim() ? ` Motivo: ${dto.observacion.trim()}` : '';
     await this.registrar(tenant, id, 'derivacion', `${modo} ${destino}.${motivo}`, usuario);
+    this.gateway?.emitirCambio(tenant, guardado);
     return guardado;
   }
 
@@ -383,6 +410,7 @@ export class CasosService implements OnModuleInit {
       `Reabierto por ${actor.sub}. Observación: ${motivo.trim()}.${solicitud}`,
       actor.sub, 'cerrado', estado,
     );
+    this.gateway?.emitirCambio(tenant, guardado);
     return guardado;
   }
 
@@ -397,6 +425,7 @@ export class CasosService implements OnModuleInit {
     caso.estado = 'en_gestion';
     const guardado = await this.repo.save(caso);
     await this.registrar(tenant, id, 'estado', `Tomado por ${actor.sub}.`, actor.sub, 'nuevo', 'en_gestion');
+    this.gateway?.emitirCambio(tenant, guardado);
     return guardado;
   }
 
@@ -471,6 +500,7 @@ export class CasosService implements OnModuleInit {
         usuario, anterior, dto.estado,
       );
     }
+    this.gateway?.emitirCambio(tenant, guardado);
     return guardado;
   }
 
@@ -506,6 +536,13 @@ export class CasosService implements OnModuleInit {
 
   /** Siembra datos de demostración para el tenant 'demo' si aún no tiene casos. */
   private async seed(): Promise<void> {
+    if (process.env.NODE_ENV === 'production') {
+      new Logger('Seed').warn(
+        'ADVERTENCIA: El seed de datos de demostración se ejecutó en PRODUCCIÓN. ' +
+        'Los usuarios sembrados tienen contraseña "demo". ' +
+        'Cámbielas inmediatamente desde el módulo de Administración.',
+      );
+    }
     const ya = await this.repo.count({ where: { tenant: 'demo' } });
     if (ya > 0) return;
 

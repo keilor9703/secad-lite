@@ -283,4 +283,51 @@ export class MetricasService {
     for (const k of claves) out[k] = datos[k] ?? 0;
     return out;
   }
+
+  async exportarCsv(
+    tenant: string,
+    opts?: { desde?: string; hasta?: string; estado?: string }
+  ): Promise<string> {
+    const qb = this.repo.createQueryBuilder('caso')
+      .where('caso.tenant = :tenant', { tenant });
+
+    if (opts?.estado) {
+      qb.andWhere('caso.estado = :estado', { estado: opts.estado });
+    }
+
+    const desde = this.fechaValida(opts?.desde);
+    const hasta = this.fechaValida(opts?.hasta);
+    const finExclusivo = hasta ? new Date(hasta.getTime() + 864e5) : null;
+
+    if (desde && finExclusivo) {
+      qb.andWhere('caso.creadoEn >= :desde AND caso.creadoEn < :hasta', { desde, hasta: finExclusivo });
+    } else if (desde) {
+      qb.andWhere('caso.creadoEn >= :desde', { desde });
+    } else if (finExclusivo) {
+      qb.andWhere('caso.creadoEn < :hasta', { hasta: finExclusivo });
+    }
+
+    const casos = await qb.orderBy('caso.creadoEn', 'DESC').getMany();
+
+    const cols = ['id', 'creadoEn', 'canal', 'titulo', 'ciudadano', 'telefono', 'agencia', 'estado', 'prioridad', 'codigoCaso', 'direccion', 'creadoPor'];
+    let csv = cols.join(',') + '\n';
+
+    const escapeCsv = (val: any) => {
+      if (val === null || val === undefined) return '';
+      const str = String(val);
+      if (str.includes(',') || str.includes('"') || str.includes('\n') || str.includes('\r')) {
+        return `"${str.replace(/"/g, '""')}"`;
+      }
+      return str;
+    };
+
+    for (const c of casos) {
+      csv += cols.map((col) => {
+        if (col === 'creadoEn') return escapeCsv((c as any)[col]?.toISOString());
+        return escapeCsv((c as any)[col]);
+      }).join(',') + '\n';
+    }
+
+    return csv;
+  }
 }

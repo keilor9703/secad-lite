@@ -32,8 +32,8 @@
         página, no solo dentro de Recepción, para que nadie deje de verlo. -->
         @if (puedeVerLlamadas() && sonando().length > 0) {
           <a routerLink="/recepcion" class="nav-llamadas"
-            title="Hay llamadas en espera sin tomar">
-            📞 <span class="ring-badge">{{ sonando().length }}</span>
+            title="Hay llamadas en espera sin tomar" aria-label="Ir a recepción, hay llamadas en espera sin tomar">
+            <span role="img" aria-label="Llamadas en espera">📞</span> <span class="ring-badge" aria-label="Cantidad de llamadas">{{ sonando().length }}</span>
           </a>
         }
         @if (puedeVerCatalogos()) {

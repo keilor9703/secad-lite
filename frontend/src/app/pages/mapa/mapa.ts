@@ -6,6 +6,7 @@ import { AuthService } from '../../core/auth.service';
 import { CatalogosService } from '../../core/catalogos.service';
 import { AnalisisMapa, MetricasService, PuntoMapa } from '../../core/metricas.service';
 import { CodigoCaso } from '../../core/models';
+import { CasosWsService } from '../../core/casos-ws.service';
 
 type ModoVista = 'calor' | 'cluster' | 'puntos';
 
@@ -31,6 +32,7 @@ export class MapaComponent implements OnInit, OnDestroy {
   private catalogos = inject(CatalogosService);
   private auth = inject(AuthService);
   private router = inject(Router);
+  private casosWs = inject(CasosWsService);
 
   readonly analisis = signal<AnalisisMapa | null>(null);
   readonly codigos = signal<CodigoCaso[]>([]);
@@ -97,6 +99,25 @@ export class MapaComponent implements OnInit, OnDestroy {
     setTimeout(() => this.prepararMapa(), 0);
     this.catalogos.codigos(true).subscribe({ next: (c) => this.codigos.set(c), error: () => {} });
     this.cargar();
+
+    this.casosWs.conectar();
+    this.casosWs.eventos.subscribe(({ tipo, caso }) => {
+      if (tipo === 'nuevo' && caso.lat != null && caso.lng != null) {
+        const a = this.analisis();
+        if (!a) return;
+        const nuevoPunto: PuntoMapa = {
+          id: caso.id,
+          lat: caso.lat,
+          lng: caso.lng,
+          codigoCaso: caso.codigoCaso ?? null,
+          prioridad: caso.prioridad ?? 'media',
+          titulo: caso.titulo,
+          creadoEn: caso.creadoEn,
+        };
+        this.analisis.set({ ...a, puntos: [nuevoPunto, ...a.puntos], totalConUbicacion: a.totalConUbicacion + 1 });
+        this.pintar();
+      }
+    });
   }
 
   ngOnDestroy(): void {

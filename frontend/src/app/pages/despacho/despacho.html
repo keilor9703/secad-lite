@@ -88,7 +88,7 @@
                     }</p>
                   }
                   <p class="t-meta">
-                    <span>{{ canalIcon(c) }} {{ c.ciudadano }}</span>
+                    <span><span role="img" [attr.aria-label]="canalIconData(c).label">{{ canalIconData(c).emoji }}</span> {{ c.ciudadano }}</span>
                     @if (canalesDe(c)) {
                       <span class="mono">{{ canalesDe(c) }}</span>
                     }

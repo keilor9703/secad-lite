@@ -1,4 +1,5 @@
-import { Controller, Get, Query } from '@nestjs/common';
+import { Controller, Get, Query, Res } from '@nestjs/common';
+import { Response } from 'express';
 import { MetricasService } from './metricas.service';
 import { Tenant } from '../common/tenant.decorator';
 import { Permisos } from '../auth/permisos.decorator';
@@ -25,5 +26,21 @@ export class MetricasController {
   @Get('llamadas')
   llamadas(@Tenant() tenant: string) {
     return this.metricas.llamadas(tenant);
+  }
+
+  @Get('exportar')
+  async exportar(
+    @Tenant() tenant: string,
+    @Query('desde') desde?: string,
+    @Query('hasta') hasta?: string,
+    @Query('estado') estado?: string,
+    @Res() res?: Response,
+  ) {
+    const csv = await this.metricas.exportarCsv(tenant, { desde, hasta, estado });
+    if (res) {
+      res.setHeader('Content-Type', 'text/csv; charset=utf-8');
+      res.setHeader('Content-Disposition', `attachment; filename="casos-${tenant}-${new Date().toISOString().slice(0,10)}.csv"`);
+      res.send('\uFEFF' + csv);
+    }
   }
 }

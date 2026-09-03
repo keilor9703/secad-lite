@@ -2,12 +2,13 @@ import { ChangeDetectionStrategy, Component, OnDestroy, OnInit, computed, inject
 import { CommonModule } from '@angular/common';
 import { CasosService } from '../../core/casos.service';
 import { MetricasService, Resumen } from '../../core/metricas.service';
+import { CasosWsService } from '../../core/casos-ws.service';
 import { Caso } from '../../core/models';
 
 /**
  * Wallboard: la pantalla grande de la sala 123. No se opera — se MIRA desde
  * lejos: colas por paso, semáforos de espera, lo último que llegó y los
- * tiempos del mes. Tipografía enorme, refresco solo (15 s) y reloj vivo.
+ * tiempos del mes. Tipografía enorme, refresco solo (30 s) y reloj vivo.
  */
 @Component({
   selector: 'app-wallboard',
@@ -20,6 +21,7 @@ import { Caso } from '../../core/models';
 export class WallboardComponent implements OnInit, OnDestroy {
   private casosSvc = inject(CasosService);
   private metricas = inject(MetricasService);
+  private casosWs = inject(CasosWsService);
 
   readonly casos = signal<Caso[]>([]);
   readonly resumen = signal<Resumen | null>(null);
@@ -49,7 +51,18 @@ export class WallboardComponent implements OnInit, OnDestroy {
 
   ngOnInit(): void {
     this.cargar();
-    this.refresco = setInterval(() => { if (!document.hidden) this.cargar(); }, 15_000);
+    this.casosWs.conectar();
+    this.casosWs.eventos.subscribe(({ tipo, caso }) => {
+      if (tipo === 'nuevo') {
+        this.casos.update(cs => {
+          const existe = cs.some(c => c.id === caso.id);
+          return existe ? cs.map(c => c.id === caso.id ? caso : c) : [caso, ...cs];
+        });
+      } else {
+        this.casos.update(cs => cs.map(c => c.id === caso.id ? caso : c));
+      }
+    });
+    this.refresco = setInterval(() => { if (!document.hidden) this.cargar(); }, 30_000);
     this.reloj = setInterval(() => this.ahora.set(new Date()), 1000);
   }
 

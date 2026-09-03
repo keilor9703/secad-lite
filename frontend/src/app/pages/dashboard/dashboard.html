@@ -1,7 +1,14 @@
 <section class="dash">
   <header class="dash-head">
-    <h1>Panel de gestión</h1>
-    <p>Indicadores de casos del municipio</p>
+    <div>
+      <h1>Panel de gestión</h1>
+      <p>Indicadores de casos del municipio</p>
+    </div>
+    <div class="dash-head-der">
+      <button class="btn btn--ghost" type="button" (click)="exportarCsv()" aria-label="Exportar casos a CSV">
+        ⬇ Exportar CSV
+      </button>
+    </div>
   </header>
 
   @if (error()) {
