@@ -19,5 +19,26 @@ services:
       timeout: 5s
       retries: 10
 
+  # Administración de la base por interfaz web (equivalente a pgAdmin4).
+  # Apagado por defecto a propósito — tiene acceso de escritura a la base:
+  #   - `profiles: ["admin"]`: un `docker compose up -d` normal lo ignora por
+  #     completo (no arranca con el resto del stack, ni al reiniciar el host).
+  #   - `restart: "no"`: tampoco vuelve solo si el contenedor se cae.
+  #   - Puerto ligado a 127.0.0.1: solo el propio servidor puede alcanzarlo;
+  #     para usarlo desde otra máquina hay que entrar por túnel SSH
+  #     (`ssh -L 5050:127.0.0.1:5050 usuario@servidor`), nunca exponerlo tal cual.
+  # Encenderlo cuando haga falta: `docker compose --profile admin up -d pgadmin`
+  # Apagarlo al terminar:         `docker compose stop pgadmin`
+  pgadmin:
+    image: dpage/pgadmin4:latest
+    container_name: secad-lite-pgadmin
+    profiles: ["admin"]
+    restart: "no"
+    environment:
+      PGADMIN_DEFAULT_EMAIL: admin@falconcad.local
+      PGADMIN_DEFAULT_PASSWORD: cambiar-esta-clave
+    ports:
+      - "127.0.0.1:5050:80"
+
 volumes:
   secad_lite_pg:
