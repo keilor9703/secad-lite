@@ -146,7 +146,9 @@ Pestaña *Ciudadano*: cualquier correo con contraseña `demo`.
 
 > Referencia técnica completa (URL, headers, autenticación, cuerpo y
 > respuesta de cada endpoint) de las tres integraciones anteriores:
-> [`docs/integraciones-externas.md`](docs/integraciones-externas.md).
+> [`docs/integraciones-externas.md`](docs/integraciones-externas.md). Para la
+> integración (en planeación) con la barra CTI y YACO:
+> [`docs/integracion-cti-yaco.md`](docs/integracion-cti-yaco.md).
 
 FALCON recibe eventos de sistemas externos por esos tres canales, cada uno con
 su propia credencial — ninguno depende de la sesión institucional:
