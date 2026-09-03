@@ -13,6 +13,7 @@ import { PermisosVigentes } from '../common/permisos-vigentes.decorator';
 import { JwtPayload } from '../auth/auth.service';
 import { Permisos } from '../auth/permisos.decorator';
 import { EstadoCaso } from './caso.model';
+import { CasoEntity } from './caso.entity';
 
 // La bandeja y el detalle son de uso interno: gobernado por permisos del rol.
 @Permisos('casos.ver')
@@ -39,6 +40,17 @@ export class CasosController {
   }
 
   /**
+   * Las URL de grabación/transcripción (integración CTI/YACO) solo se exponen
+   * a quien tenga `casos.ver_grabaciones` (despacho/supervisión) — no a
+   * cualquier operador de canal. `permisos` ya vienen resueltos por
+   * PermisosGuard, no por el token.
+   */
+  private ocultarGrabaciones<T extends CasoEntity>(caso: T, permisos: string[]): T {
+    if (permisos.includes('*') || permisos.includes('casos.ver_grabaciones')) return caso;
+    return { ...caso, urlGrabacion: null, urlTranscripcion: null };
+  }
+
+  /**
    * GET /api/casos — bandeja del secad.
    * Lo que devuelve depende del alcance del funcionario: con casos.ver_todos,
    * todo; sin él, solo lo de sus canales y lo que él recepcionó.
@@ -55,12 +67,13 @@ export class CasosController {
     @Query('desde') desde?: string,
     @Query('hasta') hasta?: string,
   ) {
-    return this.casos.listar(tenant, await this.actor(usuario, permisos), {
+    const casos = await this.casos.listar(tenant, await this.actor(usuario, permisos), {
       limite: limite ? Number(limite) : undefined,
       abiertos: abiertos === 'true',
       desde,
       hasta,
     });
+    return casos.map((c) => this.ocultarGrabaciones(c, permisos));
   }
 
   // Cómo se clasifica un cierre ya no se responde aquí: es catálogo del secad,
@@ -85,7 +98,8 @@ export class CasosController {
     @PermisosVigentes() permisos: string[],
     @Param('id') id: string,
   ) {
-    return this.casos.obtener(tenant, id, await this.actor(usuario, permisos));
+    const caso = await this.casos.obtener(tenant, id, await this.actor(usuario, permisos));
+    return this.ocultarGrabaciones(caso, permisos);
   }
 
   /** GET /api/casos/:id/auditoria — línea de tiempo del caso. */
@@ -119,7 +133,8 @@ export class CasosController {
     @PermisosVigentes() permisos: string[],
     @Param('id') id: string,
   ) {
-    return this.casos.tomar(tenant, id, await this.actor(usuario, permisos));
+    const caso = await this.casos.tomar(tenant, id, await this.actor(usuario, permisos));
+    return this.ocultarGrabaciones(caso, permisos);
   }
 
   /** POST /api/casos/:id/remitir — enviar el caso a canales de otra agencia. */
@@ -132,7 +147,8 @@ export class CasosController {
     @Param('id') id: string,
     @Body() dto: RemitirDto,
   ) {
-    return this.casos.remitir(tenant, id, dto, await this.actor(usuario, permisos));
+    const caso = await this.casos.remitir(tenant, id, dto, await this.actor(usuario, permisos));
+    return this.ocultarGrabaciones(caso, permisos);
   }
 
   /**
@@ -149,7 +165,8 @@ export class CasosController {
     @Param('id') id: string,
     @Body() dto: RemitirTenantDto,
   ) {
-    return this.casos.remitirATenant(tenant, id, dto, await this.actor(usuario, permisos));
+    const caso = await this.casos.remitirATenant(tenant, id, dto, await this.actor(usuario, permisos));
+    return this.ocultarGrabaciones(caso, permisos);
   }
 
   /** POST /api/casos/:id/notas — agregar una nota a la bitácora. */
@@ -179,7 +196,8 @@ export class CasosController {
     @Param('id') id: string,
     @Body() dto: SolicitarReaperturaDto,
   ) {
-    return this.casos.solicitarReapertura(tenant, id, dto?.motivo, await this.actor(usuario, permisos));
+    const caso = await this.casos.solicitarReapertura(tenant, id, dto?.motivo, await this.actor(usuario, permisos));
+    return this.ocultarGrabaciones(caso, permisos);
   }
 
   /** POST /api/casos/:id/reapertura — reapertura autorizada, con observación. */
@@ -193,7 +211,8 @@ export class CasosController {
     @Body() dto: ReabrirDto,
   ) {
     const estado: EstadoCaso = dto?.estado ?? 'en_gestion';
-    return this.casos.reabrir(tenant, id, dto?.motivo, estado, await this.actor(usuario, permisos));
+    const caso = await this.casos.reabrir(tenant, id, dto?.motivo, estado, await this.actor(usuario, permisos));
+    return this.ocultarGrabaciones(caso, permisos);
   }
 
   /** PATCH /api/casos/:id/estado — avanzar el ciclo de vida / derivar. */
@@ -206,6 +225,7 @@ export class CasosController {
     @Param('id') id: string,
     @Body() dto: CambiarEstadoDto,
   ) {
-    return this.casos.cambiarEstado(tenant, id, dto, await this.actor(usuario, permisos));
+    const caso = await this.casos.cambiarEstado(tenant, id, dto, await this.actor(usuario, permisos));
+    return this.ocultarGrabaciones(caso, permisos);
   }
 }

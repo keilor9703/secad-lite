@@ -103,6 +103,21 @@ export class CasoEntity {
   @Column({ type: 'varchar', length: 32, nullable: true })
   codigoCierre?: string | null;
 
+  // --- Grabación y transcripción (integración CTI/YACO) -----------------------
+
+  /**
+   * URL de la grabación de la llamada/interacción, entregada por la
+   * plataforma de grabación del proveedor. Solo visible en la API a quien
+   * tenga `casos.ver_grabaciones` (despacho/supervisión) — ver
+   * CasosController. FALCON CAD no valida la firma digital de integridad de
+   * la grabación: es responsabilidad de esa plataforma, no nuestra.
+   */
+  @Column({ type: 'varchar', length: 500, nullable: true })
+  urlGrabacion?: string | null;
+
+  @Column({ type: 'varchar', length: 500, nullable: true })
+  urlTranscripcion?: string | null;
+
   // --- Reapertura ------------------------------------------------------------
 
   /**

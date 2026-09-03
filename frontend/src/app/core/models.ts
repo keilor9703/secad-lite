@@ -99,6 +99,13 @@ export interface PbxConfig {
   webhookPath: string;
 }
 
+/** Igual forma que PbxConfig: integración CTI/YACO (barra embebida). */
+export interface CtiConfig {
+  apiKeyConfigurada: boolean;
+  apiKey?: string;
+  webhookPath: string;
+}
+
 export interface WhatsappConfig {
   phoneNumberId: string | null;
   tokenConfigurado: boolean;

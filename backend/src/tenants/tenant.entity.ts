@@ -9,7 +9,7 @@ export type EstadoSuscripcion = 'prueba' | 'activa' | 'suspendida';
 export const ESTADOS_SUSCRIPCION: EstadoSuscripcion[] = ['prueba', 'activa', 'suspendida'];
 
 /** Integraciones que se pueden habilitar por tenant. */
-export const INTEGRACIONES = ['pbx', 'whatsapp', 'api'] as const;
+export const INTEGRACIONES = ['pbx', 'whatsapp', 'api', 'cti'] as const;
 export type Integracion = (typeof INTEGRACIONES)[number];
 
 /**
@@ -56,6 +56,17 @@ export class TenantEntity {
 
   @Column({ type: 'simple-array', nullable: true })
   waCanales?: string[] | null;
+
+  /**
+   * Clave de API dedicada a la integración CTI/YACO (barra CTI embebida):
+   * autentica las peticiones que el backend de esa integración le hace a
+   * FALCON CAD. Separada de `apiKey` a propósito — es una superficie más
+   * sensible (involucra SSO de agentes) y no debe compartir credencial con
+   * el webhook básico de PBX. Igual que `apiKey`, se guarda como digest.
+   */
+  @Index({ unique: true })
+  @Column({ type: 'varchar', length: 80, nullable: true })
+  ctiApiKey?: string | null;
 
   // --- Suscripción (FALCON CAD es un servicio por suscripción) ---------------
 

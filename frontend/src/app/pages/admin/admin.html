@@ -145,6 +145,54 @@
         </div>
       }
 
+      <!-- Integración: CTI/YACO (barra embebida) -->
+      @if (ctiConfig(); as ccfg) {
+        <div class="panel card">
+          <h2>🖥️ Integración — CTI / YACO (barra embebida)</h2>
+          <p class="pbx-hint">Entregue esta URL y esta clave al proveedor de la integración CTI: las usa
+          para identificar esta instancia en cada evento que le entregue a FALCON CAD. El embebido de la
+          barra y el inicio de sesión automático del operador se configuran aparte, una vez el proveedor
+          confirme su contrato de integración.</p>
+          <div class="pbx-field">
+            <label>URL de eventos</label>
+            <div class="pbx-row">
+              <input class="mono" [value]="webhookUrlCti" readonly />
+              <button type="button" class="btn btn--ghost mini" (click)="copiar(webhookUrlCti, 'cti-url')">
+                {{ copiado() === 'cti-url' ? '¡Copiado!' : 'Copiar' }}
+              </button>
+            </div>
+          </div>
+          <div class="pbx-field">
+            <label>API key del tenant (CTI/YACO)</label>
+            @if (ccfg.apiKey) {
+              <div class="pbx-row">
+                <input class="mono" [value]="ccfg.apiKey" readonly />
+                <button type="button" class="btn btn--ghost mini" (click)="copiar(ccfg.apiKey, 'cti-key')">
+                  {{ copiado() === 'cti-key' ? '¡Copiado!' : 'Copiar' }}
+                </button>
+                <button type="button" class="btn btn--ghost mini" (click)="rotarCti()">Rotar</button>
+              </div>
+            } @else {
+              <div class="pbx-row">
+                <input class="mono"
+                  [value]="ccfg.apiKeyConfigurada ? '•••••••••••••••••••••••• (emitida)' : 'Sin emitir'" readonly />
+                <button type="button" class="btn btn--ghost mini" (click)="rotarCti()">
+                  {{ ccfg.apiKeyConfigurada ? 'Rotar' : 'Generar' }}
+                </button>
+              </div>
+            }
+            @if (ccfg.apiKey) {
+              <p class="pbx-warn">Copie la clave AHORA: por seguridad no se vuelve a mostrar.
+              Entréguela al proveedor de la integración.</p>
+            }
+            @if (!ccfg.apiKey) {
+              <p class="pbx-warn">La clave no se puede volver a mostrar (solo se guarda su
+              huella). Si la perdió, rótela y entregue la nueva al proveedor.</p>
+            }
+          </div>
+        </div>
+      }
+
       <!-- Integración: WhatsApp -->
       @if (waConfig(); as wcfg) {
         <div class="panel card">

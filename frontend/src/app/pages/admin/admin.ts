@@ -4,13 +4,14 @@ import { FormControl, FormGroup, ReactiveFormsModule, Validators } from '@angula
 import { AdminService, CrearUsuario, EntradaBitacora } from '../../core/admin.service';
 import { AuthService } from '../../core/auth.service';
 import { PbxService } from '../../core/pbx.service';
+import { CtiService } from '../../core/cti.service';
 import { WhatsappService } from '../../core/whatsapp.service';
 import { RolesService } from '../../core/roles.service';
 import { EntidadesService } from '../../core/entidades.service';
 import { CatalogosService } from '../../core/catalogos.service';
 import { ToastService } from '../../shared/toast/toast.service';
 import {
-  Agencia, CanalAtencion, CodigoCaso, EntidadExterna, ModuloPermisos, PbxConfig, PermisoDef, PrioridadCaso,
+  Agencia, CanalAtencion, CodigoCaso, CtiConfig, EntidadExterna, ModuloPermisos, PbxConfig, PermisoDef, PrioridadCaso,
   RolTenant, Tenant, TipoAgencia, UsuarioAdmin, WhatsappConfig,
 } from '../../core/models';
 
@@ -34,6 +35,7 @@ export class AdminComponent implements OnInit {
   private admin = inject(AdminService);
   private auth = inject(AuthService);
   private pbx = inject(PbxService);
+  private cti = inject(CtiService);
   private wa = inject(WhatsappService);
   private rolesSvc = inject(RolesService);
   private entidadesSvc = inject(EntidadesService);
@@ -101,6 +103,9 @@ export class AdminComponent implements OnInit {
   // Integración PBX (planta telefónica)
   readonly pbxConfig = signal<PbxConfig | null>(null);
   readonly copiado = signal('');
+
+  // Integración CTI/YACO (barra embebida)
+  readonly ctiConfig = signal<CtiConfig | null>(null);
 
   // Integración WhatsApp
   readonly waConfig = signal<WhatsappConfig | null>(null);
@@ -178,6 +183,7 @@ export class AdminComponent implements OnInit {
       this.canales.set([]);
       this.codigos.set([]);
       this.pbxConfig.set(null);
+      this.ctiConfig.set(null);
       this.waConfig.set(null);
       // Sin tenant resuelto (superadmin antes de que la barra superior elija
       // uno) el backend rechaza la petición: no vale la pena intentarla.
@@ -185,6 +191,7 @@ export class AdminComponent implements OnInit {
       this.cargarUsuarios();
       if (this.gestionaRoles()) this.cargarRoles();
       this.cargarPbx();
+      this.cargarCti();
       this.cargarWa();
       if (this.gestionaEntidades) this.cargarEntidades();
       this.cargarCatalogos();
@@ -406,6 +413,22 @@ export class AdminComponent implements OnInit {
   // --- Integraciones ----------------------------------------------------------
   private cargarPbx(): void {
     this.pbx.config().subscribe({ next: (c) => this.pbxConfig.set(c), error: () => {} });
+  }
+
+  private cargarCti(): void {
+    this.cti.config().subscribe({ next: (c) => this.ctiConfig.set(c), error: () => {} });
+  }
+
+  get webhookUrlCti(): string {
+    const c = this.ctiConfig();
+    return c ? this.cti.webhookUrl(c.webhookPath) : '';
+  }
+
+  rotarCti(): void {
+    this.cti.rotarKey().subscribe({
+      next: (c) => { this.ctiConfig.set(c); this.toast.exito('Clave nueva emitida. Cópiela ahora: no se vuelve a mostrar.'); },
+      error: (err) => this.error.set(err?.error?.message ?? 'No fue posible rotar la clave.'),
+    });
   }
 
   private cargarWa(): void {

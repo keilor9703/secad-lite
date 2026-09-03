@@ -64,6 +64,15 @@ export class UsuarioEntity {
   @Column({ type: 'varchar', length: 20, nullable: true })
   extension?: string | null;
 
+  /**
+   * "@" de WhatsApp del funcionario, para la integración CTI/YACO: permite
+   * vincular una conversación de WhatsApp que llega por esa vía a ESTE
+   * operador. Igual que `extension`, es solo el mapeo — la asignación en sí
+   * la decide la central, no FALCON CAD.
+   */
+  @Column({ type: 'varchar', length: 80, nullable: true })
+  whatsappHandle?: string | null;
+
   @Column({ type: 'boolean', default: true })
   activo!: boolean;
 }

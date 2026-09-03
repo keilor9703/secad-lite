@@ -25,6 +25,7 @@ import { DespachoModule } from './despacho/despacho.module';
 import { PbxModule } from './pbx/pbx.module';
 import { WhatsappModule } from './whatsapp/whatsapp.module';
 import { IntegracionModule } from './integracion/integracion.module';
+import { CtiModule } from './cti/cti.module';
 
 @Module({
   imports: [
@@ -105,6 +106,7 @@ import { IntegracionModule } from './integracion/integracion.module';
     DespachoModule,
     PbxModule,
     WhatsappModule,
+    CtiModule,
     IntegracionModule,
   ],
   controllers: [AppController],

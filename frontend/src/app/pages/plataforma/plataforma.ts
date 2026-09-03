@@ -31,6 +31,7 @@ export class PlataformaComponent implements OnInit {
     { clave: 'pbx', nombre: 'Planta telefónica' },
     { clave: 'whatsapp', nombre: 'WhatsApp' },
     { clave: 'api', nombre: 'API entrante' },
+    { clave: 'cti', nombre: 'CTI / YACO (barra embebida)' },
   ];
 
   readonly nuevoTenantForm = new FormGroup({

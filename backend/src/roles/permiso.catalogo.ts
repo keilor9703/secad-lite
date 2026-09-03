@@ -17,6 +17,7 @@ export const PERMISOS: PermisoDef[] = [
   { clave: 'casos.cerrar',        etiqueta: 'Cerrar casos',                             grupo: 'Casos' },
   { clave: 'casos.reabrir',       etiqueta: 'Autorizar la reapertura de un caso cerrado', grupo: 'Casos' },
   { clave: 'casos.remitir_tenant', etiqueta: 'Remitir casos a otra jurisdicción (otro tenant)', grupo: 'Casos' },
+  { clave: 'casos.ver_grabaciones', etiqueta: 'Ver grabaciones y transcripciones de llamadas', grupo: 'Casos' },
   { clave: 'despacho.ver',        etiqueta: 'Ver despacho de recursos',                 grupo: 'Despacho' },
   { clave: 'despacho.asignar',    etiqueta: 'Despachar y mover recursos',               grupo: 'Despacho' },
   { clave: 'recursos.ver',        etiqueta: 'Ver flota de recursos',                    grupo: 'Recursos' },
@@ -26,6 +27,7 @@ export const PERMISOS: PermisoDef[] = [
   { clave: 'whatsapp.responder',  etiqueta: 'Responder conversaciones de WhatsApp',     grupo: 'Integraciones' },
   { clave: 'whatsapp.configurar', etiqueta: 'Configurar WhatsApp',                      grupo: 'Integraciones' },
   { clave: 'entidades.gestionar', etiqueta: 'Gestionar entidades externas (API)',      grupo: 'Integraciones' },
+  { clave: 'cti.configurar',      etiqueta: 'Configurar la integración CTI/YACO',       grupo: 'Integraciones' },
   { clave: 'metricas.ver',        etiqueta: 'Ver el panel de gestión',                  grupo: 'Gestión' },
   { clave: 'catalogos.gestionar', etiqueta: 'Gestionar agencias, canales y códigos', grupo: 'Administración' },
   { clave: 'usuarios.gestionar',  etiqueta: 'Gestionar usuarios',                       grupo: 'Administración' },
@@ -70,13 +72,13 @@ export const MODULOS: ModuloPermisos[] = [
     descripcion: 'Gestionar los casos que llegan a sus canales: tomarlos, cerrarlos, asignar y mover recursos.',
     permisos: [
       'casos.ver', 'casos.gestionar', 'casos.cerrar', 'casos.remitir_tenant',
-      'despacho.ver', 'despacho.asignar', 'recursos.ver',
+      'despacho.ver', 'despacho.asignar', 'recursos.ver', 'casos.ver_grabaciones',
     ],
   },
   {
     clave: 'consulta', etiqueta: 'Consulta',
     descripcion: 'Ver el histórico completo del secad (no solo lo propio) y autorizar reaperturas.',
-    permisos: ['casos.ver', 'casos.ver_todos', 'casos.reabrir'],
+    permisos: ['casos.ver', 'casos.ver_todos', 'casos.reabrir', 'casos.ver_grabaciones'],
   },
   {
     clave: 'recursos', etiqueta: 'Recursos',
@@ -95,8 +97,11 @@ export const MODULOS: ModuloPermisos[] = [
   },
   {
     clave: 'administracion', etiqueta: 'Administración',
-    descripcion: 'Gestionar usuarios y roles, y configurar PBX, WhatsApp y entidades externas.',
-    permisos: ['usuarios.gestionar', 'roles.gestionar', 'catalogos.gestionar', 'pbx.configurar', 'whatsapp.configurar', 'entidades.gestionar'],
+    descripcion: 'Gestionar usuarios y roles, y configurar PBX, WhatsApp, CTI/YACO y entidades externas.',
+    permisos: [
+      'usuarios.gestionar', 'roles.gestionar', 'catalogos.gestionar',
+      'pbx.configurar', 'whatsapp.configurar', 'entidades.gestionar', 'cti.configurar',
+    ],
   },
 ];
 

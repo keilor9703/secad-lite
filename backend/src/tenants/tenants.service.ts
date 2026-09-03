@@ -208,6 +208,33 @@ export class TenantsService implements OnModuleInit {
     return this.repo.findOne({ where: { apiKey: digestApiKey(apiKey) } });
   }
 
+  /** Resuelve un tenant por su API key de CTI/YACO: compara por digest. */
+  async porCtiApiKey(apiKey: string): Promise<TenantEntity | null> {
+    if (!apiKey?.trim()) return null;
+    return this.repo.findOne({ where: { ctiApiKey: digestApiKey(apiKey) } });
+  }
+
+  /** ¿El tenant ya tiene API key de CTI/YACO emitida? */
+  async ctiApiKeyConfigurada(codigo: string): Promise<boolean> {
+    const t = await this.porCodigo(codigo);
+    if (!t) throw new NotFoundException('Tenant no encontrado.');
+    return !!t.ctiApiKey;
+  }
+
+  /**
+   * Rota la API key de CTI/YACO del tenant. El texto claro viaja SOLO en esta
+   * respuesta — es el único momento para copiarlo a la configuración del
+   * proveedor.
+   */
+  async rotarCtiApiKey(codigo: string): Promise<string> {
+    const t = await this.porCodigo(codigo);
+    if (!t) throw new NotFoundException('Tenant no encontrado.');
+    const clave = this.generarCtiApiKey();
+    t.ctiApiKey = digestApiKey(clave);
+    await this.repo.save(t);
+    return clave;
+  }
+
   porCodigo(codigo: string): Promise<TenantEntity | null> {
     return this.repo.findOne({ where: { codigo } });
   }
@@ -317,5 +344,10 @@ export class TenantsService implements OnModuleInit {
 
   private generarApiKey(): string {
     return 'fk_' + randomBytes(24).toString('hex');
+  }
+
+  /** Prefijo distinto (`ck_`) para distinguir a simple vista una clave de CTI de una de PBX. */
+  private generarCtiApiKey(): string {
+    return 'ck_' + randomBytes(24).toString('hex');
   }
 }

@@ -27,6 +27,8 @@ export interface UsuarioDto {
   canales: string[];
   /** Extensión de la planta telefónica; null si no atiende llamadas por PBX. */
   extension: string | null;
+  /** "@" de WhatsApp para la integración CTI/YACO; null si no aplica. */
+  whatsappHandle: string | null;
 }
 
 export interface CrearUsuarioDto {
@@ -38,6 +40,7 @@ export interface CrearUsuarioDto {
   agenciaId?: string | null;
   canales?: string[];
   extension?: string | null;
+  whatsappHandle?: string | null;
 }
 
 export interface ActualizarUsuarioDto {
@@ -48,6 +51,7 @@ export interface ActualizarUsuarioDto {
   agenciaId?: string | null;
   canales?: string[];
   extension?: string | null;
+  whatsappHandle?: string | null;
 }
 
 /**
@@ -138,6 +142,7 @@ export class UsuariosService implements OnModuleInit {
 
     const { agenciaId, canales } = await this.resolverAdscripcion(tenant, dto.agenciaId, dto.canales);
     const extension = await this.resolverExtension(tenant, dto.extension, null);
+    const whatsappHandle = await this.resolverWhatsappHandle(tenant, dto.whatsappHandle, null);
 
     const u = await this.repo.save(
       this.repo.create({
@@ -149,6 +154,7 @@ export class UsuariosService implements OnModuleInit {
         agenciaId,
         canales,
         extension,
+        whatsappHandle,
         activo: true,
       }),
     );
@@ -187,6 +193,9 @@ export class UsuariosService implements OnModuleInit {
     }
     if (dto.extension !== undefined) {
       u.extension = await this.resolverExtension(u.tenant ?? null, dto.extension, u.id);
+    }
+    if (dto.whatsappHandle !== undefined) {
+      u.whatsappHandle = await this.resolverWhatsappHandle(u.tenant ?? null, dto.whatsappHandle, u.id);
     }
     return this.aDto(await this.repo.save(u));
   }
@@ -249,6 +258,31 @@ export class UsuariosService implements OnModuleInit {
   }
 
   /**
+   * "@" de WhatsApp del funcionario, único por tenant — mismo propósito que
+   * `resolverExtension`, para la integración CTI/YACO.
+   */
+  private async resolverWhatsappHandle(
+    tenant: string | null, handle: string | null | undefined, propioId: string | null,
+  ): Promise<string | null> {
+    if (handle === undefined) return null;
+    const valor = handle?.trim().replace(/^@/, '') || null;
+    if (!valor) return null;
+    if (!tenant) throw new BadRequestException('Solo un usuario de un tenant puede tener "@" de WhatsApp.');
+    const enUso = await this.repo.findOne({ where: { tenant, whatsappHandle: valor } });
+    if (enUso && enUso.id !== propioId) {
+      throw new ConflictException('Ese "@" de WhatsApp ya está asignado a otro funcionario.');
+    }
+    return valor;
+  }
+
+  /** El funcionario dueño de ese "@" de WhatsApp en el secad; null si no hay match. */
+  async buscarPorWhatsappHandle(tenant: string, handle: string): Promise<UsuarioEntity | null> {
+    const valor = handle?.trim().replace(/^@/, '');
+    if (!valor) return null;
+    return this.repo.findOne({ where: { tenant, whatsappHandle: valor, activo: true } });
+  }
+
+  /**
    * Valida el rol/tenant que el actor intenta asignar y devuelve los efectivos.
    *  - superadmin: 'superadmin' (sin tenant) o cualquier rol existente del tenant.
    *  - resto: cualquier rol existente de su propio tenant (nunca superadmin).
@@ -292,6 +326,7 @@ export class UsuariosService implements OnModuleInit {
       tenant: u.tenant ?? null, activo: u.activo,
       agenciaId: u.agenciaId ?? null, canales: u.canales ?? [],
       extension: u.extension ?? null,
+      whatsappHandle: u.whatsappHandle ?? null,
     };
   }
 
