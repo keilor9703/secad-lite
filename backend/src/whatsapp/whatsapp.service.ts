@@ -1,10 +1,10 @@
 import { BadRequestException, Injectable, Logger, NotFoundException } from '@nestjs/common';
-import { InjectRepository } from '@nestjs/typeorm';
-import { Not, Repository } from 'typeorm';
+import { EntityManager, Not } from 'typeorm';
 import { MensajeChatEntity } from '../chat/mensaje.entity';
 import { CasoEntity } from '../casos/caso.entity';
 import { CasosService } from '../casos/casos.service';
 import { TenantsService } from '../tenants/tenants.service';
+import { TenantRlsService } from '../common/tenant-rls.service';
 
 /** Versión de la Graph API de Meta para enviar respuestas. */
 const GRAPH_VERSION = 'v20.0';
@@ -19,10 +19,9 @@ export class WhatsappService {
   private readonly log = new Logger(WhatsappService.name);
 
   constructor(
-    @InjectRepository(MensajeChatEntity) private readonly mensajes: Repository<MensajeChatEntity>,
-    @InjectRepository(CasoEntity) private readonly casos: Repository<CasoEntity>,
     private readonly casosSvc: CasosService,
     private readonly tenants: TenantsService,
+    private readonly rls: TenantRlsService,
   ) {}
 
   /** Procesa el payload de Meta: por cada mensaje, crea/continúa el caso. */
@@ -53,19 +52,27 @@ export class WhatsappService {
           if (c?.wa_id && c?.profile?.name) nombres.set(String(c.wa_id), String(c.profile.name));
         }
 
-        for (const m of mensajes) {
-          const from = m?.from ? String(m.from) : '';
-          if (!from) continue;
-          // Meta reenvía los webhooks que no confirma a tiempo: el mismo
-          // mensaje (mismo wamid) no se procesa dos veces.
-          const wamid = m?.id ? String(m.id).slice(0, 120) : null;
-          if (wamid && (await this.mensajes.findOne({ where: { tenant: tenant.codigo, waMessageId: wamid } }))) {
-            continue;
+        // Un webhook público, sin sesión: recién aquí se supo el tenant (por
+        // el phone_number_id), así que app.tenant (RLS) se fija DENTRO de
+        // esta transacción, una por remitente (`entry`/`change`) del payload.
+        procesados += await this.rls.conTenant(tenant.codigo, async (manager) => {
+          const mensajesRepo = manager.getRepository(MensajeChatEntity);
+          let n = 0;
+          for (const m of mensajes) {
+            const from = m?.from ? String(m.from) : '';
+            if (!from) continue;
+            // Meta reenvía los webhooks que no confirma a tiempo: el mismo
+            // mensaje (mismo wamid) no se procesa dos veces.
+            const wamid = m?.id ? String(m.id).slice(0, 120) : null;
+            if (wamid && (await mensajesRepo.findOne({ where: { tenant: tenant.codigo, waMessageId: wamid } }))) {
+              continue;
+            }
+            const texto = this.textoDe(m);
+            await this.procesar(manager, tenant.codigo, from, nombres.get(from) || from, texto, wamid);
+            n++;
           }
-          const texto = this.textoDe(m);
-          await this.procesar(tenant.codigo, from, nombres.get(from) || from, texto, wamid);
-          procesados++;
-        }
+          return n;
+        });
       }
     }
     return { procesados };
@@ -73,25 +80,31 @@ export class WhatsappService {
 
   /** Historial de la conversación de un caso de WhatsApp. */
   async historial(tenant: string, casoId: string): Promise<MensajeChatEntity[]> {
-    await this.casoWhatsapp(tenant, casoId);
-    return this.mensajes.find({ where: { tenant, casoId }, order: { creadoEn: 'ASC' } });
+    return this.rls.conTenant(tenant, async (manager) => {
+      await this.casoWhatsapp(manager, tenant, casoId);
+      return manager.getRepository(MensajeChatEntity).find({ where: { tenant, casoId }, order: { creadoEn: 'ASC' } });
+    });
   }
 
   /** El operador responde: guarda el mensaje y lo envía por WhatsApp (best-effort). */
   async responder(tenant: string, casoId: string, texto: string, operador: string): Promise<MensajeChatEntity> {
-    const caso = await this.casoWhatsapp(tenant, casoId);
     const t = texto?.trim();
     if (!t) throw new BadRequestException('El mensaje no puede estar vacío.');
-    const mensaje = await this.mensajes.save(
-      this.mensajes.create({ tenant, casoId, autorTipo: 'operador', autorNombre: operador, texto: t }),
-    );
-    if (caso.telefono) await this.enviar(tenant, caso.telefono, t);
+    const { mensaje, telefono } = await this.rls.conTenant(tenant, async (manager) => {
+      const caso = await this.casoWhatsapp(manager, tenant, casoId);
+      const repo = manager.getRepository(MensajeChatEntity);
+      const mensaje = await repo.save(
+        repo.create({ tenant, casoId, autorTipo: 'operador', autorNombre: operador, texto: t }),
+      );
+      return { mensaje, telefono: caso.telefono };
+    });
+    if (telefono) await this.enviar(tenant, telefono, t);
     return mensaje;
   }
 
   // ---------------------------------------------------------------------------
-  private async procesar(tenant: string, from: string, nombre: string, texto: string, wamid: string | null = null): Promise<void> {
-    const abierto = await this.casos.findOne({
+  private async procesar(manager: EntityManager, tenant: string, from: string, nombre: string, texto: string, wamid: string | null = null): Promise<void> {
+    const abierto = await manager.getRepository(CasoEntity).findOne({
       where: { tenant, telefono: from, canal: 'whatsapp', estado: Not('cerrado') },
       order: { creadoEn: 'DESC' },
     });
@@ -115,13 +128,14 @@ export class WhatsappService {
       );
       casoId = caso.id;
     }
-    await this.mensajes.save(
-      this.mensajes.create({ tenant, casoId, autorTipo: 'ciudadano', autorNombre: nombre, texto, waMessageId: wamid }),
+    const mensajesRepo = manager.getRepository(MensajeChatEntity);
+    await mensajesRepo.save(
+      mensajesRepo.create({ tenant, casoId, autorTipo: 'ciudadano', autorNombre: nombre, texto, waMessageId: wamid }),
     );
   }
 
-  private async casoWhatsapp(tenant: string, casoId: string): Promise<CasoEntity> {
-    const caso = await this.casos.findOne({ where: { tenant, id: casoId } });
+  private async casoWhatsapp(manager: EntityManager, tenant: string, casoId: string): Promise<CasoEntity> {
+    const caso = await manager.getRepository(CasoEntity).findOne({ where: { tenant, id: casoId } });
     if (!caso) throw new NotFoundException('Caso no encontrado.');
     if (caso.canal !== 'whatsapp') throw new BadRequestException('El caso no es de canal WhatsApp.');
     return caso;

@@ -8,6 +8,7 @@ import { CatalogosService } from '../catalogos/catalogos.service';
 import { DespachoService } from '../despacho/despacho.service';
 import { TenantsService } from '../tenants/tenants.service';
 import { CasosGateway } from './casos.gateway';
+import { TenantRlsService } from '../common/tenant-rls.service';
 
 /**
  * Quién actúa. `permisos` son los VIGENTES (resueltos contra la base por
@@ -42,6 +43,7 @@ export class CasosService implements OnModuleInit {
     private readonly despacho: DespachoService,
     private readonly catalogos: CatalogosService,
     private readonly tenants: TenantsService,
+    private readonly rls: TenantRlsService,
     @Optional()
     @Inject(forwardRef(() => CasosGateway))
     private readonly gateway?: CasosGateway,
@@ -64,40 +66,43 @@ export class CasosService implements OnModuleInit {
     actor: Actor,
     opts?: { limite?: number; abiertos?: boolean; desde?: string; hasta?: string },
   ): Promise<CasoEntity[]> {
-    const limite = Math.min(Math.max(Math.trunc(opts?.limite ?? 200) || 200, 1), 500);
-    const where: FindOptionsWhere<CasoEntity> = { tenant };
-    if (opts?.abiertos) where.estado = Not('cerrado');
-    // Rango por fecha de recepción (aaaa-mm-dd, inclusive en ambos extremos):
-    // 'hasta' se corre al día siguiente para abarcar el día completo.
-    const desde = this.fechaValida(opts?.desde);
-    const hasta = this.fechaValida(opts?.hasta);
-    const finExclusivo = hasta ? new Date(hasta.getTime() + 864e5) : null;
-    if (desde && finExclusivo) where.creadoEn = Between(desde, finExclusivo);
-    else if (desde) where.creadoEn = MoreThanOrEqual(desde);
-    else if (finExclusivo) where.creadoEn = LessThan(finExclusivo);
+    return this.rls.conTenant(tenant, async (manager) => {
+      const repo = manager.getRepository(CasoEntity);
+      const limite = Math.min(Math.max(Math.trunc(opts?.limite ?? 200) || 200, 1), 500);
+      const where: FindOptionsWhere<CasoEntity> = { tenant };
+      if (opts?.abiertos) where.estado = Not('cerrado');
+      // Rango por fecha de recepción (aaaa-mm-dd, inclusive en ambos extremos):
+      // 'hasta' se corre al día siguiente para abarcar el día completo.
+      const desde = this.fechaValida(opts?.desde);
+      const hasta = this.fechaValida(opts?.hasta);
+      const finExclusivo = hasta ? new Date(hasta.getTime() + 864e5) : null;
+      if (desde && finExclusivo) where.creadoEn = Between(desde, finExclusivo);
+      else if (desde) where.creadoEn = MoreThanOrEqual(desde);
+      else if (finExclusivo) where.creadoEn = LessThan(finExclusivo);
 
-    if (actor.rol !== 'superadmin' && !actor.permisos.includes('casos.ver_todos')) {
-      const qb = this.repo.createQueryBuilder('caso')
-        .where('caso.tenant = :tenant', { tenant });
-      if (opts?.abiertos) qb.andWhere('caso.estado != :estado', { estado: 'cerrado' });
-      if (desde && finExclusivo) qb.andWhere('caso.creadoEn >= :desde AND caso.creadoEn < :hasta', { desde, hasta: finExclusivo });
-      else if (desde) qb.andWhere('caso.creadoEn >= :desde', { desde });
-      else if (finExclusivo) qb.andWhere('caso.creadoEn < :hasta', { hasta: finExclusivo });
+      if (actor.rol !== 'superadmin' && !actor.permisos.includes('casos.ver_todos')) {
+        const qb = repo.createQueryBuilder('caso')
+          .where('caso.tenant = :tenant', { tenant });
+        if (opts?.abiertos) qb.andWhere('caso.estado != :estado', { estado: 'cerrado' });
+        if (desde && finExclusivo) qb.andWhere('caso.creadoEn >= :desde AND caso.creadoEn < :hasta', { desde, hasta: finExclusivo });
+        else if (desde) qb.andWhere('caso.creadoEn >= :desde', { desde });
+        else if (finExclusivo) qb.andWhere('caso.creadoEn < :hasta', { hasta: finExclusivo });
 
-      const ids = actor.canales ?? [];
-      qb.andWhere(
-        new Brackets((qbInner) => {
-          qbInner.where('caso.creadoPor = :sub', { sub: actor.sub });
-          ids.forEach((id, idx) => {
-            qbInner.orWhere(`caso.canales LIKE :id${idx}`, { [`id${idx}`]: `%${id}%` });
-          });
-        }),
-      );
-      return qb.orderBy('caso.creadoEn', 'DESC').take(limite).getMany();
-    }
+        const ids = actor.canales ?? [];
+        qb.andWhere(
+          new Brackets((qbInner) => {
+            qbInner.where('caso.creadoPor = :sub', { sub: actor.sub });
+            ids.forEach((id, idx) => {
+              qbInner.orWhere(`caso.canales LIKE :id${idx}`, { [`id${idx}`]: `%${id}%` });
+            });
+          }),
+        );
+        return qb.orderBy('caso.creadoEn', 'DESC').take(limite).getMany();
+      }
 
-    const casos = await this.repo.find({ where, order: { creadoEn: 'DESC' }, take: limite });
-    return casos.filter((c) => this.alcanza(c, actor));
+      const casos = await repo.find({ where, order: { creadoEn: 'DESC' }, take: limite });
+      return casos.filter((c) => this.alcanza(c, actor));
+    });
   }
 
   /** aaaa-mm-dd → Date, o null si viene vacío o malformado. */
@@ -126,16 +131,20 @@ export class CasosService implements OnModuleInit {
    * sus canales se responde como inexistente, para no revelar que existe.
    */
   async obtener(tenant: string, id: string, actor?: Actor): Promise<CasoEntity> {
-    const caso = await this.repo.findOne({ where: { tenant, id } });
-    if (!caso) throw new NotFoundException('Caso no encontrado.');
-    if (actor && !this.alcanza(caso, actor)) throw new NotFoundException('Caso no encontrado.');
-    return caso;
+    return this.rls.conTenant(tenant, async (manager) => {
+      const caso = await manager.getRepository(CasoEntity).findOne({ where: { tenant, id } });
+      if (!caso) throw new NotFoundException('Caso no encontrado.');
+      if (actor && !this.alcanza(caso, actor)) throw new NotFoundException('Caso no encontrado.');
+      return caso;
+    });
   }
 
   /** Línea de tiempo de un caso (valida antes que el caso pertenezca al tenant). */
   async listarAuditoria(tenant: string, casoId: string, actor?: Actor): Promise<EventoCasoEntity[]> {
     await this.obtener(tenant, casoId, actor);
-    return this.eventos.find({ where: { tenant, casoId }, order: { creadoEn: 'ASC' } });
+    return this.rls.conTenant(tenant, (manager) =>
+      manager.getRepository(EventoCasoEntity).find({ where: { tenant, casoId }, order: { creadoEn: 'ASC' } }),
+    );
   }
 
   async crear(tenant: string, dto: CrearCasoDto, usuario: string, agenciaOrigenId?: string | null): Promise<CasoEntity> {
@@ -153,35 +162,39 @@ export class CasosService implements OnModuleInit {
       tenant, dto, tipificacion?.agenciaSugeridaId ?? null,
     );
 
-    const guardado = await this.repo.save(
-      this.repo.create({
-        tenant,
-        canal: dto.canal,
-        titulo,
-        descripcion: dto.descripcion?.trim() ?? '',
-        ciudadano: dto.ciudadano.trim(),
-        telefono: dto.telefono?.trim() || null,
-        direccionLlamante: dto.direccionLlamante?.trim() || null,
-        codigoCaso: tipificacion?.codigo ?? null,
-        prioridad: dto.prioridad ?? tipificacion?.prioridad ?? 'media',
-        ciudad: dto.ciudad?.trim() || null,
-        barrio: dto.barrio?.trim() || null,
-        direccion: dto.direccion?.trim() || null,
-        // `agencia` (texto) se conserva denormalizada: es lo que agrupan las
-        // métricas y lo que traen los casos antiguos y la API entrante.
-        agencia: responsable?.nombre ?? dto.agencia?.trim() ?? 'Central',
-        agenciaOrigenId: agenciaOrigenId ?? null,
-        agenciaResponsableId: responsable?.id ?? null,
-        canales: canales.map((c) => c.id),
-        lat: typeof dto.lat === 'number' ? dto.lat : null,
-        lng: typeof dto.lng === 'number' ? dto.lng : null,
-        entidadId: dto.entidadId ?? null,
-        estado: 'nuevo',
-        creadoPor: usuario,
-      }),
-    );
-    const destino = canales.length ? ` Enviado a ${this.describirDestino(canales, agencias)}.` : '';
-    await this.registrar(tenant, guardado.id, 'creacion', `Caso recepcionado por ${guardado.canal}.${destino}`, usuario);
+    const guardado = await this.rls.conTenant(tenant, async (manager) => {
+      const repo = manager.getRepository(CasoEntity);
+      const caso = await repo.save(
+        repo.create({
+          tenant,
+          canal: dto.canal,
+          titulo,
+          descripcion: dto.descripcion?.trim() ?? '',
+          ciudadano: dto.ciudadano.trim(),
+          telefono: dto.telefono?.trim() || null,
+          direccionLlamante: dto.direccionLlamante?.trim() || null,
+          codigoCaso: tipificacion?.codigo ?? null,
+          prioridad: dto.prioridad ?? tipificacion?.prioridad ?? 'media',
+          ciudad: dto.ciudad?.trim() || null,
+          barrio: dto.barrio?.trim() || null,
+          direccion: dto.direccion?.trim() || null,
+          // `agencia` (texto) se conserva denormalizada: es lo que agrupan las
+          // métricas y lo que traen los casos antiguos y la API entrante.
+          agencia: responsable?.nombre ?? dto.agencia?.trim() ?? 'Central',
+          agenciaOrigenId: agenciaOrigenId ?? null,
+          agenciaResponsableId: responsable?.id ?? null,
+          canales: canales.map((c) => c.id),
+          lat: typeof dto.lat === 'number' ? dto.lat : null,
+          lng: typeof dto.lng === 'number' ? dto.lng : null,
+          entidadId: dto.entidadId ?? null,
+          estado: 'nuevo',
+          creadoPor: usuario,
+        }),
+      );
+      const destino = canales.length ? ` Enviado a ${this.describirDestino(canales, agencias)}.` : '';
+      await this.registrar(tenant, caso.id, 'creacion', `Caso recepcionado por ${caso.canal}.${destino}`, usuario, undefined, undefined, manager);
+      return caso;
+    });
     this.gateway?.emitirNuevo(tenant, guardado);
     return guardado;
   }
@@ -270,12 +283,15 @@ export class CasosService implements OnModuleInit {
       : [...new Set([...previos, ...canales.map((c) => c.id)])];
     caso.agenciaResponsableId = agencia.id;
     caso.agencia = agencia.nombre;
-    const guardado = await this.repo.save(caso);
 
     const destino = this.describirDestino(canales, agencias);
     const modo = dto.exclusivo ? `Trasladado de ${agenciaPrevia} a` : 'Remitido además a';
     const motivo = dto.observacion?.trim() ? ` Motivo: ${dto.observacion.trim()}` : '';
-    await this.registrar(tenant, id, 'derivacion', `${modo} ${destino}.${motivo}`, usuario);
+    const guardado = await this.rls.conTenant(tenant, async (manager) => {
+      const guardado = await manager.getRepository(CasoEntity).save(caso);
+      await this.registrar(tenant, id, 'derivacion', `${modo} ${destino}.${motivo}`, usuario, undefined, undefined, manager);
+      return guardado;
+    });
     this.gateway?.emitirCambio(tenant, guardado);
     return guardado;
   }
@@ -307,7 +323,7 @@ export class CasosService implements OnModuleInit {
     if (!destino) throw new NotFoundException('La instancia destino no existe.');
     this.tenants.asegurarVigente(destino);
 
-    return this.repo.manager.transaction(async (em) => {
+    return this.rls.conTenant(tenant, async (em) => {
       const casos = em.getRepository(CasoEntity);
       const caso = await casos.findOne({ where: { tenant, id }, lock: { mode: 'pessimistic_write' } });
       if (!caso) throw new NotFoundException('Caso no encontrado.');
@@ -316,6 +332,11 @@ export class CasosService implements OnModuleInit {
         throw new BadRequestException(`Este caso ya fue remitido a otra instancia (${caso.remitidoATenant}).`);
       }
 
+      // El nuevo caso vive en el tenant DESTINO: hay que cambiar app.tenant a
+      // mitad de la transacción antes de insertarlo, o RLS lo rechaza (el
+      // WITH CHECK sigue exigiendo tenant = app.tenant, y aquí ya no es el
+      // mismo). Después se vuelve al de origen para guardar el caso propio.
+      await em.query('SELECT set_tenant($1)', [destino.codigo]);
       const nuevo = await casos.save(
         casos.create({
           tenant: destino.codigo,
@@ -342,6 +363,8 @@ export class CasosService implements OnModuleInit {
         }),
       );
 
+      // De vuelta al tenant de origen para actualizar el caso propio.
+      await em.query('SELECT set_tenant($1)', [tenant]);
       const agenciaPrevia = caso.agencia;
       caso.estado = 'derivado';
       caso.agencia = `Remitido a ${destino.nombre}`;
@@ -354,6 +377,8 @@ export class CasosService implements OnModuleInit {
         `Remitido a otra jurisdicción: ${destino.nombre} (${destino.codigo}), antes en ${agenciaPrevia}. Motivo: ${motivo}`,
         actor.sub, undefined, undefined, em,
       );
+      // La bitácora del caso nuevo vive en el tenant DESTINO otra vez.
+      await em.query('SELECT set_tenant($1)', [destino.codigo]);
       await this.registrar(
         destino.codigo, nuevo.id, 'creacion',
         `Caso recibido por remisión desde otra jurisdicción (tenant «${tenant}»). Motivo: ${motivo}`,
@@ -378,9 +403,11 @@ export class CasosService implements OnModuleInit {
     caso.reaperturaMotivo = motivo.trim();
     caso.reaperturaSolicitadaPor = actor.sub;
     caso.reaperturaSolicitadaEn = new Date();
-    const guardado = await this.repo.save(caso);
-    await this.registrar(tenant, id, 'nota', `Solicitud de reapertura: ${motivo.trim()}`, actor.sub);
-    return guardado;
+    return this.rls.conTenant(tenant, async (manager) => {
+      const guardado = await manager.getRepository(CasoEntity).save(caso);
+      await this.registrar(tenant, id, 'nota', `Solicitud de reapertura: ${motivo.trim()}`, actor.sub, undefined, undefined, manager);
+      return guardado;
+    });
   }
 
   /**
@@ -404,12 +431,15 @@ export class CasosService implements OnModuleInit {
     caso.reaperturaMotivo = null;
     caso.reaperturaSolicitadaPor = null;
     caso.reaperturaSolicitadaEn = null;
-    const guardado = await this.repo.save(caso);
-    await this.registrar(
-      tenant, id, 'estado',
-      `Reabierto por ${actor.sub}. Observación: ${motivo.trim()}.${solicitud}`,
-      actor.sub, 'cerrado', estado,
-    );
+    const guardado = await this.rls.conTenant(tenant, async (manager) => {
+      const guardado = await manager.getRepository(CasoEntity).save(caso);
+      await this.registrar(
+        tenant, id, 'estado',
+        `Reabierto por ${actor.sub}. Observación: ${motivo.trim()}.${solicitud}`,
+        actor.sub, 'cerrado', estado, manager,
+      );
+      return guardado;
+    });
     this.gateway?.emitirCambio(tenant, guardado);
     return guardado;
   }
@@ -423,8 +453,11 @@ export class CasosService implements OnModuleInit {
     const caso = await this.obtener(tenant, id, actor);
     if (caso.estado !== 'nuevo') return caso;
     caso.estado = 'en_gestion';
-    const guardado = await this.repo.save(caso);
-    await this.registrar(tenant, id, 'estado', `Tomado por ${actor.sub}.`, actor.sub, 'nuevo', 'en_gestion');
+    const guardado = await this.rls.conTenant(tenant, async (manager) => {
+      const guardado = await manager.getRepository(CasoEntity).save(caso);
+      await this.registrar(tenant, id, 'estado', `Tomado por ${actor.sub}.`, actor.sub, 'nuevo', 'en_gestion', manager);
+      return guardado;
+    });
     this.gateway?.emitirCambio(tenant, guardado);
     return guardado;
   }
@@ -476,30 +509,35 @@ export class CasosService implements OnModuleInit {
     if (dto.estado === 'derivado') caso.agencia = dto.agencia!.trim();
     const corrigioTipificacion = !!tipificacionFinal && tipificacionFinal.codigo !== codigoCasoAnterior;
     if (corrigioTipificacion) caso.codigoCaso = tipificacionFinal!.codigo;
-    const guardado = await this.repo.save(caso);
+
+    const guardado = await this.rls.conTenant(tenant, async (manager) => {
+      const guardado = await manager.getRepository(CasoEntity).save(caso);
+      if (dto.estado === 'derivado' && caso.agencia !== agenciaAnterior) {
+        await this.registrar(
+          tenant, id, 'derivacion',
+          `Derivado de ${agenciaAnterior} a ${caso.agencia}.`, usuario, anterior, dto.estado, manager,
+        );
+      } else {
+        const correccion = corrigioTipificacion
+          ? ` Tipificación corregida a ${tipificacionFinal!.codigo} (${tipificacionFinal!.descripcion}).`
+          : '';
+        await this.registrar(
+          tenant, id, 'estado',
+          dto.estado === 'cerrado'
+            ? `Cerrado como «${cierre!.etiqueta}». ${dto.comentario!.trim()}${correccion}`
+            : `Estado: ${this.label(anterior)} → ${this.label(dto.estado)}.`,
+          usuario, anterior, dto.estado, manager,
+        );
+      }
+      return guardado;
+    });
 
     // Al cerrar, se liberan automáticamente los recursos aún comprometidos.
+    // Aparte: toca `asignaciones`, con su propio conTenant() independiente.
     if (dto.estado === 'cerrado' && anterior !== 'cerrado') {
       await this.despacho.liberarCaso(tenant, id, usuario);
     }
 
-    if (dto.estado === 'derivado' && caso.agencia !== agenciaAnterior) {
-      await this.registrar(
-        tenant, id, 'derivacion',
-        `Derivado de ${agenciaAnterior} a ${caso.agencia}.`, usuario, anterior, dto.estado,
-      );
-    } else {
-      const correccion = corrigioTipificacion
-        ? ` Tipificación corregida a ${tipificacionFinal!.codigo} (${tipificacionFinal!.descripcion}).`
-        : '';
-      await this.registrar(
-        tenant, id, 'estado',
-        dto.estado === 'cerrado'
-          ? `Cerrado como «${cierre!.etiqueta}». ${dto.comentario!.trim()}${correccion}`
-          : `Estado: ${this.label(anterior)} → ${this.label(dto.estado)}.`,
-        usuario, anterior, dto.estado,
-      );
-    }
     this.gateway?.emitirCambio(tenant, guardado);
     return guardado;
   }
@@ -515,11 +553,17 @@ export class CasosService implements OnModuleInit {
     const t = texto?.trim();
     if (!t) throw new BadRequestException('La nota no puede estar vacía.');
     if (t.length > 1000) throw new BadRequestException('La nota supera los 1000 caracteres.');
-    return this.registrar(tenant, casoId, 'nota', t, usuario);
+    return this.rls.conTenant(tenant, (manager) => this.registrar(tenant, casoId, 'nota', t, usuario, undefined, undefined, manager));
   }
 
   // ---------------------------------------------------------------------------
-  /** Con `em` participa en la transacción en curso (p. ej. remisión entre tenants). */
+  /**
+   * `em` es OBLIGATORIO en la práctica: sin él, cae al repositorio inyectado
+   * (conexión por fuera de cualquier transacción con `app.tenant` fijado), y
+   * RLS rechaza el INSERT. Se mantiene opcional en la firma solo por si algún
+   * día casos_eventos deja de tener RLS; hoy TODO llamador real pasa `em`
+   * desde dentro de un `this.rls.conTenant(...)`.
+   */
   private registrar(
     tenant: string, casoId: string, tipo: TipoEvento, descripcion: string,
     autor: string, estadoAnterior?: EstadoCaso, estadoNuevo?: EstadoCaso, em?: EntityManager,
@@ -543,7 +587,7 @@ export class CasosService implements OnModuleInit {
         'Cámbielas inmediatamente desde el módulo de Administración.',
       );
     }
-    const ya = await this.repo.count({ where: { tenant: 'demo' } });
+    const ya = await this.rls.conTenant('demo', (manager) => manager.getRepository(CasoEntity).count({ where: { tenant: 'demo' } }));
     if (ya > 0) return;
 
     const base: Array<Partial<CasoEntity>> = [
@@ -551,12 +595,15 @@ export class CasosService implements OnModuleInit {
       { canal: 'chat', titulo: 'Reporte de semáforo dañado', ciudadano: 'Carlos Ruiz', agencia: 'Tránsito', estado: 'en_gestion' },
       { canal: 'integracion', titulo: 'Alarma activada — comercio', ciudadano: 'Sistema Alarmas', agencia: 'Policía', estado: 'nuevo' },
     ];
-    for (const b of base) {
-      const caso = await this.repo.save(this.repo.create({ ...b, tenant: 'demo', descripcion: '', creadoPor: 'seed' }));
-      await this.registrar('demo', caso.id, 'creacion', `Caso recepcionado por ${caso.canal}.`, 'seed');
-      if (b.estado === 'en_gestion') {
-        await this.registrar('demo', caso.id, 'estado', 'Estado: Nuevo → En gestión.', 'seed', 'nuevo', 'en_gestion');
+    await this.rls.conTenant('demo', async (manager) => {
+      const repo = manager.getRepository(CasoEntity);
+      for (const b of base) {
+        const caso = await repo.save(repo.create({ ...b, tenant: 'demo', descripcion: '', creadoPor: 'seed' }));
+        await this.registrar('demo', caso.id, 'creacion', `Caso recepcionado por ${caso.canal}.`, 'seed', undefined, undefined, manager);
+        if (b.estado === 'en_gestion') {
+          await this.registrar('demo', caso.id, 'estado', 'Estado: Nuevo → En gestión.', 'seed', 'nuevo', 'en_gestion', manager);
+        }
       }
-    }
+    });
   }
 }

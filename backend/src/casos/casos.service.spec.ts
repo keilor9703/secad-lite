@@ -6,6 +6,7 @@ import { EventoCasoEntity } from './evento.entity';
 import { DespachoService } from '../despacho/despacho.service';
 import { CatalogosService } from '../catalogos/catalogos.service';
 import { TenantsService } from '../tenants/tenants.service';
+import { TenantRlsService } from '../common/tenant-rls.service';
 import { BadRequestException, NotFoundException } from '@nestjs/common';
 import { Actor } from './casos.service';
 
@@ -37,6 +38,10 @@ describe('CasosService', () => {
   let service: CasosService;
   let repo: ReturnType<typeof mockRepo>;
   let eventosRepo: ReturnType<typeof mockRepo>;
+  // Capturados por el mock de TenantRlsService.conTenant (ver abajo): se
+  // declaran antes porque los providers se arman antes de tener `repo`/`eventosRepo`.
+  let repoRef: ReturnType<typeof mockRepo>;
+  let eventosRepoRef: ReturnType<typeof mockRepo>;
 
   beforeEach(async () => {
     const module: TestingModule = await Test.createTestingModule({
@@ -57,12 +62,25 @@ describe('CasosService', () => {
           porCodigo: jest.fn(),
           asegurarVigente: jest.fn(),
         }},
+        { provide: TenantRlsService, useValue: {
+          // En producción abre una transacción y fija app.tenant (RLS); en el
+          // test no hay Postgres real, así que solo entrega un EntityManager
+          // de mentiras cuyo getRepository() devuelve el mismo mockRepo que
+          // ya usan las aserciones — el contrato (repo.save fue llamado) no cambia.
+          conTenant: jest.fn((_tenant: string, fn: (m: any) => unknown) => fn({
+            getRepository: (entity: unknown) =>
+              entity === CasoEntity ? repoRef : eventosRepoRef,
+            query: jest.fn(),
+          })),
+        }},
       ],
     }).compile();
 
     service = module.get<CasosService>(CasosService);
     repo = module.get(getRepositoryToken(CasoEntity));
     eventosRepo = module.get(getRepositoryToken(EventoCasoEntity));
+    repoRef = repo;
+    eventosRepoRef = eventosRepo;
     // Evitar que el seed corra en tests
     jest.spyOn(service as any, 'seed').mockResolvedValue(undefined);
   });

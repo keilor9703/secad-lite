@@ -1,9 +1,9 @@
 import { Injectable } from '@nestjs/common';
-import { InjectRepository } from '@nestjs/typeorm';
-import { Repository } from 'typeorm';
+import { EntityManager } from 'typeorm';
 import { CasoEntity } from '../casos/caso.entity';
 import { CANALES, ESTADOS } from '../casos/caso.model';
 import { ESTADOS_LLAMADA, LlamadaEntity } from '../pbx/llamada.entity';
+import { TenantRlsService } from '../common/tenant-rls.service';
 
 /** Tiempos promedio (minutos) desde la recepción, últimos 30 días. */
 export interface TiemposPrioridad {
@@ -60,31 +60,28 @@ export interface AnalisisMapa {
 /** Métricas de gestión, siempre acotadas por tenant (GROUP BY en PostgreSQL). */
 @Injectable()
 export class MetricasService {
-  constructor(
-    @InjectRepository(CasoEntity)
-    private readonly repo: Repository<CasoEntity>,
-    @InjectRepository(LlamadaEntity)
-    private readonly llamadasRepo: Repository<LlamadaEntity>,
-  ) {}
+  constructor(private readonly rls: TenantRlsService) {}
 
   async resumen(tenant: string): Promise<Resumen> {
-    const [total, porEstado, porCanal, porAgencia, tiempos] = await Promise.all([
-      this.repo.count({ where: { tenant } }),
-      this.agrupar(tenant, 'estado'),
-      this.agrupar(tenant, 'canal'),
-      this.agrupar(tenant, 'agencia'),
-      this.tiempos(tenant),
-    ]);
+    return this.rls.conTenant(tenant, async (manager) => {
+      const [total, porEstado, porCanal, porAgencia, tiempos] = await Promise.all([
+        manager.getRepository(CasoEntity).count({ where: { tenant } }),
+        this.agrupar(manager, tenant, 'estado'),
+        this.agrupar(manager, tenant, 'canal'),
+        this.agrupar(manager, tenant, 'agencia'),
+        this.tiempos(manager, tenant),
+      ]);
 
-    return {
-      total,
-      porEstado: this.completar(porEstado, ESTADOS),
-      porCanal: this.completar(porCanal, CANALES),
-      porAgencia: Object.entries(porAgencia)
-        .map(([agencia, t]) => ({ agencia, total: t }))
-        .sort((a, b) => b.total - a.total),
-      tiempos,
-    };
+      return {
+        total,
+        porEstado: this.completar(porEstado, ESTADOS),
+        porCanal: this.completar(porCanal, CANALES),
+        porAgencia: Object.entries(porAgencia)
+          .map(([agencia, t]) => ({ agencia, total: t }))
+          .sort((a, b) => b.total - a.total),
+        tiempos,
+      };
+    });
   }
 
   /**
@@ -93,30 +90,33 @@ export class MetricasService {
    * el mismo período que usan los tiempos de respuesta de casos.
    */
   async llamadas(tenant: string): Promise<ResumenLlamadas> {
-    const [porEstado, prom] = await Promise.all([
-      this.llamadasRepo
-        .createQueryBuilder('l')
-        .select('l.estado', 'clave')
-        .addSelect('COUNT(*)', 'total')
-        .where('l.tenant = :tenant', { tenant })
-        .andWhere('l."creadoEn" >= NOW() - INTERVAL \'30 days\'')
-        .groupBy('l.estado')
-        .getRawMany<{ clave: string; total: string }>(),
-      this.llamadasRepo.query(
-        `SELECT AVG(EXTRACT(EPOCH FROM ("atendidaEn" - "creadoEn")) / 60) AS prom
-           FROM llamadas
-          WHERE tenant = $1 AND "atendidaEn" IS NOT NULL AND "creadoEn" >= NOW() - INTERVAL '30 days'`,
-        [tenant],
-      ),
-    ]);
-    const porEstadoMap = Object.fromEntries(porEstado.map((f) => [f.clave, Number(f.total)]));
-    const total = Object.values(porEstadoMap).reduce((a, b) => a + b, 0);
-    const promedio = prom[0]?.['prom'];
-    return {
-      total,
-      porEstado: this.completar(porEstadoMap, ESTADOS_LLAMADA),
-      tiempoRespuestaProm: promedio === null || promedio === undefined ? null : Math.round(Number(promedio) * 10) / 10,
-    };
+    return this.rls.conTenant(tenant, async (manager) => {
+      const [porEstado, prom] = await Promise.all([
+        manager
+          .getRepository(LlamadaEntity)
+          .createQueryBuilder('l')
+          .select('l.estado', 'clave')
+          .addSelect('COUNT(*)', 'total')
+          .where('l.tenant = :tenant', { tenant })
+          .andWhere('l."creadoEn" >= NOW() - INTERVAL \'30 days\'')
+          .groupBy('l.estado')
+          .getRawMany<{ clave: string; total: string }>(),
+        manager.query(
+          `SELECT AVG(EXTRACT(EPOCH FROM ("atendidaEn" - "creadoEn")) / 60) AS prom
+             FROM llamadas
+            WHERE tenant = $1 AND "atendidaEn" IS NOT NULL AND "creadoEn" >= NOW() - INTERVAL '30 days'`,
+          [tenant],
+        ),
+      ]);
+      const porEstadoMap = Object.fromEntries(porEstado.map((f) => [f.clave, Number(f.total)]));
+      const total = Object.values(porEstadoMap).reduce((a, b) => a + b, 0);
+      const promedio = prom[0]?.['prom'];
+      return {
+        total,
+        porEstado: this.completar(porEstadoMap, ESTADOS_LLAMADA),
+        tiempoRespuestaProm: promedio === null || promedio === undefined ? null : Math.round(Number(promedio) * 10) / 10,
+      };
+    });
   }
 
   /**
@@ -126,8 +126,8 @@ export class MetricasService {
    * real de un 123 — los conteos dicen cuánto entró; esto dice qué tan
    * rápido se atendió.
    */
-  private async tiempos(tenant: string): Promise<Resumen['tiempos']> {
-    const filas = await this.repo.query(
+  private async tiempos(manager: EntityManager, tenant: string): Promise<Resumen['tiempos']> {
+    const filas = await manager.query(
       `
       SELECT c.prioridad,
              COUNT(*)::int AS total,
@@ -160,7 +160,7 @@ export class MetricasService {
 
     // El global sale de la MISMA consulta sin agrupar: los promedios ignoran
     // los casos sin ese hito (AVG omite nulos), que es lo correcto.
-    const [g] = await this.repo.query(
+    const [g] = await manager.query(
       `
       SELECT COUNT(*)::int AS total,
              AVG(EXTRACT(EPOCH FROM (t.momento - c."creadoEn")) / 60) AS toma_min,
@@ -200,8 +200,8 @@ export class MetricasService {
     if (codigo) { params.push(codigo); cond.push(`c."codigoCaso" = $${params.length}`); }
     const where = cond.join(' AND ');
 
-    const [puntos, porDia, porHora, topCodigos, sinUbicacion] = await Promise.all([
-      this.repo.query(
+    const [puntos, porDia, porHora, topCodigos, sinUbicacion] = await this.rls.conTenant(tenant, (manager) => Promise.all([
+      manager.query(
         `SELECT c.id, c.lat, c.lng, c."codigoCaso" AS "codigoCaso", c.prioridad, c.titulo, c."creadoEn" AS "creadoEn"
            FROM casos c WHERE ${where} AND c.lat IS NOT NULL AND c.lng IS NOT NULL
           ORDER BY c."creadoEn" DESC LIMIT 5000`,
@@ -210,17 +210,17 @@ export class MetricasService {
       // Hora local de Colombia (UTC-5, sin horario de verano): "creadoEn" se
       // guarda en UTC, así que extraer DOW/HOUR directo daría el día/hora de
       // Greenwich, no el de cuando realmente ocurrió el caso.
-      this.repo.query(
+      manager.query(
         `SELECT EXTRACT(DOW FROM (c."creadoEn" AT TIME ZONE 'America/Bogota'))::int AS dia, COUNT(*)::int AS total
            FROM casos c WHERE ${where} GROUP BY dia`,
         params,
       ),
-      this.repo.query(
+      manager.query(
         `SELECT EXTRACT(HOUR FROM (c."creadoEn" AT TIME ZONE 'America/Bogota'))::int AS hora, COUNT(*)::int AS total
            FROM casos c WHERE ${where} GROUP BY hora`,
         params,
       ),
-      this.repo.query(
+      manager.query(
         `SELECT c."codigoCaso" AS codigo, k.descripcion, COUNT(*)::int AS total
            FROM casos c LEFT JOIN codigos_caso k ON k.tenant = c.tenant AND k.codigo = c."codigoCaso"
           WHERE ${where} AND c."codigoCaso" IS NOT NULL
@@ -228,11 +228,11 @@ export class MetricasService {
           ORDER BY total DESC LIMIT 5`,
         params,
       ),
-      this.repo.query(
+      manager.query(
         `SELECT COUNT(*)::int AS total FROM casos c WHERE ${where} AND (c.lat IS NULL OR c.lng IS NULL)`,
         params,
       ),
-    ]);
+    ]));
 
     const diasPorNumero = new Map<number, number>(porDia.map((f: Record<string, unknown>) => [Number(f['dia']), Number(f['total'])]));
     const horasPorNumero = new Map<number, number>(porHora.map((f: Record<string, unknown>) => [Number(f['hora']), Number(f['total'])]));
@@ -266,8 +266,9 @@ export class MetricasService {
     return isNaN(d.getTime()) ? null : d;
   }
 
-  private async agrupar(tenant: string, campo: 'estado' | 'canal' | 'agencia'): Promise<Record<string, number>> {
-    const filas = await this.repo
+  private async agrupar(manager: EntityManager, tenant: string, campo: 'estado' | 'canal' | 'agencia'): Promise<Record<string, number>> {
+    const filas = await manager
+      .getRepository(CasoEntity)
       .createQueryBuilder('c')
       .select(`c.${campo}`, 'clave')
       .addSelect('COUNT(*)', 'total')
@@ -288,26 +289,26 @@ export class MetricasService {
     tenant: string,
     opts?: { desde?: string; hasta?: string; estado?: string }
   ): Promise<string> {
-    const qb = this.repo.createQueryBuilder('caso')
-      .where('caso.tenant = :tenant', { tenant });
-
-    if (opts?.estado) {
-      qb.andWhere('caso.estado = :estado', { estado: opts.estado });
-    }
-
     const desde = this.fechaValida(opts?.desde);
     const hasta = this.fechaValida(opts?.hasta);
     const finExclusivo = hasta ? new Date(hasta.getTime() + 864e5) : null;
 
-    if (desde && finExclusivo) {
-      qb.andWhere('caso.creadoEn >= :desde AND caso.creadoEn < :hasta', { desde, hasta: finExclusivo });
-    } else if (desde) {
-      qb.andWhere('caso.creadoEn >= :desde', { desde });
-    } else if (finExclusivo) {
-      qb.andWhere('caso.creadoEn < :hasta', { hasta: finExclusivo });
-    }
+    const casos = await this.rls.conTenant(tenant, (manager) => {
+      const qb = manager.getRepository(CasoEntity).createQueryBuilder('caso')
+        .where('caso.tenant = :tenant', { tenant });
 
-    const casos = await qb.orderBy('caso.creadoEn', 'DESC').getMany();
+      if (opts?.estado) {
+        qb.andWhere('caso.estado = :estado', { estado: opts.estado });
+      }
+      if (desde && finExclusivo) {
+        qb.andWhere('caso.creadoEn >= :desde AND caso.creadoEn < :hasta', { desde, hasta: finExclusivo });
+      } else if (desde) {
+        qb.andWhere('caso.creadoEn >= :desde', { desde });
+      } else if (finExclusivo) {
+        qb.andWhere('caso.creadoEn < :hasta', { hasta: finExclusivo });
+      }
+      return qb.orderBy('caso.creadoEn', 'DESC').getMany();
+    });
 
     const cols = ['id', 'creadoEn', 'canal', 'titulo', 'ciudadano', 'telefono', 'agencia', 'estado', 'prioridad', 'codigoCaso', 'direccion', 'creadoPor'];
     let csv = cols.join(',') + '\n';

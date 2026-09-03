@@ -8,6 +8,7 @@ import { CasoEntity } from '../casos/caso.entity';
 import { CasosService } from '../casos/casos.service';
 import { TenantsService } from '../tenants/tenants.service';
 import { CatalogosService } from '../catalogos/catalogos.service';
+import { TenantRlsService } from '../common/tenant-rls.service';
 
 /** Payload que una entidad externa envía para radicar un caso. */
 export interface RadicarCasoDto {
@@ -49,10 +50,10 @@ export type EntidadDto = Omit<EntidadEntity, 'apiKey'> & { apiKey?: string };
 export class IntegracionService implements OnModuleInit {
   constructor(
     @InjectRepository(EntidadEntity) private readonly entidades: Repository<EntidadEntity>,
-    @InjectRepository(CasoEntity) private readonly casos: Repository<CasoEntity>,
     private readonly casosSvc: CasosService,
     private readonly tenants: TenantsService,
     private readonly catalogos: CatalogosService,
+    private readonly rls: TenantRlsService,
   ) {}
 
   /** Backfill: las claves guardadas en claro (ek_…) pasan a digest. */
@@ -101,7 +102,11 @@ export class IntegracionService implements OnModuleInit {
   /** Estado de un caso radicado por la MISMA entidad (seguimiento). */
   async consultar(apiKey: string, casoId: string) {
     const entidad = await this.porApiKey(apiKey);
-    const caso = await this.casos.findOne({ where: { tenant: entidad.tenant, id: casoId, entidadId: entidad.id } });
+    // Público, sin sesión: el tenant recién se supo por la API key, así que
+    // app.tenant (RLS) se fija dentro de esta transacción.
+    const caso = await this.rls.conTenant(entidad.tenant, (manager) =>
+      manager.getRepository(CasoEntity).findOne({ where: { tenant: entidad.tenant, id: casoId, entidadId: entidad.id } }),
+    );
     if (!caso) throw new NotFoundException('Caso no encontrado para esta entidad.');
     return {
       casoId: caso.id, estado: caso.estado, titulo: caso.titulo,

@@ -5,6 +5,7 @@ import { AsignacionEntity, EstadoAsignacion, ESTADOS_ASIGNACION, ESTADOS_ASIGNAC
 import { RecursoEntity } from './recurso.entity';
 import { CasoEntity } from '../casos/caso.entity';
 import { EventoCasoEntity } from '../casos/evento.entity';
+import { TenantRlsService } from '../common/tenant-rls.service';
 
 /** Ciclo de vida del despacho de un recurso. */
 const SIGUIENTES: Record<EstadoAsignacion, EstadoAsignacion[]> = {
@@ -29,10 +30,13 @@ export class DespachoService {
   constructor(
     @InjectRepository(AsignacionEntity) private readonly asignaciones: Repository<AsignacionEntity>,
     @InjectRepository(EventoCasoEntity) private readonly eventos: Repository<EventoCasoEntity>,
+    private readonly rls: TenantRlsService,
   ) {}
 
   listar(tenant: string, casoId: string): Promise<AsignacionEntity[]> {
-    return this.asignaciones.find({ where: { tenant, casoId }, order: { creadoEn: 'ASC' } });
+    return this.rls.conTenant(tenant, (manager) =>
+      manager.getRepository(AsignacionEntity).find({ where: { tenant, casoId }, order: { creadoEn: 'ASC' } }),
+    );
   }
 
   /**
@@ -45,7 +49,7 @@ export class DespachoService {
    * no queda ni la asignación sin recurso ni el recurso sin asignación.
    */
   async asignar(tenant: string, casoId: string, recursoId: string, autor: string): Promise<AsignacionEntity> {
-    return this.asignaciones.manager.transaction(async (em) => {
+    return this.rls.conTenant(tenant, async (em) => {
       const caso = await em.findOne(CasoEntity, { where: { tenant, id: casoId } });
       if (!caso) throw new NotFoundException('Caso no encontrado.');
       if (caso.estado === 'cerrado') throw new BadRequestException('El caso está cerrado.');
@@ -88,7 +92,7 @@ export class DespachoService {
    */
   async cambiarEstado(tenant: string, asignacionId: string, estado: EstadoAsignacion, autor: string, motivo?: string): Promise<AsignacionEntity> {
     if (!ESTADOS_ASIGNACION.includes(estado)) throw new BadRequestException('Estado de asignación inválido.');
-    return this.asignaciones.manager.transaction(async (em) => {
+    return this.rls.conTenant(tenant, async (em) => {
       const a = await em.findOne(AsignacionEntity, {
         where: { tenant, id: asignacionId },
         lock: { mode: 'pessimistic_write' },
@@ -150,7 +154,7 @@ export class DespachoService {
    * cerrar el caso, dejando traza por cada recurso liberado.
    */
   async liberarCaso(tenant: string, casoId: string, autor: string): Promise<void> {
-    await this.asignaciones.manager.transaction(async (em) => {
+    await this.rls.conTenant(tenant, async (em) => {
       const todas = await em.find(AsignacionEntity, { where: { tenant, casoId } });
       for (const a of todas.filter((x) => ESTADOS_ASIGNACION_ACTIVOS.includes(x.estado))) {
         a.estado = 'finalizada';

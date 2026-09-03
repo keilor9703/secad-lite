@@ -1,9 +1,8 @@
 import { Injectable } from '@nestjs/common';
-import { InjectRepository } from '@nestjs/typeorm';
-import { Repository } from 'typeorm';
 import { AutorTipo, MensajeChatEntity } from './mensaje.entity';
 import { CasosService } from '../casos/casos.service';
 import { CasoEntity } from '../casos/caso.entity';
+import { TenantRlsService } from '../common/tenant-rls.service';
 
 /**
  * Lógica del chat: crea el caso al iniciar una conversación, persiste cada
@@ -12,9 +11,8 @@ import { CasoEntity } from '../casos/caso.entity';
 @Injectable()
 export class ChatService {
   constructor(
-    @InjectRepository(MensajeChatEntity)
-    private readonly mensajes: Repository<MensajeChatEntity>,
     private readonly casos: CasosService,
+    private readonly rls: TenantRlsService,
   ) {}
 
   /** Inicia un chat: crea el caso (canal chat) y guarda el primer mensaje. */
@@ -30,11 +28,16 @@ export class ChatService {
   }
 
   guardar(tenant: string, casoId: string, autorTipo: AutorTipo, autorNombre: string, texto: string): Promise<MensajeChatEntity> {
-    return this.mensajes.save(this.mensajes.create({ tenant, casoId, autorTipo, autorNombre, texto: texto.trim() }));
+    return this.rls.conTenant(tenant, (manager) => {
+      const repo = manager.getRepository(MensajeChatEntity);
+      return repo.save(repo.create({ tenant, casoId, autorTipo, autorNombre, texto: texto.trim() }));
+    });
   }
 
   historial(tenant: string, casoId: string): Promise<MensajeChatEntity[]> {
-    return this.mensajes.find({ where: { tenant, casoId }, order: { creadoEn: 'ASC' } });
+    return this.rls.conTenant(tenant, (manager) =>
+      manager.getRepository(MensajeChatEntity).find({ where: { tenant, casoId }, order: { creadoEn: 'ASC' } }),
+    );
   }
 
   /**
