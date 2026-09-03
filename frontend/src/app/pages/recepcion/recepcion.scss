@@ -1,15 +1,32 @@
 .rec { display: flex; flex-direction: column; gap: 1.1rem; }
 
 .rec-head { display: flex; align-items: flex-end; justify-content: space-between; gap: 1rem; }
-.rec-head h1 { margin: 0; font-size: 1.5rem; letter-spacing: -0.02em; }
-.rec-head p { margin: 0.2rem 0 0; color: var(--muted); font-size: 0.85rem; }
+.rec-head h1 { 
+  margin: 0; 
+  font-size: 1.7rem; 
+  letter-spacing: -0.02em; 
+  font-weight: 800;
+  border-left: 3px solid var(--accent); 
+  padding-left: 0.75rem; 
+}
+.rec-head p { margin: 0.2rem 0 0; color: var(--muted); font-size: 0.9rem; }
 
+/* 4. KPIs */
 .kpis { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 0.8rem; }
 .kpi {
   background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius);
-  padding: 0.8rem 1rem; display: flex; flex-direction: column;
+  padding: 0.7rem 0.9rem; display: flex; flex-direction: column;
 }
-.kpi .n { font-size: 1.6rem; font-weight: 700; color: var(--accent); font-variant-numeric: tabular-nums; }
+.kpi:nth-child(2) { border-left: 3px solid var(--accent); }
+.kpi .n { 
+  font-size: 2rem; 
+  font-weight: 800; 
+  color: var(--accent); 
+  font-variant-numeric: tabular-nums; 
+  border-bottom: 1px solid var(--border-2);
+  padding-bottom: 0.4rem;
+  margin-bottom: 0.4rem;
+}
 .kpi .l { font-size: 0.78rem; color: var(--muted); text-transform: uppercase; letter-spacing: 0.05em; }
 
 .error { color: var(--danger); font-size: 0.87rem; margin: 0; }
@@ -17,17 +34,27 @@
 .mono { font-family: var(--mono); color: var(--ink-soft); }
 
 /* --- Formulario de recepción (estilo CAD) --------------------------------- */
-.form-panel { padding: 1.3rem 1.5rem; display: flex; flex-direction: column; gap: 0.9rem; }
+.form-panel { padding: 1.5rem 1.8rem; display: flex; flex-direction: column; gap: 0.9rem; }
 .fp-head { display: flex; align-items: baseline; justify-content: space-between; gap: 1rem; flex-wrap: wrap; }
-.fp-meta { font-size: 0.8rem; color: var(--muted); font-family: var(--mono); }
+.fp-head h2 { font-size: 1.2rem; font-weight: 700; margin: 0; }
+.fp-meta { font-size: 0.78rem; font-family: var(--mono); background: var(--surface-2); border-radius: var(--radius-sm); padding: 0.2rem 0.6rem; color: var(--muted); }
 
+/* 7. Fieldsets */
 .form-panel fieldset {
-  border: 1px solid var(--border); border-radius: var(--radius-sm);
-  padding: 0.9rem 1rem 1rem; margin: 0.9rem 0 0;
+  border: none;
+  border-top: 2px solid var(--border);
+  border-radius: 0;
+  padding: 1.1rem 0 0;
+  margin: 1rem 0 0;
+  position: relative;
 }
 .form-panel legend {
-  padding: 0 0.4rem; font-size: 0.78rem; font-weight: 700;
-  text-transform: uppercase; letter-spacing: 0.06em; color: var(--accent);
+  position: absolute; top: -0.65rem; left: 0;
+  padding: 0 0.5rem 0 0;
+  background: var(--surface);
+  font-size: 0.72rem; font-weight: 800;
+  text-transform: uppercase; letter-spacing: 0.08em;
+  color: var(--accent);
 }
 .form-panel .grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 0.7rem; }
 .form-panel .grid .span2 { grid-column: 1 / -1; }
@@ -37,99 +64,205 @@
 .con-boton input { flex: 1; }
 .con-boton .btn { white-space: nowrap; }
 
-/* Dos columnas: origen/tipificación y ubicación+mapa, sin scroll. */
+/* 14. Responsivo */
 .form-cols { display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; align-items: start; }
 .form-col fieldset:first-child { margin-top: 0; }
-@media (max-width: 1100px) { .form-cols { grid-template-columns: 1fr; } }
+@media (max-width: 1279px) { .form-cols { grid-template-columns: 1fr 1fr; } } /* Tablet 2 cols */
+@media (max-width: 767px) { .form-cols { grid-template-columns: 1fr; } } /* Mobile 1 col */
 
+/* 8. Selector de prioridad */
 .prioridad-chips { display: flex; gap: 0.4rem; }
 .chip-prio {
-  flex: 1; display: flex; flex-direction: column; align-items: center; gap: 0.15rem;
-  border: 1px solid var(--border-2); border-radius: var(--radius-sm); background: var(--surface);
-  padding: 0.35rem 0.3rem; font: inherit; font-size: 0.76rem; color: var(--ink-soft); cursor: pointer;
+  flex: 1;
+  display: flex; flex-direction: column; align-items: center; gap: 0.2rem;
+  border: 2px solid var(--border-2);
+  border-radius: var(--radius-sm);
+  background: var(--surface-2);
+  padding: 0.5rem 0.4rem;
+  font: inherit; font-size: 0.8rem;
+  color: var(--ink-soft); cursor: pointer;
+  transition: all 0.15s ease;
 }
-.chip-prio .ico { font-size: 1.1rem; line-height: 1; }
-.chip-prio[data-prio="alta"].on  { border-color: var(--tag-danger-fg); background: var(--tag-danger-bg); color: var(--tag-danger-fg); }
-.chip-prio[data-prio="media"].on { border-color: var(--tag-warn-fg);   background: var(--tag-warn-bg);   color: var(--tag-warn-fg); }
-.chip-prio[data-prio="baja"].on  { border-color: var(--tag-ok-fg);     background: var(--tag-ok-bg);     color: var(--tag-ok-fg); }
+.chip-prio:hover { border-color: var(--border); background: var(--surface); transform: translateY(-1px); }
+.chip-prio .ico { font-size: 1.3rem; line-height: 1; }
+.chip-prio[data-prio="alta"].on {
+  border-color: var(--tag-danger-fg);
+  background: var(--tag-danger-bg);
+  color: var(--tag-danger-fg);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--tag-danger-fg) 15%, transparent);
+}
+.chip-prio[data-prio="media"].on {
+  border-color: var(--tag-warn-fg);
+  background: var(--tag-warn-bg);
+  color: var(--tag-warn-fg);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--tag-warn-fg) 15%, transparent);
+}
+.chip-prio[data-prio="baja"].on {
+  border-color: var(--tag-ok-fg);
+  background: var(--tag-ok-bg);
+  color: var(--tag-ok-fg);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--tag-ok-fg) 15%, transparent);
+}
 
-.mapa-hint { margin: 0.8rem 0 0.4rem; font-size: 0.8rem; color: var(--muted); }
-.mapa { height: clamp(160px, 22vh, 260px); border-radius: var(--radius-sm); border: 1px solid var(--border-2); overflow: hidden; }
-/* El marcador se dibuja en HTML para no depender de los PNG de Leaflet. */
+/* 9. Mapa */
+.mapa-hint { font-size: 0.8rem; color: var(--muted); padding: 0.4rem 0.5rem; background: var(--surface-2); border-radius: var(--radius-sm); margin: 0.6rem 0 0.4rem; }
+.mapa { height: clamp(200px, 28vh, 320px); border-radius: var(--radius-sm); border: 1px solid var(--border-2); overflow: hidden; box-shadow: inset 0 0 0 1px var(--border-2); }
+@media (max-width: 767px) { .mapa { height: 180px; } }
 :host ::ng-deep .pin-caso { font-size: 1.5rem; line-height: 1; text-align: center; }
-/* Las teselas y controles del mapa se atenúan en modo oscuro. */
 :host ::ng-deep .leaflet-control-attribution { font-size: 0.65rem; }
 
-.destinos { display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
-            gap: 0.6rem; margin-top: 0.6rem; }
-.destino { border: 1px solid var(--border); border-radius: var(--radius-sm); padding: 0.55rem 0.7rem; }
-.destino.marcada { border-color: var(--accent); background: var(--accent-soft); }
-.destino.sugerida { box-shadow: inset 3px 0 0 var(--accent); }
+/* 10. Panel de Atención / Destinos */
+.destinos { display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 0.6rem; margin-top: 0.6rem; }
+.destino { 
+  border: 1px solid var(--border); border-radius: var(--radius-sm); padding: 0.55rem 0.7rem; 
+  transition: all 0.2s ease;
+}
+.destino:hover { border-color: var(--border-2); box-shadow: var(--shadow); }
+.destino.marcada {
+  border-color: var(--accent);
+  border-left: 3px solid var(--accent);
+  background: var(--accent-soft);
+}
 .destino-head { display: flex; align-items: center; gap: 0.5rem; flex-wrap: wrap; margin-bottom: 0.45rem; }
 .destino-head strong { font-size: 0.9rem; }
 .destino-head .btn { order: 3; margin-left: auto; }
-.cuenta { font-size: 0.7rem; font-weight: 700; background: var(--accent); color: var(--on-accent, #fff);
-          border-radius: 999px; padding: 0.05rem 0.4rem; }
-.sug { font-size: 0.68rem; color: var(--accent); text-transform: uppercase; letter-spacing: 0.04em; }
+.cuenta { font-size: 0.7rem; font-weight: 700; background: var(--accent); color: var(--on-accent, #fff); border-radius: 999px; padding: 0.05rem 0.4rem; }
+
+.sug {
+  font-size: 0.68rem;
+  background: var(--tag-teal-bg);
+  color: var(--tag-teal-fg);
+  border-radius: 999px;
+  padding: 0.1rem 0.5rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
 .destino-canales { display: flex; flex-wrap: wrap; gap: 0.35rem; }
 
-.resumen-destino { display: flex; align-items: baseline; gap: 0.5rem; flex-wrap: wrap;
-                   margin-top: 0.7rem; padding: 0.5rem 0.7rem; border-radius: var(--radius-sm);
-                   background: var(--surface-2); }
-.resumen-lbl { font-size: 0.72rem; text-transform: uppercase; letter-spacing: 0.05em; color: var(--muted); }
-.resumen-txt { font-size: 0.9rem; font-weight: 600; }
+/* 12. Resumen destino */
+.resumen-destino {
+  margin-top: 0.8rem;
+  padding: 0.6rem 0.9rem;
+  background: var(--accent-soft);
+  border: 1px solid var(--accent);
+  border-radius: var(--radius-sm);
+  display: flex; align-items: center; gap: 0.6rem;
+}
+.resumen-lbl { font-size: 0.72rem; text-transform: uppercase; letter-spacing: 0.05em; color: var(--accent); font-weight: 700; }
+.resumen-txt { font-size: 0.92rem; font-weight: 600; color: var(--ink); }
+
 .ayuda { font-size: 0.75rem; color: var(--muted); }
+
+/* 13. Chips de canal en destinos */
 .chip {
-  display: inline-flex; align-items: center; gap: 0.35rem; font-size: 0.82rem; cursor: pointer;
-  border: 1px solid var(--border-2); border-radius: 999px; padding: 0.2rem 0.6rem;
+  display: inline-flex; align-items: center; gap: 0.35rem;
+  font-size: 0.8rem; cursor: pointer;
+  border: 1.5px solid var(--border-2);
+  border-radius: 999px; padding: 0.2rem 0.7rem;
+  transition: all 0.15s;
+  user-select: none;
+}
+.chip:hover { border-color: var(--accent); background: var(--accent-soft); }
+.chip:has(input:checked) {
+  border-color: var(--accent);
+  background: var(--accent-soft);
+  color: var(--accent-deep);
+  font-weight: 600;
 }
 .chip input { width: auto; }
 .vacio-inline { color: var(--muted); font-size: 0.82rem; }
 
-.acciones { display: flex; justify-content: flex-end; gap: 0.6rem; margin-top: 1rem; }
+/* 11. Botón de enviar */
+.acciones {
+  display: flex; justify-content: flex-end; gap: 0.6rem;
+  margin-top: 1.2rem;
+  padding-top: 1rem;
+  border-top: 1px solid var(--border);
+}
+.acciones .btn--primary {
+  padding: 0.7rem 2rem;
+  font-size: 1rem;
+  letter-spacing: 0.02em;
+}
 
 .alcance { margin: 0; font-size: 0.82rem; color: var(--muted); }
 
-/* La cola de llamadas y el formulario son una sola mesa de trabajo. */
-.entrantes { padding: 0.8rem 1rem; }
-.entrantes h2 { margin: 0 0 0.5rem; font-size: 1rem; display: flex; align-items: center; }
-.entrantes .n { font-family: var(--mono); font-size: 0.8rem; background: var(--tag-danger-bg);
-                color: var(--tag-danger-fg); border-radius: 999px; padding: 0.05rem 0.5rem; margin-left: 0.3rem; }
+/* 3. Panel "Llamadas en espera" */
+.entrantes { padding: 1rem 1.2rem; }
+.entrantes h2 { margin: 0 0 0.5rem; font-size: 1.05rem; font-weight: 700; display: flex; align-items: center; }
+
+@keyframes pulse-danger {
+  0% { transform: scale(1); }
+  50% { transform: scale(1.08); }
+  100% { transform: scale(1); }
+}
+
+.entrantes .n { 
+  font-family: var(--mono); 
+  background: var(--tag-danger-bg); 
+  color: var(--tag-danger-fg); 
+  border-radius: 999px; 
+  padding: 0.1rem 0.6rem; 
+  font-weight: 700; 
+  font-size: 0.82rem; 
+  margin-left: 0.4rem; 
+  animation: pulse-danger 1.5s infinite;
+}
 .entrantes .timbre { margin-left: auto; font-size: 1.05rem; padding: 0.3rem 0.5rem; }
-.llam { display: flex; align-items: center; justify-content: space-between; gap: 0.6rem;
-        padding: 0.4rem 0; border-bottom: 1px solid var(--border); }
+
+.llam { 
+  display: flex; align-items: center; justify-content: space-between; gap: 0.5rem;
+  padding: 0.55rem 0; border-bottom: 1px solid var(--border); 
+}
 .llam:last-child { border-bottom: none; }
-.llam .num { font-size: 1rem; font-weight: 600; }
+.llam .num { font-size: 1.1rem; font-weight: 700; letter-spacing: 0.02em; }
 .llam .para { font-size: 0.72rem; color: var(--muted); font-style: italic; }
 .acciones-llam { display: flex; gap: 0.4rem; margin-left: auto; }
-.en-form { font-size: 0.72rem; font-weight: 600; color: var(--tag-ok-fg, var(--brand));
-           background: var(--tag-ok-bg, transparent); border-radius: 999px; padding: 0.15rem 0.6rem; }
+.acciones-llam .btn--primary { padding: 0.25rem 0.6rem; font-size: 0.8rem; transform: scale(1); transition: transform 0.1s; }
+.acciones-llam .btn--primary:active { transform: scale(0.96); }
+
+.en-form { font-size: 0.72rem; font-weight: 600; color: var(--tag-ok-fg, var(--brand)); background: var(--tag-ok-bg, transparent); border-radius: 999px; padding: 0.15rem 0.6rem; }
 .sin-llamadas { margin: 0; font-size: 0.84rem; color: var(--muted); }
+
+/* 5. Últimas recepciones (.mias) */
 .mias { padding: 0.8rem 1rem; display: flex; flex-direction: column; gap: 0.3rem; }
 .mias h2 { margin: 0 0 0.3rem; font-size: 1rem; }
-.mia { display: flex; gap: 0.6rem; align-items: baseline; text-decoration: none; color: inherit;
-       font-size: 0.86rem; padding: 0.2rem 0; }
+.mia { 
+  display: flex; gap: 0.6rem; align-items: baseline; text-decoration: none; color: inherit;
+  font-size: 0.86rem; padding: 0.3rem 0.4rem; border-radius: var(--radius-sm);
+  transition: background 0.15s;
+}
+.mia:hover { background: var(--surface-2); }
 .mia:hover .mtitulo { text-decoration: underline; }
-.mia .hora { font-size: 0.76rem; color: var(--muted); }
+.mia .hora { 
+  background: var(--surface-2); 
+  padding: 0.1rem 0.4rem; 
+  border-radius: var(--radius-sm); 
+  font-size: 0.76rem; 
+  color: var(--muted); 
+}
 .mia .mtitulo { flex: 1; }
-.mia .magencia { font-size: 0.78rem; color: var(--muted); }
+.mia .magencia { font-size: 0.78rem; color: var(--accent); }
 .ver-todo { font-size: 0.8rem; color: var(--accent); text-decoration: none; margin-top: 0.3rem; }
 
-/* .rec-side apila con flexbox: su alto depende solo de su propio contenido. */
+/* 1. Layout general */
 .rec-body { display: flex; flex-direction: column; gap: 1.1rem; }
 .rec-side { display: flex; flex-direction: column; gap: 1.1rem; }
 
-/* Pantalla ancha: cola de llamadas a la izquierda, formulario a la derecha. */
+/* Pantalla ancha */
 @media (min-width: 1280px) {
   .rec-body {
-    display: grid; grid-template-columns: minmax(260px, 22%) 1fr; gap: 1rem; align-items: start;
+    display: grid; 
+    grid-template-columns: 300px 1fr; 
+    gap: 1rem; align-items: start;
   }
 }
 
-/* Asistente de tipificación: el catálogo sugiere, el operador decide. */
+/* Asistente de tipificación */
 .sugerencias { display: flex; align-items: center; flex-wrap: wrap; gap: 0.4rem; margin-top: 0.45rem; }
-.sug-lbl { font-size: 0.74rem; font-weight: 700; color: var(--accent);
-           text-transform: uppercase; letter-spacing: 0.05em; }
+.sug-lbl { font-size: 0.74rem; font-weight: 700; color: var(--accent); text-transform: uppercase; letter-spacing: 0.05em; }
 .sug-chip {
   font: inherit; font-size: 0.8rem; cursor: pointer;
   border: 1px dashed var(--accent); border-radius: 999px;

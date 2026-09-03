@@ -131,6 +131,44 @@ input:focus, select:focus, textarea:focus {
   box-shadow: var(--shadow);
 }
 
+/* Botón pequeño para acciones compactas (timbre, tomar llamada, etc.) */
+.btn.mini { padding: 0.3rem 0.7rem; font-size: 0.8rem; }
+
+/* Variante peligro */
+.btn--danger { background: var(--tag-danger-bg); color: var(--tag-danger-fg); border-color: var(--tag-danger-fg); }
+.btn--danger:hover { filter: brightness(0.93); }
+
+/* Card con hover interactivo */
+.card-hover {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow);
+  transition: box-shadow 0.15s ease, border-color 0.15s ease;
+}
+.card-hover:hover { box-shadow: 0 4px 24px rgba(0,0,0,0.12); border-color: var(--border-2); }
+
+/* Etiqueta de estado (reutilizable en toda la app) */
+.badge {
+  display: inline-flex; align-items: center; gap: 0.25rem;
+  font-size: 0.72rem; font-weight: 700;
+  padding: 0.12rem 0.55rem; border-radius: 999px;
+  text-transform: uppercase; letter-spacing: 0.04em;
+  white-space: nowrap;
+}
+.badge--danger  { background: var(--tag-danger-bg); color: var(--tag-danger-fg); }
+.badge--warn    { background: var(--tag-warn-bg);   color: var(--tag-warn-fg); }
+.badge--ok      { background: var(--tag-ok-bg);     color: var(--tag-ok-fg); }
+.badge--teal    { background: var(--tag-teal-bg);   color: var(--tag-teal-fg); }
+.badge--muted   { background: var(--surface-2);     color: var(--muted); }
+
+/* Animación de pulso para elementos urgentes */
+@keyframes pulse-ring {
+  0%, 100% { box-shadow: 0 0 0 0 transparent; }
+  50%       { box-shadow: 0 0 0 5px color-mix(in srgb, var(--danger) 25%, transparent); }
+}
+.urgente { animation: pulse-ring 2s ease-in-out infinite; }
+
 /* Quien pide menos movimiento en su sistema, lo recibe: las animaciones y
    transiciones se reducen a un instante en toda la aplicación. */
 @media (prefers-reduced-motion: reduce) {
@@ -140,3 +178,4 @@ input:focus, select:focus, textarea:focus {
     transition-duration: 0.01ms !important;
   }
 }
+
