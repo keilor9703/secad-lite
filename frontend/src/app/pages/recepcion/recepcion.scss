@@ -193,24 +193,10 @@
 .entrantes { padding: 1rem 1.2rem; }
 .entrantes h2 { margin: 0 0 0.5rem; font-size: 1.05rem; font-weight: 700; display: flex; align-items: center; }
 
-@keyframes pulse-danger {
-  0% { transform: scale(1); }
-  50% { transform: scale(1.08); }
-  100% { transform: scale(1); }
-}
-
-.entrantes .n { 
-  font-family: var(--mono); 
-  background: var(--tag-danger-bg); 
-  color: var(--tag-danger-fg); 
-  border-radius: 999px; 
-  padding: 0.1rem 0.6rem; 
-  font-weight: 700; 
-  font-size: 0.82rem; 
-  margin-left: 0.4rem; 
-  animation: pulse-danger 1.5s infinite;
-}
+@keyframes pulse-danger { 0%, 100% { transform: scale(1); } 50% { transform: scale(1.08); } }
+.entrantes .n { font-family: var(--mono); background: var(--tag-danger-bg); color: var(--tag-danger-fg); border-radius: 999px; padding: 0.1rem 0.6rem; font-weight: 700; font-size: 0.82rem; margin-left: 0.4rem; animation: pulse-danger 1.5s infinite; }
 .entrantes .timbre { margin-left: auto; font-size: 1.05rem; padding: 0.3rem 0.5rem; }
+
 
 .llam { 
   display: flex; align-items: center; justify-content: space-between; gap: 0.5rem;
