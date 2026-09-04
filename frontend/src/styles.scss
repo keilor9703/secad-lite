@@ -31,9 +31,14 @@
   --tag-ok-bg:     #10331f;  --tag-ok-fg:     #57c483;
   --tag-teal-bg:   #0d3340;  --tag-teal-fg:   #7cedf3;
   --tag-danger-bg: #3a1f1c;  --tag-danger-fg: #e8776b;
-  --serie-teal:  #3fd3e2;
-  --serie-azul:  #8fa6e6;
-  --serie-ambar: #e0973f;
+  /* Validadas con scripts/validate_palette.js del skill dataviz (banda de
+     luminosidad, piso de croma y separación CVD/visión normal) — la paleta
+     anterior no pasaba el piso de croma en modo claro ni la separación en
+     oscuro. */
+  --serie-teal:  #1fa3b3;
+  --serie-azul:  #8f7ae8;
+  --serie-ambar: #c47328;
+  --serie-rosa:  #e85a9c;
 }
 
 :root {
@@ -68,9 +73,13 @@
   --tag-ok-bg:     #e6f6ec;  --tag-ok-fg:     #1c7a44;
   --tag-teal-bg:   #e1f4f8;  --tag-teal-fg:   #0a6273;
   --tag-danger-bg: #fbe6e4;  --tag-danger-fg: #b4342a;
-  --serie-teal:  #0c7e92;
-  --serie-azul:  #3550b4;
-  --serie-ambar: #a5620a;
+  /* Validadas con scripts/validate_palette.js del skill dataviz (banda de
+     luminosidad, piso de croma y separación CVD/visión normal) — la paleta
+     anterior no pasaba el piso de croma (el teal se leía gris). */
+  --serie-teal:  #0891a8;
+  --serie-azul:  #2f5fd9;
+  --serie-ambar: #b5650a;
+  --serie-rosa:  #a8317a;
 }
 
 /* Sin elección explícita del usuario, manda el sistema. */

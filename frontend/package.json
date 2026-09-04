@@ -30,6 +30,7 @@
     "@angular/router": "^20.3.0",
     "@types/leaflet.heat": "^0.2.5",
     "@types/leaflet.markercluster": "^1.5.6",
+    "chart.js": "^4.5.1",
     "leaflet": "^1.9.4",
     "leaflet.heat": "^0.2.0",
     "leaflet.markercluster": "^1.5.3",

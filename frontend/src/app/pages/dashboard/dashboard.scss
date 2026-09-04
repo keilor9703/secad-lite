@@ -4,6 +4,13 @@
 .error { color: var(--danger); margin: 0; }
 .cargando { color: var(--muted); margin: 0; }
 
+.filtros { display: flex; gap: 0.6rem; flex-wrap: wrap; align-items: center; }
+.rango { display: inline-flex; align-items: center; gap: 0.4rem; }
+.rango label { font-size: 0.8rem; color: var(--muted); }
+.rango input[type='date'] { width: auto; }
+.dato-periodo { font-size: 0.8rem; color: var(--muted); }
+.mini { padding: 0.3rem 0.6rem; font-size: 0.78rem; }
+
 .kpis { display: grid; grid-template-columns: repeat(6, minmax(0, 1fr)); gap: 0.7rem; }
 @media (max-width: 640px) { .kpis { grid-template-columns: repeat(2, 1fr); } }
 .kpi {
@@ -13,6 +20,11 @@
 .kpi .n { font-size: 1.6rem; font-weight: 700; color: var(--ink); font-variant-numeric: tabular-nums; }
 .kpi .l { font-size: 0.74rem; color: var(--muted); text-transform: uppercase; letter-spacing: 0.05em; }
 .kpi.total .n { color: var(--accent); }
+
+/* Variación frente al período anterior: neutra por defecto, coloreada solo cuando el signo importa. */
+.delta { font-size: 0.74rem; font-weight: 600; color: var(--muted); margin-top: 0.2rem; }
+.delta.bueno { color: var(--tag-ok-fg); }
+.delta.malo { color: var(--tag-danger-fg); }
 
 .cols { display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; }
 @media (max-width: 720px) { .cols { grid-template-columns: 1fr; } }
@@ -28,6 +40,7 @@
 .fill.ag { background: var(--accent-deep); }
 .fill[data-clave="llamada"] { background: var(--serie-teal); }
 .fill[data-clave="chat"] { background: var(--serie-azul); }
+.fill[data-clave="whatsapp"] { background: var(--serie-rosa); }
 .fill[data-clave="integracion"] { background: var(--serie-ambar); }
 .fill.ll[data-clave="sonando"] { background: var(--warn); }
 .fill.ll[data-clave="atendida"] { background: var(--ok); }
@@ -54,3 +67,27 @@
 .prio[data-prio='alta']  { background: var(--tag-danger-bg); color: var(--tag-danger-fg); }
 .prio[data-prio='media'] { background: var(--tag-warn-bg);   color: var(--tag-warn-fg); }
 .prio[data-prio='baja']  { background: var(--tag-info-bg);   color: var(--tag-info-fg); }
+
+/* Hallazgos automáticos: una lectura de texto, el color solo marca urgencia. */
+.lista-hallazgos { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 0.55rem; }
+.lista-hallazgos li { display: flex; gap: 0.65rem; align-items: flex-start; padding: 0.6rem 0.75rem;
+                       border-radius: var(--radius-sm); background: var(--surface-2); border-left: 3px solid var(--border-2); }
+.lista-hallazgos li[data-sev='atencion'] { border-left-color: var(--tag-warn-fg); }
+.lista-hallazgos li[data-sev='critico']  { border-left-color: var(--tag-danger-fg); }
+.sev-icono { font-size: 0.95rem; line-height: 1.4; flex-shrink: 0; }
+.h-titulo { margin: 0; font-size: 0.88rem; font-weight: 600; color: var(--ink); }
+.h-detalle { margin: 0.15rem 0 0; font-size: 0.8rem; color: var(--muted); }
+
+/* Tendencia: casos por día vs. período anterior. */
+.tendencia-wrap { position: relative; height: 240px; }
+
+/* Cumplimiento de despacho por prioridad: barra + franja de estado (no es identidad, es semáforo). */
+.cumplimiento { display: flex; flex-direction: column; gap: 0.65rem; }
+.fila-cump { display: grid; grid-template-columns: 150px 1fr 70px; align-items: center; gap: 0.6rem; }
+.fila-cump .cap { font-size: 0.82rem; color: var(--ink-soft); display: flex; align-items: center; gap: 0.4rem; }
+.fila-cump .track { height: 12px; background: var(--surface-2); border-radius: 999px; overflow: hidden; }
+.fila-cump .fill { height: 100%; border-radius: 999px; min-width: 3px; transition: width 0.3s ease; }
+.fila-cump .fill[data-estado='ok']      { background: var(--tag-ok-fg); }
+.fila-cump .fill[data-estado='warn']    { background: var(--tag-warn-fg); }
+.fila-cump .fill[data-estado='critico'] { background: var(--tag-danger-fg); }
+.fila-cump .val { font-size: 0.85rem; font-weight: 600; text-align: right; font-variant-numeric: tabular-nums; }

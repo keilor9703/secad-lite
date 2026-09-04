@@ -11,6 +11,20 @@
     </div>
   </header>
 
+  <div class="filtros" [formGroup]="filtroForm">
+    <div class="rango">
+      <label for="fdesde">Del</label>
+      <input id="fdesde" type="date" formControlName="desde" (change)="aplicarFechas()" aria-label="Desde" />
+      <label for="fhasta">al</label>
+      <input id="fhasta" type="date" formControlName="hasta" (change)="aplicarFechas()" aria-label="Hasta" />
+    </div>
+    @if (filtroForm.controls.desde.value || filtroForm.controls.hasta.value) {
+      <button type="button" class="btn btn--ghost mini" (click)="limpiarFiltros()">Quitar filtro (30 días)</button>
+    } @else {
+      <span class="dato-periodo">Últimos 30 días</span>
+    }
+  </div>
+
   @if (error()) {
     <p class="error">{{ error() }}</p>
   }
@@ -19,22 +33,93 @@
   }
 
   @if (resumen(); as r) {
-    <!-- KPIs por estado -->
+    <!-- KPIs con variación frente al período anterior -->
     <div class="kpis">
-      <div class="kpi total"><span class="n">{{ r.total }}</span><span class="l">Total</span></div>
+      <div class="kpi total">
+        <span class="n">{{ r.total }}</span>
+        <span class="l">Casos del período</span>
+        @if (variacionTotal(); as v) {
+          <span class="delta" [class.bueno]="v.bueno === true" [class.malo]="v.bueno === false">
+            @if (v.direccion === 'sube') { ▲ } @else if (v.direccion === 'baja') { ▼ } @else { → }
+            {{ v.pct }}% vs. período anterior
+          </span>
+        }
+      </div>
       @for (b of porEstado(); track b) {
         <div class="kpi"><span class="n">{{ b.valor }}</span><span class="l">{{ b.etiqueta }}</span></div>
       }
     </div>
-    <!-- Tiempos de respuesta: la medida real de un centro de despacho -->
+
+    <!-- Hallazgos automáticos -->
+    @if (hallazgos(); as h) {
+      <div class="panel card hallazgos">
+        <h2>Hallazgos automáticos</h2>
+        <ul class="lista-hallazgos">
+          @for (item of h.items; track item.titulo) {
+            <li [attr.data-sev]="item.severidad">
+              <span class="sev-icono" aria-hidden="true">
+                @if (item.severidad === 'critico') { ⛔ } @else if (item.severidad === 'atencion') { ⚠ } @else { ℹ }
+              </span>
+              <div>
+                <p class="h-titulo">{{ item.titulo }}</p>
+                <p class="h-detalle">{{ item.detalle }}</p>
+              </div>
+            </li>
+          }
+        </ul>
+      </div>
+    }
+
+    <!-- Tendencia: casos por día vs. el período anterior -->
+    @if (tendencia()) {
+      <div class="panel card tendencia-panel">
+        <h2>Tendencia de casos</h2>
+        <div class="tendencia-wrap"><canvas #canvasTendencia></canvas></div>
+      </div>
+    }
+
+    <!-- Cumplimiento de la meta de despacho por prioridad -->
+    @if (cumplimiento(); as c) {
+      <div class="panel card">
+        <h2>Cumplimiento de despacho por prioridad</h2>
+        @if (c.porPrioridad.length) {
+          <div class="cumplimiento">
+            @for (p of c.porPrioridad; track p.prioridad) {
+              <div class="fila-cump">
+                <span class="cap">
+                  <span class="prio" [attr.data-prio]="p.prioridad">{{ prioridadLabel(p.prioridad) }}</span>
+                  meta {{ p.metaMin }} min
+                </span>
+                <div class="track">
+                  @if (p.porcentaje !== null) {
+                    <div class="fill" [attr.data-estado]="estadoCumplimiento(p.porcentaje)" [style.width.%]="p.porcentaje"></div>
+                  }
+                </div>
+                <span class="val">
+                  @if (p.porcentaje !== null) { {{ p.porcentaje }}% } @else { sin datos }
+                </span>
+              </div>
+            }
+          </div>
+        }
+      </div>
+    }
+
+    <!-- Tiempos de respuesta del período -->
     @if (tiempos(); as t) {
       <div class="panel card tiempos">
-        <h2>Tiempos de respuesta <span class="periodo">últimos 30 días</span></h2>
+        <h2>Tiempos de respuesta <span class="periodo">{{ r.periodo.desde }} → {{ r.periodo.hasta }}</span></h2>
         @if (t.global; as g) {
           <div class="t-kpis">
             <div class="t-kpi">
               <span class="n">{{ duracion(g.tomaMin) }}</span>
               <span class="l">Recepción → tomado</span>
+              @if (variacionToma(); as v) {
+                <span class="delta" [class.bueno]="v.bueno === true" [class.malo]="v.bueno === false">
+                  @if (v.direccion === 'sube') { ▲ } @else if (v.direccion === 'baja') { ▼ } @else { → }
+                  {{ v.pct }}%
+                </span>
+              }
             </div>
             <div class="t-kpi">
               <span class="n">{{ duracion(g.despachoMin) }}</span>
@@ -68,10 +153,11 @@
             </table>
           }
         } @else {
-          <p class="vacio">Aún no hay casos en los últimos 30 días para medir tiempos.</p>
+          <p class="vacio">Aún no hay casos en este período para medir tiempos.</p>
         }
       </div>
     }
+
     <!-- Planta telefónica: cuántas llamadas entraron y qué tan rápido se contestan -->
     @if (llamadas(); as ll) {
       <div class="panel card tiempos">
@@ -101,6 +187,7 @@
         }
       </div>
     }
+
     <div class="cols">
       <!-- Por canal -->
       <div class="panel card">
@@ -109,7 +196,7 @@
           @for (b of porCanal(); track b) {
             <div class="fila">
               <span class="cap">{{ b.etiqueta }}</span>
-              <div class="track"><div class="fill" [style.width.%]="pct(b.valor, porCanal())" [attr.data-clave]="b.clave"></div></div>
+              <div class="track"><div class="fill" [attr.data-clave]="b.clave" [style.width.%]="pct(b.valor, porCanal())"></div></div>
               <span class="val">{{ b.valor }}</span>
             </div>
           }
@@ -132,5 +219,30 @@
         </div>
       </div>
     </div>
+
+    <!-- Ranking de operadores -->
+    @if (ranking(); as rk) {
+      <div class="panel card">
+        <h2>Operadores <span class="periodo">{{ r.periodo.desde }} → {{ r.periodo.hasta }}</span></h2>
+        @if (rk.operadores.length) {
+          <table class="t-tabla">
+            <thead>
+              <tr><th>Operador</th><th>Casos tomados</th><th>Casos cerrados</th></tr>
+            </thead>
+            <tbody>
+              @for (op of rk.operadores; track op.autor) {
+                <tr>
+                  <td>{{ op.autor }}</td>
+                  <td class="num">{{ op.casosTomados }}</td>
+                  <td class="num">{{ op.casosCerrados }}</td>
+                </tr>
+              }
+            </tbody>
+          </table>
+        } @else {
+          <p class="vacio">Sin gestiones registradas en este período.</p>
+        }
+      </div>
+    }
   }
 </section>
