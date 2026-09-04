@@ -12,12 +12,76 @@ export interface TiemposPrioridad {
   cierreMin: number | null;
 }
 
+/** Mismos totales del período inmediatamente anterior (misma duración, sin solaparse), para medir variación. */
+export interface ResumenPeriodoAnterior {
+  total: number;
+  tiempoTomaProm: number | null;
+}
+
 export interface Resumen {
+  /** Rango efectivamente usado (aaaa-mm-dd, ambos inclusive) — últimos 30 días si no se pide otro. */
+  periodo: { desde: string; hasta: string };
   total: number;
   porEstado: Record<string, number>;
   porCanal: Record<string, number>;
   porAgencia: Array<{ agencia: string; total: number }>;
   tiempos: { porPrioridad: TiemposPrioridad[]; global: TiemposPrioridad | null };
+  periodoAnterior: ResumenPeriodoAnterior;
+}
+
+export interface FiltroResumen {
+  desde?: string;
+  hasta?: string;
+}
+
+export interface PuntoTendencia {
+  fecha: string;
+  total: number;
+}
+
+/** Serie diaria de casos del período, junto con la misma serie del período anterior para superponer en un gráfico. */
+export interface Tendencia {
+  periodo: { desde: string; hasta: string };
+  actual: PuntoTendencia[];
+  anterior: PuntoTendencia[];
+}
+
+export interface CumplimientoPrioridad {
+  prioridad: string;
+  metaMin: number;
+  totalDespachados: number;
+  dentroDeMeta: number;
+  porcentaje: number | null;
+}
+
+/** Cumplimiento de la meta de despacho por prioridad, para el período. */
+export interface Cumplimiento {
+  periodo: { desde: string; hasta: string };
+  porPrioridad: CumplimientoPrioridad[];
+}
+
+export interface Hallazgo {
+  severidad: 'info' | 'atencion' | 'critico';
+  titulo: string;
+  detalle: string;
+}
+
+/** Lectura automática de resumen/cumplimiento/tendencia del período — reglas simples, no aprendizaje automático. */
+export interface Hallazgos {
+  periodo: { desde: string; hasta: string };
+  items: Hallazgo[];
+}
+
+export interface RankingOperador {
+  autor: string;
+  casosTomados: number;
+  casosCerrados: number;
+}
+
+/** Quién gestionó qué, según la bitácora de casos_eventos del período. Ordenado por casos tomados. */
+export interface Ranking {
+  periodo: { desde: string; hasta: string };
+  operadores: RankingOperador[];
 }
 
 /** Un caso histórico con ubicación, para pintar en el mapa (puntos/cluster/calor). */
@@ -61,8 +125,39 @@ export class MetricasService {
   private http = inject(HttpClient);
   private readonly base = `${environment.apiBaseUrl}/metricas`;
 
-  resumen(): Observable<Resumen> {
-    return this.http.get<Resumen>(this.base);
+  resumen(filtro?: FiltroResumen): Observable<Resumen> {
+    let params = new HttpParams();
+    if (filtro?.desde) params = params.set('desde', filtro.desde);
+    if (filtro?.hasta) params = params.set('hasta', filtro.hasta);
+    return this.http.get<Resumen>(this.base, { params });
+  }
+
+  tendencia(filtro?: FiltroResumen): Observable<Tendencia> {
+    let params = new HttpParams();
+    if (filtro?.desde) params = params.set('desde', filtro.desde);
+    if (filtro?.hasta) params = params.set('hasta', filtro.hasta);
+    return this.http.get<Tendencia>(`${this.base}/tendencia`, { params });
+  }
+
+  cumplimiento(filtro?: FiltroResumen): Observable<Cumplimiento> {
+    let params = new HttpParams();
+    if (filtro?.desde) params = params.set('desde', filtro.desde);
+    if (filtro?.hasta) params = params.set('hasta', filtro.hasta);
+    return this.http.get<Cumplimiento>(`${this.base}/cumplimiento`, { params });
+  }
+
+  hallazgos(filtro?: FiltroResumen): Observable<Hallazgos> {
+    let params = new HttpParams();
+    if (filtro?.desde) params = params.set('desde', filtro.desde);
+    if (filtro?.hasta) params = params.set('hasta', filtro.hasta);
+    return this.http.get<Hallazgos>(`${this.base}/hallazgos`, { params });
+  }
+
+  ranking(filtro?: FiltroResumen): Observable<Ranking> {
+    let params = new HttpParams();
+    if (filtro?.desde) params = params.set('desde', filtro.desde);
+    if (filtro?.hasta) params = params.set('hasta', filtro.hasta);
+    return this.http.get<Ranking>(`${this.base}/ranking`, { params });
   }
 
   mapa(filtro?: FiltroMapa): Observable<AnalisisMapa> {

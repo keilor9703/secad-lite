@@ -17,13 +17,83 @@ export interface TiemposPrioridad {
   cierreMin: number | null;
 }
 
+/** Mismos totales del período inmediatamente anterior (misma duración, sin solaparse) — la base para medir variación. */
+export interface ResumenPeriodoAnterior {
+  total: number;
+  tiempoTomaProm: number | null;
+}
+
 export interface Resumen {
+  /** Rango efectivamente usado (aaaa-mm-dd, ambos inclusive) — últimos 30 días si no se pide otro. */
+  periodo: { desde: string; hasta: string };
   total: number;
   porEstado: Record<string, number>;
   porCanal: Record<string, number>;
   porAgencia: Array<{ agencia: string; total: number }>;
   /** Un centro de despacho se mide en tiempos, no en conteos. */
   tiempos: { porPrioridad: TiemposPrioridad[]; global: TiemposPrioridad | null };
+  periodoAnterior: ResumenPeriodoAnterior;
+}
+
+export interface PuntoTendencia {
+  fecha: string;
+  total: number;
+}
+
+/** Serie diaria de casos del período, junto con la misma serie del período anterior para superponer en un gráfico. */
+export interface Tendencia {
+  periodo: { desde: string; hasta: string };
+  actual: PuntoTendencia[];
+  anterior: PuntoTendencia[];
+}
+
+/**
+ * Meta de despacho por prioridad, en minutos desde la recepción hasta que
+ * sale el primer recurso — el estándar operativo de un 123. No es
+ * configurable por tenant todavía; son los valores de referencia usuales
+ * para líneas de emergencia.
+ */
+const META_DESPACHO_MIN: Readonly<Record<string, number>> = { alta: 5, media: 15, baja: 30 };
+
+export interface CumplimientoPrioridad {
+  prioridad: string;
+  metaMin: number;
+  /** Casos de esa prioridad que llegaron a tener un recurso despachado en el período. */
+  totalDespachados: number;
+  dentroDeMeta: number;
+  /** Porcentaje 0-100, null si no hubo despachos de esa prioridad en el período. */
+  porcentaje: number | null;
+}
+
+/** Cumplimiento de la meta de despacho por prioridad, para el período. */
+export interface Cumplimiento {
+  periodo: { desde: string; hasta: string };
+  porPrioridad: CumplimientoPrioridad[];
+}
+
+export interface Hallazgo {
+  severidad: 'info' | 'atencion' | 'critico';
+  titulo: string;
+  detalle: string;
+}
+
+/** Lectura automática de resumen/cumplimiento/tendencia del período — reglas simples, no aprendizaje automático. */
+export interface Hallazgos {
+  periodo: { desde: string; hasta: string };
+  items: Hallazgo[];
+}
+
+export interface RankingOperador {
+  /** El "autor" de la bitácora — quien quedó autenticado al tomar/cerrar el caso. */
+  autor: string;
+  casosTomados: number;
+  casosCerrados: number;
+}
+
+/** Quién gestionó qué, según la bitácora de casos_eventos del período. Ordenado por casos tomados. */
+export interface Ranking {
+  periodo: { desde: string; hasta: string };
+  operadores: RankingOperador[];
 }
 
 /** Reporte de la planta telefónica (PBX), últimos 30 días. */
@@ -62,17 +132,28 @@ export interface AnalisisMapa {
 export class MetricasService {
   constructor(private readonly rls: TenantRlsService) {}
 
-  async resumen(tenant: string): Promise<Resumen> {
+  /**
+   * Resumen de casos del período (30 días hasta hoy si no se piden fechas),
+   * con los mismos totales del período inmediatamente anterior —de igual
+   * duración— para poder mostrar la variación en el Panel.
+   */
+  async resumen(tenant: string, opts?: { desde?: string; hasta?: string }): Promise<Resumen> {
+    const { desde, finExclusivo } = this.periodo(opts);
+    const duracionMs = finExclusivo.getTime() - desde.getTime();
+    const desdeAnterior = new Date(desde.getTime() - duracionMs);
+
     return this.rls.conTenant(tenant, async (manager) => {
-      const [total, porEstado, porCanal, porAgencia, tiempos] = await Promise.all([
-        manager.getRepository(CasoEntity).count({ where: { tenant } }),
-        this.agrupar(manager, tenant, 'estado'),
-        this.agrupar(manager, tenant, 'canal'),
-        this.agrupar(manager, tenant, 'agencia'),
-        this.tiempos(manager, tenant),
+      const [total, porEstado, porCanal, porAgencia, tiempos, periodoAnterior] = await Promise.all([
+        this.contar(manager, tenant, desde, finExclusivo),
+        this.agrupar(manager, tenant, 'estado', desde, finExclusivo),
+        this.agrupar(manager, tenant, 'canal', desde, finExclusivo),
+        this.agrupar(manager, tenant, 'agencia', desde, finExclusivo),
+        this.tiempos(manager, tenant, desde, finExclusivo),
+        this.periodoAnterior(manager, tenant, desdeAnterior, desde),
       ]);
 
       return {
+        periodo: { desde: this.aFechaCorta(desde), hasta: this.aFechaCorta(new Date(finExclusivo.getTime() - 864e5)) },
         total,
         porEstado: this.completar(porEstado, ESTADOS),
         porCanal: this.completar(porCanal, CANALES),
@@ -80,8 +161,258 @@ export class MetricasService {
           .map(([agencia, t]) => ({ agencia, total: t }))
           .sort((a, b) => b.total - a.total),
         tiempos,
+        periodoAnterior,
       };
     });
+  }
+
+  /**
+   * Casos por día del período (30 días hasta hoy si no se piden fechas),
+   * junto con la misma serie del período anterior — alineadas por posición
+   * (día 1 con día 1, etc.), no por fecha, para poder superponerlas en un
+   * mismo eje X en el gráfico de tendencia.
+   */
+  async tendencia(tenant: string, opts?: { desde?: string; hasta?: string }): Promise<Tendencia> {
+    const { desde, finExclusivo } = this.periodo(opts);
+    const duracionMs = finExclusivo.getTime() - desde.getTime();
+    const desdeAnterior = new Date(desde.getTime() - duracionMs);
+
+    return this.rls.conTenant(tenant, async (manager) => {
+      const [actual, anterior] = await Promise.all([
+        this.serieDiaria(manager, tenant, desde, finExclusivo),
+        this.serieDiaria(manager, tenant, desdeAnterior, desde),
+      ]);
+      return {
+        periodo: { desde: this.aFechaCorta(desde), hasta: this.aFechaCorta(new Date(finExclusivo.getTime() - 864e5)) },
+        actual,
+        anterior,
+      };
+    });
+  }
+
+  private async serieDiaria(manager: EntityManager, tenant: string, desde: Date, finExclusivo: Date): Promise<PuntoTendencia[]> {
+    const filas = await manager.query(
+      `SELECT (c."creadoEn" AT TIME ZONE 'America/Bogota')::date AS dia, COUNT(*)::int AS total
+         FROM casos c
+        WHERE c.tenant = $1 AND c."creadoEn" >= $2 AND c."creadoEn" < $3
+        GROUP BY dia`,
+      [tenant, desde, finExclusivo],
+    );
+    const porDia = new Map<string, number>(
+      filas.map((f: Record<string, unknown>) => [this.aFechaCorta(f['dia'] as Date), Number(f['total'])]),
+    );
+    const dias = Math.round((finExclusivo.getTime() - desde.getTime()) / 864e5);
+    return Array.from({ length: dias }, (_, i) => {
+      const fecha = this.aFechaCorta(new Date(desde.getTime() + i * 864e5));
+      return { fecha, total: porDia.get(fecha) ?? 0 };
+    });
+  }
+
+  /**
+   * De los casos que llegaron a tener un recurso despachado en el período,
+   * qué porcentaje lo tuvo dentro de la meta de su prioridad
+   * (`META_DESPACHO_MIN`). Los casos sin despacho aún no entran en el
+   * cálculo — no se puede juzgar el cumplimiento de algo que no ha pasado.
+   */
+  async cumplimiento(tenant: string, opts?: { desde?: string; hasta?: string }): Promise<Cumplimiento> {
+    const { desde, finExclusivo } = this.periodo(opts);
+    return this.rls.conTenant(tenant, async (manager) => {
+      const filas = await manager.query(
+        `SELECT c.prioridad,
+                COUNT(*)::int AS total,
+                COUNT(*) FILTER (WHERE EXTRACT(EPOCH FROM (d.momento - c."creadoEn")) / 60 <= ${this.metaCaseSql()})::int AS dentro
+           FROM casos c
+           JOIN (SELECT "casoId", MIN("creadoEn") AS momento FROM casos_eventos
+                  WHERE tenant = $1 AND tipo = 'despacho' GROUP BY "casoId") d ON d."casoId" = c.id
+          WHERE c.tenant = $1 AND c."creadoEn" >= $2 AND c."creadoEn" < $3
+          GROUP BY c.prioridad`,
+        [tenant, desde, finExclusivo],
+      );
+      const porFila = new Map<string, Record<string, unknown>>(
+        filas.map((f: Record<string, unknown>): [string, Record<string, unknown>] => [String(f['prioridad']), f]),
+      );
+      const orden: Record<string, number> = { alta: 0, media: 1, baja: 2 };
+      const prioridades = Array.from(new Set([...Object.keys(META_DESPACHO_MIN), ...porFila.keys()]))
+        .sort((a, b) => (orden[a] ?? 9) - (orden[b] ?? 9));
+
+      const porPrioridad: CumplimientoPrioridad[] = prioridades.map((prioridad) => {
+        const f = porFila.get(prioridad);
+        const total = f ? Number(f['total']) : 0;
+        const dentro = f ? Number(f['dentro']) : 0;
+        return {
+          prioridad,
+          metaMin: META_DESPACHO_MIN[prioridad] ?? 30,
+          totalDespachados: total,
+          dentroDeMeta: dentro,
+          porcentaje: total > 0 ? Math.round((dentro / total) * 1000) / 10 : null,
+        };
+      });
+
+      return {
+        periodo: { desde: this.aFechaCorta(desde), hasta: this.aFechaCorta(new Date(finExclusivo.getTime() - 864e5)) },
+        porPrioridad,
+      };
+    });
+  }
+
+  /** CASE SQL que mapea prioridad → meta en minutos. Las claves salen de META_DESPACHO_MIN (constante interna, no de input del usuario). */
+  private metaCaseSql(): string {
+    const cuando = Object.entries(META_DESPACHO_MIN)
+      .map(([prioridad, min]) => `WHEN '${prioridad}' THEN ${min}`)
+      .join(' ');
+    return `CASE c.prioridad ${cuando} ELSE 30 END`;
+  }
+
+  /**
+   * Lectura automática, con reglas simples, sobre lo que ya calculan
+   * resumen()/cumplimiento()/tendencia(): variación de volumen, prioridad
+   * con peor cumplimiento, día pico y concentración en una agencia. No es
+   * un motor de aprendizaje — son umbrales fijos pensados para que un
+   * operador no tenga que leer todos los gráficos para notar lo importante.
+   */
+  async hallazgos(tenant: string, opts?: { desde?: string; hasta?: string }): Promise<Hallazgos> {
+    const [resumen, cumplimiento, tendencia] = await Promise.all([
+      this.resumen(tenant, opts),
+      this.cumplimiento(tenant, opts),
+      this.tendencia(tenant, opts),
+    ]);
+
+    const items: Hallazgo[] = [];
+
+    const variacion =
+      resumen.periodoAnterior.total > 0
+        ? Math.round(((resumen.total - resumen.periodoAnterior.total) / resumen.periodoAnterior.total) * 1000) / 10
+        : null;
+    if (variacion !== null && Math.abs(variacion) >= 15) {
+      items.push({
+        severidad: variacion > 0 ? 'atencion' : 'info',
+        titulo:
+          variacion > 0
+            ? `Los casos subieron ${variacion}% frente al período anterior`
+            : `Los casos bajaron ${Math.abs(variacion)}% frente al período anterior`,
+        detalle: `${resumen.total} casos en el período actual vs ${resumen.periodoAnterior.total} en el anterior.`,
+      });
+    }
+
+    const peor = cumplimiento.porPrioridad
+      .filter((p) => p.porcentaje !== null)
+      .sort((a, b) => (a.porcentaje ?? 100) - (b.porcentaje ?? 100))[0];
+    if (peor && peor.porcentaje !== null && peor.porcentaje < 80) {
+      items.push({
+        severidad: peor.porcentaje < 50 ? 'critico' : 'atencion',
+        titulo: `Prioridad ${peor.prioridad}: solo ${peor.porcentaje}% de los despachos cumplió la meta de ${peor.metaMin} min`,
+        detalle: `${peor.dentroDeMeta} de ${peor.totalDespachados} casos despachados a tiempo.`,
+      });
+    }
+
+    const pico = tendencia.actual.reduce<PuntoTendencia | null>((max, p) => (p.total > (max?.total ?? -1) ? p : max), null);
+    const promedioDiario = tendencia.actual.length
+      ? tendencia.actual.reduce((s, p) => s + p.total, 0) / tendencia.actual.length
+      : 0;
+    if (pico && pico.total >= 3 && promedioDiario > 0 && pico.total >= promedioDiario * 2) {
+      items.push({
+        severidad: 'info',
+        titulo: `${pico.fecha} fue el día con más casos del período (${pico.total})`,
+        detalle: `Más del doble del promedio diario (${Math.round(promedioDiario * 10) / 10}).`,
+      });
+    }
+
+    const totalAgencias = resumen.porAgencia.reduce((s, a) => s + a.total, 0);
+    const top = resumen.porAgencia[0];
+    if (top && totalAgencias > 0 && resumen.porAgencia.length > 1) {
+      const parte = Math.round((top.total / totalAgencias) * 1000) / 10;
+      if (parte >= 50) {
+        items.push({
+          severidad: 'info',
+          titulo: `${top.agencia} concentra el ${parte}% de los casos del período`,
+          detalle: `${top.total} de ${totalAgencias} casos con agencia asignada.`,
+        });
+      }
+    }
+
+    if (items.length === 0) {
+      items.push({
+        severidad: 'info',
+        titulo: 'Sin hallazgos relevantes en este período',
+        detalle: 'Los indicadores se mantienen dentro de rangos normales frente al período anterior.',
+      });
+    }
+
+    return { periodo: resumen.periodo, items };
+  }
+
+  /**
+   * Ranking de operadores por gestión en el período: cuántos casos tomó
+   * (primer paso a 'en_gestion') y cuántos cerró, según quién quedó como
+   * autor de cada evento de la bitácora. Top 20 por casos tomados.
+   */
+  async ranking(tenant: string, opts?: { desde?: string; hasta?: string }): Promise<Ranking> {
+    const { desde, finExclusivo } = this.periodo(opts);
+    return this.rls.conTenant(tenant, async (manager) => {
+      const filas = await manager.query(
+        `SELECT autor,
+                COUNT(*) FILTER (WHERE "estadoNuevo" = 'en_gestion')::int AS tomados,
+                COUNT(*) FILTER (WHERE "estadoNuevo" = 'cerrado')::int AS cerrados
+           FROM casos_eventos
+          WHERE tenant = $1 AND tipo = 'estado' AND "creadoEn" >= $2 AND "creadoEn" < $3
+            AND "estadoNuevo" IN ('en_gestion', 'cerrado')
+          GROUP BY autor
+          ORDER BY tomados DESC, cerrados DESC
+          LIMIT 20`,
+        [tenant, desde, finExclusivo],
+      );
+      const operadores: RankingOperador[] = filas.map((f: Record<string, unknown>) => ({
+        autor: String(f['autor']),
+        casosTomados: Number(f['tomados']),
+        casosCerrados: Number(f['cerrados']),
+      }));
+      return {
+        periodo: { desde: this.aFechaCorta(desde), hasta: this.aFechaCorta(new Date(finExclusivo.getTime() - 864e5)) },
+        operadores,
+      };
+    });
+  }
+
+  /** Resuelve el rango [desde, finExclusivo) a partir de aaaa-mm-dd opcionales: 30 días hasta hoy por defecto. */
+  private periodo(opts?: { desde?: string; hasta?: string }): { desde: Date; finExclusivo: Date } {
+    const hoy = this.fechaValida(new Date().toISOString().slice(0, 10))!;
+    const hasta = this.fechaValida(opts?.hasta) ?? hoy;
+    const finExclusivo = new Date(hasta.getTime() + 864e5);
+    const desde = this.fechaValida(opts?.desde) ?? new Date(finExclusivo.getTime() - 30 * 864e5);
+    return { desde, finExclusivo };
+  }
+
+  private aFechaCorta(d: Date): string {
+    return d.toISOString().slice(0, 10);
+  }
+
+  private async contar(manager: EntityManager, tenant: string, desde: Date, finExclusivo: Date): Promise<number> {
+    return manager
+      .getRepository(CasoEntity)
+      .createQueryBuilder('c')
+      .where('c.tenant = :tenant', { tenant })
+      .andWhere('c."creadoEn" >= :desde AND c."creadoEn" < :hasta', { desde, hasta: finExclusivo })
+      .getCount();
+  }
+
+  /** Solo el total y el tiempo de toma del período anterior — lo mínimo para una flecha de variación. */
+  private async periodoAnterior(manager: EntityManager, tenant: string, desde: Date, finExclusivo: Date): Promise<ResumenPeriodoAnterior> {
+    const [total, filas] = await Promise.all([
+      this.contar(manager, tenant, desde, finExclusivo),
+      manager.query(
+        `SELECT AVG(EXTRACT(EPOCH FROM (t.momento - c."creadoEn")) / 60) AS prom
+           FROM casos c
+           LEFT JOIN (SELECT "casoId", MIN("creadoEn") AS momento FROM casos_eventos
+                       WHERE tenant = $1 AND "estadoNuevo" = 'en_gestion' GROUP BY "casoId") t ON t."casoId" = c.id
+          WHERE c.tenant = $1 AND c."creadoEn" >= $2 AND c."creadoEn" < $3`,
+        [tenant, desde, finExclusivo],
+      ),
+    ]);
+    const prom = filas[0]?.['prom'];
+    return {
+      total,
+      tiempoTomaProm: prom === null || prom === undefined ? null : Math.round(Number(prom) * 10) / 10,
+    };
   }
 
   /**
@@ -120,13 +451,13 @@ export class MetricasService {
   }
 
   /**
-   * Tiempos de respuesta de los últimos 30 días, desde la bitácora: cuánto
-   * tarda un caso en ser tomado (primer paso a 'en_gestion'), en recibir su
-   * primer recurso (primer evento de despacho) y en cerrarse. Es la medida
-   * real de un 123 — los conteos dicen cuánto entró; esto dice qué tan
-   * rápido se atendió.
+   * Tiempos de respuesta del período, desde la bitácora: cuánto tarda un
+   * caso en ser tomado (primer paso a 'en_gestion'), en recibir su primer
+   * recurso (primer evento de despacho) y en cerrarse. Es la medida real de
+   * un 123 — los conteos dicen cuánto entró; esto dice qué tan rápido se
+   * atendió.
    */
-  private async tiempos(manager: EntityManager, tenant: string): Promise<Resumen['tiempos']> {
+  private async tiempos(manager: EntityManager, tenant: string, desde: Date, finExclusivo: Date): Promise<Resumen['tiempos']> {
     const filas = await manager.query(
       `
       SELECT c.prioridad,
@@ -141,10 +472,10 @@ export class MetricasService {
                     WHERE tenant = $1 AND tipo = 'despacho' GROUP BY "casoId") d ON d."casoId" = c.id
         LEFT JOIN (SELECT "casoId", MIN("creadoEn") AS momento FROM casos_eventos
                     WHERE tenant = $1 AND "estadoNuevo" = 'cerrado' GROUP BY "casoId") x ON x."casoId" = c.id
-       WHERE c.tenant = $1 AND c."creadoEn" >= NOW() - INTERVAL '30 days'
+       WHERE c.tenant = $1 AND c."creadoEn" >= $2 AND c."creadoEn" < $3
        GROUP BY c.prioridad
       `,
-      [tenant],
+      [tenant, desde, finExclusivo],
     );
     const aFila = (f: Record<string, unknown>, prioridad: string): TiemposPrioridad => ({
       prioridad,
@@ -173,9 +504,9 @@ export class MetricasService {
                     WHERE tenant = $1 AND tipo = 'despacho' GROUP BY "casoId") d ON d."casoId" = c.id
         LEFT JOIN (SELECT "casoId", MIN("creadoEn") AS momento FROM casos_eventos
                     WHERE tenant = $1 AND "estadoNuevo" = 'cerrado' GROUP BY "casoId") x ON x."casoId" = c.id
-       WHERE c.tenant = $1 AND c."creadoEn" >= NOW() - INTERVAL '30 days'
+       WHERE c.tenant = $1 AND c."creadoEn" >= $2 AND c."creadoEn" < $3
       `,
-      [tenant],
+      [tenant, desde, finExclusivo],
     );
     const global = g && Number(g['total']) > 0 ? aFila(g, 'global') : null;
     return { porPrioridad, global };
@@ -266,13 +597,20 @@ export class MetricasService {
     return isNaN(d.getTime()) ? null : d;
   }
 
-  private async agrupar(manager: EntityManager, tenant: string, campo: 'estado' | 'canal' | 'agencia'): Promise<Record<string, number>> {
+  private async agrupar(
+    manager: EntityManager,
+    tenant: string,
+    campo: 'estado' | 'canal' | 'agencia',
+    desde: Date,
+    finExclusivo: Date,
+  ): Promise<Record<string, number>> {
     const filas = await manager
       .getRepository(CasoEntity)
       .createQueryBuilder('c')
       .select(`c.${campo}`, 'clave')
       .addSelect('COUNT(*)', 'total')
       .where('c.tenant = :tenant', { tenant })
+      .andWhere('c."creadoEn" >= :desde AND c."creadoEn" < :hasta', { desde, hasta: finExclusivo })
       .groupBy(`c.${campo}`)
       .getRawMany<{ clave: string; total: string }>();
     return Object.fromEntries(filas.map((f) => [f.clave, Number(f.total)]));

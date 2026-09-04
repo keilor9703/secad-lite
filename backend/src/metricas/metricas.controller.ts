@@ -10,10 +10,34 @@ import { Permisos } from '../auth/permisos.decorator';
 export class MetricasController {
   constructor(private readonly metricas: MetricasService) {}
 
-  /** GET /api/metricas — resumen de casos del tenant. */
+  /** GET /api/metricas — resumen de casos del tenant (30 días hasta hoy si no se pide otro rango). */
   @Get()
-  resumen(@Tenant() tenant: string) {
-    return this.metricas.resumen(tenant);
+  resumen(@Tenant() tenant: string, @Query('desde') desde?: string, @Query('hasta') hasta?: string) {
+    return this.metricas.resumen(tenant, { desde, hasta });
+  }
+
+  /** GET /api/metricas/tendencia — casos por día del período, con la serie del período anterior para comparar. */
+  @Get('tendencia')
+  tendencia(@Tenant() tenant: string, @Query('desde') desde?: string, @Query('hasta') hasta?: string) {
+    return this.metricas.tendencia(tenant, { desde, hasta });
+  }
+
+  /** GET /api/metricas/cumplimiento — % de casos despachados dentro de la meta de su prioridad. */
+  @Get('cumplimiento')
+  cumplimiento(@Tenant() tenant: string, @Query('desde') desde?: string, @Query('hasta') hasta?: string) {
+    return this.metricas.cumplimiento(tenant, { desde, hasta });
+  }
+
+  /** GET /api/metricas/hallazgos — lectura automática (reglas simples) de resumen/cumplimiento/tendencia. */
+  @Get('hallazgos')
+  hallazgos(@Tenant() tenant: string, @Query('desde') desde?: string, @Query('hasta') hasta?: string) {
+    return this.metricas.hallazgos(tenant, { desde, hasta });
+  }
+
+  /** GET /api/metricas/ranking — casos tomados/cerrados por operador en el período. */
+  @Get('ranking')
+  ranking(@Tenant() tenant: string, @Query('desde') desde?: string, @Query('hasta') hasta?: string) {
+    return this.metricas.ranking(tenant, { desde, hasta });
   }
 
   /** GET /api/metricas/mapa — mapa estadístico/de calor de casos históricos. */
