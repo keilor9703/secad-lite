@@ -47,6 +47,11 @@ export class DashboardComponent implements OnDestroy {
     this.exportar.descargarCasos({ desde: desde || undefined, hasta: hasta || undefined });
   }
 
+  exportarInformePdf(): void {
+    const { desde, hasta } = this.filtroForm.getRawValue();
+    this.exportar.descargarInformePdf({ desde: desde || undefined, hasta: hasta || undefined });
+  }
+
   private readonly estadoLabels: Record<string, string> = {
     nuevo: 'Nuevo', en_gestion: 'En gestión', despachado: 'Despachado', derivado: 'Derivado', cerrado: 'Cerrado',
   };

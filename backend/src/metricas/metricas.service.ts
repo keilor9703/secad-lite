@@ -143,14 +143,17 @@ export class MetricasService {
     const desdeAnterior = new Date(desde.getTime() - duracionMs);
 
     return this.rls.conTenant(tenant, async (manager) => {
-      const [total, porEstado, porCanal, porAgencia, tiempos, periodoAnterior] = await Promise.all([
-        this.contar(manager, tenant, desde, finExclusivo),
-        this.agrupar(manager, tenant, 'estado', desde, finExclusivo),
-        this.agrupar(manager, tenant, 'canal', desde, finExclusivo),
-        this.agrupar(manager, tenant, 'agencia', desde, finExclusivo),
-        this.tiempos(manager, tenant, desde, finExclusivo),
-        this.periodoAnterior(manager, tenant, desdeAnterior, desde),
-      ]);
+      // Secuencial a propósito: todas estas consultas comparten la MISMA
+      // conexión/transacción (el manager de conTenant), y una sola conexión
+      // de PostgreSQL no puede llevar varias sentencias en vuelo a la vez —
+      // node-postgres solo lo tolera con una cola interna que ya avisa que
+      // va a dejar de existir. Promise.all() aquí sería una carrera falsa.
+      const total = await this.contar(manager, tenant, desde, finExclusivo);
+      const porEstado = await this.agrupar(manager, tenant, 'estado', desde, finExclusivo);
+      const porCanal = await this.agrupar(manager, tenant, 'canal', desde, finExclusivo);
+      const porAgencia = await this.agrupar(manager, tenant, 'agencia', desde, finExclusivo);
+      const tiempos = await this.tiempos(manager, tenant, desde, finExclusivo);
+      const periodoAnterior = await this.periodoAnterior(manager, tenant, desdeAnterior, desde);
 
       return {
         periodo: { desde: this.aFechaCorta(desde), hasta: this.aFechaCorta(new Date(finExclusivo.getTime() - 864e5)) },
@@ -178,10 +181,9 @@ export class MetricasService {
     const desdeAnterior = new Date(desde.getTime() - duracionMs);
 
     return this.rls.conTenant(tenant, async (manager) => {
-      const [actual, anterior] = await Promise.all([
-        this.serieDiaria(manager, tenant, desde, finExclusivo),
-        this.serieDiaria(manager, tenant, desdeAnterior, desde),
-      ]);
+      // Secuencial: comparten conexión (ver el comentario igual en resumen()).
+      const actual = await this.serieDiaria(manager, tenant, desde, finExclusivo);
+      const anterior = await this.serieDiaria(manager, tenant, desdeAnterior, desde);
       return {
         periodo: { desde: this.aFechaCorta(desde), hasta: this.aFechaCorta(new Date(finExclusivo.getTime() - 864e5)) },
         actual,
@@ -397,17 +399,16 @@ export class MetricasService {
 
   /** Solo el total y el tiempo de toma del período anterior — lo mínimo para una flecha de variación. */
   private async periodoAnterior(manager: EntityManager, tenant: string, desde: Date, finExclusivo: Date): Promise<ResumenPeriodoAnterior> {
-    const [total, filas] = await Promise.all([
-      this.contar(manager, tenant, desde, finExclusivo),
-      manager.query(
-        `SELECT AVG(EXTRACT(EPOCH FROM (t.momento - c."creadoEn")) / 60) AS prom
-           FROM casos c
-           LEFT JOIN (SELECT "casoId", MIN("creadoEn") AS momento FROM casos_eventos
-                       WHERE tenant = $1 AND "estadoNuevo" = 'en_gestion' GROUP BY "casoId") t ON t."casoId" = c.id
-          WHERE c.tenant = $1 AND c."creadoEn" >= $2 AND c."creadoEn" < $3`,
-        [tenant, desde, finExclusivo],
-      ),
-    ]);
+    // Secuencial: comparten conexión (ver el comentario en resumen()).
+    const total = await this.contar(manager, tenant, desde, finExclusivo);
+    const filas = await manager.query(
+      `SELECT AVG(EXTRACT(EPOCH FROM (t.momento - c."creadoEn")) / 60) AS prom
+         FROM casos c
+         LEFT JOIN (SELECT "casoId", MIN("creadoEn") AS momento FROM casos_eventos
+                     WHERE tenant = $1 AND "estadoNuevo" = 'en_gestion' GROUP BY "casoId") t ON t."casoId" = c.id
+        WHERE c.tenant = $1 AND c."creadoEn" >= $2 AND c."creadoEn" < $3`,
+      [tenant, desde, finExclusivo],
+    );
     const prom = filas[0]?.['prom'];
     return {
       total,
@@ -422,23 +423,22 @@ export class MetricasService {
    */
   async llamadas(tenant: string): Promise<ResumenLlamadas> {
     return this.rls.conTenant(tenant, async (manager) => {
-      const [porEstado, prom] = await Promise.all([
-        manager
-          .getRepository(LlamadaEntity)
-          .createQueryBuilder('l')
-          .select('l.estado', 'clave')
-          .addSelect('COUNT(*)', 'total')
-          .where('l.tenant = :tenant', { tenant })
-          .andWhere('l."creadoEn" >= NOW() - INTERVAL \'30 days\'')
-          .groupBy('l.estado')
-          .getRawMany<{ clave: string; total: string }>(),
-        manager.query(
-          `SELECT AVG(EXTRACT(EPOCH FROM ("atendidaEn" - "creadoEn")) / 60) AS prom
-             FROM llamadas
-            WHERE tenant = $1 AND "atendidaEn" IS NOT NULL AND "creadoEn" >= NOW() - INTERVAL '30 days'`,
-          [tenant],
-        ),
-      ]);
+      // Secuencial: comparten conexión (ver el comentario en resumen()).
+      const porEstado = await manager
+        .getRepository(LlamadaEntity)
+        .createQueryBuilder('l')
+        .select('l.estado', 'clave')
+        .addSelect('COUNT(*)', 'total')
+        .where('l.tenant = :tenant', { tenant })
+        .andWhere('l."creadoEn" >= NOW() - INTERVAL \'30 days\'')
+        .groupBy('l.estado')
+        .getRawMany<{ clave: string; total: string }>();
+      const prom = await manager.query(
+        `SELECT AVG(EXTRACT(EPOCH FROM ("atendidaEn" - "creadoEn")) / 60) AS prom
+           FROM llamadas
+          WHERE tenant = $1 AND "atendidaEn" IS NOT NULL AND "creadoEn" >= NOW() - INTERVAL '30 days'`,
+        [tenant],
+      );
       const porEstadoMap = Object.fromEntries(porEstado.map((f) => [f.clave, Number(f.total)]));
       const total = Object.values(porEstadoMap).reduce((a, b) => a + b, 0);
       const promedio = prom[0]?.['prom'];
@@ -531,39 +531,44 @@ export class MetricasService {
     if (codigo) { params.push(codigo); cond.push(`c."codigoCaso" = $${params.length}`); }
     const where = cond.join(' AND ');
 
-    const [puntos, porDia, porHora, topCodigos, sinUbicacion] = await this.rls.conTenant(tenant, (manager) => Promise.all([
-      manager.query(
+    // Secuencial a propósito: las cinco comparten la MISMA conexión/transacción
+    // (el manager de conTenant) — Promise.all() lanzaría varias sentencias a
+    // la vez sobre un solo cliente de PostgreSQL (ver el comentario igual en
+    // resumen()).
+    const [puntos, porDia, porHora, topCodigos, sinUbicacion] = await this.rls.conTenant(tenant, async (manager) => {
+      const puntos = await manager.query(
         `SELECT c.id, c.lat, c.lng, c."codigoCaso" AS "codigoCaso", c.prioridad, c.titulo, c."creadoEn" AS "creadoEn"
            FROM casos c WHERE ${where} AND c.lat IS NOT NULL AND c.lng IS NOT NULL
           ORDER BY c."creadoEn" DESC LIMIT 5000`,
         params,
-      ),
+      );
       // Hora local de Colombia (UTC-5, sin horario de verano): "creadoEn" se
       // guarda en UTC, así que extraer DOW/HOUR directo daría el día/hora de
       // Greenwich, no el de cuando realmente ocurrió el caso.
-      manager.query(
+      const porDia = await manager.query(
         `SELECT EXTRACT(DOW FROM (c."creadoEn" AT TIME ZONE 'America/Bogota'))::int AS dia, COUNT(*)::int AS total
            FROM casos c WHERE ${where} GROUP BY dia`,
         params,
-      ),
-      manager.query(
+      );
+      const porHora = await manager.query(
         `SELECT EXTRACT(HOUR FROM (c."creadoEn" AT TIME ZONE 'America/Bogota'))::int AS hora, COUNT(*)::int AS total
            FROM casos c WHERE ${where} GROUP BY hora`,
         params,
-      ),
-      manager.query(
+      );
+      const topCodigos = await manager.query(
         `SELECT c."codigoCaso" AS codigo, k.descripcion, COUNT(*)::int AS total
            FROM casos c LEFT JOIN codigos_caso k ON k.tenant = c.tenant AND k.codigo = c."codigoCaso"
           WHERE ${where} AND c."codigoCaso" IS NOT NULL
           GROUP BY c."codigoCaso", k.descripcion
           ORDER BY total DESC LIMIT 5`,
         params,
-      ),
-      manager.query(
+      );
+      const sinUbicacion = await manager.query(
         `SELECT COUNT(*)::int AS total FROM casos c WHERE ${where} AND (c.lat IS NULL OR c.lng IS NULL)`,
         params,
-      ),
-    ]));
+      );
+      return [puntos, porDia, porHora, topCodigos, sinUbicacion];
+    });
 
     const diasPorNumero = new Map<number, number>(porDia.map((f: Record<string, unknown>) => [Number(f['dia']), Number(f['total'])]));
     const horasPorNumero = new Map<number, number>(porHora.map((f: Record<string, unknown>) => [Number(f['hora']), Number(f['total'])]));

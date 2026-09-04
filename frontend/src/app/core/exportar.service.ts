@@ -18,18 +18,35 @@ export class ExportarService {
     if (opts?.estado) params = params.set('estado', opts.estado);
 
     this.http.get(`${this.base}/exportar`, { params, responseType: 'blob' }).subscribe({
-      next: (blob) => {
-        const url = URL.createObjectURL(blob);
-        const a = document.createElement('a');
-        a.href = url;
-        const fecha = new Date().toISOString().slice(0, 10);
-        a.download = `casos-${fecha}.csv`;
-        document.body.appendChild(a);
-        a.click();
-        document.body.removeChild(a);
-        URL.revokeObjectURL(url);
-      },
+      next: (blob) => this.descargar(blob, `casos-${this.fechaHoy()}.csv`),
       error: () => {},
     });
+  }
+
+  /** Descarga el informe de gestión del período (KPIs, hallazgos, cumplimiento, tiempos, ranking) en PDF. */
+  descargarInformePdf(opts?: { desde?: string; hasta?: string }): void {
+    let params = new HttpParams();
+    if (opts?.desde) params = params.set('desde', opts.desde);
+    if (opts?.hasta) params = params.set('hasta', opts.hasta);
+
+    this.http.get(`${this.base}/informe.pdf`, { params, responseType: 'blob' }).subscribe({
+      next: (blob) => this.descargar(blob, `informe-${this.fechaHoy()}.pdf`),
+      error: () => {},
+    });
+  }
+
+  private descargar(blob: Blob, nombreArchivo: string): void {
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = nombreArchivo;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+  }
+
+  private fechaHoy(): string {
+    return new Date().toISOString().slice(0, 10);
   }
 }
