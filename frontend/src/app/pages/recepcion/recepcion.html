@@ -149,12 +149,6 @@
                 </div>
               </div>
               <div class="field span2">
-                <label for="fcodbusq">¿No sabe el código? Búsquelo por descripción</label>
-                <app-autocompletar id="fcodbusq" [opciones]="opcionesCodigo()"
-                  [limpiarAlSeleccionar]="true" placeholder="p. ej. accidente de tránsito"
-                  (seleccionado)="buscarPorDescripcion($event)" />
-              </div>
-              <div class="field span2">
                 <label for="ftit">Descripción del caso</label>
                 <input id="ftit" formControlName="titulo"
                   placeholder="Se completa con el código; puede ajustarla" />

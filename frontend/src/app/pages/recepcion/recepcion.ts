@@ -232,15 +232,6 @@ export class RecepcionComponent implements OnInit {
   );
 
   /**
-   * Buscador aparte para cuando el operador NO sabe el código: busca por lo
-   * que escriba de la descripción y, al elegir uno, aplica el mismo código
-   * que si lo hubiera digitado — reutiliza aplicarSugerencia().
-   */
-  buscarPorDescripcion(o: OpcionAutocompletar): void {
-    this.aplicarSugerencia(o.valor);
-  }
-
-  /**
    * Al elegir el código de caso se traen su descripción, su prioridad y la
    * agencia que suele atenderlo — igual que en el CAD completo, donde la
    * tipificación arrastra el resto del formulario.
