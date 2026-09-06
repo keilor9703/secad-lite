@@ -7,6 +7,7 @@ import { PbxService } from '../../core/pbx.service';
 import { CatalogosService } from '../../core/catalogos.service';
 import { AuthService } from '../../core/auth.service';
 import { ToastService } from '../../shared/toast/toast.service';
+import { AutocompletarComponent, OpcionAutocompletar } from '../../shared/autocompletar/autocompletar';
 import {
   Agencia, Canal, CanalAtencion, Caso, CodigoCaso, CrearCaso, EstadoCaso, Llamada, PrioridadCaso,
 } from '../../core/models';
@@ -14,7 +15,7 @@ import {
 @Component({
   selector: 'app-recepcion',
   standalone: true,
-  imports: [CommonModule, ReactiveFormsModule, RouterLink],
+  imports: [CommonModule, ReactiveFormsModule, RouterLink, AutocompletarComponent],
   templateUrl: './recepcion.html',
   styleUrl: './recepcion.scss',
   changeDetection: ChangeDetectionStrategy.OnPush,
@@ -221,6 +222,22 @@ export class RecepcionComponent implements OnInit {
     this.sugeridaPorCodigo.set(null);
     this.abiertoEn.set(new Date());
     this.error.set('');
+  }
+
+  /** Catálogo de códigos para el buscador con lista propia: código como etiqueta, descripción como detalle. */
+  readonly opcionesCodigo = computed<OpcionAutocompletar[]>(() =>
+    this.codigos()
+      .filter((c) => c.activo !== false)
+      .map((c) => ({ valor: c.codigo, etiqueta: c.codigo, detalle: c.descripcion })),
+  );
+
+  /**
+   * Buscador aparte para cuando el operador NO sabe el código: busca por lo
+   * que escriba de la descripción y, al elegir uno, aplica el mismo código
+   * que si lo hubiera digitado — reutiliza aplicarSugerencia().
+   */
+  buscarPorDescripcion(o: OpcionAutocompletar): void {
+    this.aplicarSugerencia(o.valor);
   }
 
   /**

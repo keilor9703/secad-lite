@@ -1,0 +1,44 @@
+<div class="autocompletar" (focusout)="onFocusOut()">
+  <input
+    type="text"
+    autocomplete="off"
+    role="combobox"
+    aria-autocomplete="list"
+    [id]="id()"
+    [value]="texto()"
+    [placeholder]="placeholder()"
+    [disabled]="deshabilitado()"
+    [attr.aria-expanded]="abierto()"
+    [attr.aria-controls]="id() + '-lista'"
+    [attr.aria-activedescendant]="indiceActivo() >= 0 ? optionId(indiceActivo()) : null"
+    (input)="onInput($any($event.target).value)"
+    (focus)="onFocus()"
+    (keydown)="onKeydown($event)"
+  />
+  @if (abierto()) {
+    @if (filtradas().length) {
+      <ul class="ac-lista" [id]="id() + '-lista'" role="listbox">
+        @for (o of filtradas(); track o.valor; let i = $index) {
+          <li
+            [id]="optionId(i)"
+            role="option"
+            [attr.aria-selected]="i === indiceActivo()"
+            class="ac-opcion"
+            [class.activa]="i === indiceActivo()"
+            (mousedown)="$event.preventDefault()"
+            (click)="elegir(o)"
+          >
+            <span class="ac-etq">{{ o.etiqueta }}</span>
+            @if (o.detalle) {
+              <span class="ac-det">{{ o.detalle }}</span>
+            }
+          </li>
+        }
+      </ul>
+    } @else if (texto().length) {
+      <ul class="ac-lista" role="listbox">
+        <li class="ac-vacio">Sin resultados</li>
+      </ul>
+    }
+  }
+</div>

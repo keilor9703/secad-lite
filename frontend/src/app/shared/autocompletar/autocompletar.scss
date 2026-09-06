@@ -1,0 +1,55 @@
+.autocompletar {
+  position: relative;
+}
+
+.autocompletar input {
+  width: 100%;
+}
+
+.ac-lista {
+  position: absolute;
+  z-index: 20;
+  top: calc(100% + 4px);
+  left: 0;
+  right: 0;
+  margin: 0;
+  padding: 0.3rem;
+  list-style: none;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  box-shadow: var(--shadow);
+  max-height: 260px;
+  overflow-y: auto;
+}
+
+.ac-opcion {
+  display: flex;
+  flex-direction: column;
+  gap: 0.05rem;
+  padding: 0.45rem 0.6rem;
+  border-radius: 6px;
+  cursor: pointer;
+}
+
+.ac-opcion:hover,
+.ac-opcion.activa {
+  background: var(--accent-soft);
+}
+
+.ac-etq {
+  font-size: 0.86rem;
+  font-weight: 600;
+  color: var(--ink);
+}
+
+.ac-det {
+  font-size: 0.76rem;
+  color: var(--muted);
+}
+
+.ac-vacio {
+  padding: 0.5rem 0.6rem;
+  font-size: 0.82rem;
+  color: var(--muted);
+}

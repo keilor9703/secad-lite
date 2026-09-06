@@ -131,13 +131,9 @@
             <div class="grid">
               <div class="field">
                 <label for="fcod">Código de caso</label>
-                <input id="fcod" formControlName="codigoCaso" list="codigosCaso"
-                  (change)="aplicarCodigo()" placeholder="p. ej. 102" />
-                <datalist id="codigosCaso">
-                  @for (c of codigos(); track c) {
-                    <option [value]="c.codigo">{{ c.codigo }} — {{ c.descripcion }}</option>
-                  }
-                </datalist>
+                <app-autocompletar id="fcod" formControlName="codigoCaso"
+                  [opciones]="opcionesCodigo()" placeholder="p. ej. 102"
+                  (seleccionado)="aplicarCodigo()" (desenfoque)="aplicarCodigo()" />
               </div>
               <div class="field">
                 <label>Prioridad</label>
@@ -151,6 +147,12 @@
                     </button>
                   }
                 </div>
+              </div>
+              <div class="field span2">
+                <label for="fcodbusq">¿No sabe el código? Búsquelo por descripción</label>
+                <app-autocompletar id="fcodbusq" [opciones]="opcionesCodigo()"
+                  [limpiarAlSeleccionar]="true" placeholder="p. ej. accidente de tránsito"
+                  (seleccionado)="buscarPorDescripcion($event)" />
               </div>
               <div class="field span2">
                 <label for="ftit">Descripción del caso</label>
