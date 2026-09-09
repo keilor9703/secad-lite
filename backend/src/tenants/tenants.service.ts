@@ -4,8 +4,12 @@ import { InjectRepository } from '@nestjs/typeorm';
 import { IsNull, Not, Repository } from 'typeorm';
 import { randomBytes } from 'crypto';
 import { ESTADOS_SUSCRIPCION, EstadoSuscripcion, INTEGRACIONES, Integracion, PLANES, PlanTenant, TenantEntity } from './tenant.entity';
+import { UsuarioEntity } from '../usuarios/usuario.entity';
 import { CatalogosService } from '../catalogos/catalogos.service';
 import { cifrar, descifrar, digestApiKey, esDigest } from '../common/secretos';
+
+/** Tenant tal como lo ve el dueño de la plataforma: con cuántas cuentas tiene cada instancia. */
+export type TenantConUsuarios = TenantEntity & { totalUsuarios: number };
 
 /** Cambios que solo hace el dueño de la plataforma. */
 export interface ActualizarTenantDto {
@@ -44,6 +48,8 @@ export class TenantsService implements OnModuleInit {
   constructor(
     @InjectRepository(TenantEntity)
     private readonly repo: Repository<TenantEntity>,
+    @InjectRepository(UsuarioEntity)
+    private readonly usuarios: Repository<UsuarioEntity>,
     private readonly catalogos: CatalogosService,
     private readonly config: ConfigService,
   ) {}
@@ -73,8 +79,25 @@ export class TenantsService implements OnModuleInit {
     }
   }
 
-  listar(): Promise<TenantEntity[]> {
-    return this.repo.find({ order: { codigo: 'ASC' } });
+  /**
+   * Con cuántas cuentas cuenta cada instancia — lo que muestra el panel del
+   * dueño de la plataforma. Es la única vista realmente "entre tenants": no
+   * pasa por `@Tenant()` (ese exige UN tenant elegido) porque el sentido de
+   * esta lista es precisamente compararlos a todos a la vez.
+   */
+  async listar(): Promise<TenantConUsuarios[]> {
+    const [tenants, conteos] = await Promise.all([
+      this.repo.find({ order: { codigo: 'ASC' } }),
+      this.usuarios
+        .createQueryBuilder('u')
+        .select('u.tenant', 'tenant')
+        .addSelect('COUNT(*)', 'total')
+        .where('u.tenant IS NOT NULL')
+        .groupBy('u.tenant')
+        .getRawMany<{ tenant: string; total: string }>(),
+    ]);
+    const porTenant = new Map(conteos.map((c) => [c.tenant, Number(c.total)]));
+    return tenants.map((t) => ({ ...t, totalUsuarios: porTenant.get(t.codigo) ?? 0 }));
   }
 
   /**

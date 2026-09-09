@@ -1,8 +1,8 @@
-import { ChangeDetectionStrategy, Component, OnInit, inject, signal } from '@angular/core';
+import { ChangeDetectionStrategy, Component, OnInit, computed, inject, signal } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormControl, FormGroup, ReactiveFormsModule, Validators } from '@angular/forms';
 import { AdminService } from '../../core/admin.service';
-import { EstadoSuscripcion, PlanTenant, Tenant, UsuarioAdmin } from '../../core/models';
+import { EstadoSuscripcion, PlanTenant, Tenant } from '../../core/models';
 
 /**
  * Supervisión de la plataforma: es la vista del dueño de FALCON CAD, no la del
@@ -22,8 +22,10 @@ export class PlataformaComponent implements OnInit {
   private admin = inject(AdminService);
 
   readonly tenants = signal<Tenant[]>([]);
-  readonly usuarios = signal<UsuarioAdmin[]>([]);
   readonly error = signal('');
+
+  /** Cuentas de todas las instancias — cada tenant ya trae su propio conteo (GET /tenants). */
+  readonly totalCuentas = computed(() => this.tenants().reduce((s, t) => s + (t.totalUsuarios ?? 0), 0));
 
   readonly planes: PlanTenant[] = ['basico', 'estandar', 'avanzado'];
   readonly estados: EstadoSuscripcion[] = ['prueba', 'activa', 'suspendida'];
@@ -48,12 +50,6 @@ export class PlataformaComponent implements OnInit {
       next: (t) => this.tenants.set(t),
       error: () => this.error.set('No fue posible cargar las instancias.'),
     });
-    this.admin.listarUsuarios().subscribe({ next: (u) => this.usuarios.set(u), error: () => {} });
-  }
-
-  /** Cuántas cuentas tiene cada instancia, para dimensionarla de un vistazo. */
-  usuariosDe(codigo: string): number {
-    return this.usuarios().filter((u) => u.tenant === codigo).length;
   }
 
   /** Días que faltan para el vencimiento; negativo si ya venció. */

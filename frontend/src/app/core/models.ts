@@ -261,6 +261,8 @@ export interface Tenant {
   /** Integraciones habilitadas: pbx, whatsapp, api. */
   integraciones?: string[] | null;
   creadoEn?: string;
+  /** Cuántas cuentas tiene esta instancia — solo lo trae GET /tenants (vista del dueño de la plataforma). */
+  totalUsuarios?: number;
 }
 
 export interface UsuarioAdmin {

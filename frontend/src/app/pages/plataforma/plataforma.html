@@ -10,7 +10,7 @@
 
   <div class="kpis">
     <div class="kpi"><span class="n">{{ tenants().length }}</span><span class="l">Instancias</span></div>
-    <div class="kpi"><span class="n">{{ usuarios().length }}</span><span class="l">Cuentas</span></div>
+    <div class="kpi"><span class="n">{{ totalCuentas() }}</span><span class="l">Cuentas</span></div>
   </div>
 
   <div class="panel card">
@@ -28,7 +28,7 @@
       <div class="t-head">
         <div>
           <h2>{{ t.nombre }} <span class="mono cod">{{ t.codigo }}</span></h2>
-          <p class="t-sub">{{ usuariosDe(t.codigo) }} cuentas · creada {{ t.creadoEn | date: 'dd/MM/yyyy' }}</p>
+          <p class="t-sub">{{ t.totalUsuarios ?? 0 }} cuentas · creada {{ t.creadoEn | date: 'dd/MM/yyyy' }}</p>
         </div>
         <span class="situacion" [attr.data-estado]="situacion(t).clase">{{ situacion(t).texto }}</span>
       </div>
