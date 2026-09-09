@@ -66,14 +66,16 @@ export class ReferenciasService {
   }
 
   /**
-   * Casos y funcionarios adscritos al canal. Ambas columnas son `simple-array`,
-   * así que se comparan contra la lista partida por comas.
+   * Casos y funcionarios adscritos al canal. `casos.canales` es un text[]
+   * nativo desde la migración ConvertirCanalesAArray (ANY(canales) directo);
+   * `usuarios.canales` sigue siendo `simple-array` (texto separado por
+   * comas), de ahí que solo esa consulta necesite string_to_array.
    */
   async deCanal(tenant: string, id: string): Promise<Referencia[]> {
     return this.reunir([
       ['casos', this.contar(
         `SELECT COUNT(*)::int AS n FROM casos
-          WHERE tenant = $1 AND canales IS NOT NULL AND $2 = ANY(string_to_array(canales, ','))`,
+          WHERE tenant = $1 AND canales IS NOT NULL AND $2 = ANY(canales)`,
         [tenant, id],
       )],
       ['funcionarios adscritos', this.contar(

@@ -92,8 +92,11 @@ export class CasosService implements OnModuleInit {
         qb.andWhere(
           new Brackets((qbInner) => {
             qbInner.where('caso.creadoPor = :sub', { sub: actor.sub });
+            // caso.canales es text[] nativo (migración ConvertirCanalesAArray):
+            // pertenencia con ANY(), no LIKE contra texto — eso truena con
+            // "operator does not exist: text[] ~~ unknown".
             ids.forEach((id, idx) => {
-              qbInner.orWhere(`caso.canales LIKE :id${idx}`, { [`id${idx}`]: `%${id}%` });
+              qbInner.orWhere(`:id${idx} = ANY(caso.canales)`, { [`id${idx}`]: id });
             });
           }),
         );
