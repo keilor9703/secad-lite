@@ -12,7 +12,22 @@ import { TenantRlsService } from '../common/tenant-rls.service';
 
 /** Payload que una entidad externa envía para radicar un caso. */
 export interface RadicarCasoDto {
-  titulo: string;
+  /**
+   * Código del catálogo de tipificación del tenant (p. ej. "102"). Obligatorio:
+   * es lo que clasifica el caso — de él salen la prioridad y, si la entidad no
+   * tiene una agencia propia configurada, también a quién se sugiere enviarlo.
+   * Debe existir y estar activo en el catálogo del tenant (Catálogos → Códigos
+   * de caso); si no, la solicitud se rechaza con 400.
+   */
+  codigoCaso: string;
+  /**
+   * Resumen de ESTE caso puntual (p. ej. "Fuga de gas en cocina, 2do piso").
+   * Opcional: si no se envía, se completa solo con la descripción genérica
+   * del código de catálogo — pensado para entidades simples (una alarma, por
+   * ejemplo) que no siempre tienen un texto propio que mandar.
+   */
+  titulo?: string;
+  /** Detalle o narrativa adicional del caso — no es lo mismo que el título, es el "relato". */
   descripcion?: string;
   ciudadano?: string;
   telefono?: string;
@@ -72,7 +87,17 @@ export class IntegracionService implements OnModuleInit {
   /** Radica un caso a nombre de la entidad dueña de la API key. */
   async radicar(apiKey: string, dto: RadicarCasoDto) {
     const entidad = await this.porApiKey(apiKey);
-    if (!dto?.titulo?.trim()) throw new BadRequestException('El título es obligatorio.');
+    if (!dto?.codigoCaso?.trim()) {
+      throw new BadRequestException('El código de caso (codigoCaso) es obligatorio — es lo que clasifica el caso.');
+    }
+    // Se valida aparte (y no solo dejándoselo a CasosService.crear) para que
+    // el error sea preciso: la entidad externa necesita saber que su código
+    // no existe, no un genérico "falta título o código".
+    const codigos = await this.catalogos.listarCodigos(entidad.tenant, true);
+    const buscado = dto.codigoCaso.trim().toUpperCase();
+    if (!codigos.some((c) => c.codigo.toUpperCase() === buscado)) {
+      throw new BadRequestException(`El código de caso «${dto.codigoCaso.trim()}» no existe o está inactivo en el catálogo del tenant.`);
+    }
 
     const descripcion = [dto.descripcion?.trim(), dto.referencia?.trim() ? `Referencia externa: ${dto.referencia.trim()}` : '']
       .filter(Boolean).join('\n');
@@ -81,7 +106,10 @@ export class IntegracionService implements OnModuleInit {
       entidad.tenant,
       {
         canal: 'integracion',
-        titulo: dto.titulo.trim(),
+        codigoCaso: dto.codigoCaso.trim(),
+        // Sin título propio, CasosService.crear() lo completa con la
+        // descripción del código de catálogo — igual que en Recepción.
+        titulo: dto.titulo?.trim() || undefined,
         descripcion,
         ciudadano: dto.ciudadano?.trim() || entidad.nombre,
         telefono: dto.telefono?.trim(),

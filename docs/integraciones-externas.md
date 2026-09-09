@@ -280,6 +280,7 @@ x-api-key: <API key de la entidad>
 
 ```json
 {
+  "codigoCaso": "102",
   "titulo": "Alarma activada sede norte",
   "descripcion": "Sensor de humo",
   "referencia": "ACME-77",
@@ -292,8 +293,9 @@ x-api-key: <API key de la entidad>
 
 | Campo | Tipo | Obligatorio | Descripción |
 |---|---|---|---|
-| `titulo` | string | **sí** | Título del caso. |
-| `descripcion` | string | no | Detalle libre. |
+| `codigoCaso` | string | **sí** | Código del catálogo de tipificación del tenant (Catálogos → Códigos de caso). Es lo que clasifica el caso: de él salen la prioridad y, si la entidad no tiene una agencia propia configurada (ver 3.4), también a quién se sugiere enviarlo. Debe existir y estar activo, o se rechaza con 400. |
+| `titulo` | string | no | Resumen de ESE caso puntual (p. ej. "Alarma activada sede norte"). Si se omite, se completa solo con la descripción genérica del código de catálogo — pensado para entidades simples (una alarma, por ejemplo) que no siempre tienen un texto propio que mandar. |
+| `descripcion` | string | no | Detalle o narrativa adicional — no es lo mismo que el título, es el "relato". |
 | `referencia` | string | no | ID del caso en el sistema de la entidad (para su propia trazabilidad); se anexa a la descripción como "Referencia externa: …". |
 | `ciudadano` | string | no | Nombre del solicitante/sede; si se omite, se usa el nombre de la entidad. |
 | `telefono` | string | no | Teléfono de contacto. |
@@ -302,7 +304,9 @@ x-api-key: <API key de la entidad>
 Nota: el campo `agencia` (texto libre) que aceptaba versiones anteriores ya
 no es necesario — la agencia y los canales de atención se definen **una vez**,
 al registrar la entidad en Administración (ver 3.4), y se aplican
-automáticamente a todos los casos que esa entidad radique.
+automáticamente a todos los casos que esa entidad radique. El `codigoCaso`
+solo entra como respaldo de esa configuración cuando la entidad no tiene
+agencia propia definida.
 
 **Respuesta** `201 Created`:
 
@@ -320,7 +324,8 @@ automáticamente a todos los casos que esa entidad radique.
   la entidad está desactivada.
 - `403 Forbidden` — el tenant dueño de la entidad está bloqueado/suspendido/
   vencido, o no tiene contratada la integración `api`.
-- `400 Bad Request` — falta `titulo`.
+- `400 Bad Request` — falta `codigoCaso`, o el código no existe/está inactivo
+  en el catálogo del tenant.
 
 ### 3.2 `GET /api/integracion/casos/:id` — consultar estado
 

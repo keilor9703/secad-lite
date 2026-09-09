@@ -230,9 +230,10 @@ estado:
 
 ```
 POST /api/integracion/casos      Header: x-api-key: <API key de la entidad>
-{ "titulo": "Alarma activada sede norte", "descripcion": "Sensor de humo",
+{ "codigoCaso": "102", "titulo": "Alarma activada sede norte", "descripcion": "Sensor de humo",
   "referencia": "ACME-77", "telefono": "3001112233",
   "lat": 4.65, "lng": -74.05 }
+# codigoCaso es obligatorio (clasifica el caso, del catálogo del tenant); titulo es opcional
 # → { "casoId": "…", "estado": "nuevo", ... }
 
 GET  /api/integracion/casos/:id  Header: x-api-key: <API key de la entidad>

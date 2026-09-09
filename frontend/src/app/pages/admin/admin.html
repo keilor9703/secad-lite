@@ -275,7 +275,10 @@
             <strong>radicar casos</strong>. Cada una recibe su propia API key y envía un
             <code>POST</code> con header <code>x-api-key</code> a:
             <code>{{ integracionUrl }}</code> ·
-            cuerpo <code>{{ '{' }}"titulo":"...","descripcion":"...","telefono":"...","lat":4.6,"lng":-74.1,"referencia":"EXT-001"{{ '}' }}</code>.
+            cuerpo <code>{{ '{' }}"codigoCaso":"102","titulo":"...","descripcion":"...","telefono":"...","lat":4.6,"lng":-74.1,"referencia":"EXT-001"{{ '}' }}</code>.
+            <code>codigoCaso</code> es <strong>obligatorio</strong> (del catálogo de Códigos de caso del tenant — de ahí sale la prioridad) ·
+            <code>titulo</code> es el resumen de ese caso puntual y es opcional: sin él, se completa con la descripción del código ·
+            <code>descripcion</code> es el relato o detalle adicional, también opcional.
             Con <code>GET {{ '{' }}url{{ '}' }}/:casoId</code> consultan el estado de sus casos.</p>
             <form class="crear-inline" [formGroup]="entidadForm" (ngSubmit)="crearEntidad()">
               <input formControlName="nombre" placeholder="Nombre (p. ej. Bomberos)" />
