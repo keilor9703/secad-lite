@@ -375,12 +375,13 @@ export class RecepcionComponent implements OnInit {
         }
         // El id del caso (columna `id` de `casos`) es el identificador
         // primordial del sistema: con él se cruza contra Consulta, reportes e
-        // integraciones. Va siempre en el aviso, venga el caso de donde venga.
-        const idCorto = caso.id.slice(0, 8);
-        const mensaje = destino ? `Caso #${idCorto} enviado a ${destino}.` : `Caso #${idCorto} recepcionado correctamente.`;
+        // integraciones. Va siempre en el aviso, completo, venga el caso de
+        // donde venga.
+        const mensaje = destino ? `Caso enviado a ${destino}` : 'Caso recepcionado correctamente';
         // Si además venía de una llamada tomada, se informa aparte: es un id
         // distinto (el de la llamada en la central), no reemplaza al del caso.
-        this.toast.exito(llamada ? `${mensaje} Llamada #${llamada.id.slice(0, 8)}.` : mensaje);
+        const lineaLlamada = llamada ? `\nLlamada: ${llamada.id.slice(0, 8)}` : '';
+        this.toast.exito(`${mensaje}\nId: ${caso.id}${lineaLlamada}`);
         this.limpiarForm();
       },
       error: (e) => {

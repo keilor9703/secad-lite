@@ -57,19 +57,13 @@
       <tbody>
         @for (c of filtrados(); track c) {
           <tr>
-            <td class="mono"><span [title]="'Caso completo: ' + c.id">#{{ c.id.slice(0, 8) }}</span></td>
+            <td class="mono">{{ c.id }}</td>
             <td class="mono">{{ c.codigoCaso || '—' }}</td>
             <td class="titulo"><a [routerLink]="['/caso', c.id]">{{ canalIcon(c.canal) }} {{ c.titulo }}</a></td>
             <td>{{ c.ciudadano }}</td>
             <td class="ubic">{{ c.direccion || c.barrio || '—' }}</td>
             <td>{{ c.agencia }}</td>
-            <td class="mono">
-              @if (c.llamadaId) {
-                <span [title]="'Llamada completa: ' + c.llamadaId">#{{ c.llamadaId.slice(0, 8) }}</span>
-              } @else {
-                —
-              }
-            </td>
+            <td class="mono">{{ c.llamadaId || '—' }}</td>
             <td><span class="badge" [attr.data-estado]="c.estado">{{ estadoLabel(c.estado) }}</span></td>
             <td class="mono fecha">{{ c.creadoEn | date: 'dd/MM HH:mm' }}</td>
           </tr>

@@ -58,6 +58,9 @@
   line-height: 1.4;
   color: var(--ink);
   padding-top: 0.1rem;
+  // Los mensajes de caso van en dos líneas ("Caso enviado a X" / "Id: …"):
+  // respeta los \n del texto sin necesitar HTML dentro del toast.
+  white-space: pre-line;
 }
 
 .toast-cerrar {
