@@ -373,9 +373,13 @@ export class RecepcionComponent implements OnInit {
           this.llamadaEnCurso.set(null);
           this.pbx.vincular(llamada.id, caso.id).subscribe({ error: () => {} });
         }
-        const mensaje = destino ? `Caso enviado a ${destino}.` : 'Caso recepcionado correctamente.';
-        // Con el id corto de la llamada, el operador puede cruzarla luego
-        // contra lo que ve en Consulta (misma llamada, mismo caso).
+        // El id del caso (columna `id` de `casos`) es el identificador
+        // primordial del sistema: con él se cruza contra Consulta, reportes e
+        // integraciones. Va siempre en el aviso, venga el caso de donde venga.
+        const idCorto = caso.id.slice(0, 8);
+        const mensaje = destino ? `Caso #${idCorto} enviado a ${destino}.` : `Caso #${idCorto} recepcionado correctamente.`;
+        // Si además venía de una llamada tomada, se informa aparte: es un id
+        // distinto (el de la llamada en la central), no reemplaza al del caso.
         this.toast.exito(llamada ? `${mensaje} Llamada #${llamada.id.slice(0, 8)}.` : mensaje);
         this.limpiarForm();
       },

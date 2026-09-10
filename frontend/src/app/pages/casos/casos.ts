@@ -96,7 +96,7 @@ export class CasosComponent {
    * y con comillas escapadas para que un título con ; o " no rompa filas.
    */
   exportarCsv(): void {
-    const cols = ['Código', 'Motivo', 'Canal', 'Ciudadano', 'Teléfono', 'Dirección', 'Barrio', 'Ciudad',
+    const cols = ['ID Caso', 'Código', 'Motivo', 'Canal', 'Ciudadano', 'Teléfono', 'Dirección', 'Barrio', 'Ciudad',
                   'Agencia', 'Prioridad', 'Estado', 'Llamada', 'Recepcionado por', 'Recepcionado en'];
     const celda = (v: unknown) => {
       let s = String(v ?? '');
@@ -105,7 +105,7 @@ export class CasosComponent {
       return `"${s.replace(/"/g, '""')}"`;
     };
     const filas = this.filtrados().map((c) => [
-      c.codigoCaso, c.titulo, c.canal, c.ciudadano, c.telefono, c.direccion, c.barrio, c.ciudad,
+      c.id, c.codigoCaso, c.titulo, c.canal, c.ciudadano, c.telefono, c.direccion, c.barrio, c.ciudad,
       c.agencia, c.prioridad, this.estadoLabel(c.estado), c.llamadaId, c.creadoPor,
       new Date(c.creadoEn).toLocaleString('es-CO'),
     ].map(celda).join(';'));

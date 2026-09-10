@@ -50,13 +50,14 @@
     <table>
       <thead>
         <tr>
-          <th>Código</th><th>Motivo</th><th>Ciudadano</th><th>Ubicación</th>
+          <th>Caso</th><th>Código</th><th>Motivo</th><th>Ciudadano</th><th>Ubicación</th>
           <th>Agencia</th><th>Llamada</th><th>Estado</th><th>Recepcionado</th>
         </tr>
       </thead>
       <tbody>
         @for (c of filtrados(); track c) {
           <tr>
+            <td class="mono"><span [title]="'Caso completo: ' + c.id">#{{ c.id.slice(0, 8) }}</span></td>
             <td class="mono">{{ c.codigoCaso || '—' }}</td>
             <td class="titulo"><a [routerLink]="['/caso', c.id]">{{ canalIcon(c.canal) }} {{ c.titulo }}</a></td>
             <td>{{ c.ciudadano }}</td>
