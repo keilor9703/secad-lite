@@ -48,6 +48,10 @@ export class CasoEntity {
   @Column({ type: 'uuid', nullable: true })
   entidadId?: string | null;
 
+  /** Llamada (llamadas.id) que originó el caso, cuando entró por la planta telefónica. Ver PbxService.vincular(). */
+  @Column({ type: 'uuid', nullable: true })
+  llamadaId?: string | null;
+
   // --- Tipificación (código de caso) -----------------------------------------
 
   /**

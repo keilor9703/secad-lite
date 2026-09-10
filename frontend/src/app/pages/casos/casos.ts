@@ -97,7 +97,7 @@ export class CasosComponent {
    */
   exportarCsv(): void {
     const cols = ['Código', 'Motivo', 'Canal', 'Ciudadano', 'Teléfono', 'Dirección', 'Barrio', 'Ciudad',
-                  'Agencia', 'Prioridad', 'Estado', 'Recepcionado por', 'Recepcionado en'];
+                  'Agencia', 'Prioridad', 'Estado', 'Llamada', 'Recepcionado por', 'Recepcionado en'];
     const celda = (v: unknown) => {
       let s = String(v ?? '');
       // Un valor que empieza por = + - @ lo interpretaría Excel como fórmula.
@@ -106,7 +106,7 @@ export class CasosComponent {
     };
     const filas = this.filtrados().map((c) => [
       c.codigoCaso, c.titulo, c.canal, c.ciudadano, c.telefono, c.direccion, c.barrio, c.ciudad,
-      c.agencia, c.prioridad, this.estadoLabel(c.estado), c.creadoPor,
+      c.agencia, c.prioridad, this.estadoLabel(c.estado), c.llamadaId, c.creadoPor,
       new Date(c.creadoEn).toLocaleString('es-CO'),
     ].map(celda).join(';'));
     const csv = [cols.map(celda).join(';'), ...filas].join('\r\n');

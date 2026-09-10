@@ -51,7 +51,7 @@
       <thead>
         <tr>
           <th>Código</th><th>Motivo</th><th>Ciudadano</th><th>Ubicación</th>
-          <th>Agencia</th><th>Estado</th><th>Recepcionado</th>
+          <th>Agencia</th><th>Llamada</th><th>Estado</th><th>Recepcionado</th>
         </tr>
       </thead>
       <tbody>
@@ -62,6 +62,13 @@
             <td>{{ c.ciudadano }}</td>
             <td class="ubic">{{ c.direccion || c.barrio || '—' }}</td>
             <td>{{ c.agencia }}</td>
+            <td class="mono">
+              @if (c.llamadaId) {
+                <span [title]="'Llamada completa: ' + c.llamadaId">#{{ c.llamadaId.slice(0, 8) }}</span>
+              } @else {
+                —
+              }
+            </td>
             <td><span class="badge" [attr.data-estado]="c.estado">{{ estadoLabel(c.estado) }}</span></td>
             <td class="mono fecha">{{ c.creadoEn | date: 'dd/MM HH:mm' }}</td>
           </tr>

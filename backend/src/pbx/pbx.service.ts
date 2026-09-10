@@ -266,12 +266,19 @@ export class PbxService {
       // como enlace y el historial llevaba a un caso inexistente. (El catch
       // cubre un id que ni siquiera es un UUID: para Postgres es un error de
       // sintaxis, para el cliente es el mismo "no existe".)
-      const caso = await manager.getRepository(CasoEntity).findOne({ where: { tenant, id: casoId ?? '' } }).catch(() => null);
+      const casoRepo = manager.getRepository(CasoEntity);
+      const caso = await casoRepo.findOne({ where: { tenant, id: casoId ?? '' } }).catch(() => null);
       if (!caso) throw new BadRequestException('El caso a enlazar no existe.');
       llamada.estado = 'atendida';
       llamada.casoId = caso.id;
       llamada.atendidaPor = actor.username;
       llamada.atendidaEn = new Date();
+      // Enlace inverso: el caso también sabe de qué llamada vino, para
+      // mostrarla en Consulta sin tener que ir a buscarla en llamadas.
+      if (caso.llamadaId !== llamada.id) {
+        caso.llamadaId = llamada.id;
+        await casoRepo.save(caso);
+      }
       return repo.save(llamada);
     });
     this.eventos$.next({ tenant, tipo: 'cambio', llamada: guardada });

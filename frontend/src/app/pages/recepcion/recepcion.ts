@@ -373,7 +373,10 @@ export class RecepcionComponent implements OnInit {
           this.llamadaEnCurso.set(null);
           this.pbx.vincular(llamada.id, caso.id).subscribe({ error: () => {} });
         }
-        this.toast.exito(destino ? `Caso enviado a ${destino}.` : 'Caso recepcionado correctamente.');
+        const mensaje = destino ? `Caso enviado a ${destino}.` : 'Caso recepcionado correctamente.';
+        // Con el id corto de la llamada, el operador puede cruzarla luego
+        // contra lo que ve en Consulta (misma llamada, mismo caso).
+        this.toast.exito(llamada ? `${mensaje} Llamada #${llamada.id.slice(0, 8)}.` : mensaje);
         this.limpiarForm();
       },
       error: (e) => {

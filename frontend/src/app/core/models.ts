@@ -38,6 +38,8 @@ export interface Caso {
   /** Este caso fue remitido a otra jurisdicción (otro tenant). */
   remitidoATenant?: string | null;
   remitidoACasoId?: string | null;
+  /** Llamada que originó el caso, cuando entró por la planta telefónica. */
+  llamadaId?: string | null;
   creadoPor: string;
   creadoEn: string;
   actualizadoEn: string;
