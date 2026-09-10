@@ -35,6 +35,9 @@ export interface LoginResult {
    * superadmin, qué módulos están habilitados — terminaba pidiendo la
    * configuración de todos y mostrando un aviso de "no habilitado" por cada
    * uno que no se contrató.
+   *
+   * `null` cuando el tenant no tiene la lista configurada (instancias previas
+   * a esta funcionalidad): sin restricción, igual que en el backend.
    */
-  integraciones: string[];
+  integraciones: string[] | null;
 }

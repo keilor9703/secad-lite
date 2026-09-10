@@ -242,8 +242,12 @@ export interface Sesion {
   agencia?: string | null;
   /** Canales de atención que cubre (canales.id). */
   canales?: string[];
-  /** Integraciones contratadas por SU tenant (pbx, whatsapp, api, cti…). Vacío para superadmin: él no tiene un tenant fijo. */
-  integraciones?: string[];
+  /**
+   * Integraciones contratadas por SU tenant (pbx, whatsapp, api, cti…). Vacío
+   * para superadmin: él no tiene un tenant fijo. `null` (no `[]`) cuando el
+   * tenant no tiene la lista configurada: sin restricción, no "ninguna".
+   */
+  integraciones?: string[] | null;
 }
 
 export type PlanTenant = 'basico' | 'estandar' | 'avanzado';

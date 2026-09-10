@@ -97,11 +97,18 @@ export class AuthService {
    * guard. El superadmin no pertenece a ningún tenant fijo (trabaja sobre el
    * que elija en la barra superior), así que aquí no aplica — la UI resuelve
    * ese caso aparte, con la lista de tenants que ya tiene cargada.
+   *
+   * `null` (no `[]`) cuando el tenant no tiene la lista configurada: son las
+   * instancias creadas antes de que existieran los módulos contratables, y no
+   * hay restricción para ellas — igual que en `TenantsService.tieneIntegracion`.
+   * Si se devolviera `[]` en su lugar, la UI lo interpretaría como "ninguna
+   * integración contratada" y ocultaría paneles (PBX, CTI, WhatsApp…) que sí
+   * deben verse.
    */
-  private async integracionesDe(tenant: string | null): Promise<string[]> {
-    if (!tenant) return [];
+  private async integracionesDe(tenant: string | null): Promise<string[] | null> {
+    if (!tenant) return null;
     const t = await this.tenants.porCodigo(tenant);
-    return t?.integraciones ?? [];
+    return t?.integraciones ?? null;
   }
 
   private emitir(
@@ -112,7 +119,7 @@ export class AuthService {
     tenant: string | null,
     permisos: string[],
     agencia: string | null = null,
-    integraciones: string[] = [],
+    integraciones: string[] | null = null,
   ): LoginResult {
     const payload: JwtPayload = { sub, tipo, nombre, rol, permisos, tenant, agencia };
     return { token: this.jwt.sign(payload), usuario: sub, tipo, nombre, rol, permisos, tenant, agencia, integraciones };

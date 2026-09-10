@@ -81,7 +81,10 @@ export class ShellComponent implements OnInit {
 
   /** ¿El tenant (de la lista ya cargada) tiene esta integración? Para el superadmin, que no tiene una propia. */
   private tieneIntegracionTenant(tenants: Tenant[], codigo: string, clave: string): boolean {
-    return (tenants.find((t) => t.codigo === codigo)?.integraciones ?? []).includes(clave);
+    const integraciones = tenants.find((t) => t.codigo === codigo)?.integraciones;
+    // Sin lista configurada (null) no hay restricción — igual criterio que en el backend.
+    if (!integraciones) return true;
+    return integraciones.includes(clave);
   }
 
   /** Cambia el tenant en gestión: reabre la cola en vivo y recarga la vista. */

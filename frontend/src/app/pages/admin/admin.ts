@@ -425,7 +425,10 @@ export class AdminComponent implements OnInit {
    */
   tieneIntegracion(clave: string): boolean {
     if (this.esSuperadmin()) {
-      return (this.tenants().find((t) => t.codigo === this.tenantActivo())?.integraciones ?? []).includes(clave);
+      const integraciones = this.tenants().find((t) => t.codigo === this.tenantActivo())?.integraciones;
+      // Sin lista configurada (null) no hay restricción — igual criterio que en el backend.
+      if (!integraciones) return true;
+      return integraciones.includes(clave);
     }
     return this.auth.tieneIntegracion(clave);
   }
