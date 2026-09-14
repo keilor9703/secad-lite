@@ -42,9 +42,8 @@ export class AdminService {
   actualizarTenant(id: string, cambios: Partial<Tenant>): Observable<Tenant> {
     return this.http.patch<Tenant>(`${this.base}/tenants/${id}`, cambios);
   }
-  crearTenant(dto: {
-    codigo: string; nombre: string; codigoDane?: string; departamento?: string; municipio?: string; subregion?: string;
-  }): Observable<Tenant> {
+  /** `codigoDane` es el del MUNICIPIO (5 dígitos, elegido de la lista) — departamento/municipio/subregión los deriva el backend. */
+  crearTenant(dto: { codigo: string; nombre: string; codigoDane?: string }): Observable<Tenant> {
     return this.http.post<Tenant>(`${this.base}/tenants`, dto);
   }
 

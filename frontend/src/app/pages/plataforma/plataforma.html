@@ -23,10 +23,7 @@
     </form>
     <!-- División político-administrativa (DIVIPOLA/DANE): opcional al crear, se completa luego si hace falta. -->
     <form class="crear-inline sub" [formGroup]="nuevoTenantForm">
-      <input formControlName="departamento" placeholder="Departamento (p. ej. Antioquia)" />
-      <input formControlName="municipio" placeholder="Municipio oficial (si difiere del nombre)" />
-      <input formControlName="codigoDane" placeholder="Código DANE" title="Código DIVIPOLA del municipio" />
-      <input formControlName="subregion" placeholder="Subregión (si aplica)" />
+      <app-selector-municipio formControlName="codigoDane" />
     </form>
   </div>
 
@@ -52,21 +49,9 @@
         }
       </div>
       <div class="t-grid">
-        <label class="campo">
-          <span>Departamento</span>
-          <input [value]="t.departamento" placeholder="—" (change)="actualizar(t, { departamento: $any($event.target).value })" />
-        </label>
-        <label class="campo">
-          <span>Municipio</span>
-          <input [value]="t.municipio" placeholder="—" (change)="actualizar(t, { municipio: $any($event.target).value })" />
-        </label>
-        <label class="campo">
-          <span>Código DANE</span>
-          <input class="mono" [value]="t.codigoDane" placeholder="—" (change)="actualizar(t, { codigoDane: $any($event.target).value })" />
-        </label>
-        <label class="campo">
-          <span>Subregión</span>
-          <input [value]="t.subregion" placeholder="—" (change)="actualizar(t, { subregion: $any($event.target).value })" />
+        <label class="campo campo-ancho">
+          <span>Departamento y municipio</span>
+          <app-selector-municipio [ngModel]="t.codigoDane" (ngModelChange)="cambiarUbicacion(t, $event)" />
         </label>
       </div>
       @if (t.motivoBloqueo) {

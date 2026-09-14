@@ -1,0 +1,30 @@
+<div class="selector-municipio">
+  <select
+    [disabled]="deshabilitado()"
+    [ngModel]="departamentoSel()"
+    (ngModelChange)="cambiarDepartamento($event)"
+    aria-label="Departamento"
+  >
+    <option [ngValue]="''">Departamento…</option>
+    @for (d of departamentos(); track d.codigoDane) {
+      <option [ngValue]="d.codigoDane">{{ d.nombre }}</option>
+    }
+  </select>
+  <select
+    [disabled]="deshabilitado() || !departamentoSel()"
+    [ngModel]="municipioSel()"
+    (ngModelChange)="cambiarMunicipio($event)"
+    aria-label="Municipio"
+  >
+    <option [ngValue]="''">Municipio…</option>
+    @for (m of municipios(); track m.codigoDane) {
+      <option [ngValue]="m.codigoDane">{{ m.nombre }}</option>
+    }
+  </select>
+  @if (municipioSel()) {
+    <span class="dane" title="Código DANE (DIVIPOLA)">{{ municipioSel() }}</span>
+  }
+  @if (subregionSel(); as sub) {
+    <span class="subregion">{{ sub }}</span>
+  }
+</div>

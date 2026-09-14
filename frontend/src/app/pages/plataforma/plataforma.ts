@@ -1,8 +1,9 @@
 import { ChangeDetectionStrategy, Component, OnInit, computed, inject, signal } from '@angular/core';
 import { CommonModule } from '@angular/common';
-import { FormControl, FormGroup, ReactiveFormsModule, Validators } from '@angular/forms';
+import { FormControl, FormGroup, FormsModule, ReactiveFormsModule, Validators } from '@angular/forms';
 import { AdminService } from '../../core/admin.service';
 import { EstadoSuscripcion, PlanTenant, Tenant } from '../../core/models';
+import { SelectorMunicipioComponent } from '../../shared/selector-municipio/selector-municipio';
 
 /**
  * Supervisión de la plataforma: es la vista del dueño de FALCON CAD, no la del
@@ -13,7 +14,7 @@ import { EstadoSuscripcion, PlanTenant, Tenant } from '../../core/models';
 @Component({
   selector: 'app-plataforma',
   standalone: true,
-  imports: [CommonModule, ReactiveFormsModule],
+  imports: [CommonModule, ReactiveFormsModule, FormsModule, SelectorMunicipioComponent],
   templateUrl: './plataforma.html',
   styleUrl: './plataforma.scss',
   changeDetection: ChangeDetectionStrategy.OnPush,
@@ -39,10 +40,8 @@ export class PlataformaComponent implements OnInit {
   readonly nuevoTenantForm = new FormGroup({
     codigo: new FormControl('', { nonNullable: true, validators: [Validators.required] }),
     nombre: new FormControl('', { nonNullable: true, validators: [Validators.required] }),
-    departamento: new FormControl('', { nonNullable: true }),
-    municipio: new FormControl('', { nonNullable: true }),
-    codigoDane: new FormControl('', { nonNullable: true }),
-    subregion: new FormControl('', { nonNullable: true }),
+    /** Código DANE del municipio, elegido en <app-selector-municipio>; departamento/subregión se derivan de él. */
+    codigoDane: new FormControl<string | null>(null),
   });
 
   /** data URL máximo ~180KB (ver LOGO_MAX_CHARS del backend); avisa antes de subir algo que el servidor rechazará. */
@@ -80,18 +79,21 @@ export class PlataformaComponent implements OnInit {
   crearTenant(): void {
     this.error.set('');
     if (this.nuevoTenantForm.invalid) { this.error.set('Código y nombre son obligatorios.'); return; }
-    const { codigo, nombre, departamento, municipio, codigoDane, subregion } = this.nuevoTenantForm.getRawValue();
+    const { codigo, nombre, codigoDane } = this.nuevoTenantForm.getRawValue();
     this.admin.crearTenant({
-      codigo: codigo.trim(), nombre: nombre.trim(),
-      departamento: departamento.trim() || undefined, municipio: municipio.trim() || undefined,
-      codigoDane: codigoDane.trim() || undefined, subregion: subregion.trim() || undefined,
+      codigo: codigo.trim(), nombre: nombre.trim(), codigoDane: codigoDane?.trim() || undefined,
     }).subscribe({
       next: (t) => {
         this.tenants.update((ts) => [...ts, t]);
-        this.nuevoTenantForm.reset({ codigo: '', nombre: '', departamento: '', municipio: '', codigoDane: '', subregion: '' });
+        this.nuevoTenantForm.reset({ codigo: '', nombre: '', codigoDane: null });
       },
       error: (e) => this.error.set(e?.error?.message ?? 'No fue posible crear la instancia.'),
     });
+  }
+
+  /** Municipio elegido desde <app-selector-municipio> para una instancia ya creada. */
+  cambiarUbicacion(t: Tenant, codigoDane: string | null): void {
+    this.actualizar(t, { codigoDane });
   }
 
   /** Sube la bandera/logo del tenant: se codifica en el navegador y se guarda como data URL. */

@@ -27,6 +27,7 @@ import { PbxModule } from './pbx/pbx.module';
 import { WhatsappModule } from './whatsapp/whatsapp.module';
 import { IntegracionModule } from './integracion/integracion.module';
 import { CtiModule } from './cti/cti.module';
+import { GeografiaModule } from './geografia/geografia.module';
 
 @Module({
   imports: [
@@ -110,6 +111,7 @@ import { CtiModule } from './cti/cti.module';
     WhatsappModule,
     CtiModule,
     IntegracionModule,
+    GeografiaModule,
   ],
   controllers: [AppController],
   providers: [

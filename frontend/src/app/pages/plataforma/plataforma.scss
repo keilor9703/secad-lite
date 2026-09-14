@@ -35,6 +35,7 @@
 .t-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); gap: 0.7rem; }
 .campo { display: flex; flex-direction: column; gap: 0.25rem; }
 .campo > span { font-size: 0.78rem; font-weight: 600; color: var(--ink-soft); }
+.campo-ancho { grid-column: 1 / -1; }
 
 .integraciones { display: flex; align-items: center; gap: 0.5rem; flex-wrap: wrap; }
 .integraciones .lbl { font-size: 0.78rem; font-weight: 600; color: var(--ink-soft); }

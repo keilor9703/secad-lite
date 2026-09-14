@@ -6,6 +6,7 @@ import { randomBytes } from 'crypto';
 import { ESTADOS_SUSCRIPCION, EstadoSuscripcion, INTEGRACIONES, Integracion, PLANES, PlanTenant, TenantEntity } from './tenant.entity';
 import { UsuarioEntity } from '../usuarios/usuario.entity';
 import { CatalogosService } from '../catalogos/catalogos.service';
+import { GeografiaService } from '../geografia/geografia.service';
 import { cifrar, descifrar, digestApiKey, esDigest } from '../common/secretos';
 
 /** Tenant tal como lo ve el dueño de la plataforma: con cuántas cuentas tiene cada instancia. */
@@ -21,10 +22,13 @@ export interface ActualizarTenantDto {
   vence?: string | null;
   motivoBloqueo?: string | null;
   integraciones?: string[];
+  /**
+   * Código DANE del municipio (5 dígitos), elegido de la lista desplegable
+   * de Colombia (ver GeografiaService) — no texto libre. `departamento`,
+   * `municipio` y `subregion` se derivan de él, no se reciben del cliente.
+   * `null`/`''` lo quita.
+   */
   codigoDane?: string | null;
-  departamento?: string | null;
-  municipio?: string | null;
-  subregion?: string | null;
   /** data URL (data:image/…;base64,…); null la quita. Limitada a ~250KB. */
   logoDataUrl?: string | null;
 }
@@ -56,10 +60,8 @@ export interface RemisionConfigDto {
 export interface CrearTenantDto {
   codigo: string;
   nombre: string;
+  /** Código DANE del municipio (5 dígitos), de la lista desplegable de Colombia. */
   codigoDane?: string;
-  departamento?: string;
-  municipio?: string;
-  subregion?: string;
 }
 
 /** Gestión de tenants (instancias). Solo el superadmin la usa. */
@@ -71,8 +73,35 @@ export class TenantsService implements OnModuleInit {
     @InjectRepository(UsuarioEntity)
     private readonly usuarios: Repository<UsuarioEntity>,
     private readonly catalogos: CatalogosService,
+    private readonly geografia: GeografiaService,
     private readonly config: ConfigService,
   ) {}
+
+  /**
+   * `codigoDane` (5 dígitos, elegido de la lista desplegable) -> los cuatro
+   * campos que se guardan en el tenant. Rechaza un código que no exista en
+   * el catálogo — ya no vale escribir cualquier cosa a mano.
+   */
+  private async resolverIdentidadTerritorial(
+    codigoDane: string | null | undefined,
+  ): Promise<{ codigoDane: string | null; departamento: string | null; municipio: string | null; subregion: string | null }> {
+    const valor = codigoDane?.trim();
+    if (!valor) return { codigoDane: null, departamento: null, municipio: null, subregion: null };
+    const municipio = await this.geografia.municipioPorCodigo(valor);
+    if (!municipio) throw new BadRequestException('El municipio seleccionado no existe en el catálogo de Colombia.');
+    const departamento = await this.geografia.departamentoPorCodigo(municipio.departamentoCodigo);
+    // Sin esperar la respuesta: la geocodificación (para centrar el mapa de
+    // Recepción) no debe demorar ni poder tumbar el guardado del tenant si
+    // Nominatim está lento o no responde — GeografiaService ya la deja
+    // cacheada en el municipio para la próxima vez que haga falta.
+    this.geografia.centroideDe(valor).catch(() => {});
+    return {
+      codigoDane: municipio.codigoDane,
+      municipio: municipio.nombre,
+      departamento: departamento?.nombre ?? null,
+      subregion: municipio.subregion ?? null,
+    };
+  }
 
   async onModuleInit(): Promise<void> {
     if (!(await this.repo.count())) {
@@ -218,10 +247,13 @@ export class TenantsService implements OnModuleInit {
     if (dto.vence !== undefined) t.vence = dto.vence || null;
     if (dto.motivoBloqueo !== undefined) t.motivoBloqueo = dto.motivoBloqueo?.trim() || null;
     if (dto.integraciones !== undefined) t.integraciones = dto.integraciones;
-    if (dto.codigoDane !== undefined) t.codigoDane = dto.codigoDane?.trim() || null;
-    if (dto.departamento !== undefined) t.departamento = dto.departamento?.trim() || null;
-    if (dto.municipio !== undefined) t.municipio = dto.municipio?.trim() || null;
-    if (dto.subregion !== undefined) t.subregion = dto.subregion?.trim() || null;
+    if (dto.codigoDane !== undefined) {
+      const identidad = await this.resolverIdentidadTerritorial(dto.codigoDane);
+      t.codigoDane = identidad.codigoDane;
+      t.departamento = identidad.departamento;
+      t.municipio = identidad.municipio;
+      t.subregion = identidad.subregion;
+    }
     if (dto.logoDataUrl !== undefined) t.logoDataUrl = dto.logoDataUrl || null;
     return this.repo.save(t);
   }
@@ -232,19 +264,17 @@ export class TenantsService implements OnModuleInit {
     if (!/^[a-z0-9-]{2,64}$/.test(codigo)) {
       throw new BadRequestException('El código solo admite minúsculas, números y guiones (2-64).');
     }
-    if (dto.codigoDane && !/^\d{5,8}$/.test(dto.codigoDane.trim())) {
-      throw new BadRequestException('El código DANE debe ser numérico (5 a 8 dígitos).');
-    }
     if (await this.repo.findOne({ where: { codigo } })) {
       throw new ConflictException('Ya existe un tenant con ese código.');
     }
+    const identidad = await this.resolverIdentidadTerritorial(dto.codigoDane);
     return this.repo.save(
       this.repo.create({
         codigo, nombre: dto.nombre.trim(), activo: true, apiKey: this.generarApiKey(),
-        codigoDane: dto.codigoDane?.trim() || null,
-        departamento: dto.departamento?.trim() || null,
-        municipio: dto.municipio?.trim() || null,
-        subregion: dto.subregion?.trim() || null,
+        codigoDane: identidad.codigoDane,
+        departamento: identidad.departamento,
+        municipio: identidad.municipio,
+        subregion: identidad.subregion,
         // Arranca en prueba de 30 días con las integraciones disponibles.
         plan: 'basico', suscripcion: 'prueba',
         vence: new Date(Date.now() + 30 * 864e5).toISOString().slice(0, 10),
