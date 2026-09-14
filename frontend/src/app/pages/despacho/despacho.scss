@@ -42,6 +42,21 @@
   gap: 0.6rem;
 }
 
+/* Selector de agencia/canal a la vista, solo para administrador/superadmin. */
+.filtro-agencia {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  margin-top: 0.35rem;
+  font-size: 0.85rem;
+  color: var(--muted);
+}
+.filtro-agencia select {
+  width: auto;
+  font-size: 0.85rem;
+  padding: 0.2rem 0.5rem;
+}
+
 .timbre {
   font-size: 1.05rem;
   padding: 0.3rem 0.5rem;

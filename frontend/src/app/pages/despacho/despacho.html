@@ -5,6 +5,9 @@
         <h1>Despacho</h1>
         @if (!veTodo()) {
           <p>
+            @if (miAgenciaNombre(); as agencia) {
+              <strong>{{ agencia }}</strong> ·
+            }
             Su cola:
             @if (misCanales().length) {
               @for (c of misCanales(); track c; let i = $index) {
@@ -15,8 +18,33 @@
             }
           </p>
         }
-        @if (veTodo()) {
-          <p>Todos los casos abiertos del secad.</p>
+        @if (veTodo() && !puedeElegirAgenciaCanal()) {
+          <p>
+            @if (miAgenciaNombre(); as agencia) {
+              Todos los casos abiertos de <strong>{{ agencia }}</strong>.
+            } @else {
+              Todos los casos abiertos del secad.
+            }
+          </p>
+        }
+        @if (veTodo() && puedeElegirAgenciaCanal()) {
+          <div class="filtro-agencia">
+            <span>Viendo:</span>
+            <select [ngModel]="filtroAgenciaId()" (ngModelChange)="cambiarFiltroAgencia($event)" aria-label="Agencia a mostrar">
+              <option [ngValue]="null">Todas las agencias</option>
+              @for (a of agenciasTodas(); track a.id) {
+                <option [ngValue]="a.id">{{ a.nombre }}</option>
+              }
+            </select>
+            @if (filtroAgenciaId()) {
+              <select [ngModel]="filtroCanalId()" (ngModelChange)="filtroCanalId.set($event)" aria-label="Canal a mostrar">
+                <option [ngValue]="null">Todos los canales</option>
+                @for (c of canalesDeAgenciaFiltro(); track c.id) {
+                  <option [ngValue]="c.id">{{ c.codigo }} · {{ c.nombre }}</option>
+                }
+              </select>
+            }
+          </div>
         }
       </div>
       <div class="desp-head-der">

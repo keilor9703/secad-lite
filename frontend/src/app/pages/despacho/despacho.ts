@@ -1,5 +1,5 @@
 import { ChangeDetectionStrategy, Component, computed, effect, inject, signal } from '@angular/core';
-
+import { FormsModule } from '@angular/forms';
 import { ActivatedRoute, Router, RouterLink } from '@angular/router';
 import { DetalleComponent } from '../detalle/detalle';
 import { CasosService } from '../../core/casos.service';
@@ -7,7 +7,7 @@ import { CatalogosService } from '../../core/catalogos.service';
 import { AuthService } from '../../core/auth.service';
 import { NotificacionesService } from '../../core/notificaciones.service';
 import { CasosWsService } from '../../core/casos-ws.service';
-import { CanalAtencion, Caso, EstadoCaso } from '../../core/models';
+import { Agencia, CanalAtencion, Caso, EstadoCaso } from '../../core/models';
 import { ToastService } from '../../shared/toast/toast.service';
 
 /** Una columna del tablero: un estado del ciclo de vida y sus casos. */
@@ -26,7 +26,7 @@ interface Columna {
 @Component({
   selector: 'app-despacho',
   standalone: true,
-  imports: [RouterLink, DetalleComponent],
+  imports: [RouterLink, DetalleComponent, FormsModule],
   templateUrl: './despacho.html',
   styleUrl: './despacho.scss',
   changeDetection: ChangeDetectionStrategy.OnPush,
@@ -43,12 +43,15 @@ export class DespachoComponent {
 
   readonly casos = signal<Caso[]>([]);
   readonly canales = signal<CanalAtencion[]>([]);
+  readonly agenciasTodas = signal<Agencia[]>([]);
   readonly cargando = signal(false);
   readonly error = signal('');
   /** Se recalcula cada minuto para que la antigüedad no quede congelada. */
   private readonly ahora = signal(Date.now());
 
   readonly veTodo = computed(() => this.auth.tienePermiso('casos.ver_todos'));
+  /** Administrador o superadmin: puede mirar el tablero de CUALQUIER agencia/canal, no solo el suyo. */
+  readonly puedeElegirAgenciaCanal = computed(() => this.auth.esAdmin() || this.auth.esSuperadmin());
 
   /** Canales que atiende quien mira, resueltos a su nombre. */
   readonly misCanales = computed(() => {
@@ -56,9 +59,44 @@ export class DespachoComponent {
     return this.canales().filter((c) => ids.includes(c.id));
   });
 
+  /** Agencia de quien mira (no aplica al superadmin, que no pertenece a ninguna). */
+  readonly miAgenciaNombre = computed(() => {
+    const id = this.auth.sesion()?.agencia;
+    return this.agenciasTodas().find((a) => a.id === id)?.nombre ?? null;
+  });
+
+  // --- Filtro de agencia/canal (solo admin/superadmin): el tablero completo
+  // por defecto, pero pueden acotarlo a una agencia y, dentro de ella, a un
+  // canal — para ver la cola tal como la vería ESE canal sin tener que
+  // iniciar sesión como uno de sus funcionarios.
+  readonly filtroAgenciaId = signal<string | null>(null);
+  readonly filtroCanalId = signal<string | null>(null);
+
+  readonly canalesDeAgenciaFiltro = computed(() => {
+    const ag = this.filtroAgenciaId();
+    return ag ? this.canales().filter((c) => c.agenciaId === ag) : [];
+  });
+
+  cambiarFiltroAgencia(agenciaId: string | null): void {
+    this.filtroAgenciaId.set(agenciaId);
+    this.filtroCanalId.set(null);
+  }
+
+  /** Lo que en verdad se pinta en el tablero: todo (o lo propio), acotado además por el filtro si hay uno activo. */
+  readonly casosFiltrados = computed(() => {
+    const ag = this.filtroAgenciaId();
+    const canal = this.filtroCanalId();
+    if (!ag && !canal) return this.casos();
+    return this.casos().filter((c) => {
+      if (ag && c.agenciaResponsableId !== ag) return false;
+      if (canal && !(c.canales ?? []).includes(canal)) return false;
+      return true;
+    });
+  });
+
   /** El tablero: un paso por columna, los más urgentes arriba. */
   readonly columnas = computed<Columna[]>(() => {
-    const abiertos = this.casos().filter((c) => c.estado !== 'cerrado');
+    const abiertos = this.casosFiltrados().filter((c) => c.estado !== 'cerrado');
     const def: Array<[EstadoCaso, string, string]> = [
       ['nuevo', 'Sin tomar', 'Llegaron a su canal y nadie los ha tomado'],
       ['en_gestion', 'En gestión', 'Los está atendiendo alguien, sin recursos en camino'],
@@ -83,14 +121,14 @@ export class DespachoComponent {
 
   /** El último caso que entró a su cola, para no perderlo de vista. */
   readonly ultimo = computed<Caso | null>(() => {
-    const abiertos = this.casos().filter((c) => c.estado !== 'cerrado');
+    const abiertos = this.casosFiltrados().filter((c) => c.estado !== 'cerrado');
     if (!abiertos.length) return null;
     return abiertos.reduce((a, b) => (new Date(a.creadoEn) > new Date(b.creadoEn) ? a : b));
   });
 
   /** Los que llevan más de 5 minutos en la cola sin que nadie los abra. */
   readonly sinAbrir = computed(() =>
-    this.casos().filter((c) => c.estado !== 'cerrado' && !this.vistos().has(c.id) && this.minutos(c) >= 5),
+    this.casosFiltrados().filter((c) => c.estado !== 'cerrado' && !this.vistos().has(c.id) && this.minutos(c) >= 5),
   );
 
   noVisto(c: Caso): boolean {
@@ -108,6 +146,9 @@ export class DespachoComponent {
       this.auth.tenantActivo();
       this.cargar();
       this.catalogos.canales().subscribe({ next: (c) => this.canales.set(c), error: () => {} });
+      this.catalogos.agencias().subscribe({ next: (a) => this.agenciasTodas.set(a), error: () => {} });
+      this.filtroAgenciaId.set(null);
+      this.filtroCanalId.set(null);
     });
     this.casosWs.conectar();
     this.casosWs.eventos.subscribe(({ tipo, caso }) => {
