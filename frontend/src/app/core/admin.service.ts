@@ -55,6 +55,10 @@ export class AdminService {
   crearUsuario(dto: CrearUsuario): Observable<UsuarioAdmin> {
     return this.http.post<UsuarioAdmin>(`${this.base}/usuarios`, dto);
   }
+  /** Validación en vivo del formulario de alta: ¿ese username ya existe en algún tenant? */
+  usernameDisponible(username: string): Observable<{ disponible: boolean }> {
+    return this.http.get<{ disponible: boolean }>(`${this.base}/usuarios/disponible`, { params: { username } });
+  }
   cambiarActivo(id: string, activo: boolean): Observable<UsuarioAdmin> {
     return this.http.patch<UsuarioAdmin>(`${this.base}/usuarios/${id}`, { activo });
   }

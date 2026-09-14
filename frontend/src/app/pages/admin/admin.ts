@@ -1,6 +1,7 @@
 import { ChangeDetectionStrategy, Component, OnInit, computed, effect, inject, signal } from '@angular/core';
 import { DatePipe } from '@angular/common';
 import { FormControl, FormGroup, ReactiveFormsModule, Validators } from '@angular/forms';
+import { catchError, debounceTime, distinctUntilChanged, map, of, switchMap } from 'rxjs';
 import { AdminService, CrearUsuario, EntradaBitacora } from '../../core/admin.service';
 import { AuthService } from '../../core/auth.service';
 import { PbxService } from '../../core/pbx.service';
@@ -179,8 +180,28 @@ export class AdminComponent implements OnInit {
     extension: new FormControl<string | null>(null),
   });
   readonly usuarioCanales = signal<string[]>([]);
+  /** Resultado de validar en vivo, contra toda la plataforma, el username que se está tecleando. */
+  readonly usuarioUsernameEstado = signal<'inactivo' | 'verificando' | 'disponible' | 'ocupado'>('inactivo');
 
   constructor() {
+    // Username único en TODA la plataforma (no solo en el tenant): se avisa
+    // apenas se escribe, sin esperar al intento de guardar — el backend
+    // vuelve a validarlo igual al crear, esto es solo adelanto para el ojo.
+    this.usuarioForm.controls.username.valueChanges
+      .pipe(
+        map((v) => v.trim().toLowerCase()),
+        distinctUntilChanged(),
+        debounceTime(400),
+        switchMap((v) => {
+          if (!v) { this.usuarioUsernameEstado.set('inactivo'); return of(null); }
+          this.usuarioUsernameEstado.set('verificando');
+          return this.admin.usernameDisponible(v).pipe(catchError(() => of(null)));
+        }),
+      )
+      .subscribe((r) => {
+        if (!r) { this.usuarioUsernameEstado.set('inactivo'); return; }
+        this.usuarioUsernameEstado.set(r.disponible ? 'disponible' : 'ocupado');
+      });
     // Todo lo que es propio de un tenant (usuarios, roles, integraciones,
     // entidades) se recarga solo cuando cambia el tenant en gestión desde la
     // barra superior — de lo contrario queda la tanda del tenant anterior.

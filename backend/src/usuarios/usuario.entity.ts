@@ -8,16 +8,16 @@ import { Column, Entity, Index, PrimaryGeneratedColumn } from 'typeorm';
 export type Rol = string;
 
 /**
- * Usuario del sistema. El `username` es único DENTRO de cada tenant (dos
- * secads pueden tener cada uno su propio "admin"); al iniciar sesión, quien
- * no conoce aún el tenant se valida probando la contraseña contra cada
- * cuenta activa con ese username (ver `UsuariosService.validar`). Cada
- * usuario está asociado a un tenant por `tenant` (código); el superadmin no
- * tiene tenant (nulo). La contraseña se guarda hasheada con bcrypt, nunca en
- * claro.
+ * Usuario del sistema. El `username` es único en TODA la plataforma, no solo
+ * dentro de su tenant: dos secads no pueden tener cada uno un "carlos"
+ * propio — evita que un mismo usuario/contraseña caiga ambiguamente en dos
+ * tenants distintos al iniciar sesión (ver `UsuariosService.crear` y
+ * `.validar`). Cada usuario está asociado a un tenant por `tenant` (código);
+ * el superadmin no tiene tenant (nulo). La contraseña se guarda hasheada con
+ * bcrypt, nunca en claro.
  */
 @Entity({ name: 'usuarios' })
-@Index(['tenant', 'username'], { unique: true })
+@Index(['username'], { unique: true })
 export class UsuarioEntity {
   @PrimaryGeneratedColumn('uuid')
   id!: string;

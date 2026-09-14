@@ -440,7 +440,14 @@
         <div class="panel card">
           <h2>Usuarios</h2>
           <form class="crear-usuario" [formGroup]="usuarioForm" (ngSubmit)="crearUsuario()">
-            <input formControlName="username" placeholder="usuario" />
+            <div class="campo-username">
+              <input formControlName="username" placeholder="usuario" [class.ocupado]="usuarioUsernameEstado() === 'ocupado'" />
+              @switch (usuarioUsernameEstado()) {
+                @case ('verificando') { <span class="username-hint">Verificando…</span> }
+                @case ('disponible') { <span class="username-hint ok">Disponible</span> }
+                @case ('ocupado') { <span class="username-hint mala">Ya existe en otra instancia</span> }
+              }
+            </div>
             <input formControlName="nombre" placeholder="Nombre completo" />
             <input formControlName="contrasena" type="password" placeholder="contraseña" />
             <select formControlName="rol">

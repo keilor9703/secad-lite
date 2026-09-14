@@ -1,4 +1,4 @@
-import { Body, Controller, Get, Param, Patch, Post } from '@nestjs/common';
+import { Body, Controller, Get, Param, Patch, Post, Query } from '@nestjs/common';
 import { ActualizarUsuarioDto, CrearUsuarioDto, UsuariosService } from './usuarios.service';
 import { Permisos } from '../auth/permisos.decorator';
 import { Usuario } from '../common/usuario.decorator';
@@ -24,6 +24,16 @@ export class UsuariosController {
   @Get()
   listar(@Tenant() tenant: string) {
     return this.usuarios.listar(tenant);
+  }
+
+  /**
+   * Validación en vivo del formulario de alta: si el username ya existe (en
+   * cualquier tenant), lo dice ANTES de intentar crear la cuenta. No revela
+   * en qué tenant está tomado — solo si está disponible o no.
+   */
+  @Get('disponible')
+  async disponible(@Query('username') username: string) {
+    return { disponible: !(await this.usuarios.existeUsername(username)) };
   }
 
   @Post()

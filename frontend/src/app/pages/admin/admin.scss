@@ -10,6 +10,13 @@
 .crear-inline input { flex: 1; min-width: 160px; }
 .crear-usuario input, .crear-usuario select { flex: 1; min-width: 120px; width: auto; }
 
+.campo-username { display: flex; flex-direction: column; gap: 0.15rem; flex: 1; min-width: 120px; }
+.campo-username input { width: 100%; }
+.campo-username input.ocupado { border-color: var(--tag-danger-fg); }
+.username-hint { font-size: 0.72rem; color: var(--muted); }
+.username-hint.ok { color: var(--tag-ok-fg); }
+.username-hint.mala { color: var(--tag-danger-fg); }
+
 /* min-width: 0 — dentro de un flex column, la tabla no dejaba que esta caja
    se achicara por debajo de su ancho (aunque tenga overflow-x: auto), y
    terminaba desbordando toda la página en vez de solo scrollear aquí. */

@@ -55,11 +55,11 @@ export interface ActualizarUsuarioDto {
 }
 
 /**
- * Directorio de usuarios (PostgreSQL, bcrypt). El `username` es único DENTRO
- * de cada tenant, no global: dos secads pueden tener cada uno su propio
- * "admin". La gestión está acotada por ámbito: el superadmin gobierna todos
- * los tenants; el admin, solo el suyo. El rol que se asigna debe existir en
- * el tenant (RBAC dinámico, ver RolesService).
+ * Directorio de usuarios (PostgreSQL, bcrypt). El `username` es único en TODA
+ * la plataforma, no solo dentro de su tenant: dos secads no pueden tener cada
+ * uno un "carlos" propio. La gestión está acotada por ámbito: el superadmin
+ * gobierna todos los tenants; el admin, solo el suyo. El rol que se asigna
+ * debe existir en el tenant (RBAC dinámico, ver RolesService).
  */
 @Injectable()
 export class UsuariosService implements OnModuleInit {
@@ -88,10 +88,11 @@ export class UsuariosService implements OnModuleInit {
   }
 
   /**
-   * Cuentas activas con ese username, en cualquier tenant. Como el username
-   * solo es único DENTRO de cada tenant, puede haber más de una — se usa
-   * solo en el login, que todavía no sabe a qué tenant pertenece quien
-   * escribe.
+   * Cuentas activas con ese username. El username es único en toda la
+   * plataforma, así que en el caso normal hay a lo sumo una — pero instancias
+   * dadas de alta antes de esta restricción pueden conservar duplicados
+   * heredados (ver la migración `UsernameUnicoGlobal`), así que el login
+   * sigue resolviendo por contraseña en vez de asumir una sola coincidencia.
    */
   private buscarActivosPorUsername(username: string): Promise<UsuarioEntity[]> {
     return this.repo.find({ where: { username: username.trim().toLowerCase(), activo: true } });
@@ -99,9 +100,8 @@ export class UsuariosService implements OnModuleInit {
 
   /**
    * Valida credenciales. Prueba la contraseña contra cada cuenta activa con
-   * ese username hasta encontrar la que corresponde — así se resuelve, sin
-   * pedir el tenant en el login, cuál de las cuentas (si hay varias con el
-   * mismo username en distintos tenants) es la del que está entrando.
+   * ese username hasta encontrar la que corresponde — cubre tanto el caso
+   * normal (una sola cuenta) como un eventual duplicado heredado.
    */
   async validar(username: string, contrasena: string): Promise<UsuarioEntity | null> {
     const candidatos = await this.buscarActivosPorUsername(username);
@@ -109,6 +109,17 @@ export class UsuariosService implements OnModuleInit {
       if (await bcrypt.compare(contrasena, u.passwordHash)) return u;
     }
     return null;
+  }
+
+  /**
+   * ¿Ya existe una cuenta con ese username, en cualquier tenant? Para la
+   * validación en vivo del formulario de alta (antes de intentar crear) y
+   * para el chequeo que hace `crear()` mismo.
+   */
+  async existeUsername(username: string): Promise<boolean> {
+    const valor = username?.trim().toLowerCase();
+    if (!valor) return false;
+    return !!(await this.repo.findOne({ where: { username: valor } }));
   }
 
   // --- Gestión (usuarios.gestionar) -----------------------------------------
@@ -133,11 +144,12 @@ export class UsuariosService implements OnModuleInit {
     this.validarContrasena(dto.contrasena);
     const { rol, tenant } = await this.resolverAmbito(actor, dto.rol, dto.tenant);
 
-    // Único DENTRO del tenant: el mismo username puede existir en otro
-    // secad sin conflicto (o, para el superadmin, entre las cuentas sin
-    // tenant).
-    if (await this.repo.findOne({ where: { username, tenant: tenant ?? IsNull() } })) {
-      throw new ConflictException('Ese nombre de usuario ya existe en este tenant.');
+    // Único en TODA la plataforma: si "carlos" ya existe en otro secad, no
+    // se puede volver a crear aquí — de lo contrario, al iniciar sesión con
+    // ese username y esa contraseña, no habría forma de saber a cuál de los
+    // dos tenants pertenece quien entra.
+    if (await this.existeUsername(username)) {
+      throw new ConflictException('Ese nombre de usuario ya existe en otra instancia. Elija uno distinto.');
     }
 
     const { agenciaId, canales } = await this.resolverAdscripcion(tenant, dto.agenciaId, dto.canales);
