@@ -1,6 +1,6 @@
 import { BadRequestException, ConflictException, Injectable, NotFoundException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { In, Repository } from 'typeorm';
+import { DataSource, EntityManager, In, Repository } from 'typeorm';
 import { AgenciaEntity, TIPOS_AGENCIA, TipoAgencia } from './agencia.entity';
 import { CanalEntity } from './canal.entity';
 import { CodigoCasoEntity, PRIORIDADES, PrioridadCaso } from './codigo-caso.entity';
@@ -70,6 +70,7 @@ export class CatalogosService {
     @InjectRepository(CodigoCasoEntity) private readonly codigos: Repository<CodigoCasoEntity>,
     @InjectRepository(CodigoCierreEntity) private readonly cierres: Repository<CodigoCierreEntity>,
     private readonly referencias: ReferenciasService,
+    private readonly dataSource: DataSource,
   ) {}
 
   /**
@@ -444,18 +445,42 @@ export class CatalogosService {
    * Siembra el catálogo base la primera vez que un secad lo consulta. Cada
    * catálogo se siembra por separado y solo si está vacío, para que uno nuevo
    * (los cierres) también llegue a los secads que ya venían operando.
+   *
+   * Un tenant nuevo recibe varias peticiones casi simultáneas al abrir
+   * Catálogos (agencias/canales/códigos/cierres en paralelo), y cada una
+   * llega aquí. El chequeo rápido de abajo (sin transacción) cubre el caso
+   * normal — un secad que ya lleva rato operando — sin pagar el costo de
+   * abrir una transacción en cada lectura. Solo cuando de verdad podría
+   * hacer falta sembrar se entra a una transacción con un advisory lock por
+   * tenant: así, si dos peticiones llegan a la vez para el mismo tenant
+   * vacío, la segunda espera a que la primera termine y libere el lock (al
+   * hacer commit) en vez de competir por insertar las mismas filas y
+   * toparse con la restricción unique de `agencias(tenant, codigo)` — que
+   * antes se colaba como un 500 hacia el frontend aunque los datos
+   * terminaran bien sembrados por la petición que sí ganaba la carrera.
    */
   async asegurarSeed(tenant: string): Promise<void> {
     if (!tenant) return;
-    await this.sembrarCierres(tenant);
-    await this.sembrarAgencias(tenant);
+    const [hayAgencias, hayCierres, hayCodigos] = await Promise.all([
+      this.agencias.count({ where: { tenant } }),
+      this.cierres.count({ where: { tenant } }),
+      this.codigos.count({ where: { tenant } }),
+    ]);
+    if (hayAgencias && hayCierres && hayCodigos) return;
+
+    await this.dataSource.transaction(async (manager) => {
+      await manager.query('SELECT pg_advisory_xact_lock(hashtext($1))', [tenant]);
+      await this.sembrarCierres(manager, tenant);
+      await this.sembrarAgencias(manager, tenant);
+    });
   }
 
   /** Desenlaces de cierre; sin ellos no se podría cerrar ningún caso. */
-  private async sembrarCierres(tenant: string): Promise<void> {
-    if (await this.cierres.count({ where: { tenant } })) return;
+  private async sembrarCierres(manager: EntityManager, tenant: string): Promise<void> {
+    const repo = manager.getRepository(CodigoCierreEntity);
+    if (await repo.count({ where: { tenant } })) return;
     for (const [codigo, etiqueta] of SEMILLA_CIERRES) {
-      await this.cierres.save(this.cierres.create({ tenant, codigo, etiqueta, activo: true }));
+      await repo.save(repo.create({ tenant, codigo, etiqueta, activo: true }));
     }
   }
 
@@ -464,22 +489,25 @@ export class CatalogosService {
    * toca nada, así que un secad puede renombrarlas o desactivarlas sin que
    * vuelvan a aparecer.
    */
-  private async sembrarAgencias(tenant: string): Promise<void> {
-    if (await this.agencias.count({ where: { tenant } })) return;
+  private async sembrarAgencias(manager: EntityManager, tenant: string): Promise<void> {
+    const agenciasRepo = manager.getRepository(AgenciaEntity);
+    const canalesRepo = manager.getRepository(CanalEntity);
+    const codigosRepo = manager.getRepository(CodigoCasoEntity);
+    if (await agenciasRepo.count({ where: { tenant } })) return;
 
     const porCodigo = new Map<string, string>();
     for (const [orden, s] of SEMILLA.entries()) {
-      const a = await this.agencias.save(this.agencias.create({
+      const a = await agenciasRepo.save(agenciasRepo.create({
         tenant, codigo: s.codigo, nombre: s.nombre, tipo: s.tipo, orden, activo: true,
       }));
       porCodigo.set(s.codigo, a.id);
       for (const [codigo, nombre] of s.canales) {
-        await this.canales.save(this.canales.create({ tenant, agenciaId: a.id, codigo, nombre, activo: true }));
+        await canalesRepo.save(canalesRepo.create({ tenant, agenciaId: a.id, codigo, nombre, activo: true }));
       }
     }
-    if (!(await this.codigos.count({ where: { tenant } }))) {
+    if (!(await codigosRepo.count({ where: { tenant } }))) {
       for (const [codigo, descripcion, prioridad, agencia] of SEMILLA_CODIGOS) {
-        await this.codigos.save(this.codigos.create({
+        await codigosRepo.save(codigosRepo.create({
           tenant, codigo, descripcion, prioridad, agenciaSugeridaId: porCodigo.get(agencia) ?? null, activo: true,
         }));
       }
