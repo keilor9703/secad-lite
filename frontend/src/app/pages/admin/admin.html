@@ -493,21 +493,60 @@
                 @for (u of usuarios(); track u) {
                   <tr>
                     <td class="mono">{{ u.username }}</td>
-                    <td>{{ u.nombre }}</td>
+                    <td>
+                      @if (editandoUsuario() === u.id) {
+                        <input class="mono" [formControl]="edicionUsuarioForm.controls.nombre"
+                          [attr.aria-label]="'Nombre de ' + u.username" />
+                      } @else {
+                        {{ u.nombre }}
+                      }
+                    </td>
                     <td>
                       @if (puedeEditarRolDe(u)) {
                         <select class="acc"
-                          [value]="u.rol" (change)="cambiarRolUsuario(u, $any($event.target).value)">
+                          [ngModel]="u.rol" (ngModelChange)="cambiarRolUsuario(u, $event)">
                           @for (r of rolesDisponibles(); track r) {
-                            <option [value]="r">{{ r }}</option>
+                            <option [ngValue]="r">{{ r }}</option>
                           }
                         </select>
                       } @else {
                         <span class="rol">{{ u.rol }}</span>
                       }
                     </td>
-                    <td>{{ nombreAgencia(u.agenciaId) }}</td>
-                    <td class="mono">{{ nombresCanales(u.canales) }}</td>
+                    <td>
+                      @if (editandoUsuario() === u.id) {
+                        <select class="acc" [formControl]="edicionUsuarioForm.controls.agenciaId"
+                          (change)="cambiarAgenciaEdicion()" [attr.aria-label]="'Agencia de ' + u.username">
+                          <option [ngValue]="null">— agencia —</option>
+                          @for (a of agencias(); track a) {
+                            <option [ngValue]="a.id" [disabled]="!a.activo">{{ a.nombre }}</option>
+                          }
+                        </select>
+                      } @else {
+                        {{ nombreAgencia(u.agenciaId) }}
+                      }
+                    </td>
+                    <td class="mono">
+                      @if (editandoUsuario() === u.id) {
+                        @if (edicionUsuarioForm.controls.agenciaId.value; as edicionAgenciaId) {
+                          <div class="canales-pick mini">
+                            @for (c of canalesDe(edicionAgenciaId); track c) {
+                              <label class="chip" [class.off]="!c.activo">
+                                <input type="checkbox" [checked]="canalMarcadoEdicion(c.id)" (change)="alternarCanalEdicion(c.id)" />
+                                <span>{{ c.codigo }}</span>
+                              </label>
+                            }
+                            @if (!canalesDe(edicionAgenciaId).length) {
+                              <span class="vacio-inline">Sin canales.</span>
+                            }
+                          </div>
+                        } @else {
+                          <span class="vacio-inline">Elija agencia.</span>
+                        }
+                      } @else {
+                        {{ nombresCanales(u.canales) }}
+                      }
+                    </td>
                     <td>
                       <input class="mono ext" [value]="u.extension"
                         placeholder="—" (blur)="guardarExtension(u, $any($event.target).value)"
@@ -535,11 +574,17 @@
                       }
                     </td>
                     <td>
-                      @if (u.rol !== 'superadmin') {
-                        <button type="button" class="btn btn--ghost mini"
-                          (click)="toggleActivo(u)">
-                          {{ u.activo ? 'Desactivar' : 'Activar' }}
-                        </button>
+                      @if (editandoUsuario() === u.id) {
+                        <button type="button" class="btn btn--primary mini" [disabled]="edicionUsuarioForm.invalid" (click)="guardarEdicionUsuario(u)">Guardar</button>
+                        <button type="button" class="btn btn--ghost mini" (click)="cancelarEdicionUsuario()">Cancelar</button>
+                      } @else {
+                        <button type="button" class="btn btn--ghost mini" (click)="abrirEdicionUsuario(u)">Editar</button>
+                        @if (u.rol !== 'superadmin') {
+                          <button type="button" class="btn btn--ghost mini"
+                            (click)="toggleActivo(u)">
+                            {{ u.activo ? 'Desactivar' : 'Activar' }}
+                          </button>
+                        }
                       }
                     </td>
                   </tr>

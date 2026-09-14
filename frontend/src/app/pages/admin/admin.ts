@@ -1,6 +1,6 @@
 import { ChangeDetectionStrategy, Component, OnInit, computed, effect, inject, signal } from '@angular/core';
 import { DatePipe } from '@angular/common';
-import { FormControl, FormGroup, ReactiveFormsModule, Validators } from '@angular/forms';
+import { FormControl, FormGroup, FormsModule, ReactiveFormsModule, Validators } from '@angular/forms';
 import { catchError, debounceTime, distinctUntilChanged, map, of, switchMap } from 'rxjs';
 import { AdminService, CrearUsuario, EntradaBitacora } from '../../core/admin.service';
 import { AuthService } from '../../core/auth.service';
@@ -28,7 +28,7 @@ const CLAVES_TRANSVERSALES = ['pbx.usar', 'whatsapp.responder'];
 @Component({
   selector: 'app-admin',
   standalone: true,
-  imports: [DatePipe, ReactiveFormsModule],
+  imports: [DatePipe, ReactiveFormsModule, FormsModule],
   templateUrl: './admin.html',
   styleUrl: './admin.scss',
   changeDetection: ChangeDetectionStrategy.OnPush,
@@ -826,6 +826,55 @@ export class AdminComponent implements OnInit {
     this.admin.cambiarExtension(u.id, nueva).subscribe({
       next: (act) => this.usuarios.update((us) => us.map((x) => (x.id === act.id ? act : x))),
       error: (e) => this.error.set(e?.error?.message ?? 'No fue posible guardar la extensión.'),
+    });
+  }
+
+  // --- Editar nombre, agencia y canales de un usuario ya creado ---------------
+  // El canal que se le asignó al crearlo no quedaba fijo a propósito — es muy
+  // común que un funcionario atienda canales distintos según el día— pero
+  // antes no había forma de cambiarlo salvo volviendo a crear la cuenta.
+
+  readonly editandoUsuario = signal<string | null>(null);
+  readonly edicionUsuarioForm = new FormGroup({
+    nombre: new FormControl('', { nonNullable: true, validators: [Validators.required] }),
+    agenciaId: new FormControl<string | null>(null),
+  });
+  readonly canalesEdicion = signal<string[]>([]);
+
+  abrirEdicionUsuario(u: UsuarioAdmin): void {
+    this.editandoUsuario.set(u.id);
+    this.edicionUsuarioForm.reset({ nombre: u.nombre, agenciaId: u.agenciaId ?? null });
+    this.canalesEdicion.set([...(u.canales ?? [])]);
+  }
+
+  cancelarEdicionUsuario(): void {
+    this.editandoUsuario.set(null);
+  }
+
+  /** Al cambiar de agencia en la edición, los canales de la anterior ya no aplican. */
+  cambiarAgenciaEdicion(): void {
+    this.canalesEdicion.set([]);
+  }
+
+  canalMarcadoEdicion(id: string): boolean {
+    return this.canalesEdicion().includes(id);
+  }
+
+  alternarCanalEdicion(id: string): void {
+    this.canalesEdicion.update((ids) => (ids.includes(id) ? ids.filter((x) => x !== id) : [...ids, id]));
+  }
+
+  guardarEdicionUsuario(u: UsuarioAdmin): void {
+    if (this.edicionUsuarioForm.invalid) { this.error.set('El nombre es obligatorio.'); return; }
+    this.error.set('');
+    const { nombre, agenciaId } = this.edicionUsuarioForm.getRawValue();
+    this.admin.editarUsuario(u.id, { nombre: nombre.trim(), agenciaId, canales: this.canalesEdicion() }).subscribe({
+      next: (act) => {
+        this.usuarios.update((us) => us.map((x) => (x.id === act.id ? act : x)));
+        this.editandoUsuario.set(null);
+        this.toast.exito(`Datos de ${act.nombre} actualizados.`);
+      },
+      error: (e) => this.error.set(e?.error?.message ?? 'No fue posible guardar los cambios.'),
     });
   }
 }

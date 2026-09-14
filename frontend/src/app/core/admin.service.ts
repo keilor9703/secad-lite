@@ -64,6 +64,10 @@ export class AdminService {
   cambiarAdscripcion(id: string, agenciaId: string | null, canales: string[]): Observable<UsuarioAdmin> {
     return this.http.patch<UsuarioAdmin>(`${this.base}/usuarios/${id}`, { agenciaId, canales });
   }
+  /** Nombre, agencia y canales en un solo PATCH — la edición completa de una cuenta ya creada. */
+  editarUsuario(id: string, cambios: { nombre?: string; agenciaId?: string | null; canales?: string[] }): Observable<UsuarioAdmin> {
+    return this.http.patch<UsuarioAdmin>(`${this.base}/usuarios/${id}`, cambios);
+  }
   cambiarRol(id: string, rol: string): Observable<UsuarioAdmin> {
     return this.http.patch<UsuarioAdmin>(`${this.base}/usuarios/${id}`, { rol });
   }

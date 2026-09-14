@@ -95,9 +95,11 @@ tbody tr:last-child td { border-bottom: none; }
 .vacio-inline { color: var(--muted); font-size: 0.82rem; }
 
 .canales-pick { display: flex; align-items: center; gap: 0.5rem; flex-wrap: wrap; margin-top: 0.5rem; }
+.canales-pick.mini { margin-top: 0; gap: 0.3rem; max-width: 220px; }
 .canales-lbl { font-size: 0.8rem; color: var(--ink-soft); font-weight: 600; }
 .chip { display: inline-flex; align-items: center; gap: 0.35rem; font-size: 0.82rem;
         border: 1px solid var(--border-2); border-radius: 999px; padding: 0.2rem 0.6rem; cursor: pointer; }
+.canales-pick.mini .chip { font-size: 0.74rem; padding: 0.1rem 0.4rem; }
 .chip input { width: auto; }
 .chip.off { opacity: 0.5; }
 
