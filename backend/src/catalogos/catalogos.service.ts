@@ -7,8 +7,8 @@ import { CodigoCasoEntity, PRIORIDADES, PrioridadCaso } from './codigo-caso.enti
 import { CodigoCierreEntity } from './codigo-cierre.entity';
 import { Referencia, ReferenciasService } from './referencias.service';
 
-export interface CrearAgenciaDto { codigo: string; nombre: string; tipo?: TipoAgencia; telefono?: string; }
-export interface ActualizarAgenciaDto { codigo?: string; nombre?: string; tipo?: TipoAgencia; telefono?: string; activo?: boolean; }
+export interface CrearAgenciaDto { codigo: string; nombre: string; tipo?: TipoAgencia; telefono?: string; orden?: number; }
+export interface ActualizarAgenciaDto { codigo?: string; nombre?: string; tipo?: TipoAgencia; telefono?: string; orden?: number; activo?: boolean; }
 export interface CrearCanalDto { agenciaId: string; codigo: string; nombre: string; }
 export interface ActualizarCanalDto { codigo?: string; nombre?: string; activo?: boolean; }
 export interface CrearCodigoCasoDto { codigo: string; descripcion: string; prioridad?: PrioridadCaso; agenciaSugeridaId?: string | null; }
@@ -91,7 +91,7 @@ export class CatalogosService {
   async listarAgencias(tenant: string, soloActivas = false): Promise<AgenciaEntity[]> {
     await this.asegurarSeed(tenant);
     const where = soloActivas ? { tenant, activo: true } : { tenant };
-    return this.agencias.find({ where, order: { nombre: 'ASC' } });
+    return this.agencias.find({ where, order: { orden: 'ASC', nombre: 'ASC' } });
   }
 
   async crearAgencia(tenant: string, dto: CrearAgenciaDto): Promise<AgenciaEntity> {
@@ -102,8 +102,11 @@ export class CatalogosService {
     if (await this.agencias.findOne({ where: { tenant, codigo } })) {
       throw new ConflictException('Ya existe una agencia con ese código.');
     }
+    // Sin orden explícito, va al final de las que ya existen (no se intercala
+    // a la fuerza entre las que el tenant ya acomodó).
+    const orden = dto.orden ?? (await this.agencias.count({ where: { tenant } }));
     return this.agencias.save(this.agencias.create({
-      tenant, codigo, nombre, tipo: dto.tipo ?? 'otra', telefono: dto.telefono?.trim() || null, activo: true,
+      tenant, codigo, nombre, tipo: dto.tipo ?? 'otra', telefono: dto.telefono?.trim() || null, orden, activo: true,
     }));
   }
 
@@ -127,6 +130,7 @@ export class CatalogosService {
     }
     if (dto.tipo !== undefined) a.tipo = dto.tipo;
     if (dto.telefono !== undefined) a.telefono = dto.telefono.trim() || null;
+    if (dto.orden !== undefined) a.orden = dto.orden;
     if (dto.activo !== undefined) a.activo = dto.activo;
     return this.agencias.save(a);
   }
@@ -464,9 +468,9 @@ export class CatalogosService {
     if (await this.agencias.count({ where: { tenant } })) return;
 
     const porCodigo = new Map<string, string>();
-    for (const s of SEMILLA) {
+    for (const [orden, s] of SEMILLA.entries()) {
       const a = await this.agencias.save(this.agencias.create({
-        tenant, codigo: s.codigo, nombre: s.nombre, tipo: s.tipo, activo: true,
+        tenant, codigo: s.codigo, nombre: s.nombre, tipo: s.tipo, orden, activo: true,
       }));
       porCodigo.set(s.codigo, a.id);
       for (const [codigo, nombre] of s.canales) {

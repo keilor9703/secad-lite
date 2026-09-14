@@ -53,11 +53,14 @@ export class CatalogosComponent {
     codigo: new FormControl('', { nonNullable: true, validators: [Validators.required] }),
     nombre: new FormControl('', { nonNullable: true, validators: [Validators.required] }),
     tipo: new FormControl<TipoAgencia>('otra', { nonNullable: true }),
+    /** Vacío = va al final; menor número aparece primero en Recepción. */
+    orden: new FormControl<number | null>(null),
   });
   readonly agenciaEdicionForm = new FormGroup({
     codigo: new FormControl('', { nonNullable: true, validators: [Validators.required] }),
     nombre: new FormControl('', { nonNullable: true, validators: [Validators.required] }),
     tipo: new FormControl<TipoAgencia>('otra', { nonNullable: true }),
+    orden: new FormControl(0, { nonNullable: true }),
   });
   private readonly canalForms = new Map<string, FormGroup<{ codigo: FormControl<string>; nombre: FormControl<string> }>>();
   readonly canalEdicionForm = new FormGroup({
@@ -159,7 +162,12 @@ export class CatalogosComponent {
   abrirAgencia(a: Agencia): void {
     this.limpiarMensajes();
     this.editando.set({ seccion: 'agencia', id: a.id });
-    this.agenciaEdicionForm.reset({ codigo: a.codigo, nombre: a.nombre, tipo: a.tipo });
+    this.agenciaEdicionForm.reset({ codigo: a.codigo, nombre: a.nombre, tipo: a.tipo, orden: a.orden });
+  }
+
+  /** Mismo criterio que el backend (orden ASC, nombre ASC) para que la lista no quede desordenada tras editar. */
+  private ordenarAgencias(as: Agencia[]): Agencia[] {
+    return [...as].sort((x, y) => x.orden - y.orden || x.nombre.localeCompare(y.nombre));
   }
 
   abrirCanal(c: CanalAtencion): void {
@@ -202,11 +210,11 @@ export class CatalogosComponent {
   crearAgencia(): void {
     this.limpiarMensajes();
     if (this.agenciaForm.invalid) { this.error.set('Código y nombre de la agencia son obligatorios.'); return; }
-    const { codigo, nombre, tipo } = this.agenciaForm.getRawValue();
-    this.catalogos.crearAgencia({ codigo: codigo.trim(), nombre: nombre.trim(), tipo }).subscribe({
+    const { codigo, nombre, tipo, orden } = this.agenciaForm.getRawValue();
+    this.catalogos.crearAgencia({ codigo: codigo.trim(), nombre: nombre.trim(), tipo, orden: orden ?? undefined }).subscribe({
       next: (a) => {
-        this.agencias.update((as) => [...as, a]);
-        this.agenciaForm.reset({ codigo: '', nombre: '', tipo: 'otra' });
+        this.agencias.update((as) => this.ordenarAgencias([...as, a]));
+        this.agenciaForm.reset({ codigo: '', nombre: '', tipo: 'otra', orden: null });
         this.toast.exito('Agencia creada.');
       },
       error: (e) => this.fallo(e, 'No fue posible crear la agencia.'),
@@ -216,12 +224,12 @@ export class CatalogosComponent {
   guardarAgencia(a: Agencia): void {
     this.limpiarMensajes();
     if (this.agenciaEdicionForm.invalid) { this.error.set('Código y nombre son obligatorios.'); return; }
-    const { codigo, nombre, tipo } = this.agenciaEdicionForm.getRawValue();
+    const { codigo, nombre, tipo, orden } = this.agenciaEdicionForm.getRawValue();
     this.catalogos.actualizarAgencia(a.id, {
-      codigo: codigo.trim(), nombre: nombre.trim(), tipo,
+      codigo: codigo.trim(), nombre: nombre.trim(), tipo, orden,
     }).subscribe({
       next: (act) => {
-        this.agencias.update((as) => as.map((x) => (x.id === act.id ? act : x)));
+        this.agencias.update((as) => this.ordenarAgencias(as.map((x) => (x.id === act.id ? act : x))));
         this.cerrarEdicion();
         this.toast.exito('Agencia actualizada.');
       },

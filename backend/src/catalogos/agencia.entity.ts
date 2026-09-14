@@ -35,6 +35,13 @@ export class AgenciaEntity {
   @Column({ type: 'varchar', length: 40, nullable: true })
   telefono?: string | null;
 
+  /**
+   * Orden de izquierda a derecha en que aparece en Recepción (y donde más se
+   * liste agrupado por agencia). Menor va primero; empatan por nombre.
+   */
+  @Column({ type: 'int', default: 0 })
+  orden!: number;
+
   @Column({ type: 'boolean', default: true })
   activo!: boolean;
 }

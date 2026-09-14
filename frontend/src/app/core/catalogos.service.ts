@@ -38,13 +38,13 @@ export class CatalogosService {
     return this.http.get<Agencia[]>(`${this.base}/agencias${q}`);
   }
 
-  crearAgencia(dto: { codigo: string; nombre: string; tipo?: TipoAgencia; telefono?: string }): Observable<Agencia> {
+  crearAgencia(dto: { codigo: string; nombre: string; tipo?: TipoAgencia; telefono?: string; orden?: number }): Observable<Agencia> {
     return this.http.post<Agencia>(`${this.base}/agencias`, dto);
   }
 
   actualizarAgencia(
     id: string,
-    cambios: { codigo?: string; nombre?: string; tipo?: TipoAgencia; telefono?: string; activo?: boolean },
+    cambios: { codigo?: string; nombre?: string; tipo?: TipoAgencia; telefono?: string; orden?: number; activo?: boolean },
   ): Observable<Agencia> {
     return this.http.patch<Agencia>(`${this.base}/agencias/${id}`, cambios);
   }

@@ -188,6 +188,8 @@ export interface Agencia {
   nombre: string;
   tipo: TipoAgencia;
   telefono?: string | null;
+  /** Orden de izquierda a derecha en que aparece en Recepción; menor va primero. */
+  orden: number;
   activo: boolean;
 }
 

@@ -60,6 +60,7 @@ td { padding: 0.5rem 0.6rem; border-bottom: 1px solid var(--border); }
 .fila-edicion input, .fila-edicion select { width: 100%; min-width: 100px; }
 .agencia-head.editando input, .agencia-head.editando select { width: auto; flex: 1; min-width: 120px; }
 .agencia-head .corto, .canal-list .corto { flex: 0 0 110px; min-width: 90px; }
+.crear-inline .orden, .agencia-head.editando .orden { flex: 0 0 72px; min-width: 60px; }
 
 /* Carga masiva del catálogo de códigos. */
 .masiva { border: 1px dashed var(--border-2); border-radius: var(--radius-sm);
