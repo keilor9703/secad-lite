@@ -39,7 +39,15 @@ export class PlataformaComponent implements OnInit {
   readonly nuevoTenantForm = new FormGroup({
     codigo: new FormControl('', { nonNullable: true, validators: [Validators.required] }),
     nombre: new FormControl('', { nonNullable: true, validators: [Validators.required] }),
+    departamento: new FormControl('', { nonNullable: true }),
+    municipio: new FormControl('', { nonNullable: true }),
+    codigoDane: new FormControl('', { nonNullable: true }),
+    subregion: new FormControl('', { nonNullable: true }),
   });
+
+  /** data URL máximo ~180KB (ver LOGO_MAX_CHARS del backend); avisa antes de subir algo que el servidor rechazará. */
+  private readonly LOGO_MAX_BYTES = 180_000;
+  readonly subiendoLogo = signal<string | null>(null);
 
   ngOnInit(): void {
     this.cargar();
@@ -72,14 +80,43 @@ export class PlataformaComponent implements OnInit {
   crearTenant(): void {
     this.error.set('');
     if (this.nuevoTenantForm.invalid) { this.error.set('Código y nombre son obligatorios.'); return; }
-    const { codigo, nombre } = this.nuevoTenantForm.getRawValue();
-    this.admin.crearTenant(codigo.trim(), nombre.trim()).subscribe({
+    const { codigo, nombre, departamento, municipio, codigoDane, subregion } = this.nuevoTenantForm.getRawValue();
+    this.admin.crearTenant({
+      codigo: codigo.trim(), nombre: nombre.trim(),
+      departamento: departamento.trim() || undefined, municipio: municipio.trim() || undefined,
+      codigoDane: codigoDane.trim() || undefined, subregion: subregion.trim() || undefined,
+    }).subscribe({
       next: (t) => {
         this.tenants.update((ts) => [...ts, t]);
-        this.nuevoTenantForm.reset({ codigo: '', nombre: '' });
+        this.nuevoTenantForm.reset({ codigo: '', nombre: '', departamento: '', municipio: '', codigoDane: '', subregion: '' });
       },
       error: (e) => this.error.set(e?.error?.message ?? 'No fue posible crear la instancia.'),
     });
+  }
+
+  /** Sube la bandera/logo del tenant: se codifica en el navegador y se guarda como data URL. */
+  subirLogo(t: Tenant, input: HTMLInputElement): void {
+    const archivo = input.files?.[0];
+    input.value = '';
+    if (!archivo) return;
+    if (!archivo.type.startsWith('image/')) { this.error.set('El archivo debe ser una imagen.'); return; }
+    if (archivo.size > this.LOGO_MAX_BYTES) {
+      this.error.set(`La imagen pesa demasiado (máx. ${Math.round(this.LOGO_MAX_BYTES / 1024)}KB) — es solo un ícono pequeño, use una versión liviana.`);
+      return;
+    }
+    this.error.set('');
+    this.subiendoLogo.set(t.id);
+    const lector = new FileReader();
+    lector.onload = () => {
+      this.actualizar(t, { logoDataUrl: lector.result as string });
+      this.subiendoLogo.set(null);
+    };
+    lector.onerror = () => { this.error.set('No fue posible leer la imagen.'); this.subiendoLogo.set(null); };
+    lector.readAsDataURL(archivo);
+  }
+
+  quitarLogo(t: Tenant): void {
+    this.actualizar(t, { logoDataUrl: null });
   }
 
   actualizar(t: Tenant, cambios: Partial<Tenant>): void {

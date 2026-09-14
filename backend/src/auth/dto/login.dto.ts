@@ -40,4 +40,6 @@ export interface LoginResult {
    * a esta funcionalidad): sin restricción, igual que en el backend.
    */
   integraciones: string[] | null;
+  /** Bandera/logo de SU tenant (data URL), para mostrarla junto al indicador de tenant. Null si no configuró una. */
+  logoDataUrl: string | null;
 }

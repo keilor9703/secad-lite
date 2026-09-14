@@ -256,6 +256,8 @@ export interface Sesion {
    * tenant no tiene la lista configurada: sin restricción, no "ninguna".
    */
   integraciones?: string[] | null;
+  /** Bandera/logo de SU tenant (data URL), para mostrarla junto al indicador de tenant en la barra superior. */
+  logoDataUrl?: string | null;
 }
 
 export type PlanTenant = 'basico' | 'estandar' | 'avanzado';
@@ -274,6 +276,15 @@ export interface Tenant {
   motivoBloqueo?: string | null;
   /** Integraciones habilitadas: pbx, whatsapp, api. */
   integraciones?: string[] | null;
+  /** Código DANE (DIVIPOLA) del municipio. */
+  codigoDane?: string | null;
+  departamento?: string | null;
+  /** Nombre oficial del municipio/corregimiento; puede diferir del `nombre` con el que opera. */
+  municipio?: string | null;
+  /** Subregión del departamento (p. ej. "Valle de Aburrá" en Antioquia), cuando aplica. */
+  subregion?: string | null;
+  /** Bandera/logo del tenant como data URL, para mostrar junto a su indicador en la barra superior. */
+  logoDataUrl?: string | null;
   creadoEn?: string;
   /** Cuántas cuentas tiene esta instancia — solo lo trae GET /tenants (vista del dueño de la plataforma). */
   totalUsuarios?: number;

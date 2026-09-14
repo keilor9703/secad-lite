@@ -75,13 +75,14 @@ export class AuthService {
    */
   refrescarPerfil(): void {
     if (!this._sesion()) return;
-    this.http.get<Partial<Sesion> & { permisos: string[]; canales: string[]; integraciones: string[] | null }>(`${this.base}/auth/perfil`).subscribe({
+    this.http.get<Partial<Sesion> & { permisos: string[]; canales: string[]; integraciones: string[] | null; logoDataUrl?: string | null }>(`${this.base}/auth/perfil`).subscribe({
       next: (p) => {
         const actual = this._sesion();
         if (!actual) return;
         const fresca: Sesion = {
           ...actual, rol: p.rol ?? actual.rol, permisos: p.permisos,
           agencia: p.agencia ?? null, canales: p.canales ?? [], integraciones: p.integraciones ?? null,
+          logoDataUrl: p.logoDataUrl ?? actual.logoDataUrl ?? null,
         };
         this._sesion.set(fresca);
         try { localStorage.setItem(STORAGE_KEY, JSON.stringify(fresca)); } catch { /* sin almacenamiento */ }

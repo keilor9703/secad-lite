@@ -61,6 +61,9 @@
 
   @if (sesion(); as s) {
     <div class="user">
+      @if (logoTenant(); as logo) {
+        <img class="logo-tenant" [src]="logo" alt="" title="Identidad del tenant" />
+      }
       @if (esSuperadmin()) {
         <label class="tenant-sel" title="Tenant en gestión">
           <select [value]="tenantCtx()" (change)="cambiarTenant($any($event.target).value)"

@@ -21,7 +21,16 @@ export interface ActualizarTenantDto {
   vence?: string | null;
   motivoBloqueo?: string | null;
   integraciones?: string[];
+  codigoDane?: string | null;
+  departamento?: string | null;
+  municipio?: string | null;
+  subregion?: string | null;
+  /** data URL (data:image/…;base64,…); null la quita. Limitada a ~250KB. */
+  logoDataUrl?: string | null;
 }
+
+/** El logo es pequeño y sutil (junto al selector de tenant): sin límite, un tenant podría hinchar cada login/perfil. */
+const LOGO_MAX_CHARS = 250_000;
 
 /**
  * Por qué un tenant no puede operar. `null` = puede.
@@ -47,6 +56,10 @@ export interface RemisionConfigDto {
 export interface CrearTenantDto {
   codigo: string;
   nombre: string;
+  codigoDane?: string;
+  departamento?: string;
+  municipio?: string;
+  subregion?: string;
 }
 
 /** Gestión de tenants (instancias). Solo el superadmin la usa. */
@@ -192,6 +205,9 @@ export class TenantsService implements OnModuleInit {
       const invalida = dto.integraciones.find((i) => !INTEGRACIONES.includes(i as never));
       if (invalida) throw new BadRequestException(`Integración desconocida: ${invalida}.`);
     }
+    if (dto.logoDataUrl && (!dto.logoDataUrl.startsWith('data:image/') || dto.logoDataUrl.length > LOGO_MAX_CHARS)) {
+      throw new BadRequestException('El logo debe ser una imagen válida de máximo ~180KB.');
+    }
     if (dto.nombre !== undefined) {
       if (!dto.nombre.trim()) throw new BadRequestException('El nombre no puede quedar vacío.');
       t.nombre = dto.nombre.trim();
@@ -202,6 +218,11 @@ export class TenantsService implements OnModuleInit {
     if (dto.vence !== undefined) t.vence = dto.vence || null;
     if (dto.motivoBloqueo !== undefined) t.motivoBloqueo = dto.motivoBloqueo?.trim() || null;
     if (dto.integraciones !== undefined) t.integraciones = dto.integraciones;
+    if (dto.codigoDane !== undefined) t.codigoDane = dto.codigoDane?.trim() || null;
+    if (dto.departamento !== undefined) t.departamento = dto.departamento?.trim() || null;
+    if (dto.municipio !== undefined) t.municipio = dto.municipio?.trim() || null;
+    if (dto.subregion !== undefined) t.subregion = dto.subregion?.trim() || null;
+    if (dto.logoDataUrl !== undefined) t.logoDataUrl = dto.logoDataUrl || null;
     return this.repo.save(t);
   }
 
@@ -211,12 +232,19 @@ export class TenantsService implements OnModuleInit {
     if (!/^[a-z0-9-]{2,64}$/.test(codigo)) {
       throw new BadRequestException('El código solo admite minúsculas, números y guiones (2-64).');
     }
+    if (dto.codigoDane && !/^\d{5,8}$/.test(dto.codigoDane.trim())) {
+      throw new BadRequestException('El código DANE debe ser numérico (5 a 8 dígitos).');
+    }
     if (await this.repo.findOne({ where: { codigo } })) {
       throw new ConflictException('Ya existe un tenant con ese código.');
     }
     return this.repo.save(
       this.repo.create({
         codigo, nombre: dto.nombre.trim(), activo: true, apiKey: this.generarApiKey(),
+        codigoDane: dto.codigoDane?.trim() || null,
+        departamento: dto.departamento?.trim() || null,
+        municipio: dto.municipio?.trim() || null,
+        subregion: dto.subregion?.trim() || null,
         // Arranca en prueba de 30 días con las integraciones disponibles.
         plan: 'basico', suscripcion: 'prueba',
         vence: new Date(Date.now() + 30 * 864e5).toISOString().slice(0, 10),

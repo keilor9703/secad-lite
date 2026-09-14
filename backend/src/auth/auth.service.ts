@@ -49,8 +49,8 @@ export class AuthService {
       if (impedimento) throw new UnauthorizedException(impedimento.motivo);
     }
     const permisos = await this.roles.permisosDe(u.tenant ?? null, u.rol);
-    const integraciones = await this.integracionesDe(u.tenant ?? null);
-    return this.emitir(u.username, 'institucional', u.nombre, u.rol, u.tenant ?? null, permisos, u.agenciaId ?? null, integraciones);
+    const { integraciones, logoDataUrl } = await this.datosTenant(u.tenant ?? null);
+    return this.emitir(u.username, 'institucional', u.nombre, u.rol, u.tenant ?? null, permisos, u.agenciaId ?? null, integraciones, logoDataUrl);
   }
 
   loginCivil(dto: LoginDto, tenant: string): LoginResult {
@@ -79,36 +79,37 @@ export class AuthService {
   async perfil(usuario: JwtPayload) {
     if (usuario?.tipo === 'civil') {
       return { usuario: usuario.sub, nombre: usuario.nombre, rol: usuario.rol, tipo: usuario.tipo,
-               tenant: usuario.tenant, permisos: [], agencia: null, canales: [], integraciones: [] };
+               tenant: usuario.tenant, permisos: [], agencia: null, canales: [], integraciones: [], logoDataUrl: null };
     }
     const u = await this.usuarios.buscarPorUsernameYTenant(usuario?.sub ?? '', usuario?.tenant ?? null);
     if (!u) throw new UnauthorizedException('La cuenta no existe o fue desactivada.');
     const permisos = await this.roles.permisosDe(u.tenant ?? null, u.rol);
-    const integraciones = await this.integracionesDe(u.tenant ?? null);
+    const { integraciones, logoDataUrl } = await this.datosTenant(u.tenant ?? null);
     return {
       usuario: u.username, nombre: u.nombre, rol: u.rol, tipo: 'institucional' as const,
-      tenant: u.tenant ?? null, permisos, agencia: u.agenciaId ?? null, canales: u.canales ?? [], integraciones,
+      tenant: u.tenant ?? null, permisos, agencia: u.agenciaId ?? null, canales: u.canales ?? [], integraciones, logoDataUrl,
     };
   }
 
   /**
-   * Integraciones contratadas del tenant, para que la interfaz sepa qué
+   * Integraciones contratadas y logo del tenant, para que la interfaz sepa qué
    * módulos pedir sin tener que intentarlos y toparse con el rechazo del
-   * guard. El superadmin no pertenece a ningún tenant fijo (trabaja sobre el
-   * que elija en la barra superior), así que aquí no aplica — la UI resuelve
-   * ese caso aparte, con la lista de tenants que ya tiene cargada.
+   * guard, y pueda mostrar la identidad visual del municipio. El superadmin no
+   * pertenece a ningún tenant fijo (trabaja sobre el que elija en la barra
+   * superior), así que aquí no aplica — la UI resuelve ese caso aparte, con la
+   * lista de tenants que ya tiene cargada.
    *
-   * `null` (no `[]`) cuando el tenant no tiene la lista configurada: son las
-   * instancias creadas antes de que existieran los módulos contratables, y no
-   * hay restricción para ellas — igual que en `TenantsService.tieneIntegracion`.
-   * Si se devolviera `[]` en su lugar, la UI lo interpretaría como "ninguna
-   * integración contratada" y ocultaría paneles (PBX, CTI, WhatsApp…) que sí
-   * deben verse.
+   * `integraciones: null` (no `[]`) cuando el tenant no tiene la lista
+   * configurada: son las instancias creadas antes de que existieran los
+   * módulos contratables, y no hay restricción para ellas — igual que en
+   * `TenantsService.tieneIntegracion`. Si se devolviera `[]` en su lugar, la
+   * UI lo interpretaría como "ninguna integración contratada" y ocultaría
+   * paneles (PBX, CTI, WhatsApp…) que sí deben verse.
    */
-  private async integracionesDe(tenant: string | null): Promise<string[] | null> {
-    if (!tenant) return null;
+  private async datosTenant(tenant: string | null): Promise<{ integraciones: string[] | null; logoDataUrl: string | null }> {
+    if (!tenant) return { integraciones: null, logoDataUrl: null };
     const t = await this.tenants.porCodigo(tenant);
-    return t?.integraciones ?? null;
+    return { integraciones: t?.integraciones ?? null, logoDataUrl: t?.logoDataUrl ?? null };
   }
 
   private emitir(
@@ -120,8 +121,9 @@ export class AuthService {
     permisos: string[],
     agencia: string | null = null,
     integraciones: string[] | null = null,
+    logoDataUrl: string | null = null,
   ): LoginResult {
     const payload: JwtPayload = { sub, tipo, nombre, rol, permisos, tenant, agencia };
-    return { token: this.jwt.sign(payload), usuario: sub, tipo, nombre, rol, permisos, tenant, agencia, integraciones };
+    return { token: this.jwt.sign(payload), usuario: sub, tipo, nombre, rol, permisos, tenant, agencia, integraciones, logoDataUrl };
   }
 }

@@ -702,7 +702,7 @@ export class AdminComponent implements OnInit {
     this.error.set('');
     const { codigo, nombre } = this.nuevoTenant;
     if (!codigo.trim() || !nombre.trim()) { this.error.set('Código y nombre del tenant son obligatorios.'); return; }
-    this.admin.crearTenant(codigo.trim(), nombre.trim()).subscribe({
+    this.admin.crearTenant({ codigo: codigo.trim(), nombre: nombre.trim() }).subscribe({
       next: (t) => {
         this.tenants.update((ts) => [...ts, t]);
         this.nuevoTenant = { codigo: '', nombre: '' };

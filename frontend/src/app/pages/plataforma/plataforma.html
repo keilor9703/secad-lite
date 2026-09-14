@@ -21,16 +21,53 @@
       <input formControlName="nombre" placeholder="Nombre del municipio u organización" />
       <button type="submit" class="btn btn--primary" [disabled]="nuevoTenantForm.invalid">Crear</button>
     </form>
+    <!-- División político-administrativa (DIVIPOLA/DANE): opcional al crear, se completa luego si hace falta. -->
+    <form class="crear-inline sub" [formGroup]="nuevoTenantForm">
+      <input formControlName="departamento" placeholder="Departamento (p. ej. Antioquia)" />
+      <input formControlName="municipio" placeholder="Municipio oficial (si difiere del nombre)" />
+      <input formControlName="codigoDane" placeholder="Código DANE" title="Código DIVIPOLA del municipio" />
+      <input formControlName="subregion" placeholder="Subregión (si aplica)" />
+    </form>
   </div>
 
   @for (t of tenants(); track t) {
     <div class="tenant card">
       <div class="t-head">
+        @if (t.logoDataUrl) {
+          <img class="t-logo" [src]="t.logoDataUrl" alt="" />
+        }
         <div>
           <h2>{{ t.nombre }} <span class="mono cod">{{ t.codigo }}</span></h2>
           <p class="t-sub">{{ t.totalUsuarios ?? 0 }} cuentas · creada {{ t.creadoEn | date: 'dd/MM/yyyy' }}</p>
         </div>
         <span class="situacion" [attr.data-estado]="situacion(t).clase">{{ situacion(t).texto }}</span>
+      </div>
+      <div class="t-logo-fila">
+        <label class="btn btn--ghost mini">
+          {{ subiendoLogo() === t.id ? 'Subiendo…' : (t.logoDataUrl ? 'Cambiar bandera/logo' : 'Subir bandera/logo') }}
+          <input type="file" accept="image/*" hidden #logoInput (change)="subirLogo(t, logoInput)" />
+        </label>
+        @if (t.logoDataUrl) {
+          <button type="button" class="btn btn--ghost mini" (click)="quitarLogo(t)">Quitar</button>
+        }
+      </div>
+      <div class="t-grid">
+        <label class="campo">
+          <span>Departamento</span>
+          <input [value]="t.departamento" placeholder="—" (change)="actualizar(t, { departamento: $any($event.target).value })" />
+        </label>
+        <label class="campo">
+          <span>Municipio</span>
+          <input [value]="t.municipio" placeholder="—" (change)="actualizar(t, { municipio: $any($event.target).value })" />
+        </label>
+        <label class="campo">
+          <span>Código DANE</span>
+          <input class="mono" [value]="t.codigoDane" placeholder="—" (change)="actualizar(t, { codigoDane: $any($event.target).value })" />
+        </label>
+        <label class="campo">
+          <span>Subregión</span>
+          <input [value]="t.subregion" placeholder="—" (change)="actualizar(t, { subregion: $any($event.target).value })" />
+        </label>
       </div>
       @if (t.motivoBloqueo) {
         <p class="motivo">🔒 {{ t.motivoBloqueo }}</p>

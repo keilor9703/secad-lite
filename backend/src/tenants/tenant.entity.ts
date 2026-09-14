@@ -29,6 +29,35 @@ export class TenantEntity {
   @Column({ type: 'varchar', length: 160 })
   nombre!: string;
 
+  // --- Identidad territorial (DIVIPOLA/DANE) ----------------------------------
+  // Un tenant es un municipio/corregimiento: estos datos alinean el registro
+  // con la división político-administrativa oficial, para reportes que crucen
+  // o agrupen instancias por departamento/región sin depender de que el
+  // `nombre` libre coincida con el nombre oficial.
+
+  /** Código DANE (DIVIPOLA) del municipio: 2 dígitos de depto + 3 de municipio. */
+  @Column({ type: 'varchar', length: 10, nullable: true })
+  codigoDane?: string | null;
+
+  @Column({ type: 'varchar', length: 80, nullable: true })
+  departamento?: string | null;
+
+  /** Nombre oficial del municipio/corregimiento; puede diferir del `nombre` con el que opera. */
+  @Column({ type: 'varchar', length: 120, nullable: true })
+  municipio?: string | null;
+
+  /** Subregión (p. ej. "Valle de Aburrá" en Antioquia); no todos los deptos las tienen formalizadas. */
+  @Column({ type: 'varchar', length: 80, nullable: true })
+  subregion?: string | null;
+
+  /**
+   * Bandera/logo del tenant, como data URL (p. ej. "data:image/png;base64,…").
+   * Se muestra pequeño junto al selector/indicador de tenant en la barra
+   * superior, para darle identidad a cada municipio dentro del sistema.
+   */
+  @Column({ type: 'text', nullable: true })
+  logoDataUrl?: string | null;
+
   /**
    * Clave de API del tenant para integraciones entrantes (webhook de la planta
    * telefónica, API de terceros). Secreta; se puede rotar desde administración.

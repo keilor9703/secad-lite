@@ -42,8 +42,10 @@ export class AdminService {
   actualizarTenant(id: string, cambios: Partial<Tenant>): Observable<Tenant> {
     return this.http.patch<Tenant>(`${this.base}/tenants/${id}`, cambios);
   }
-  crearTenant(codigo: string, nombre: string): Observable<Tenant> {
-    return this.http.post<Tenant>(`${this.base}/tenants`, { codigo, nombre });
+  crearTenant(dto: {
+    codigo: string; nombre: string; codigoDane?: string; departamento?: string; municipio?: string; subregion?: string;
+  }): Observable<Tenant> {
+    return this.http.post<Tenant>(`${this.base}/tenants`, dto);
   }
 
   // Usuarios (permiso usuarios.gestionar)

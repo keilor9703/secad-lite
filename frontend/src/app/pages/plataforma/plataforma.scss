@@ -14,8 +14,12 @@
 .hint { margin: 0; color: var(--muted); font-size: 0.85rem; }
 .crear-inline { display: flex; gap: 0.5rem; flex-wrap: wrap; }
 .crear-inline input { width: auto; flex: 1; min-width: 160px; }
+.crear-inline.sub { margin-top: 0.2rem; }
 
 .t-head { display: flex; align-items: flex-start; justify-content: space-between; gap: 1rem; flex-wrap: wrap; }
+.t-logo { width: 34px; height: 34px; border-radius: 6px; object-fit: cover; border: 1px solid var(--border); flex: none; }
+.t-logo-fila { display: flex; gap: 0.5rem; align-items: center; }
+.t-logo-fila .btn { cursor: pointer; }
 .cod { font-size: 0.8rem; color: var(--accent); }
 .t-sub { margin: 0.2rem 0 0; font-size: 0.8rem; color: var(--muted); }
 .mono { font-family: var(--mono); }

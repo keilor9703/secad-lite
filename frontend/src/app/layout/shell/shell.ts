@@ -56,6 +56,19 @@ export class ShellComponent implements OnInit {
    */
   readonly operativoVisible = computed(() => !this.esSuperadmin() || !!this.tenantCtx());
 
+  /**
+   * Bandera/logo del tenant activo, chica y sutil junto a su indicador en la
+   * barra superior. Para un usuario normal viene en su propia sesión; el
+   * superadmin no tiene un tenant fijo, así que se resuelve con la lista de
+   * instancias que esta misma barra ya carga para el selector.
+   */
+  readonly logoTenant = computed(() => {
+    if (this.esSuperadmin()) {
+      return this.tenants().find((t) => t.codigo === this.tenantCtx())?.logoDataUrl ?? null;
+    }
+    return this.sesion()?.logoDataUrl ?? null;
+  });
+
   /** Nav desplegable en pantallas angostas (ver shell.scss, ≤900px). */
   readonly menuAbierto = signal(false);
 

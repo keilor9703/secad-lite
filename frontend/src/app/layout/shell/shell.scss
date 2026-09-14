@@ -53,6 +53,8 @@
 @keyframes ringpulse { 0%,100% { transform: scale(1); } 50% { transform: scale(1.18); } }
 
 .user { margin-left: auto; display: flex; align-items: center; gap: 0.8rem; }
+/* Bandera/logo del tenant: chica y sutil, no compite con la marca del sistema. */
+.logo-tenant { width: 22px; height: 22px; border-radius: 5px; object-fit: cover; border: 1px solid var(--border); flex: none; }
 .tenant {
   font-family: var(--mono); font-size: 0.72rem; text-transform: uppercase; letter-spacing: 0.06em;
   background: var(--surface-2); color: var(--ink-soft); padding: 0.25rem 0.5rem; border-radius: 6px;
