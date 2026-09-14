@@ -1,11 +1,13 @@
 import { ChangeDetectionStrategy, Component, OnInit, computed, effect, inject, signal } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormControl, FormGroup, ReactiveFormsModule, Validators } from '@angular/forms';
+import { firstValueFrom } from 'rxjs';
 import { RouterLink } from '@angular/router';
 import { CasosService } from '../../core/casos.service';
 import { PbxService } from '../../core/pbx.service';
 import { CatalogosService } from '../../core/catalogos.service';
 import { AuthService } from '../../core/auth.service';
+import { GeografiaService, Municipio } from '../../core/geografia.service';
 import { ToastService } from '../../shared/toast/toast.service';
 import { AutocompletarComponent, OpcionAutocompletar } from '../../shared/autocompletar/autocompletar';
 import {
@@ -24,6 +26,7 @@ export class RecepcionComponent implements OnInit {
   private casosSvc = inject(CasosService);
   private catalogos = inject(CatalogosService);
   private auth = inject(AuthService);
+  private geografia = inject(GeografiaService);
   private pbx = inject(PbxService);
   private toast = inject(ToastService);
 
@@ -159,7 +162,7 @@ export class RecepcionComponent implements OnInit {
     descripcion: new FormControl('', { nonNullable: true }),
     ciudad: new FormControl('', { nonNullable: true }),
     barrio: new FormControl('', { nonNullable: true }),
-    /** Dirección completa — la arman sola los campos de abajo (vía/número/letra/generador/placa); no se digita directo. */
+    /** Dirección completa — la arman sola los campos de abajo (vía/número/letra/generador/segundo número); no se digita directo. */
     direccion: new FormControl('', { nonNullable: true }),
     // Dirección estructurada (convención DIAN/catastral): se combinan en `direccion`
     // a medida que se digitan, para no depender de que cada operador escriba el
@@ -168,11 +171,17 @@ export class RecepcionComponent implements OnInit {
     viaNumero: new FormControl('', { nonNullable: true }),
     viaLetra: new FormControl('', { nonNullable: true }),
     numeroGenerador: new FormControl('', { nonNullable: true }),
+    /** Segundo número (p. ej. "26 45"): distancia/placa, siempre numérica — no es una letra ni una orientación. */
     placa: new FormControl('', { nonNullable: true }),
+    /** Municipio del caso (código DANE) — por defecto el del tenant; el operador puede elegir otro de la lista. */
+    municipioCodigo: new FormControl('', { nonNullable: true }),
     lat: new FormControl<number | null>(null),
     lng: new FormControl<number | null>(null),
     agenciaResponsableId: new FormControl<string | null>(null),
   });
+
+  /** Municipios del departamento del tenant, para el select de municipio del caso. */
+  readonly municipiosTenant = signal<Municipio[]>([]);
 
   /** Tipos de vía (convención DIAN/catastral) para el campo "Vía principal". */
   readonly tiposVia: Array<{ nombre: string; abrev: string }> = [
@@ -207,17 +216,41 @@ export class RecepcionComponent implements OnInit {
       this.auth.tenantActivo();
       this.cargarCatalogos();
       this.cargar();
+      this.cargarMunicipioPorDefecto();
     });
     // El asistente de tipificación reacciona a lo que se va escribiendo en el relato.
     this.form.controls.descripcion.valueChanges.subscribe((v) => this.relato.set(v));
 
     // Dirección estructurada: a medida que se digita cada casilla (vía, número,
-    // letra, generador, placa), se arma sola la dirección completa — es la
-    // misma que se busca en el mapa y la que queda guardada en el caso.
+    // letra, generador, segundo número), se arma sola la dirección completa —
+    // es la misma que se busca en el mapa y la que queda guardada en el caso.
     const { viaTipo, viaNumero, viaLetra, numeroGenerador, placa, direccion } = this.form.controls;
     [viaTipo, viaNumero, viaLetra, numeroGenerador, placa].forEach((c) =>
       c.valueChanges.subscribe(() => direccion.setValue(this.componerDireccion(), { emitEvent: false })),
     );
+
+    // Municipio del caso: al elegir uno de la lista, se refleja también en el
+    // campo "ciudad" que es el que de verdad queda guardado en el caso — la
+    // geocodificación por clic en el mapa lo sigue pudiendo sobrescribir.
+    this.form.controls.municipioCodigo.valueChanges.subscribe((codigo) => {
+      const m = this.municipiosTenant().find((x) => x.codigoDane === codigo);
+      if (m) this.form.controls.ciudad.setValue(m.nombre);
+    });
+  }
+
+  /**
+   * Municipios del departamento del tenant y, dentro de esos, el propio
+   * tenant preseleccionado — el operador puede cambiarlo si el caso es de un
+   * municipio vecino, pero lo normal (la inmensa mayoría de los casos) es el
+   * suyo propio.
+   */
+  private cargarMunicipioPorDefecto(): void {
+    const codigoTenant = this.auth.sesion()?.municipioCodigo ?? '';
+    if (!codigoTenant) { this.municipiosTenant.set([]); return; }
+    this.geografia.municipios(codigoTenant.slice(0, 2)).subscribe((m) => {
+      this.municipiosTenant.set(m);
+      this.form.controls.municipioCodigo.setValue(codigoTenant);
+    });
   }
 
   /**
@@ -234,7 +267,9 @@ export class RecepcionComponent implements OnInit {
     const { viaTipo, viaNumero, viaLetra, numeroGenerador, placa } = this.form.getRawValue();
     if (!viaTipo || !viaNumero.trim() || !numeroGenerador.trim()) return '';
     const numero = `${viaNumero.trim()}${this.segmentoDireccion(viaLetra)}`;
-    const generador = `${numeroGenerador.trim()}${this.segmentoDireccion(placa)}`;
+    // El segundo número (antes "placa") es siempre numérico — va con espacio,
+    // nunca pegado, a diferencia de una letra de vía.
+    const generador = `${numeroGenerador.trim()}${placa.trim() ? ` ${placa.trim()}` : ''}`;
     return `${viaTipo} ${numero} # ${generador}`;
   }
 
@@ -461,12 +496,22 @@ export class RecepcionComponent implements OnInit {
     return ((mod as unknown as { default?: typeof import('leaflet') }).default ?? mod);
   }
 
+  /** Centro del mapa al abrir Recepción: el municipio del tenant si se pudo geocodificar; si no, Bogotá de respaldo. */
+  private async centroInicial(): Promise<{ centro: [number, number]; zoom: number }> {
+    const codigo = this.auth.sesion()?.municipioCodigo;
+    if (codigo) {
+      const c = await firstValueFrom(this.geografia.centroide(codigo)).catch(() => null);
+      if (c) return { centro: [c.lat, c.lng], zoom: 13 };
+    }
+    return { centro: [4.711, -74.072], zoom: 12 };
+  }
+
   private async prepararMapa(): Promise<void> {
     if (typeof window === 'undefined' || this.mapa) return;
     const div = document.getElementById('mapaCaso');
     if (!div) return;
-    const L = await this.leaflet();
-    this.mapa = L.map(div, { zoomControl: true }).setView([4.711, -74.072], 12);
+    const [L, { centro, zoom }] = await Promise.all([this.leaflet(), this.centroInicial()]);
+    this.mapa = L.map(div, { zoomControl: true }).setView(centro, zoom);
     L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
       maxZoom: 19,
       attribution: '© OpenStreetMap',
@@ -575,11 +620,14 @@ export class RecepcionComponent implements OnInit {
   }
 
   private formVacio() {
+    const codigoDefecto = this.auth.sesion()?.municipioCodigo ?? '';
+    const municipioDefecto = this.municipiosTenant().find((m) => m.codigoDane === codigoDefecto)?.nombre ?? '';
     return {
       canal: 'llamada' as Canal, ciudadano: '', telefono: '', direccionLlamante: '',
       codigoCaso: '', titulo: '', prioridad: 'media' as PrioridadCaso, descripcion: '',
-      ciudad: '', barrio: '', direccion: '',
+      ciudad: municipioDefecto, barrio: '', direccion: '',
       viaTipo: '', viaNumero: '', viaLetra: '', numeroGenerador: '', placa: '',
+      municipioCodigo: codigoDefecto,
       lat: null, lng: null,
       agenciaResponsableId: null,
     };

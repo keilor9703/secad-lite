@@ -49,8 +49,11 @@ export class AuthService {
       if (impedimento) throw new UnauthorizedException(impedimento.motivo);
     }
     const permisos = await this.roles.permisosDe(u.tenant ?? null, u.rol);
-    const { integraciones, logoDataUrl } = await this.datosTenant(u.tenant ?? null);
-    return this.emitir(u.username, 'institucional', u.nombre, u.rol, u.tenant ?? null, permisos, u.agenciaId ?? null, integraciones, logoDataUrl);
+    const { integraciones, logoDataUrl, municipioCodigo } = await this.datosTenant(u.tenant ?? null);
+    return this.emitir(
+      u.username, 'institucional', u.nombre, u.rol, u.tenant ?? null, permisos, u.agenciaId ?? null,
+      integraciones, logoDataUrl, municipioCodigo,
+    );
   }
 
   loginCivil(dto: LoginDto, tenant: string): LoginResult {
@@ -79,15 +82,17 @@ export class AuthService {
   async perfil(usuario: JwtPayload) {
     if (usuario?.tipo === 'civil') {
       return { usuario: usuario.sub, nombre: usuario.nombre, rol: usuario.rol, tipo: usuario.tipo,
-               tenant: usuario.tenant, permisos: [], agencia: null, canales: [], integraciones: [], logoDataUrl: null };
+               tenant: usuario.tenant, permisos: [], agencia: null, canales: [], integraciones: [],
+               logoDataUrl: null, municipioCodigo: null };
     }
     const u = await this.usuarios.buscarPorUsernameYTenant(usuario?.sub ?? '', usuario?.tenant ?? null);
     if (!u) throw new UnauthorizedException('La cuenta no existe o fue desactivada.');
     const permisos = await this.roles.permisosDe(u.tenant ?? null, u.rol);
-    const { integraciones, logoDataUrl } = await this.datosTenant(u.tenant ?? null);
+    const { integraciones, logoDataUrl, municipioCodigo } = await this.datosTenant(u.tenant ?? null);
     return {
       usuario: u.username, nombre: u.nombre, rol: u.rol, tipo: 'institucional' as const,
-      tenant: u.tenant ?? null, permisos, agencia: u.agenciaId ?? null, canales: u.canales ?? [], integraciones, logoDataUrl,
+      tenant: u.tenant ?? null, permisos, agencia: u.agenciaId ?? null, canales: u.canales ?? [],
+      integraciones, logoDataUrl, municipioCodigo,
     };
   }
 
@@ -106,10 +111,12 @@ export class AuthService {
    * UI lo interpretaría como "ninguna integración contratada" y ocultaría
    * paneles (PBX, CTI, WhatsApp…) que sí deben verse.
    */
-  private async datosTenant(tenant: string | null): Promise<{ integraciones: string[] | null; logoDataUrl: string | null }> {
-    if (!tenant) return { integraciones: null, logoDataUrl: null };
+  private async datosTenant(
+    tenant: string | null,
+  ): Promise<{ integraciones: string[] | null; logoDataUrl: string | null; municipioCodigo: string | null }> {
+    if (!tenant) return { integraciones: null, logoDataUrl: null, municipioCodigo: null };
     const t = await this.tenants.porCodigo(tenant);
-    return { integraciones: t?.integraciones ?? null, logoDataUrl: t?.logoDataUrl ?? null };
+    return { integraciones: t?.integraciones ?? null, logoDataUrl: t?.logoDataUrl ?? null, municipioCodigo: t?.codigoDane ?? null };
   }
 
   private emitir(
@@ -122,8 +129,12 @@ export class AuthService {
     agencia: string | null = null,
     integraciones: string[] | null = null,
     logoDataUrl: string | null = null,
+    municipioCodigo: string | null = null,
   ): LoginResult {
     const payload: JwtPayload = { sub, tipo, nombre, rol, permisos, tenant, agencia };
-    return { token: this.jwt.sign(payload), usuario: sub, tipo, nombre, rol, permisos, tenant, agencia, integraciones, logoDataUrl };
+    return {
+      token: this.jwt.sign(payload), usuario: sub, tipo, nombre, rol, permisos, tenant, agencia,
+      integraciones, logoDataUrl, municipioCodigo,
+    };
   }
 }

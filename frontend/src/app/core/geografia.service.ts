@@ -31,6 +31,11 @@ export class GeografiaService {
     return this.departamentos$;
   }
 
+  /** Centroide del municipio (geocodificado y cacheado en el backend); `null` si no se pudo resolver. */
+  centroide(codigoDane: string): Observable<{ lat: number; lng: number } | null> {
+    return this.http.get<{ lat: number; lng: number } | null>(`${this.base}/geografia/municipios/${codigoDane}/centroide`);
+  }
+
   municipios(departamentoCodigo: string): Observable<Municipio[]> {
     let obs = this.municipiosPorDepto.get(departamentoCodigo);
     if (!obs) {

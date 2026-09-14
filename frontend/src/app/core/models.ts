@@ -258,6 +258,8 @@ export interface Sesion {
   integraciones?: string[] | null;
   /** Bandera/logo de SU tenant (data URL), para mostrarla junto al indicador de tenant en la barra superior. */
   logoDataUrl?: string | null;
+  /** Código DANE (DIVIPOLA) del municipio de SU tenant — municipio por defecto en Recepción y centro del mapa. */
+  municipioCodigo?: string | null;
 }
 
 export type PlanTenant = 'basico' | 'estandar' | 'avanzado';

@@ -42,4 +42,11 @@ export interface LoginResult {
   integraciones: string[] | null;
   /** Bandera/logo de SU tenant (data URL), para mostrarla junto al indicador de tenant. Null si no configuró una. */
   logoDataUrl: string | null;
+  /**
+   * Código DANE (DIVIPOLA) del municipio de SU tenant. Es lo que permite a
+   * Recepción mostrar por defecto el municipio del caso y centrar el mapa en
+   * la instancia del operador, sin que el frontend tenga que resolverlo por
+   * su cuenta. Null si el tenant no tiene municipio configurado.
+   */
+  municipioCodigo: string | null;
 }

@@ -181,34 +181,32 @@
             <legend>Ubicación del caso</legend>
             <div class="grid">
               <div class="field">
-                <label for="fciu">Ciudad / Municipio</label>
-                <input id="fciu" formControlName="ciudad" />
-              </div>
-              <div class="field">
                 <label for="fbar">Barrio</label>
                 <input id="fbar" formControlName="barrio" />
               </div>
               <div class="field span2 direccion-est">
                 <span class="lbl-direccion">Dirección del caso</span>
                 <div class="direccion-campos">
-                  <select formControlName="viaTipo" aria-label="Vía principal" title="Vía principal">
+                  <select formControlName="viaTipo" aria-label="Vía principal" title="Vía principal" class="via">
                     <option value="">Vía…</option>
                     @for (t of tiposVia; track t) {
                       <option [value]="t.nombre">{{ t.nombre }} ({{ t.abrev }})</option>
                     }
                   </select>
-                  <input formControlName="viaNumero" placeholder="Número" aria-label="Número de vía" class="corto" />
-                  <select formControlName="viaLetra" aria-label="Letra o prefijo" title="Letra / prefijo (opcional)" class="corto">
+                  <input formControlName="viaNumero" placeholder="N°" aria-label="Número de vía" />
+                  <select formControlName="viaLetra" aria-label="Letra o prefijo" title="Letra / prefijo (opcional)">
                     <option value="">—</option>
                     @for (l of letrasVia; track l) { <option [value]="l">{{ l }}</option> }
                     @for (o of orientaciones; track o) { <option [value]="o">{{ o }}</option> }
                   </select>
                   <span class="numeral">#</span>
-                  <input formControlName="numeroGenerador" placeholder="N° generador" aria-label="Número generador" class="corto" />
-                  <select formControlName="placa" aria-label="Placa o detalle" title="Placa / detalle (opcional)" class="corto">
-                    <option value="">—</option>
-                    @for (l of letrasVia; track l) { <option [value]="l">{{ l }}</option> }
-                    @for (o of orientaciones; track o) { <option [value]="o">{{ o }}</option> }
+                  <input formControlName="numeroGenerador" placeholder="N° generador" aria-label="Número generador" />
+                  <input formControlName="placa" placeholder="N° (placa)" aria-label="Segundo número (placa)" title="Segundo número — distancia al cruce (opcional)" />
+                  <select formControlName="municipioCodigo" aria-label="Municipio del caso" title="Municipio del caso" class="municipio">
+                    <option value="">Municipio…</option>
+                    @for (m of municipiosTenant(); track m.codigoDane) {
+                      <option [value]="m.codigoDane">{{ m.nombre }}</option>
+                    }
                   </select>
                 </div>
                 <div class="con-boton">
