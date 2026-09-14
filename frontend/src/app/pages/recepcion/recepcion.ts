@@ -159,11 +159,40 @@ export class RecepcionComponent implements OnInit {
     descripcion: new FormControl('', { nonNullable: true }),
     ciudad: new FormControl('', { nonNullable: true }),
     barrio: new FormControl('', { nonNullable: true }),
+    /** Dirección completa — la arman sola los campos de abajo (vía/número/letra/generador/placa); no se digita directo. */
     direccion: new FormControl('', { nonNullable: true }),
+    // Dirección estructurada (convención DIAN/catastral): se combinan en `direccion`
+    // a medida que se digitan, para no depender de que cada operador escriba el
+    // mismo formato a mano.
+    viaTipo: new FormControl('', { nonNullable: true }),
+    viaNumero: new FormControl('', { nonNullable: true }),
+    viaLetra: new FormControl('', { nonNullable: true }),
+    numeroGenerador: new FormControl('', { nonNullable: true }),
+    placa: new FormControl('', { nonNullable: true }),
     lat: new FormControl<number | null>(null),
     lng: new FormControl<number | null>(null),
     agenciaResponsableId: new FormControl<string | null>(null),
   });
+
+  /** Tipos de vía (convención DIAN/catastral) para el campo "Vía principal". */
+  readonly tiposVia: Array<{ nombre: string; abrev: string }> = [
+    { nombre: 'Calle', abrev: 'CL' },
+    { nombre: 'Carrera', abrev: 'KR' },
+    { nombre: 'Avenida', abrev: 'AV' },
+    { nombre: 'Avenida Calle', abrev: 'AC' },
+    { nombre: 'Avenida Carrera', abrev: 'AK' },
+    { nombre: 'Transversal', abrev: 'TV' },
+    { nombre: 'Diagonal', abrev: 'DG' },
+    { nombre: 'Circular', abrev: 'CQ' },
+    { nombre: 'Circunvalar', abrev: 'CV' },
+    { nombre: 'Autopista', abrev: 'AU' },
+    { nombre: 'Variante', abrev: 'VT' },
+    { nombre: 'Kilómetro', abrev: 'KM' },
+    { nombre: 'Manzana', abrev: 'MZ' },
+  ];
+  /** Letra/prefijo y placa/detalle comparten opciones (letras de vía + orientación cardinal). */
+  readonly letrasVia = ['A', 'B', 'C', 'D', 'E', 'F', 'BIS'];
+  readonly orientaciones = ['Norte', 'Sur', 'Este', 'Oeste'];
   /** Hora de apertura del formulario, como referencia visible del registro. */
   readonly abiertoEn = signal(new Date());
   readonly buscandoDireccion = signal(false);
@@ -181,6 +210,32 @@ export class RecepcionComponent implements OnInit {
     });
     // El asistente de tipificación reacciona a lo que se va escribiendo en el relato.
     this.form.controls.descripcion.valueChanges.subscribe((v) => this.relato.set(v));
+
+    // Dirección estructurada: a medida que se digita cada casilla (vía, número,
+    // letra, generador, placa), se arma sola la dirección completa — es la
+    // misma que se busca en el mapa y la que queda guardada en el caso.
+    const { viaTipo, viaNumero, viaLetra, numeroGenerador, placa, direccion } = this.form.controls;
+    [viaTipo, viaNumero, viaLetra, numeroGenerador, placa].forEach((c) =>
+      c.valueChanges.subscribe(() => direccion.setValue(this.componerDireccion(), { emitEvent: false })),
+    );
+  }
+
+  /**
+   * Concatena sin espacio los sufijos cortos (letras de vía: "49A") y con
+   * espacio los largos (orientación cardinal: "52 Norte") — así se lee cada
+   * uno como se escribe una dirección en Colombia.
+   */
+  private segmentoDireccion(valor: string): string {
+    if (!valor) return '';
+    return valor.length <= 2 ? valor : ` ${valor}`;
+  }
+
+  private componerDireccion(): string {
+    const { viaTipo, viaNumero, viaLetra, numeroGenerador, placa } = this.form.getRawValue();
+    if (!viaTipo || !viaNumero.trim() || !numeroGenerador.trim()) return '';
+    const numero = `${viaNumero.trim()}${this.segmentoDireccion(viaLetra)}`;
+    const generador = `${numeroGenerador.trim()}${this.segmentoDireccion(placa)}`;
+    return `${viaTipo} ${numero} # ${generador}`;
   }
 
   cargar(): void {
@@ -456,6 +511,13 @@ export class RecepcionComponent implements OnInit {
         const a = d?.address ?? {};
         const via = [a.road, a.house_number].filter(Boolean).join(' # ');
         const actual = this.form.getRawValue();
+        // El punto vino de un clic en el mapa: la dirección que trae el mapa no
+        // tiene por qué calzar con lo que había en los campos estructurados
+        // (vía/número/letra/generador/placa) — se limpian para no dejarlos
+        // mostrando un desglose que ya no corresponde a la dirección vigente.
+        if (sobrescribirDireccion && via) {
+          this.form.patchValue({ viaTipo: '', viaNumero: '', viaLetra: '', numeroGenerador: '', placa: '' }, { emitEvent: false });
+        }
         this.form.patchValue({
           direccion: sobrescribirDireccion ? (via || actual.direccion) : actual.direccion,
           barrio: a.neighbourhood ?? a.suburb ?? a.quarter ?? actual.barrio,
@@ -516,7 +578,9 @@ export class RecepcionComponent implements OnInit {
     return {
       canal: 'llamada' as Canal, ciudadano: '', telefono: '', direccionLlamante: '',
       codigoCaso: '', titulo: '', prioridad: 'media' as PrioridadCaso, descripcion: '',
-      ciudad: '', barrio: '', direccion: '', lat: null, lng: null,
+      ciudad: '', barrio: '', direccion: '',
+      viaTipo: '', viaNumero: '', viaLetra: '', numeroGenerador: '', placa: '',
+      lat: null, lng: null,
       agenciaResponsableId: null,
     };
   }

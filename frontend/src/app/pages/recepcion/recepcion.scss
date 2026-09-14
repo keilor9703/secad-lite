@@ -64,6 +64,14 @@
 .con-boton input { flex: 1; }
 .con-boton .btn { white-space: nowrap; }
 
+/* Dirección estructurada (vía/número/letra/generador/placa) que arma sola la dirección completa. */
+.direccion-est { display: flex; flex-direction: column; gap: 0.35rem; }
+.lbl-direccion { font-size: 0.8rem; font-weight: 600; color: var(--ink-soft); }
+.direccion-campos { display: flex; flex-wrap: wrap; gap: 0.4rem; align-items: center; }
+.direccion-campos select { flex: 1; min-width: 130px; }
+.direccion-campos input.corto, .direccion-campos select.corto { flex: 0 1 90px; min-width: 70px; }
+.direccion-campos .numeral { font-weight: 700; color: var(--muted); padding: 0 0.1rem; }
+
 /* 14. Responsivo */
 .form-cols { display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; align-items: start; }
 .form-col fieldset:first-child { margin-top: 0; }

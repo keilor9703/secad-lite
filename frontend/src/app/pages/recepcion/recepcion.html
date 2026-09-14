@@ -188,10 +188,31 @@
                 <label for="fbar">Barrio</label>
                 <input id="fbar" formControlName="barrio" />
               </div>
-              <div class="field span2">
-                <label for="fdir">Dirección del caso</label>
+              <div class="field span2 direccion-est">
+                <span class="lbl-direccion">Dirección del caso</span>
+                <div class="direccion-campos">
+                  <select formControlName="viaTipo" aria-label="Vía principal" title="Vía principal">
+                    <option value="">Vía…</option>
+                    @for (t of tiposVia; track t) {
+                      <option [value]="t.nombre">{{ t.nombre }} ({{ t.abrev }})</option>
+                    }
+                  </select>
+                  <input formControlName="viaNumero" placeholder="Número" aria-label="Número de vía" class="corto" />
+                  <select formControlName="viaLetra" aria-label="Letra o prefijo" title="Letra / prefijo (opcional)" class="corto">
+                    <option value="">—</option>
+                    @for (l of letrasVia; track l) { <option [value]="l">{{ l }}</option> }
+                    @for (o of orientaciones; track o) { <option [value]="o">{{ o }}</option> }
+                  </select>
+                  <span class="numeral">#</span>
+                  <input formControlName="numeroGenerador" placeholder="N° generador" aria-label="Número generador" class="corto" />
+                  <select formControlName="placa" aria-label="Placa o detalle" title="Placa / detalle (opcional)" class="corto">
+                    <option value="">—</option>
+                    @for (l of letrasVia; track l) { <option [value]="l">{{ l }}</option> }
+                    @for (o of orientaciones; track o) { <option [value]="o">{{ o }}</option> }
+                  </select>
+                </div>
                 <div class="con-boton">
-                  <input id="fdir" formControlName="direccion" placeholder="Cra 43 # 38-50" />
+                  <input formControlName="direccion" readonly placeholder="Se arma sola con los campos de arriba" title="Dirección completa — la buscada en el mapa y guardada en el caso" />
                   <button type="button" class="btn btn--ghost" (click)="buscarDireccion()" [disabled]="buscandoDireccion()">
                     {{ buscandoDireccion() ? 'Buscando…' : 'Buscar en el mapa' }}
                   </button>
