@@ -267,6 +267,46 @@
         </div>
       }
 
+      <!-- Remisiones entre jurisdicciones: a dónde llega un caso que otro tenant nos remite -->
+      @if (configuraRemision && remisionConfig(); as rcfg) {
+        <div class="panel card">
+          <h2>↩ Remisiones entre jurisdicciones</h2>
+          <p class="pbx-hint">Cuando otra instancia de FALCON CAD remite un caso a esta (la llamada entró
+          donde no correspondía), así se sabe a qué agencia y canales llega aquí. Sin esto, esos casos
+          quedan sin asignar y solo los ve quien tenga «Ver todos los casos» — nadie más se entera hasta
+          que alguien lo encuentre en Consulta.</p>
+          <form [formGroup]="remisionForm">
+            <div class="pbx-field">
+              <label>Agencia responsable de los casos remitidos</label>
+              <div class="pbx-row">
+                <select formControlName="agenciaResponsableId" (change)="remisionCanales.set([])">
+                  <option [ngValue]="null">— agencia responsable —</option>
+                  @for (a of agencias(); track a) {
+                    <option [ngValue]="a.id" [disabled]="!a.activo">{{ a.nombre }}</option>
+                  }
+                </select>
+                <button type="button" class="btn btn--primary mini" [disabled]="remisionGuardando()" (click)="guardarRemision()">
+                  {{ remisionGuardando() ? 'Guardando…' : 'Guardar' }}
+                </button>
+              </div>
+              @if (remisionForm.controls.agenciaResponsableId.value) {
+                <div class="canales-pick">
+                  @for (c of canalesDe(remisionForm.controls.agenciaResponsableId.value); track c) {
+                    <label class="chip" [class.off]="!c.activo">
+                      <input type="checkbox" [checked]="canalMarcadoRemision(c.id)" (change)="alternarCanalRemision(c.id)" />
+                      <span>{{ c.codigo }} · {{ c.nombre }}</span>
+                    </label>
+                  }
+                </div>
+              }
+              @if (remisionOk()) {
+                <p class="pbx-warn">Configuración de remisiones guardada.</p>
+              }
+            </div>
+          </form>
+        </div>
+      }
+
       <!-- Entidades externas (API entrante): solo si el tenant la contrató -->
       @if (gestionaEntidades && !!tenantActivo() && tieneIntegracion('api')) {
         <div class="panel card">

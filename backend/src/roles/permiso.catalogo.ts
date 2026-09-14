@@ -17,6 +17,7 @@ export const PERMISOS: PermisoDef[] = [
   { clave: 'casos.cerrar',        etiqueta: 'Cerrar casos',                             grupo: 'Casos' },
   { clave: 'casos.reabrir',       etiqueta: 'Autorizar la reapertura de un caso cerrado', grupo: 'Casos' },
   { clave: 'casos.remitir_tenant', etiqueta: 'Remitir casos a otra jurisdicción (otro tenant)', grupo: 'Casos' },
+  { clave: 'casos.configurar_remision', etiqueta: 'Configurar a dónde llegan las remisiones de otras jurisdicciones', grupo: 'Casos' },
   { clave: 'casos.ver_grabaciones', etiqueta: 'Ver grabaciones y transcripciones de llamadas', grupo: 'Casos' },
   { clave: 'despacho.ver',        etiqueta: 'Ver despacho de recursos',                 grupo: 'Despacho' },
   { clave: 'despacho.asignar',    etiqueta: 'Despachar y mover recursos',               grupo: 'Despacho' },
@@ -71,7 +72,7 @@ export const MODULOS: ModuloPermisos[] = [
     clave: 'despacho', etiqueta: 'Despacho',
     descripcion: 'Gestionar los casos que llegan a sus canales: tomarlos, cerrarlos, asignar y mover recursos.',
     permisos: [
-      'casos.ver', 'casos.gestionar', 'casos.cerrar', 'casos.remitir_tenant',
+      'casos.ver', 'casos.gestionar', 'casos.cerrar', 'casos.remitir_tenant', 'casos.configurar_remision',
       'despacho.ver', 'despacho.asignar', 'recursos.ver', 'casos.ver_grabaciones',
     ],
   },

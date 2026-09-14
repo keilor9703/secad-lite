@@ -58,6 +58,19 @@ export class TenantEntity {
   waCanales?: string[] | null;
 
   /**
+   * A quién se envía un caso que llega por remisión de OTRA jurisdicción
+   * (otro tenant): agencia responsable y sus canales, en el catálogo de
+   * ESTE tenant (el destino). Sin esto configurado, el caso llega sin
+   * asignar — solo lo ve un supervisor (casos.ver_todos) hasta que alguien
+   * lo enrute a mano.
+   */
+  @Column({ type: 'uuid', nullable: true })
+  remisionAgenciaResponsableId?: string | null;
+
+  @Column({ type: 'simple-array', nullable: true })
+  remisionCanales?: string[] | null;
+
+  /**
    * Clave de API dedicada a la integración CTI/YACO (barra CTI embebida):
    * autentica las peticiones que el backend de esa integración le hace a
    * FALCON CAD. Separada de `apiKey` a propósito — es una superficie más

@@ -118,6 +118,12 @@ export interface WhatsappConfig {
   canales: string[];
 }
 
+/** A quién se envía, en ESTA instancia, un caso que llegue por remisión de otra jurisdicción (otro tenant). */
+export interface RemisionConfig {
+  agenciaResponsableId: string | null;
+  canales: string[];
+}
+
 export type TipoRecurso = 'patrulla' | 'ambulancia' | 'maquina' | 'moto' | 'otro';
 export type EstadoRecurso = 'disponible' | 'asignado' | 'en_ruta' | 'en_sitio' | 'fuera_servicio';
 

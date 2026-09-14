@@ -35,6 +35,8 @@ import { RemitirTenantDto } from './dto/remitir-tenant.dto';
  */
 @Injectable()
 export class CasosService implements OnModuleInit {
+  private readonly logger = new Logger(CasosService.name);
+
   constructor(
     @InjectRepository(CasoEntity)
     private readonly repo: Repository<CasoEntity>,
@@ -310,9 +312,9 @@ export class CasosService implements OnModuleInit {
    * (agencia, canales) solo tienen sentido en su propio tenant, no se mueve la
    * fila: el caso original queda `derivado` (mismo estado que usa la
    * derivación libre por PATCH .../estado) y se crea uno nuevo en el tenant
-   * destino, con la agencia sin asignar (allá lo tipifican con su propio
-   * catálogo). Ambos casos quedan enlazados por id para la trazabilidad, cada
-   * uno con su propia entrada de bitácora.
+   * destino. Ambos casos quedan enlazados por id para la trazabilidad, cada
+   * uno con su propia entrada de bitácora, y ambos tenants se enteran en vivo
+   * (mismo socket que cualquier caso nuevo/actualizado).
    */
   async remitirATenant(tenant: string, id: string, dto: RemitirTenantDto, actor: Actor): Promise<CasoEntity> {
     await this.obtener(tenant, id, actor); // valida alcance antes de tocar nada
@@ -326,7 +328,31 @@ export class CasosService implements OnModuleInit {
     if (!destino) throw new NotFoundException('La instancia destino no existe.');
     this.tenants.asegurarVigente(destino);
 
-    return this.rls.conTenant(tenant, async (em) => {
+    // A dónde llega en el tenant destino: lo que ESE tenant configuró para
+    // recibir remisiones (Administración → Remisiones entre jurisdicciones),
+    // igual mecanismo que WhatsApp/Entidades externas. Si no lo configuró, o
+    // si quedó apuntando a una agencia/canal que ya no existe, se degrada a
+    // "sin asignar" en vez de tumbar la remisión — el origen no tiene por qué
+    // ver frustrado su envío por un catálogo mal mantenido en el destino.
+    let agenciaNombre = 'Central';
+    let agenciaIdDestino: string | null = null;
+    let canalesDestino: string[] = [];
+    if (destino.remisionAgenciaResponsableId) {
+      try {
+        const agencia = await this.catalogos.agenciaDe(destino.codigo, destino.remisionAgenciaResponsableId);
+        const canales = await this.catalogos.validarCanales(destino.codigo, destino.remisionCanales ?? [], agencia.id);
+        agenciaNombre = agencia.nombre;
+        agenciaIdDestino = agencia.id;
+        canalesDestino = canales.map((c) => c.id);
+      } catch {
+        this.logger.warn(`Config de remisión inválida en tenant "${destino.codigo}": agencia/canal ya no existe.`);
+      }
+    }
+    const destinoTxt = canalesDestino.length
+      ? `Enviado a ${agenciaNombre}.`
+      : 'Sin agencia/canal configurado para remisiones en esta instancia (Administración → Remisiones entre jurisdicciones): queda visible solo para quien tenga "Ver todos los casos", hasta enrutarlo a mano.';
+
+    const [caso, nuevo] = await this.rls.conTenant(tenant, async (em) => {
       const casos = em.getRepository(CasoEntity);
       const caso = await casos.findOne({ where: { tenant, id }, lock: { mode: 'pessimistic_write' } });
       if (!caso) throw new NotFoundException('Caso no encontrado.');
@@ -356,9 +382,9 @@ export class CasosService implements OnModuleInit {
           direccion: caso.direccion,
           lat: caso.lat,
           lng: caso.lng,
-          agencia: 'Central',
-          agenciaResponsableId: null,
-          canales: [],
+          agencia: agenciaNombre,
+          agenciaResponsableId: agenciaIdDestino,
+          canales: canalesDestino,
           estado: 'nuevo',
           creadoPor: `remisión desde ${tenant}`,
           remitidoDeTenant: tenant,
@@ -384,12 +410,20 @@ export class CasosService implements OnModuleInit {
       await em.query('SELECT set_tenant($1)', [destino.codigo]);
       await this.registrar(
         destino.codigo, nuevo.id, 'creacion',
-        `Caso recibido por remisión desde otra jurisdicción (tenant «${tenant}»). Motivo: ${motivo}`,
+        `Caso recibido por remisión desde otra jurisdicción (tenant «${tenant}»). ${destinoTxt} Motivo: ${motivo}`,
         actor.sub, undefined, undefined, em,
       );
 
-      return caso;
+      return [caso, nuevo] as const;
     });
+
+    // Ambos tenants se enteran en vivo: el origen ve su caso pasar a
+    // "derivado" sin recargar, y el destino ve llegar el caso nuevo — antes
+    // esto último no avisaba a nadie; un supervisor solo lo encontraba si
+    // se le ocurría ir a buscarlo en Consulta.
+    this.gateway?.emitirCambio(tenant, caso);
+    this.gateway?.emitirNuevo(destino.codigo, nuevo);
+    return caso;
   }
 
   /**

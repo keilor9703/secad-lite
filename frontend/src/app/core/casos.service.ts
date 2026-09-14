@@ -2,7 +2,7 @@ import { Injectable } from '@angular/core';
 import { HttpClient, HttpParams } from '@angular/common/http';
 import { Observable } from 'rxjs';
 import { environment } from '../../environments/environment';
-import { Caso, CrearCaso, EstadoCaso, EventoCaso, TenantDirectorio } from './models';
+import { Caso, CrearCaso, EstadoCaso, EventoCaso, RemisionConfig, TenantDirectorio } from './models';
 
 /** Acceso a la bandeja de recepción (casos) del backend. */
 @Injectable({ providedIn: 'root' })
@@ -53,6 +53,15 @@ export class CasosService {
   /** Remite el caso a OTRO tenant: cierra este como derivado y crea uno nuevo allá. */
   remitirTenant(id: string, dto: { tenantDestino: string; observacion: string }): Observable<Caso> {
     return this.http.post<Caso>(`${this.base}/${id}/remitir-tenant`, dto);
+  }
+
+  /** A quién se envía, en ESTA instancia, un caso que llegue por remisión de otra jurisdicción. */
+  obtenerConfigRemision(): Observable<RemisionConfig> {
+    return this.http.get<RemisionConfig>(`${this.base}/config-remision`);
+  }
+
+  actualizarConfigRemision(dto: { agenciaResponsableId: string | null; canales: string[] }): Observable<RemisionConfig> {
+    return this.http.put<RemisionConfig>(`${this.base}/config-remision`, dto);
   }
 
   crear(dto: CrearCaso): Observable<Caso> {

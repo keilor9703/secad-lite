@@ -1,4 +1,4 @@
-import { Body, Controller, Get, Param, Patch, Post, Query } from '@nestjs/common';
+import { Body, Controller, Get, Param, Patch, Post, Put, Query } from '@nestjs/common';
 import { Actor, CasosService } from './casos.service';
 import { CrearCasoDto } from './dto/crear-caso.dto';
 import { CambiarEstadoDto } from './dto/cambiar-estado.dto';
@@ -7,6 +7,8 @@ import { RemitirDto } from './dto/remitir.dto';
 import { RemitirTenantDto } from './dto/remitir-tenant.dto';
 import { ReabrirDto, SolicitarReaperturaDto } from './dto/reabrir.dto';
 import { UsuariosService } from '../usuarios/usuarios.service';
+import { TenantsService } from '../tenants/tenants.service';
+import { AuditoriaAdminService } from '../auditoria/auditoria-admin.service';
 import { Tenant } from '../common/tenant.decorator';
 import { Usuario } from '../common/usuario.decorator';
 import { PermisosVigentes } from '../common/permisos-vigentes.decorator';
@@ -22,6 +24,8 @@ export class CasosController {
   constructor(
     private readonly casos: CasosService,
     private readonly usuarios: UsuariosService,
+    private readonly tenants: TenantsService,
+    private readonly auditoriaAdmin: AuditoriaAdminService,
   ) {}
 
   /**
@@ -88,6 +92,35 @@ export class CasosController {
   @Get('tenants-remitibles')
   tenantsRemitibles(@Tenant() tenant: string) {
     return this.casos.tenantsRemitibles(tenant);
+  }
+
+  /**
+   * GET /api/casos/config-remision — a quién se envía, en ESTA instancia, un
+   * caso que llegue por remisión de otra jurisdicción. Va ANTES de :id.
+   */
+  @Permisos('casos.configurar_remision')
+  @Get('config-remision')
+  getConfigRemision(@Tenant() tenant: string) {
+    return this.tenants.getRemisionConfig(tenant);
+  }
+
+  /**
+   * PUT /api/casos/config-remision — agencia/canales destino para las
+   * remisiones entrantes (mismo mecanismo que la configuración de WhatsApp).
+   */
+  @Permisos('casos.configurar_remision')
+  @Put('config-remision')
+  async setConfigRemision(
+    @Tenant() tenant: string,
+    @Usuario() u: JwtPayload,
+    @Body() dto: { agenciaResponsableId?: string | null; canales?: string[] },
+  ) {
+    const cfg = await this.tenants.setRemisionConfig(tenant, dto?.agenciaResponsableId ?? null, dto?.canales);
+    await this.auditoriaAdmin.registrar(
+      tenant, u?.sub ?? 'desconocido', 'remision.config',
+      `Actualizó a dónde llegan las remisiones de otras jurisdicciones (agencia: ${cfg.agenciaResponsableId ?? 'ninguna — sin asignar'}).`,
+    );
+    return cfg;
   }
 
   /** GET /api/casos/:id */

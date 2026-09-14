@@ -37,6 +37,13 @@ export interface WaConfigDto {
   canales: string[];
 }
 
+export interface RemisionConfigDto {
+  /** Agencia responsable (agencias.id) de los casos que llegan por remisión de otra jurisdicción. */
+  agenciaResponsableId: string | null;
+  /** Canales de esa agencia a los que se envían. */
+  canales: string[];
+}
+
 export interface CrearTenantDto {
   codigo: string;
   nombre: string;
@@ -333,6 +340,40 @@ export class TenantsService implements OnModuleInit {
       tokenConfigurado: !!t.waAccessToken,
       agenciaResponsableId: t.waAgenciaResponsableId ?? null,
       canales: t.waCanales ?? [],
+    };
+  }
+
+  async getRemisionConfig(codigo: string): Promise<RemisionConfigDto> {
+    const t = await this.porCodigo(codigo);
+    if (!t) throw new NotFoundException('Tenant no encontrado.');
+    return this.remisionConfigDto(t);
+  }
+
+  /**
+   * A quién se envía, en ESTE tenant, un caso que llegue por remisión de otra
+   * jurisdicción — mismo mecanismo que setWaConfig. Sin esto, esos casos
+   * quedan sin canal y solo los ve un supervisor (casos.ver_todos).
+   */
+  async setRemisionConfig(codigo: string, agenciaResponsableId: string | null, canales?: string[]): Promise<RemisionConfigDto> {
+    const t = await this.porCodigo(codigo);
+    if (!t) throw new NotFoundException('Tenant no encontrado.');
+    if (!agenciaResponsableId) {
+      t.remisionAgenciaResponsableId = null;
+      t.remisionCanales = [];
+    } else {
+      const agencia = await this.catalogos.agenciaDe(codigo, agenciaResponsableId);
+      const validos = await this.catalogos.validarCanales(codigo, canales ?? [], agencia.id);
+      t.remisionAgenciaResponsableId = agencia.id;
+      t.remisionCanales = validos.map((c) => c.id);
+    }
+    await this.repo.save(t);
+    return this.remisionConfigDto(t);
+  }
+
+  private remisionConfigDto(t: TenantEntity): RemisionConfigDto {
+    return {
+      agenciaResponsableId: t.remisionAgenciaResponsableId ?? null,
+      canales: t.remisionCanales ?? [],
     };
   }
 

@@ -9,10 +9,11 @@ import { WhatsappService } from '../../core/whatsapp.service';
 import { RolesService } from '../../core/roles.service';
 import { EntidadesService } from '../../core/entidades.service';
 import { CatalogosService } from '../../core/catalogos.service';
+import { CasosService } from '../../core/casos.service';
 import { ToastService } from '../../shared/toast/toast.service';
 import {
   Agencia, CanalAtencion, CodigoCaso, CtiConfig, EntidadExterna, ModuloPermisos, PbxConfig, PermisoDef, PrioridadCaso,
-  RolTenant, Tenant, TipoAgencia, UsuarioAdmin, WhatsappConfig,
+  RemisionConfig, RolTenant, Tenant, TipoAgencia, UsuarioAdmin, WhatsappConfig,
 } from '../../core/models';
 
 /**
@@ -40,12 +41,14 @@ export class AdminComponent implements OnInit {
   private rolesSvc = inject(RolesService);
   private entidadesSvc = inject(EntidadesService);
   private catalogosSvc = inject(CatalogosService);
+  private casosSvc = inject(CasosService);
   private toast = inject(ToastService);
 
   readonly esSuperadmin = this.auth.esSuperadmin;
   readonly gestionaRoles = this.auth.gestionaRoles;
   readonly gestionaEntidades = this.auth.tienePermiso('entidades.gestionar');
   readonly gestionaCatalogos = this.auth.tienePermiso('catalogos.gestionar');
+  readonly configuraRemision = this.auth.tienePermiso('casos.configurar_remision');
 
   readonly tenants = signal<Tenant[]>([]);
   readonly usuarios = signal<UsuarioAdmin[]>([]);
@@ -119,6 +122,15 @@ export class AdminComponent implements OnInit {
   readonly waGuardando = signal(false);
   readonly waOk = signal(false);
 
+  // Remisiones entre jurisdicciones (otro tenant remite un caso a esta instancia)
+  readonly remisionConfig = signal<RemisionConfig | null>(null);
+  readonly remisionForm = new FormGroup({
+    agenciaResponsableId: new FormControl<string | null>(null),
+  });
+  readonly remisionCanales = signal<string[]>([]);
+  readonly remisionGuardando = signal(false);
+  readonly remisionOk = signal(false);
+
   // Formularios
   nuevoTenant = { codigo: '', nombre: '' };
   // Catálogos operativos (agencias, canales de atención, códigos de caso)
@@ -185,6 +197,7 @@ export class AdminComponent implements OnInit {
       this.pbxConfig.set(null);
       this.ctiConfig.set(null);
       this.waConfig.set(null);
+      this.remisionConfig.set(null);
       // Sin tenant resuelto (superadmin antes de que la barra superior elija
       // uno) el backend rechaza la petición: no vale la pena intentarla.
       if (!tenant) return;
@@ -199,6 +212,7 @@ export class AdminComponent implements OnInit {
       if (this.tieneIntegracion('cti')) this.cargarCti();
       if (this.tieneIntegracion('whatsapp')) this.cargarWa();
       if (this.gestionaEntidades && this.tieneIntegracion('api')) this.cargarEntidades();
+      if (this.configuraRemision) this.cargarRemision();
       this.cargarCatalogos();
       this.bitacora.set([]);
       if (this.bitacoraAbierta()) this.cargarBitacora();
@@ -498,6 +512,42 @@ export class AdminComponent implements OnInit {
         this.toast.exito('Configuración de WhatsApp guardada.');
       },
       error: (e) => { this.waGuardando.set(false); this.error.set(e?.error?.message ?? 'No fue posible guardar la configuración de WhatsApp.'); },
+    });
+  }
+
+  private cargarRemision(): void {
+    this.casosSvc.obtenerConfigRemision().subscribe({
+      next: (c) => {
+        this.remisionConfig.set(c);
+        this.remisionForm.reset({ agenciaResponsableId: c.agenciaResponsableId });
+        this.remisionCanales.set([...(c.canales ?? [])]);
+      },
+      error: () => {},
+    });
+  }
+
+  canalMarcadoRemision(id: string): boolean {
+    return this.remisionCanales().includes(id);
+  }
+
+  alternarCanalRemision(id: string): void {
+    this.remisionCanales.update((cs) => (cs.includes(id) ? cs.filter((c) => c !== id) : [...cs, id]));
+  }
+
+  guardarRemision(): void {
+    this.remisionGuardando.set(true);
+    this.remisionOk.set(false);
+    this.error.set('');
+    const { agenciaResponsableId } = this.remisionForm.getRawValue();
+    this.casosSvc.actualizarConfigRemision({ agenciaResponsableId, canales: this.remisionCanales() }).subscribe({
+      next: (c) => {
+        this.remisionConfig.set(c);
+        this.remisionForm.patchValue({ agenciaResponsableId: c.agenciaResponsableId });
+        this.remisionCanales.set([...(c.canales ?? [])]);
+        this.remisionGuardando.set(false); this.remisionOk.set(true);
+        this.toast.exito('Configuración de remisiones guardada.');
+      },
+      error: (e) => { this.remisionGuardando.set(false); this.error.set(e?.error?.message ?? 'No fue posible guardar la configuración de remisiones.'); },
     });
   }
 
