@@ -127,7 +127,18 @@ export interface AnalisisMapa {
   topCodigos: Array<{ codigo: string; descripcion: string | null; total: number }>;
 }
 
-/** Métricas de gestión, siempre acotadas por tenant (GROUP BY en PostgreSQL). */
+/**
+ * Métricas de gestión, siempre acotadas por tenant (GROUP BY en PostgreSQL).
+ *
+ * Además, todo método que lee `casos` recibe `agenciaId`: `undefined` es
+ * alcance irrestricto (superadmin, o alguien con usuarios.gestionar/
+ * roles.gestionar — todo el tenant, como hasta ahora); una cadena acota a
+ * esa agencia (un supervisor con `casos.ver_todos` pero sin ser
+ * administrador de la organización ve el Panel/Mapa de SU agencia, no de
+ * todo el tenant); `null` es un actor restringido sin agencia asignada —no
+ * ve nada, en vez de ver todo por accidente. Mismo criterio que
+ * `CasosService.irrestricto()`.
+ */
 @Injectable()
 export class MetricasService {
   constructor(private readonly rls: TenantRlsService) {}
@@ -137,10 +148,11 @@ export class MetricasService {
    * con los mismos totales del período inmediatamente anterior —de igual
    * duración— para poder mostrar la variación en el Panel.
    */
-  async resumen(tenant: string, opts?: { desde?: string; hasta?: string }): Promise<Resumen> {
+  async resumen(tenant: string, opts?: { desde?: string; hasta?: string }, agenciaId?: string | null): Promise<Resumen> {
     const { desde, finExclusivo } = this.periodo(opts);
     const duracionMs = finExclusivo.getTime() - desde.getTime();
     const desdeAnterior = new Date(desde.getTime() - duracionMs);
+    if (agenciaId === null) return this.resumenVacio(desde, finExclusivo);
 
     return this.rls.conTenant(tenant, async (manager) => {
       // Secuencial a propósito: todas estas consultas comparten la MISMA
@@ -148,12 +160,12 @@ export class MetricasService {
       // de PostgreSQL no puede llevar varias sentencias en vuelo a la vez —
       // node-postgres solo lo tolera con una cola interna que ya avisa que
       // va a dejar de existir. Promise.all() aquí sería una carrera falsa.
-      const total = await this.contar(manager, tenant, desde, finExclusivo);
-      const porEstado = await this.agrupar(manager, tenant, 'estado', desde, finExclusivo);
-      const porCanal = await this.agrupar(manager, tenant, 'canal', desde, finExclusivo);
-      const porAgencia = await this.agrupar(manager, tenant, 'agencia', desde, finExclusivo);
-      const tiempos = await this.tiempos(manager, tenant, desde, finExclusivo);
-      const periodoAnterior = await this.periodoAnterior(manager, tenant, desdeAnterior, desde);
+      const total = await this.contar(manager, tenant, desde, finExclusivo, agenciaId);
+      const porEstado = await this.agrupar(manager, tenant, 'estado', desde, finExclusivo, agenciaId);
+      const porCanal = await this.agrupar(manager, tenant, 'canal', desde, finExclusivo, agenciaId);
+      const porAgencia = await this.agrupar(manager, tenant, 'agencia', desde, finExclusivo, agenciaId);
+      const tiempos = await this.tiempos(manager, tenant, desde, finExclusivo, agenciaId);
+      const periodoAnterior = await this.periodoAnterior(manager, tenant, desdeAnterior, desde, agenciaId);
 
       return {
         periodo: { desde: this.aFechaCorta(desde), hasta: this.aFechaCorta(new Date(finExclusivo.getTime() - 864e5)) },
@@ -175,30 +187,30 @@ export class MetricasService {
    * (día 1 con día 1, etc.), no por fecha, para poder superponerlas en un
    * mismo eje X en el gráfico de tendencia.
    */
-  async tendencia(tenant: string, opts?: { desde?: string; hasta?: string }): Promise<Tendencia> {
+  async tendencia(tenant: string, opts?: { desde?: string; hasta?: string }, agenciaId?: string | null): Promise<Tendencia> {
     const { desde, finExclusivo } = this.periodo(opts);
     const duracionMs = finExclusivo.getTime() - desde.getTime();
     const desdeAnterior = new Date(desde.getTime() - duracionMs);
+    const periodoVacio = { desde: this.aFechaCorta(desde), hasta: this.aFechaCorta(new Date(finExclusivo.getTime() - 864e5)) };
+    if (agenciaId === null) return { periodo: periodoVacio, actual: [], anterior: [] };
 
     return this.rls.conTenant(tenant, async (manager) => {
       // Secuencial: comparten conexión (ver el comentario igual en resumen()).
-      const actual = await this.serieDiaria(manager, tenant, desde, finExclusivo);
-      const anterior = await this.serieDiaria(manager, tenant, desdeAnterior, desde);
-      return {
-        periodo: { desde: this.aFechaCorta(desde), hasta: this.aFechaCorta(new Date(finExclusivo.getTime() - 864e5)) },
-        actual,
-        anterior,
-      };
+      const actual = await this.serieDiaria(manager, tenant, desde, finExclusivo, agenciaId);
+      const anterior = await this.serieDiaria(manager, tenant, desdeAnterior, desde, agenciaId);
+      return { periodo: periodoVacio, actual, anterior };
     });
   }
 
-  private async serieDiaria(manager: EntityManager, tenant: string, desde: Date, finExclusivo: Date): Promise<PuntoTendencia[]> {
+  private async serieDiaria(manager: EntityManager, tenant: string, desde: Date, finExclusivo: Date, agenciaId?: string | null): Promise<PuntoTendencia[]> {
+    const params = agenciaId ? [tenant, desde, finExclusivo, agenciaId] : [tenant, desde, finExclusivo];
     const filas = await manager.query(
       `SELECT (c."creadoEn" AT TIME ZONE 'America/Bogota')::date AS dia, COUNT(*)::int AS total
          FROM casos c
         WHERE c.tenant = $1 AND c."creadoEn" >= $2 AND c."creadoEn" < $3
+          ${agenciaId ? 'AND c."agenciaResponsableId" = $4' : ''}
         GROUP BY dia`,
-      [tenant, desde, finExclusivo],
+      params,
     );
     const porDia = new Map<string, number>(
       filas.map((f: Record<string, unknown>) => [this.aFechaCorta(f['dia'] as Date), Number(f['total'])]),
@@ -216,9 +228,12 @@ export class MetricasService {
    * (`META_DESPACHO_MIN`). Los casos sin despacho aún no entran en el
    * cálculo — no se puede juzgar el cumplimiento de algo que no ha pasado.
    */
-  async cumplimiento(tenant: string, opts?: { desde?: string; hasta?: string }): Promise<Cumplimiento> {
+  async cumplimiento(tenant: string, opts?: { desde?: string; hasta?: string }, agenciaId?: string | null): Promise<Cumplimiento> {
     const { desde, finExclusivo } = this.periodo(opts);
+    const periodoVacio = { desde: this.aFechaCorta(desde), hasta: this.aFechaCorta(new Date(finExclusivo.getTime() - 864e5)) };
+    if (agenciaId === null) return { periodo: periodoVacio, porPrioridad: [] };
     return this.rls.conTenant(tenant, async (manager) => {
+      const params = agenciaId ? [tenant, desde, finExclusivo, agenciaId] : [tenant, desde, finExclusivo];
       const filas = await manager.query(
         `SELECT c.prioridad,
                 COUNT(*)::int AS total,
@@ -227,8 +242,9 @@ export class MetricasService {
            JOIN (SELECT "casoId", MIN("creadoEn") AS momento FROM casos_eventos
                   WHERE tenant = $1 AND tipo = 'despacho' GROUP BY "casoId") d ON d."casoId" = c.id
           WHERE c.tenant = $1 AND c."creadoEn" >= $2 AND c."creadoEn" < $3
+            ${agenciaId ? 'AND c."agenciaResponsableId" = $4' : ''}
           GROUP BY c.prioridad`,
-        [tenant, desde, finExclusivo],
+        params,
       );
       const porFila = new Map<string, Record<string, unknown>>(
         filas.map((f: Record<string, unknown>): [string, Record<string, unknown>] => [String(f['prioridad']), f]),
@@ -250,10 +266,7 @@ export class MetricasService {
         };
       });
 
-      return {
-        periodo: { desde: this.aFechaCorta(desde), hasta: this.aFechaCorta(new Date(finExclusivo.getTime() - 864e5)) },
-        porPrioridad,
-      };
+      return { periodo: periodoVacio, porPrioridad };
     });
   }
 
@@ -272,11 +285,11 @@ export class MetricasService {
    * un motor de aprendizaje — son umbrales fijos pensados para que un
    * operador no tenga que leer todos los gráficos para notar lo importante.
    */
-  async hallazgos(tenant: string, opts?: { desde?: string; hasta?: string }): Promise<Hallazgos> {
+  async hallazgos(tenant: string, opts?: { desde?: string; hasta?: string }, agenciaId?: string | null): Promise<Hallazgos> {
     const [resumen, cumplimiento, tendencia] = await Promise.all([
-      this.resumen(tenant, opts),
-      this.cumplimiento(tenant, opts),
-      this.tendencia(tenant, opts),
+      this.resumen(tenant, opts, agenciaId),
+      this.cumplimiento(tenant, opts, agenciaId),
+      this.tendencia(tenant, opts, agenciaId),
     ]);
 
     const items: Hallazgo[] = [];
@@ -348,30 +361,32 @@ export class MetricasService {
    * (primer paso a 'en_gestion') y cuántos cerró, según quién quedó como
    * autor de cada evento de la bitácora. Top 20 por casos tomados.
    */
-  async ranking(tenant: string, opts?: { desde?: string; hasta?: string }): Promise<Ranking> {
+  async ranking(tenant: string, opts?: { desde?: string; hasta?: string }, agenciaId?: string | null): Promise<Ranking> {
     const { desde, finExclusivo } = this.periodo(opts);
+    const periodoVacio = { desde: this.aFechaCorta(desde), hasta: this.aFechaCorta(new Date(finExclusivo.getTime() - 864e5)) };
+    if (agenciaId === null) return { periodo: periodoVacio, operadores: [] };
     return this.rls.conTenant(tenant, async (manager) => {
+      const params = agenciaId ? [tenant, desde, finExclusivo, agenciaId] : [tenant, desde, finExclusivo];
       const filas = await manager.query(
-        `SELECT autor,
-                COUNT(*) FILTER (WHERE "estadoNuevo" = 'en_gestion')::int AS tomados,
-                COUNT(*) FILTER (WHERE "estadoNuevo" = 'cerrado')::int AS cerrados
-           FROM casos_eventos
-          WHERE tenant = $1 AND tipo = 'estado' AND "creadoEn" >= $2 AND "creadoEn" < $3
-            AND "estadoNuevo" IN ('en_gestion', 'cerrado')
-          GROUP BY autor
+        `SELECT ce.autor,
+                COUNT(*) FILTER (WHERE ce."estadoNuevo" = 'en_gestion')::int AS tomados,
+                COUNT(*) FILTER (WHERE ce."estadoNuevo" = 'cerrado')::int AS cerrados
+           FROM casos_eventos ce
+           ${agenciaId ? 'JOIN casos c ON c.id = ce."casoId"' : ''}
+          WHERE ce.tenant = $1 AND ce.tipo = 'estado' AND ce."creadoEn" >= $2 AND ce."creadoEn" < $3
+            AND ce."estadoNuevo" IN ('en_gestion', 'cerrado')
+            ${agenciaId ? 'AND c."agenciaResponsableId" = $4' : ''}
+          GROUP BY ce.autor
           ORDER BY tomados DESC, cerrados DESC
           LIMIT 20`,
-        [tenant, desde, finExclusivo],
+        params,
       );
       const operadores: RankingOperador[] = filas.map((f: Record<string, unknown>) => ({
         autor: String(f['autor']),
         casosTomados: Number(f['tomados']),
         casosCerrados: Number(f['cerrados']),
       }));
-      return {
-        periodo: { desde: this.aFechaCorta(desde), hasta: this.aFechaCorta(new Date(finExclusivo.getTime() - 864e5)) },
-        operadores,
-      };
+      return { periodo: periodoVacio, operadores };
     });
   }
 
@@ -388,26 +403,41 @@ export class MetricasService {
     return d.toISOString().slice(0, 10);
   }
 
-  private async contar(manager: EntityManager, tenant: string, desde: Date, finExclusivo: Date): Promise<number> {
-    return manager
+  /** Resultado para un actor restringido sin agencia asignada: nada, no la base de datos entera. */
+  private resumenVacio(desde: Date, finExclusivo: Date): Resumen {
+    return {
+      periodo: { desde: this.aFechaCorta(desde), hasta: this.aFechaCorta(new Date(finExclusivo.getTime() - 864e5)) },
+      total: 0,
+      porEstado: this.completar({}, ESTADOS),
+      porCanal: this.completar({}, CANALES),
+      porAgencia: [],
+      tiempos: { porPrioridad: [], global: null },
+      periodoAnterior: { total: 0, tiempoTomaProm: null },
+    };
+  }
+
+  private async contar(manager: EntityManager, tenant: string, desde: Date, finExclusivo: Date, agenciaId?: string | null): Promise<number> {
+    const qb = manager
       .getRepository(CasoEntity)
       .createQueryBuilder('c')
       .where('c.tenant = :tenant', { tenant })
-      .andWhere('c."creadoEn" >= :desde AND c."creadoEn" < :hasta', { desde, hasta: finExclusivo })
-      .getCount();
+      .andWhere('c."creadoEn" >= :desde AND c."creadoEn" < :hasta', { desde, hasta: finExclusivo });
+    if (agenciaId) qb.andWhere('c."agenciaResponsableId" = :agenciaId', { agenciaId });
+    return qb.getCount();
   }
 
   /** Solo el total y el tiempo de toma del período anterior — lo mínimo para una flecha de variación. */
-  private async periodoAnterior(manager: EntityManager, tenant: string, desde: Date, finExclusivo: Date): Promise<ResumenPeriodoAnterior> {
+  private async periodoAnterior(manager: EntityManager, tenant: string, desde: Date, finExclusivo: Date, agenciaId?: string | null): Promise<ResumenPeriodoAnterior> {
     // Secuencial: comparten conexión (ver el comentario en resumen()).
-    const total = await this.contar(manager, tenant, desde, finExclusivo);
+    const total = await this.contar(manager, tenant, desde, finExclusivo, agenciaId);
     const filas = await manager.query(
       `SELECT AVG(EXTRACT(EPOCH FROM (t.momento - c."creadoEn")) / 60) AS prom
          FROM casos c
          LEFT JOIN (SELECT "casoId", MIN("creadoEn") AS momento FROM casos_eventos
                      WHERE tenant = $1 AND "estadoNuevo" = 'en_gestion' GROUP BY "casoId") t ON t."casoId" = c.id
-        WHERE c.tenant = $1 AND c."creadoEn" >= $2 AND c."creadoEn" < $3`,
-      [tenant, desde, finExclusivo],
+        WHERE c.tenant = $1 AND c."creadoEn" >= $2 AND c."creadoEn" < $3
+          ${agenciaId ? 'AND c."agenciaResponsableId" = $4' : ''}`,
+      agenciaId ? [tenant, desde, finExclusivo, agenciaId] : [tenant, desde, finExclusivo],
     );
     const prom = filas[0]?.['prom'];
     return {
@@ -421,6 +451,9 @@ export class MetricasService {
    * estado y cuánto se demora en promedio contestar una — últimos 30 días,
    * el mismo período que usan los tiempos de respuesta de casos.
    */
+  // Sin acotar por agencia a propósito: una llamada puede sonar antes de
+  // quedar ligada a un caso/agencia — el reporte de la central telefónica es
+  // del tenant completo, no de una agencia.
   async llamadas(tenant: string): Promise<ResumenLlamadas> {
     return this.rls.conTenant(tenant, async (manager) => {
       // Secuencial: comparten conexión (ver el comentario en resumen()).
@@ -457,7 +490,10 @@ export class MetricasService {
    * un 123 — los conteos dicen cuánto entró; esto dice qué tan rápido se
    * atendió.
    */
-  private async tiempos(manager: EntityManager, tenant: string, desde: Date, finExclusivo: Date): Promise<Resumen['tiempos']> {
+  private async tiempos(manager: EntityManager, tenant: string, desde: Date, finExclusivo: Date, agenciaId?: string | null): Promise<Resumen['tiempos']> {
+    const paramsBase: unknown[] = [tenant, desde, finExclusivo];
+    const filtroAgencia = agenciaId ? `AND c."agenciaResponsableId" = $${paramsBase.length + 1}` : '';
+    const params = agenciaId ? [...paramsBase, agenciaId] : paramsBase;
     const filas = await manager.query(
       `
       SELECT c.prioridad,
@@ -472,10 +508,10 @@ export class MetricasService {
                     WHERE tenant = $1 AND tipo = 'despacho' GROUP BY "casoId") d ON d."casoId" = c.id
         LEFT JOIN (SELECT "casoId", MIN("creadoEn") AS momento FROM casos_eventos
                     WHERE tenant = $1 AND "estadoNuevo" = 'cerrado' GROUP BY "casoId") x ON x."casoId" = c.id
-       WHERE c.tenant = $1 AND c."creadoEn" >= $2 AND c."creadoEn" < $3
+       WHERE c.tenant = $1 AND c."creadoEn" >= $2 AND c."creadoEn" < $3 ${filtroAgencia}
        GROUP BY c.prioridad
       `,
-      [tenant, desde, finExclusivo],
+      params,
     );
     const aFila = (f: Record<string, unknown>, prioridad: string): TiemposPrioridad => ({
       prioridad,
@@ -504,9 +540,9 @@ export class MetricasService {
                     WHERE tenant = $1 AND tipo = 'despacho' GROUP BY "casoId") d ON d."casoId" = c.id
         LEFT JOIN (SELECT "casoId", MIN("creadoEn") AS momento FROM casos_eventos
                     WHERE tenant = $1 AND "estadoNuevo" = 'cerrado' GROUP BY "casoId") x ON x."casoId" = c.id
-       WHERE c.tenant = $1 AND c."creadoEn" >= $2 AND c."creadoEn" < $3
+       WHERE c.tenant = $1 AND c."creadoEn" >= $2 AND c."creadoEn" < $3 ${filtroAgencia}
       `,
-      [tenant, desde, finExclusivo],
+      params,
     );
     const global = g && Number(g['total']) > 0 ? aFila(g, 'global') : null;
     return { porPrioridad, global };
@@ -518,17 +554,27 @@ export class MetricasService {
    * mayor afectación y el top 5 de códigos de caso — filtrable por rango de
    * fechas y por código. Siempre acotado al tenant del usuario logueado.
    */
-  async mapa(tenant: string, opts?: { desde?: string; hasta?: string; codigo?: string }): Promise<AnalisisMapa> {
+  async mapa(tenant: string, opts?: { desde?: string; hasta?: string; codigo?: string }, agenciaId?: string | null): Promise<AnalisisMapa> {
     const desde = this.fechaValida(opts?.desde);
     const hasta = this.fechaValida(opts?.hasta);
     const finExclusivo = hasta ? new Date(hasta.getTime() + 864e5) : null;
     const codigo = opts?.codigo?.trim().toUpperCase() || null;
+
+    if (agenciaId === null) {
+      return {
+        puntos: [], totalConUbicacion: 0, totalSinUbicacion: 0,
+        porDiaSemana: Array.from({ length: 7 }, (_, dia) => ({ dia, total: 0 })),
+        porHora: Array.from({ length: 24 }, (_, hora) => ({ hora, total: 0 })),
+        topCodigos: [],
+      };
+    }
 
     const params: unknown[] = [tenant];
     const cond: string[] = ['c.tenant = $1'];
     if (desde) { params.push(desde); cond.push(`c."creadoEn" >= $${params.length}`); }
     if (finExclusivo) { params.push(finExclusivo); cond.push(`c."creadoEn" < $${params.length}`); }
     if (codigo) { params.push(codigo); cond.push(`c."codigoCaso" = $${params.length}`); }
+    if (agenciaId) { params.push(agenciaId); cond.push(`c."agenciaResponsableId" = $${params.length}`); }
     const where = cond.join(' AND ');
 
     // Secuencial a propósito: las cinco comparten la MISMA conexión/transacción
@@ -608,16 +654,18 @@ export class MetricasService {
     campo: 'estado' | 'canal' | 'agencia',
     desde: Date,
     finExclusivo: Date,
+    agenciaId?: string | null,
   ): Promise<Record<string, number>> {
-    const filas = await manager
+    const qb = manager
       .getRepository(CasoEntity)
       .createQueryBuilder('c')
       .select(`c.${campo}`, 'clave')
       .addSelect('COUNT(*)', 'total')
       .where('c.tenant = :tenant', { tenant })
       .andWhere('c."creadoEn" >= :desde AND c."creadoEn" < :hasta', { desde, hasta: finExclusivo })
-      .groupBy(`c.${campo}`)
-      .getRawMany<{ clave: string; total: string }>();
+      .groupBy(`c.${campo}`);
+    if (agenciaId) qb.andWhere('c."agenciaResponsableId" = :agenciaId', { agenciaId });
+    const filas = await qb.getRawMany<{ clave: string; total: string }>();
     return Object.fromEntries(filas.map((f) => [f.clave, Number(f.total)]));
   }
 
@@ -630,15 +678,18 @@ export class MetricasService {
 
   async exportarCsv(
     tenant: string,
-    opts?: { desde?: string; hasta?: string; estado?: string }
+    opts?: { desde?: string; hasta?: string; estado?: string },
+    agenciaId?: string | null,
   ): Promise<string> {
     const desde = this.fechaValida(opts?.desde);
     const hasta = this.fechaValida(opts?.hasta);
     const finExclusivo = hasta ? new Date(hasta.getTime() + 864e5) : null;
+    if (agenciaId === null) return ['id', 'creadoEn', 'canal', 'titulo', 'ciudadano', 'telefono', 'agencia', 'estado', 'prioridad', 'codigoCaso', 'direccion', 'creadoPor'].join(',') + '\n';
 
     const casos = await this.rls.conTenant(tenant, (manager) => {
       const qb = manager.getRepository(CasoEntity).createQueryBuilder('caso')
         .where('caso.tenant = :tenant', { tenant });
+      if (agenciaId) qb.andWhere('caso."agenciaResponsableId" = :agenciaId', { agenciaId });
 
       if (opts?.estado) {
         qb.andWhere('caso.estado = :estado', { estado: opts.estado });

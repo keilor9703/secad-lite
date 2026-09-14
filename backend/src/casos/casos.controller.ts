@@ -40,6 +40,7 @@ export class CasosController {
       rol: usuario?.rol ?? 'operador',
       permisos: permisos.includes('*') ? [] : permisos,
       canales: yo?.canales ?? [],
+      agencia: yo?.agenciaId ?? null,
     };
   }
 

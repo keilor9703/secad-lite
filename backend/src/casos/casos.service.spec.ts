@@ -32,6 +32,7 @@ const actorSupervisor: Actor = {
   rol: 'supervisor',
   permisos: ['casos.ver', 'casos.ver_todos', 'casos.cerrar', 'casos.reabrir'],
   canales: [],
+  agencia: 'agencia-uuid-1',
 };
 
 describe('CasosService', () => {
@@ -97,11 +98,17 @@ describe('CasosService', () => {
       await expect(service.obtener('demo', '1', actor)).rejects.toThrow(NotFoundException);
     });
 
-    it('devuelve el caso si el actor tiene casos.ver_todos', async () => {
-      const caso = { id: '1', tenant: 'demo', canales: ['otro-canal'], creadoPor: 'otro' } as CasoEntity;
+    it('devuelve el caso si el actor tiene casos.ver_todos y es de la misma agencia', async () => {
+      const caso = { id: '1', tenant: 'demo', canales: ['otro-canal'], creadoPor: 'otro', agenciaResponsableId: 'agencia-uuid-1' } as CasoEntity;
       repo.findOne.mockResolvedValue(caso);
       const result = await service.obtener('demo', '1', actorSupervisor);
       expect(result).toBe(caso);
+    });
+
+    it('lanza NotFoundException si el actor tiene casos.ver_todos pero es de OTRA agencia', async () => {
+      const caso = { id: '1', tenant: 'demo', canales: ['otro-canal'], creadoPor: 'otro', agenciaResponsableId: 'agencia-uuid-2' } as CasoEntity;
+      repo.findOne.mockResolvedValue(caso);
+      await expect(service.obtener('demo', '1', actorSupervisor)).rejects.toThrow(NotFoundException);
     });
   });
 

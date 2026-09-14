@@ -82,7 +82,7 @@ export class CasosService implements OnModuleInit {
       else if (desde) where.creadoEn = MoreThanOrEqual(desde);
       else if (finExclusivo) where.creadoEn = LessThan(finExclusivo);
 
-      if (actor.rol !== 'superadmin' && !actor.permisos.includes('casos.ver_todos')) {
+      if (!this.irrestricto(actor) && !actor.permisos.includes('casos.ver_todos')) {
         const qb = repo.createQueryBuilder('caso')
           .where('caso.tenant = :tenant', { tenant });
         if (opts?.abiertos) qb.andWhere('caso.estado != :estado', { estado: 'cerrado' });
@@ -105,9 +105,31 @@ export class CasosService implements OnModuleInit {
         return qb.orderBy('caso.creadoEn', 'DESC').take(limite).getMany();
       }
 
+      // casos.ver_todos sin ser un rol de administración (sin usuarios.gestionar
+      // ni roles.gestionar): "todos" pasa a significar "todos los de SU agencia",
+      // no los de todo el tenant — un supervisor no tiene por qué ver lo de
+      // agencias que no dirige. Sin agencia asignada no ve nada (no "todo"):
+      // mismo criterio restrictivo que AlcanceRecursos para el no privilegiado.
+      if (!this.irrestricto(actor)) {
+        if (!actor.agencia) return [];
+        where.agenciaResponsableId = actor.agencia;
+      }
+
       const casos = await repo.find({ where, order: { creadoEn: 'DESC' }, take: limite });
       return casos.filter((c) => this.alcanza(c, actor));
     });
+  }
+
+  /**
+   * Administra el tenant completo: superadmin, o alguien con `usuarios.gestionar`
+   * / `roles.gestionar` (gobierna la organización, no solo despacha casos). Es
+   * el único alcance que ve más allá de su propia agencia — mismo criterio que
+   * `AlcanceRecursos` en el módulo de Recursos.
+   */
+  private irrestricto(actor: Actor): boolean {
+    return actor.rol === 'superadmin'
+      || actor.permisos.includes('usuarios.gestionar')
+      || actor.permisos.includes('roles.gestionar');
   }
 
   /** aaaa-mm-dd → Date, o null si viene vacío o malformado. */
@@ -125,7 +147,8 @@ export class CasosService implements OnModuleInit {
    * canal no tiene por qué ver lo de los demás canales.
    */
   private alcanza(caso: CasoEntity, actor: Actor): boolean {
-    if (actor.rol === 'superadmin' || actor.permisos.includes('casos.ver_todos')) return true;
+    if (this.irrestricto(actor)) return true;
+    if (actor.permisos.includes('casos.ver_todos')) return !!actor.agencia && caso.agenciaResponsableId === actor.agencia;
     if (caso.creadoPor === actor.sub) return true;
     const mios = new Set(actor.canales ?? []);
     return (caso.canales ?? []).some((id) => mios.has(id));

@@ -26,12 +26,12 @@ const ESTADO_LABEL: Record<string, string> = {
 export class InformePdfService {
   constructor(private readonly metricas: MetricasService) {}
 
-  async generar(tenant: string, opts?: { desde?: string; hasta?: string }): Promise<PDFKit.PDFDocument> {
+  async generar(tenant: string, opts?: { desde?: string; hasta?: string }, agenciaId?: string | null): Promise<PDFKit.PDFDocument> {
     const [resumen, cumplimiento, hallazgos, ranking] = await Promise.all([
-      this.metricas.resumen(tenant, opts),
-      this.metricas.cumplimiento(tenant, opts),
-      this.metricas.hallazgos(tenant, opts),
-      this.metricas.ranking(tenant, opts),
+      this.metricas.resumen(tenant, opts, agenciaId),
+      this.metricas.cumplimiento(tenant, opts, agenciaId),
+      this.metricas.hallazgos(tenant, opts, agenciaId),
+      this.metricas.ranking(tenant, opts, agenciaId),
     ]);
 
     const doc = new PDFDocument({ size: 'A4', margin: 48, bufferPages: true });
