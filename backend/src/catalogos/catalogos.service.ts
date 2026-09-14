@@ -18,11 +18,20 @@ export interface ActualizarCodigoCierreDto { codigo?: string; etiqueta?: string;
 
 /** Catálogo inicial de cada secad: sin esto no se puede recepcionar nada. */
 const SEMILLA: Array<{ codigo: string; nombre: string; tipo: TipoAgencia; canales: Array<[string, string]> }> = [
-  { codigo: 'POLICIA', nombre: 'Policía Nacional', tipo: 'policia', canales: [['C1', 'Cuadrante 1'], ['C2', 'Cuadrante 2'], ['CAI', 'CAI Centro']] },
-  { codigo: 'BOMBEROS', nombre: 'Cuerpo de Bomberos', tipo: 'bomberos', canales: [['M1', 'Máquina 1'], ['M2', 'Máquina 2']] },
-  { codigo: 'SALUD', nombre: 'Salud — Ambulancias', tipo: 'salud', canales: [['A1', 'Ambulancia 1'], ['A2', 'Ambulancia 2']] },
-  { codigo: 'TRANSITO', nombre: 'Secretaría de Tránsito', tipo: 'transito', canales: [['T1', 'Agentes de tránsito']] },
-  { codigo: 'CENTRAL', nombre: 'Central de emergencias', tipo: 'otra', canales: [['REC', 'Recepción']] },
+  { codigo: 'POLICIA', nombre: 'Policía Nacional', tipo: 'policia', canales: [['PONAL', 'Policía']] },
+  { codigo: 'TRANSITO', nombre: 'Secretaría de Tránsito', tipo: 'transito', canales: [['MOVILIDAD', 'Tránsito']] },
+  { codigo: 'BOMBEROS', nombre: 'Cuerpo de Bomberos', tipo: 'bomberos', canales: [['B', 'Bomberos']] },
+  { codigo: 'SALUD', nombre: 'Salud — Ambulancias', tipo: 'salud', canales: [['SEM', 'Emergencias Médicas']] },
+  {
+    codigo: 'OTRAS', nombre: 'Otras — Administrativas', tipo: 'otra',
+    canales: [
+      ['CM', 'Comisaría'],
+      ['DF', 'Defensa Civil'],
+      ['G', 'Gestión Riesgo'],
+      ['SP', 'Servicios Públicos'],
+      ['T', 'Turismo'],
+    ],
+  },
 ];
 
 const SEMILLA_CODIGOS: Array<[string, string, PrioridadCaso, string]> = [

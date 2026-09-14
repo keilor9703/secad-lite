@@ -382,12 +382,12 @@ export class UsuariosService implements OnModuleInit {
         await asegurar({ username: 'operador1', nombre: 'Operador Uno', rol: 'operador', tenant: 'demo' });
       }
 
-      // Los usuarios de demostración quedan adscritos a la central de
-      // emergencias: sin agencia no podrían recepcionar con origen.
+      // Los usuarios de demostración quedan adscritos a la agencia
+      // administrativa: sin agencia no podrían recepcionar con origen.
       await this.catalogos.asegurarSeed('demo');
-      const central = (await this.catalogos.listarAgencias('demo')).find((a) => a.codigo === 'CENTRAL');
-      if (central) {
-        await this.repo.update({ tenant: 'demo', agenciaId: IsNull() }, { agenciaId: central.id });
+      const otras = (await this.catalogos.listarAgencias('demo')).find((a) => a.codigo === 'OTRAS');
+      if (otras) {
+        await this.repo.update({ tenant: 'demo', agenciaId: IsNull() }, { agenciaId: otras.id });
       }
     } catch (e) {
       this.logger.warn(`Seed de usuarios demo omitido: ${(e as Error).message}`);
