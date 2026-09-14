@@ -84,10 +84,16 @@
 
 /* Sin elección explícita del usuario, manda el sistema. */
 @media (prefers-color-scheme: dark) {
-  :root:not([data-tema='claro']) { @include tema-oscuro; }
+  :root:not([data-tema='claro']) {
+    @include tema-oscuro;
+    select { background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16' fill='none' stroke='%23afc1d0' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='4 6 8 10 12 6'/%3E%3C/svg%3E"); }
+  }
 }
 /* Elección explícita: gana siempre sobre el sistema. */
-:root[data-tema='oscuro'] { @include tema-oscuro; }
+:root[data-tema='oscuro'] {
+  @include tema-oscuro;
+  select { background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16' fill='none' stroke='%23afc1d0' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='4 6 8 10 12 6'/%3E%3C/svg%3E"); }
+}
 
 * { box-sizing: border-box; }
 /* Red de seguridad: en un celular, un solo elemento angosto que se desborde
@@ -123,6 +129,33 @@ input:focus, select:focus, textarea:focus {
   outline: none;
   border-color: var(--accent);
   box-shadow: 0 0 0 3px var(--accent-soft);
+}
+
+/* Lista desplegable: se apaga el <select> nativo del navegador (que varía de
+   uno a otro y desentona con el resto de los controles) y se dibuja una
+   flecha propia, para que toda lista del sistema se vea igual que un input
+   normal — mismo borde, radio y fondo — en vez del cuadro con relieve nativo. */
+select {
+  appearance: none;
+  -webkit-appearance: none;
+  -moz-appearance: none;
+  padding-right: 2.15rem;
+  cursor: pointer;
+  background-repeat: no-repeat;
+  background-position: right 0.65rem center;
+  background-size: 13px;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16' fill='none' stroke='%236a7d90' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='4 6 8 10 12 6'/%3E%3C/svg%3E");
+}
+select:disabled {
+  cursor: not-allowed;
+  opacity: 0.6;
+}
+/* El option sigue siendo el desplegable nativo del sistema operativo — eso no
+   se puede re-estilar desde CSS en ningún navegador — pero al menos hereda
+   los mismos colores del tema en vez de quedar en blanco y negro puro. */
+select option {
+  color: var(--ink);
+  background: var(--surface);
 }
 
 .btn {
