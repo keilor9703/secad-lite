@@ -90,7 +90,13 @@
 :root[data-tema='oscuro'] { @include tema-oscuro; }
 
 * { box-sizing: border-box; }
-html, body { height: 100%; }
+/* Red de seguridad: en un celular, un solo elemento angosto que se desborde
+   (una tabla, un <code> con una palabra larga, un control sin flex-wrap)
+   ensancha el "layout viewport" entero y deja toda la página con zoom-out y
+   scroll horizontal — no solo esa caja. Mejor recortar ese elemento puntual
+   (llevará su propio overflow-x: auto si de verdad necesita scrollear) que
+   perder el ajuste de la página completa. */
+html, body { height: 100%; overflow-x: hidden; }
 body {
   margin: 0;
   background: var(--bg);

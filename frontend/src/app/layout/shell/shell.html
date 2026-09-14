@@ -5,7 +5,14 @@
   </div>
 
   @if (sesion(); as s) {
-    <nav class="nav">
+    <button type="button" class="menu-btn" (click)="menuAbierto.set(!menuAbierto())"
+      [attr.aria-expanded]="menuAbierto()" aria-label="Abrir menú de navegación">
+      <span></span><span></span><span></span>
+    </button>
+  }
+
+  @if (sesion(); as s) {
+    <nav class="nav" [class.abierto]="menuAbierto()">
       @if (s.tipo === 'institucional') {
         @if (operativoVisible()) {
           @if (puedeRecepcionar()) {
@@ -78,6 +85,10 @@
       }
       <button type="button" class="btn btn--ghost" (click)="salir()">Salir</button>
     </div>
+  }
+
+  @if (menuAbierto()) {
+    <div class="nav-velo" (click)="menuAbierto.set(false)"></div>
   }
 </header>
 

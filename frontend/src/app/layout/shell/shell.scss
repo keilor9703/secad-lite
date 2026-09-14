@@ -23,6 +23,18 @@
 }
 .nav a.active { background: var(--accent-soft); color: var(--accent); }
 .nav-llamadas { display: inline-flex; align-items: center; gap: 0.35rem; }
+
+/** Hamburguesa: oculta en escritorio, la muestra la media query de abajo. */
+.menu-btn {
+  display: none;
+  flex: none;
+  width: 36px; height: 36px;
+  align-items: center; justify-content: center; flex-direction: column; gap: 4px;
+  border: 1px solid var(--border); border-radius: 8px;
+  background: var(--surface); cursor: pointer;
+}
+.menu-btn span { display: block; width: 18px; height: 2px; background: var(--ink-soft); border-radius: 2px; }
+.nav-velo { position: fixed; inset: 0; z-index: 15; background: transparent; }
 .ring-badge {
   display: inline-grid; place-items: center; min-width: 18px; height: 18px; padding: 0 5px;
   background: #e5484d; color: #fff; border-radius: 999px; font-size: 0.72rem; font-weight: 700;
@@ -47,8 +59,29 @@
  */
 .content { padding: 1.25rem clamp(1rem, 2.5vw, 2.5rem); max-width: 2200px; margin: 0 auto; }
 
-@media (max-width: 560px) {
+/**
+ * Con hasta 9 pestañas (según rol) el nav nunca cupo en una pantalla angosta
+ * — en vez de forzar scroll horizontal de toda la página, por debajo de este
+ * ancho se oculta tras la hamburguesa y se despliega como panel.
+ */
+@media (max-width: 900px) {
+  .menu-btn { display: flex; }
+
+  .nav {
+    position: absolute; top: 100%; left: 0; right: 0;
+    flex-direction: column; gap: 0.15rem; align-items: stretch;
+    background: var(--surface); border-bottom: 1px solid var(--border);
+    padding: 0.6rem; box-shadow: var(--shadow);
+    max-height: min(75vh, 520px); overflow-y: auto;
+    opacity: 0; visibility: hidden; transform: translateY(-6px);
+    transition: opacity 0.15s ease, transform 0.15s ease;
+    z-index: 20;
+  }
+  .nav.abierto { opacity: 1; visibility: visible; transform: translateY(0); }
+  .nav a { padding: 0.7rem 0.8rem; }
+
   .topbar { gap: 0.8rem; flex-wrap: wrap; }
+  .user { flex-wrap: wrap; justify-content: flex-end; row-gap: 0.5rem; }
   .who .name { max-width: 90px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 }
 

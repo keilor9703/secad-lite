@@ -3,14 +3,17 @@
 .admin-head p { margin: 0.2rem 0 0; color: var(--muted); font-size: 0.85rem; }
 .error { color: var(--danger); margin: 0; }
 
-.panel { padding: 1.1rem 1.2rem; display: flex; flex-direction: column; gap: 0.9rem; }
+.panel { padding: 1.1rem 1.2rem; display: flex; flex-direction: column; gap: 0.9rem; min-width: 0; }
 .panel h2 { margin: 0; font-size: 1.05rem; }
 
 .crear-inline, .crear-usuario { display: flex; flex-wrap: wrap; gap: 0.5rem; align-items: center; }
 .crear-inline input { flex: 1; min-width: 160px; }
 .crear-usuario input, .crear-usuario select { flex: 1; min-width: 120px; width: auto; }
 
-.tbl-wrap { overflow-x: auto; }
+/* min-width: 0 — dentro de un flex column, la tabla no dejaba que esta caja
+   se achicara por debajo de su ancho (aunque tenga overflow-x: auto), y
+   terminaba desbordando toda la página en vez de solo scrollear aquí. */
+.tbl-wrap { overflow-x: auto; min-width: 0; }
 table { border-collapse: collapse; width: 100%; font-size: 0.88rem; }
 th, td { text-align: left; padding: 0.55rem 0.75rem; border-bottom: 1px solid var(--border); white-space: nowrap; }
 thead th { font-size: 0.72rem; text-transform: uppercase; letter-spacing: 0.05em; color: var(--muted); background: var(--surface-2); }
@@ -29,7 +32,10 @@ tbody tr:last-child td { border-bottom: none; }
 
 /* Integración PBX */
 .pbx-hint { color: var(--muted); font-size: 0.85rem; margin: 0 0 0.8rem; line-height: 1.5; }
-.pbx-hint code { background: var(--surface-2); padding: 0.05rem 0.3rem; border-radius: 4px; font-size: 0.82em; }
+/* overflow-wrap — estos <code> traen ejemplos de JSON/URL de una sola
+   palabra (sin espacios); sin esto no envuelven y desbordan la página
+   entera en una pantalla angosta, en vez de partirse dentro de su párrafo. */
+.pbx-hint code { background: var(--surface-2); padding: 0.05rem 0.3rem; border-radius: 4px; font-size: 0.82em; overflow-wrap: break-word; }
 .pbx-field { margin-top: 0.7rem; }
 .pbx-field > label { font-size: 0.72rem; text-transform: uppercase; letter-spacing: 0.04em; color: var(--muted); }
 .pbx-row { display: flex; gap: 0.4rem; margin-top: 0.3rem; flex-wrap: wrap; }
@@ -37,7 +43,7 @@ tbody tr:last-child td { border-bottom: none; }
 .pbx-warn { color: var(--muted); font-size: 0.76rem; margin: 0.35rem 0 0; }
 
 /* Matriz de roles y permisos */
-.matriz-wrap { overflow-x: auto; margin-top: 0.8rem; }
+.matriz-wrap { overflow-x: auto; min-width: 0; margin-top: 0.8rem; }
 .matriz { width: 100%; border-collapse: collapse; }
 .matriz th, .matriz td { padding: 0.45rem 0.6rem; border-bottom: 1px solid var(--border-2); font-size: 0.86rem; }
 .matriz .permiso-col { text-align: left; min-width: 220px; }

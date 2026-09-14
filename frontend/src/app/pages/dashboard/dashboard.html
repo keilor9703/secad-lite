@@ -138,22 +138,24 @@
             </div>
           </div>
           @if (t.porPrioridad.length) {
-            <table class="t-tabla">
-              <thead>
-                <tr><th>Prioridad</th><th>Casos</th><th>Tomado</th><th>Primer recurso</th><th>Cierre</th></tr>
-              </thead>
-              <tbody>
-                @for (f of t.porPrioridad; track f) {
-                  <tr>
-                    <td><span class="prio" [attr.data-prio]="f.prioridad">{{ prioridadLabel(f.prioridad) }}</span></td>
-                    <td class="num">{{ f.total }}</td>
-                    <td class="num">{{ duracion(f.tomaMin) }}</td>
-                    <td class="num">{{ duracion(f.despachoMin) }}</td>
-                    <td class="num">{{ duracion(f.cierreMin) }}</td>
-                  </tr>
-                }
-              </tbody>
-            </table>
+            <div class="tbl-wrap">
+              <table class="t-tabla">
+                <thead>
+                  <tr><th>Prioridad</th><th>Casos</th><th>Tomado</th><th>Primer recurso</th><th>Cierre</th></tr>
+                </thead>
+                <tbody>
+                  @for (f of t.porPrioridad; track f) {
+                    <tr>
+                      <td><span class="prio" [attr.data-prio]="f.prioridad">{{ prioridadLabel(f.prioridad) }}</span></td>
+                      <td class="num">{{ f.total }}</td>
+                      <td class="num">{{ duracion(f.tomaMin) }}</td>
+                      <td class="num">{{ duracion(f.despachoMin) }}</td>
+                      <td class="num">{{ duracion(f.cierreMin) }}</td>
+                    </tr>
+                  }
+                </tbody>
+              </table>
+            </div>
           }
         } @else {
           <p class="vacio">Aún no hay casos en este período para medir tiempos.</p>
@@ -228,20 +230,22 @@
       <div class="panel card">
         <h2>Operadores <span class="periodo">{{ r.periodo.desde }} → {{ r.periodo.hasta }}</span></h2>
         @if (rk.operadores.length) {
-          <table class="t-tabla">
-            <thead>
-              <tr><th>Operador</th><th>Casos tomados</th><th>Casos cerrados</th></tr>
-            </thead>
-            <tbody>
-              @for (op of rk.operadores; track op.autor) {
-                <tr>
-                  <td>{{ op.autor }}</td>
-                  <td class="num">{{ op.casosTomados }}</td>
-                  <td class="num">{{ op.casosCerrados }}</td>
-                </tr>
-              }
-            </tbody>
-          </table>
+          <div class="tbl-wrap">
+            <table class="t-tabla">
+              <thead>
+                <tr><th>Operador</th><th>Casos tomados</th><th>Casos cerrados</th></tr>
+              </thead>
+              <tbody>
+                @for (op of rk.operadores; track op.autor) {
+                  <tr>
+                    <td>{{ op.autor }}</td>
+                    <td class="num">{{ op.casosTomados }}</td>
+                    <td class="num">{{ op.casosCerrados }}</td>
+                  </tr>
+                }
+              </tbody>
+            </table>
+          </div>
         } @else {
           <p class="vacio">Sin gestiones registradas en este período.</p>
         }

@@ -1,6 +1,7 @@
 import { ChangeDetectionStrategy, Component, OnInit, computed, inject, signal } from '@angular/core';
 
-import { Router, RouterLink, RouterLinkActive, RouterOutlet } from '@angular/router';
+import { NavigationEnd, Router, RouterLink, RouterLinkActive, RouterOutlet } from '@angular/router';
+import { filter } from 'rxjs';
 import { AuthService } from '../../core/auth.service';
 import { AdminService } from '../../core/admin.service';
 import { PbxService } from '../../core/pbx.service';
@@ -54,6 +55,17 @@ export class ShellComponent implements OnInit {
    * que mostrar, así que se ocultan hasta que elija uno.
    */
   readonly operativoVisible = computed(() => !this.esSuperadmin() || !!this.tenantCtx());
+
+  /** Nav desplegable en pantallas angostas (ver shell.scss, ≤900px). */
+  readonly menuAbierto = signal(false);
+
+  constructor() {
+    // Cierra el menú desplegable al navegar (clic en un enlace, atrás/adelante
+    // del navegador, o un cambio de tenant que redirige) — si no, quedaba
+    // abierto tapando la página de destino en móvil.
+    this.router.events.pipe(filter((e) => e instanceof NavigationEnd))
+      .subscribe(() => this.menuAbierto.set(false));
+  }
 
   ngOnInit(): void {
     // Los permisos del token pueden estar desactualizados: se piden los vigentes.

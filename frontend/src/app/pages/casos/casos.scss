@@ -11,7 +11,11 @@
 .filtros input { flex: 1; min-width: 240px; }
 .filtros select { width: auto; min-width: 170px; }
 
-.tbl-wrap { overflow-x: auto; padding: 0.2rem 0.4rem 0.6rem; }
+/* min-width: 0 — sin esto, como .casos es un flex column, el navegador no
+   deja que este item se achique por debajo del ancho de la tabla (aunque
+   tenga overflow-x: auto) y termina desbordando toda la página, no solo
+   esta caja. */
+.tbl-wrap { overflow-x: auto; min-width: 0; padding: 0.2rem 0.4rem 0.6rem; }
 table { width: 100%; border-collapse: collapse; font-size: 0.9rem; }
 th { text-align: left; font-size: 0.72rem; text-transform: uppercase; letter-spacing: 0.05em;
      color: var(--muted); padding: 0.6rem; border-bottom: 1px solid var(--border); }
@@ -34,6 +38,9 @@ tbody tr:last-child td { border-bottom: none; }
 
 /* Rango de fechas dentro de la barra de filtros. */
 .filtros { flex-wrap: wrap; }
-.rango { display: inline-flex; align-items: center; gap: 0.4rem; }
+.rango { display: inline-flex; align-items: center; gap: 0.4rem; flex-wrap: wrap; }
 .rango label { font-size: 0.8rem; color: var(--muted); }
-.rango input[type='date'] { width: auto; }
+/* La regla general ".filtros input" (min-width: 240px, flex: 1) es para el
+   buscador de texto; sin anularla aquí, cada input[date] la heredaba también
+   y el par (480px) por sí solo desbordaba cualquier pantalla de celular. */
+.rango input[type='date'] { width: auto; min-width: 0; flex: none; }

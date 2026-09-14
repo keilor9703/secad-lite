@@ -26,10 +26,15 @@
 .delta.bueno { color: var(--tag-ok-fg); }
 .delta.malo { color: var(--tag-danger-fg); }
 
-.cols { display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; }
+.cols { display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; min-width: 0; }
 @media (max-width: 720px) { .cols { grid-template-columns: 1fr; } }
-.panel { padding: 1.1rem 1.2rem; }
+.panel { padding: 1.1rem 1.2rem; min-width: 0; }
 .panel h2 { margin: 0 0 0.9rem; font-size: 1.02rem; }
+
+/* min-width: 0 — dentro de un flex/grid, la tabla no dejaba que esta caja se
+   achicara por debajo de su ancho, y terminaba desbordando toda la página en
+   vez de solo scrollear aquí. */
+.tbl-wrap { overflow-x: auto; min-width: 0; }
 
 .barras { display: flex; flex-direction: column; gap: 0.6rem; }
 .vacio { color: var(--muted); margin: 0; }
