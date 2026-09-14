@@ -36,11 +36,12 @@
         </form>
       }
 
-      @for (a of agencias(); track a) {
+      @for (a of agencias(); track a.id; let i = $index) {
         <div class="agencia" [class.off]="!a.activo">
           <!-- Cabecera en lectura -->
           @if (!edita('agencia', a.id)) {
             <div class="agencia-head">
+              <span class="ag-orden" title="Posición en Recepción, de izquierda a derecha">{{ i + 1 }}</span>
               <span class="ag-cod mono">{{ a.codigo }}</span>
               <strong>{{ a.nombre }}</strong>
               <span class="rol">{{ a.tipo }}</span>
@@ -209,7 +210,7 @@
           </select>
           <select formControlName="agenciaSugeridaId">
             <option value="">— agencia sugerida —</option>
-            @for (a of agencias(); track a) {
+            @for (a of agencias(); track a.id) {
               <option [value]="a.id">{{ a.nombre }}</option>
             }
           </select>
@@ -264,7 +265,7 @@
                     <select formControlName="agenciaSugeridaId"
                       aria-label="Agencia sugerida">
                       <option value="">— ninguna —</option>
-                      @for (a of agencias(); track a) {
+                      @for (a of agencias(); track a.id) {
                         <option [value]="a.id">{{ a.nombre }}</option>
                       }
                     </select>

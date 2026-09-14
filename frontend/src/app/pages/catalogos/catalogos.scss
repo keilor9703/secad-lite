@@ -15,6 +15,13 @@
 .agencia { border: 1px solid var(--border); border-radius: var(--radius-sm); padding: 0.7rem 0.9rem; }
 .agencia.off { opacity: 0.55; }
 .agencia-head { display: flex; align-items: center; gap: 0.6rem; flex-wrap: wrap; }
+/* Posición actual en la lista (1, 2, 3…) — el mismo orden en que aparecen los botones de agencia en Recepción. */
+.ag-orden {
+  display: inline-flex; align-items: center; justify-content: center;
+  min-width: 1.3rem; height: 1.3rem; padding: 0 0.3rem;
+  border-radius: 999px; background: var(--surface-2); color: var(--muted);
+  font-size: 0.74rem; font-weight: 700; font-variant-numeric: tabular-nums;
+}
 .ag-cod { font-size: 0.78rem; color: var(--accent); }
 .rol { font-size: 0.74rem; color: var(--muted); text-transform: uppercase; letter-spacing: 0.04em; }
 .canal-list { list-style: none; margin: 0.5rem 0 0; padding: 0; display: flex; flex-direction: column; gap: 0.25rem; }
