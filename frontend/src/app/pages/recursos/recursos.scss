@@ -33,3 +33,9 @@ tbody tr:last-child td { border-bottom: none; }
 .fila-edicion input, .fila-edicion select { width: 100%; min-width: 110px; }
 .vacio-inline { color: var(--muted); font-size: 0.85rem; }
 .hint { margin: 0.5rem 0 0; color: var(--muted); font-size: 0.82rem; }
+
+/* Quien no administra el secad ve su agencia fija, no un selector. */
+.agencia-fija {
+  padding: 0.45rem 0.7rem; border-radius: var(--radius-sm); background: var(--surface-2);
+  color: var(--ink-soft); font-size: 0.85rem; white-space: nowrap;
+}

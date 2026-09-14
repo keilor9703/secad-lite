@@ -1,4 +1,5 @@
-import { BadRequestException, ConflictException, Injectable, NotFoundException, OnModuleInit } from '@nestjs/common';
+import { BadRequestException, ConflictException, ForbiddenException, Injectable, NotFoundException, OnModuleInit } from '@nestjs/common';
+import { IsNull } from 'typeorm';
 import { EstadoRecurso, RecursoEntity, TIPOS_RECURSO, TipoRecurso } from './recurso.entity';
 import { CatalogosService } from '../catalogos/catalogos.service';
 import { ReferenciasService } from '../catalogos/referencias.service';
@@ -19,6 +20,20 @@ export interface ActualizarRecursoDto {
   agenciaId?: string | null;
   activo?: boolean;
   fueraServicio?: boolean;
+}
+
+/**
+ * Qué tanto de la flota puede ver/tocar quien llama. `irrestricto` es para
+ * quien administra el secad (superadmin, o admin del tenant): ve y gestiona
+ * todas las agencias. Cualquier otro (operador, supervisor sin rol de
+ * administración) queda acotado a SU PROPIA agencia — sin eso, cualquiera con
+ * `recursos.ver`/`recursos.gestionar` veía y daba de alta recursos de
+ * agencias ajenas a la suya, aunque nunca vaya a despacharlos.
+ */
+export interface AlcanceRecursos {
+  irrestricto: boolean;
+  /** Agencia del actor cuando NO es irrestricto; null si no tiene una asignada (no verá ni podrá crear nada). */
+  agenciaId: string | null;
 }
 
 /** Gestión de la flota de recursos (unidades). Acotada por tenant. */
@@ -44,24 +59,42 @@ export class RecursosService implements OnModuleInit {
     await this.seed();
   }
 
-  listar(tenant: string): Promise<RecursoEntity[]> {
+  private agenciaWhere(alcance: AlcanceRecursos) {
+    if (alcance.irrestricto) return undefined;
+    return alcance.agenciaId ? { agenciaId: alcance.agenciaId } : { agenciaId: IsNull() };
+  }
+
+  listar(tenant: string, alcance: AlcanceRecursos): Promise<RecursoEntity[]> {
     return this.rls.conTenant(tenant, (manager) =>
-      manager.getRepository(RecursoEntity).find({ where: { tenant }, order: { codigo: 'ASC' } }),
+      manager.getRepository(RecursoEntity).find({
+        where: { tenant, ...this.agenciaWhere(alcance) },
+        order: { codigo: 'ASC' },
+      }),
     );
   }
 
   /** Recursos libres para despachar. */
-  disponibles(tenant: string): Promise<RecursoEntity[]> {
+  disponibles(tenant: string, alcance: AlcanceRecursos): Promise<RecursoEntity[]> {
     return this.rls.conTenant(tenant, (manager) =>
-      manager.getRepository(RecursoEntity).find({ where: { tenant, activo: true, estado: 'disponible' }, order: { codigo: 'ASC' } }),
+      manager.getRepository(RecursoEntity).find({
+        where: { tenant, activo: true, estado: 'disponible', ...this.agenciaWhere(alcance) },
+        order: { codigo: 'ASC' },
+      }),
     );
   }
 
-  async crear(tenant: string, dto: CrearRecursoDto): Promise<RecursoEntity> {
+  async crear(tenant: string, dto: CrearRecursoDto, alcance: AlcanceRecursos): Promise<RecursoEntity> {
     const codigo = dto.codigo?.trim().toUpperCase();
     if (!codigo || !dto.nombre?.trim()) throw new BadRequestException('Código y nombre son obligatorios.');
     if (!TIPOS_RECURSO.includes(dto.tipo)) throw new BadRequestException('Tipo de recurso inválido.');
-    const agencia = await this.agenciaDelCatalogo(tenant, dto.agenciaId);
+    // Quien no administra el secad solo puede dar de alta en SU agencia — se
+    // ignora cualquier agenciaId que haya llegado en el cuerpo, para que no
+    // sirva de nada intentar forzar otra por fuera de lo que muestra la UI.
+    const agenciaId = alcance.irrestricto ? dto.agenciaId : alcance.agenciaId;
+    if (!alcance.irrestricto && !agenciaId) {
+      throw new ForbiddenException('Su usuario no tiene una agencia asignada: no puede crear recursos.');
+    }
+    const agencia = await this.agenciaDelCatalogo(tenant, agenciaId);
     return this.rls.conTenant(tenant, async (manager) => {
       const repo = manager.getRepository(RecursoEntity);
       if (await repo.findOne({ where: { tenant, codigo } })) {
@@ -81,12 +114,20 @@ export class RecursosService implements OnModuleInit {
     });
   }
 
-  async actualizar(tenant: string, id: string, dto: ActualizarRecursoDto): Promise<RecursoEntity> {
+  async actualizar(tenant: string, id: string, dto: ActualizarRecursoDto, alcance: AlcanceRecursos): Promise<RecursoEntity> {
+    // Quien no administra el secad solo puede tocar recursos de SU agencia,
+    // y no puede reasignarlos a otra distinta.
+    if (!alcance.irrestricto && dto.agenciaId !== undefined && dto.agenciaId !== alcance.agenciaId) {
+      throw new ForbiddenException('No puede asignar el recurso a otra agencia.');
+    }
     const agencia = dto.agenciaId !== undefined ? await this.agenciaDelCatalogo(tenant, dto.agenciaId) : null;
     return this.rls.conTenant(tenant, async (manager) => {
       const repo = manager.getRepository(RecursoEntity);
       const r = await repo.findOne({ where: { tenant, id } });
       if (!r) throw new NotFoundException('Recurso no encontrado.');
+      if (!alcance.irrestricto && r.agenciaId !== alcance.agenciaId) {
+        throw new ForbiddenException('Ese recurso no pertenece a su agencia.');
+      }
       if (dto.codigo !== undefined) {
         const codigo = dto.codigo.trim().toUpperCase();
         if (!codigo) throw new BadRequestException('El código no puede quedar vacío.');
@@ -126,8 +167,11 @@ export class RecursosService implements OnModuleInit {
    * tiene asignaciones, borrarlo dejaría despachos apuntando a una unidad
    * inexistente, así que se ofrece darlo de baja en su lugar.
    */
-  async eliminar(tenant: string, id: string): Promise<{ ok: true }> {
+  async eliminar(tenant: string, id: string, alcance: AlcanceRecursos): Promise<{ ok: true }> {
     const r = await this.obtener(tenant, id);
+    if (!alcance.irrestricto && r.agenciaId !== alcance.agenciaId) {
+      throw new ForbiddenException('Ese recurso no pertenece a su agencia.');
+    }
     if (r.estado !== 'disponible' && r.estado !== 'fuera_servicio') {
       throw new BadRequestException('No se puede eliminar un recurso que está en atención.');
     }

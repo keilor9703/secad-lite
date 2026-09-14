@@ -1,4 +1,4 @@
-import { ChangeDetectionStrategy, Component, effect, inject, signal } from '@angular/core';
+import { ChangeDetectionStrategy, Component, computed, effect, inject, signal } from '@angular/core';
 
 import { FormControl, FormGroup, ReactiveFormsModule, Validators } from '@angular/forms';
 import { CrearRecurso, DespachoService } from '../../core/despacho.service';
@@ -28,6 +28,17 @@ export class RecursosComponent {
 
   /** Supervisor/admin pueden gestionar la flota. */
   readonly gestiona = this.auth.privilegiado;
+  /**
+   * Quien administra el secad ve/elige entre todas las agencias; cualquier
+   * otro (aunque tenga recursos.gestionar) queda fijo en la suya — el backend
+   * ya lo exige aparte, esto es solo para no ofrecerle un selector que de
+   * todas formas se ignora.
+   */
+  readonly puedeElegirAgencia = computed(() => this.auth.esSuperadmin() || this.auth.esAdmin());
+  readonly miAgenciaNombre = computed(() => {
+    const id = this.auth.sesion()?.agencia;
+    return this.agencias().find((a) => a.id === id)?.nombre ?? '— sin agencia asignada —';
+  });
 
   readonly recursos = signal<Recurso[]>([]);
   readonly agencias = signal<Agencia[]>([]);

@@ -20,13 +20,20 @@
           }
         </select>
         <!-- La agencia sale del catálogo: así la flota y los casos hablan de
-        las mismas entidades y el despacho por agencia cuadra. -->
-        <select formControlName="agenciaId" aria-label="Agencia del recurso">
-          <option [ngValue]="null">— agencia —</option>
-          @for (a of agencias(); track a) {
-            <option [ngValue]="a.id">{{ a.nombre }}</option>
-          }
-        </select>
+        las mismas entidades y el despacho por agencia cuadra. Solo quien
+        administra el secad elige entre todas; el resto queda fijo en la suya. -->
+        @if (puedeElegirAgencia()) {
+          <select formControlName="agenciaId" aria-label="Agencia del recurso">
+            <option [ngValue]="null">— agencia —</option>
+            @for (a of agencias(); track a) {
+              <option [ngValue]="a.id">{{ a.nombre }}</option>
+            }
+          </select>
+        } @else {
+          <span class="agencia-fija" [title]="'Los recursos que cree quedan en su agencia: ' + miAgenciaNombre()">
+            🏢 {{ miAgenciaNombre() }}
+          </span>
+        }
         <button type="submit" class="btn btn--primary" [disabled]="nuevoForm.invalid">Crear</button>
       </form>
       @if (!agencias().length) {
@@ -86,12 +93,16 @@
                   </select>
                 </td>
                 <td>
-                  <select formControlName="agenciaId" aria-label="Agencia">
-                    <option [ngValue]="null">— agencia —</option>
-                    @for (a of agencias(); track a) {
-                      <option [ngValue]="a.id">{{ a.nombre }}</option>
-                    }
-                  </select>
+                  @if (puedeElegirAgencia()) {
+                    <select formControlName="agenciaId" aria-label="Agencia">
+                      <option [ngValue]="null">— agencia —</option>
+                      @for (a of agencias(); track a) {
+                        <option [ngValue]="a.id">{{ a.nombre }}</option>
+                      }
+                    </select>
+                  } @else {
+                    {{ r.agencia }}
+                  }
                 </td>
                 <td><span class="rbadge" [attr.data-estado]="r.estado">{{ estadoLabel(r.estado) }}</span></td>
                 <td class="acciones-col">
