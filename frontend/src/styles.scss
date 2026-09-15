@@ -59,12 +59,12 @@
   --warn:      #a5620a;
   --ok:        #0c7e92;
 
-  --sans: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+  --sans: "Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
   --mono: ui-monospace, "SF Mono", Menlo, Consolas, monospace;
 
-  --radius: 12px;
-  --radius-sm: 8px;
-  --shadow: 0 1px 2px rgba(16,32,29,0.06), 0 6px 20px rgba(16,32,29,0.06);
+  --radius: 10px;
+  --radius-sm: 6px;
+  --shadow: 0 1px 3px rgba(16,32,29,0.05), 0 4px 16px rgba(16,32,29,0.04);
 
   /* Etiquetas de estado: un par fondo/texto por familia de color, para que las
      páginas no repitan literales ni necesiten su propia consulta de tema. */
@@ -102,13 +102,14 @@ body {
   background: var(--bg);
   color: var(--ink);
   font-family: var(--sans);
-  line-height: 1.5;
+  font-size: 14px;
+  line-height: 1.55;
   -webkit-font-smoothing: antialiased;
 }
 
 /* Controles base compartidos ------------------------------------------------ */
 .field { display: flex; flex-direction: column; gap: 0.35rem; }
-.field > label { font-size: 0.8rem; font-weight: 600; color: var(--ink-soft); }
+.field > label { font-size: 0.8rem; font-weight: 500; color: var(--ink-soft); }
 
 input, textarea {
   font: inherit;
@@ -126,13 +127,13 @@ input:focus, textarea:focus {
 }
 
 .btn {
-  font: inherit; font-weight: 600; cursor: pointer;
+  font: inherit; font-weight: 500; cursor: pointer;
   border: 1px solid transparent; border-radius: var(--radius-sm);
   padding: 0.55rem 1rem; display: inline-flex; align-items: center; gap: 0.4rem;
   background: var(--surface); color: var(--ink); border-color: var(--border-2);
-  transition: filter 0.15s ease, background 0.15s ease;
+  transition: background 0.15s ease, border-color 0.15s ease, box-shadow 0.15s ease;
 }
-.btn:hover { filter: brightness(0.98); }
+.btn:hover { background: var(--surface-2); }
 .btn:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
 .btn--primary { background: var(--accent); color: var(--on-accent); border-color: var(--accent); }
 .btn--primary:hover { background: var(--accent-deep); }
@@ -166,7 +167,7 @@ input:focus, textarea:focus {
 /* Etiqueta de estado (reutilizable en toda la app) */
 .badge {
   display: inline-flex; align-items: center; gap: 0.25rem;
-  font-size: 0.72rem; font-weight: 700;
+  font-size: 0.72rem; font-weight: 600;
   padding: 0.12rem 0.55rem; border-radius: 999px;
   text-transform: uppercase; letter-spacing: 0.04em;
   white-space: nowrap;

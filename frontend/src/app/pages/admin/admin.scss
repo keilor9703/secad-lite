@@ -1,10 +1,10 @@
 .admin { display: flex; flex-direction: column; gap: 1.1rem; }
-.admin-head h1 { margin: 0; font-size: 1.5rem; letter-spacing: -0.02em; }
+.admin-head h1 { margin: 0; font-size: 1.35rem; font-weight: 600; letter-spacing: -0.02em; }
 .admin-head p { margin: 0.2rem 0 0; color: var(--muted); font-size: 0.85rem; }
 .error { color: var(--danger); margin: 0; }
 
 .panel { padding: 1.1rem 1.2rem; display: flex; flex-direction: column; gap: 0.9rem; min-width: 0; }
-.panel h2 { margin: 0; font-size: 1.05rem; display: flex; align-items: center; gap: 0.4rem; flex-wrap: wrap; }
+.panel h2 { margin: 0; font-size: 0.95rem; font-weight: 600; display: flex; align-items: center; gap: 0.4rem; flex-wrap: wrap; }
 
 /* Una sola pestaña con todas las integraciones habilitadas, cada una su
    propia tarjeta apilada — no una pestaña por integración. */
@@ -21,7 +21,7 @@
 }
 .admin-tabs button {
   font: inherit;
-  font-weight: 600;
+  font-weight: 500;
   font-size: 0.86rem;
   cursor: pointer;
   border: none;

@@ -5,7 +5,7 @@
   display: flex; align-items: center; justify-content: space-between;
   padding: 1rem 1.2rem; border-bottom: 1px solid var(--border);
 }
-.chat-head h1 { margin: 0; font-size: 1.15rem; }
+.chat-head h1 { margin: 0; font-size: 1.35rem; font-weight: 600; letter-spacing: -0.02em; }
 .chat-head p { margin: 0.2rem 0 0; font-size: 0.82rem; color: var(--muted); }
 .estado { font-size: 0.72rem; font-weight: 600; padding: 0.25rem 0.55rem; border-radius: 999px; background: var(--surface-2); color: var(--muted); }
 .estado.on { background: var(--accent-soft); color: var(--accent); }

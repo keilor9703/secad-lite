@@ -1,5 +1,5 @@
 .cat { display: flex; flex-direction: column; gap: 1rem; }
-.cat-head h1 { margin: 0; font-size: 1.3rem; }
+.cat-head h1 { margin: 0; font-size: 1.35rem; font-weight: 600; letter-spacing: -0.02em; }
 .cat-head p { margin: 0.2rem 0 0; color: var(--muted); font-size: 0.85rem; }
 .ctx-nota strong { color: var(--accent); font-family: var(--mono); }
 .error { color: var(--danger); margin: 0; }

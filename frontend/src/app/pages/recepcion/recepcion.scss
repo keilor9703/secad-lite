@@ -3,11 +3,9 @@
 .rec-head { display: flex; align-items: flex-end; justify-content: space-between; gap: 1rem; }
 .rec-head h1 { 
   margin: 0; 
-  font-size: 1.7rem; 
+  font-size: 1.35rem; 
   letter-spacing: -0.02em; 
-  font-weight: 800;
-  border-left: 3px solid var(--accent); 
-  padding-left: 0.75rem; 
+  font-weight: 600;
 }
 .rec-head p { margin: 0.2rem 0 0; color: var(--muted); font-size: 0.9rem; }
 
@@ -20,7 +18,7 @@
 .kpi:nth-child(2) { border-left: 3px solid var(--accent); }
 .kpi .n { 
   font-size: 2rem; 
-  font-weight: 800; 
+  font-weight: 600; 
   color: var(--accent); 
   font-variant-numeric: tabular-nums; 
   border-bottom: 1px solid var(--border-2);
@@ -36,7 +34,7 @@
 /* --- Formulario de recepción (estilo CAD) --------------------------------- */
 .form-panel { padding: 1.5rem 1.8rem; display: flex; flex-direction: column; gap: 0.9rem; }
 .fp-head { display: flex; align-items: baseline; justify-content: space-between; gap: 1rem; flex-wrap: wrap; }
-.fp-head h2 { font-size: 1.2rem; font-weight: 700; margin: 0; }
+.fp-head h2 { font-size: 1.15rem; font-weight: 600; margin: 0; }
 .fp-meta { font-size: 0.78rem; font-family: var(--mono); background: var(--surface-2); border-radius: var(--radius-sm); padding: 0.2rem 0.6rem; color: var(--muted); }
 
 /* 7. Fieldsets */
@@ -52,7 +50,7 @@
   position: absolute; top: -0.65rem; left: 0;
   padding: 0 0.5rem 0 0;
   background: var(--surface);
-  font-size: 0.72rem; font-weight: 800;
+  font-size: 0.72rem; font-weight: 600;
   text-transform: uppercase; letter-spacing: 0.08em;
   color: var(--accent);
 }

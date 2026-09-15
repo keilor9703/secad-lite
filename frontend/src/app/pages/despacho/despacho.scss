@@ -19,10 +19,9 @@
 
 .desp-head h1 {
   margin: 0;
-  font-size: 1.7rem;
-  font-weight: 800;
-  border-left: 3px solid var(--accent);
-  padding-left: 0.75rem;
+  font-size: 1.35rem;
+  font-weight: 600;
+  letter-spacing: -0.02em;
 }
 
 .desp-head p {
@@ -33,7 +32,7 @@
 
 .desp-head strong {
   color: var(--accent);
-  font-weight: 700;
+  font-weight: 600;
 }
 
 .desp-head-der {
@@ -65,8 +64,9 @@
 }
 
 .timbre {
-  font-size: 1.05rem;
-  padding: 0.3rem 0.5rem;
+  font-size: 1.2rem;
+  border-radius: 999px !important;
+  padding: 0.3rem 0.5rem !important;
 }
 
 .error {
@@ -84,7 +84,7 @@
 
 .marcador .pend {
   font-size: 2rem;
-  font-weight: 900;
+  font-weight: 600;
   color: var(--muted);
   line-height: 1;
   font-variant-numeric: tabular-nums;
@@ -201,7 +201,7 @@
 .col-head h2 {
   margin: 0;
   font-size: 0.9rem;
-  font-weight: 700;
+  font-weight: 600;
 }
 
 .cuenta {
@@ -276,7 +276,7 @@
   margin: 0.3rem 0 0.25rem;
   font-size: 0.9rem;
   line-height: 1.3;
-  font-weight: 600;
+  font-weight: 500;
 }
 
 /* Punto de "no visto" */
@@ -340,7 +340,7 @@
 /* Badge de prioridad */
 .prio {
   font-size: 0.66rem;
-  font-weight: 800;
+  font-weight: 600;
   padding: 0.08rem 0.45rem;
   border-radius: 999px;
   text-transform: uppercase;
@@ -397,7 +397,7 @@
   text-transform: uppercase;
   letter-spacing: 0.07em;
   opacity: 0.8;
-  font-weight: 700;
+  font-weight: 600;
 }
 
 .alerta strong {

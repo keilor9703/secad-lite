@@ -31,8 +31,8 @@
   background: var(--accent); color: var(--on-accent);
   border-radius: 12px; font-size: 1.4rem;
 }
-.brand h1 { margin: 0; font-size: 1.5rem; letter-spacing: -0.02em; }
-.brand h1 span { color: var(--accent); font-weight: 600; }
+.brand h1 { margin: 0; font-size: 1.4rem; font-weight: 600; letter-spacing: -0.02em; }
+.brand h1 span { color: var(--accent); font-weight: 500; }
 .brand p { margin: 0.1rem 0 0; font-size: 0.82rem; color: var(--muted); }
 
 .tabs {
@@ -41,11 +41,13 @@
   background: var(--surface-2); border-radius: var(--radius-sm);
 }
 .tabs button {
-  font: inherit; font-weight: 600; cursor: pointer;
+  font: inherit; font-weight: 500; cursor: pointer;
   border: none; background: transparent; color: var(--ink-soft);
   padding: 0.5rem; border-radius: 6px;
+  transition: background 0.15s ease, color 0.15s ease, box-shadow 0.15s ease;
 }
-.tabs button.active { background: var(--surface); color: var(--accent); box-shadow: var(--shadow); }
+.tabs button:hover { color: var(--ink); }
+.tabs button.active { background: var(--surface); color: var(--accent); box-shadow: var(--shadow); font-weight: 600; }
 
 form { display: flex; flex-direction: column; gap: 0.9rem; }
 .full { width: 100%; justify-content: center; }
