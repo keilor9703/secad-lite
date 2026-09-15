@@ -6,7 +6,7 @@
 .panel { padding: 1.1rem 1.2rem; display: flex; flex-direction: column; gap: 0.9rem; }
 .panel h2 { margin: 0; font-size: 1.05rem; }
 .crear { display: flex; flex-wrap: wrap; gap: 0.5rem; align-items: center; }
-.crear input, .crear select { flex: 1; min-width: 120px; width: auto; }
+.crear input, .crear app-selector { flex: 1; min-width: 120px; width: auto; }
 
 .tbl-wrap { overflow-x: auto; }
 table { border-collapse: collapse; width: 100%; font-size: 0.88rem; }
@@ -30,7 +30,7 @@ tbody tr:last-child td { border-bottom: none; }
 .btn.peligro { color: var(--danger); }
 .btn.peligro:hover { border-color: var(--danger); }
 .fila-edicion { background: var(--surface-2); }
-.fila-edicion input, .fila-edicion select { width: 100%; min-width: 110px; }
+.fila-edicion input, .fila-edicion app-selector { width: 100%; min-width: 110px; }
 .vacio-inline { color: var(--muted); font-size: 0.85rem; }
 .hint { margin: 0.5rem 0 0; color: var(--muted); font-size: 0.82rem; }
 

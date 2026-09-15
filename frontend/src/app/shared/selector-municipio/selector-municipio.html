@@ -1,26 +1,26 @@
 <div class="selector-municipio">
-  <select
+  <app-selector
     [disabled]="deshabilitado()"
     [ngModel]="departamentoSel()"
     (ngModelChange)="cambiarDepartamento($event)"
-    aria-label="Departamento"
+    [ariaLabel]="'Departamento'"
   >
-    <option [ngValue]="''">Departamento…</option>
+    <app-opcion [valor]="''">Departamento…</app-opcion>
     @for (d of departamentos(); track d.codigoDane) {
-      <option [ngValue]="d.codigoDane">{{ d.nombre }}</option>
+      <app-opcion [valor]="d.codigoDane">{{ d.nombre }}</app-opcion>
     }
-  </select>
-  <select
+  </app-selector>
+  <app-selector
     [disabled]="deshabilitado() || !departamentoSel()"
     [ngModel]="municipioSel()"
     (ngModelChange)="cambiarMunicipio($event)"
-    aria-label="Municipio"
+    [ariaLabel]="'Municipio'"
   >
-    <option [ngValue]="''">Municipio…</option>
+    <app-opcion [valor]="''">Municipio…</app-opcion>
     @for (m of municipios(); track m.codigoDane) {
-      <option [ngValue]="m.codigoDane">{{ m.nombre }}</option>
+      <app-opcion [valor]="m.codigoDane">{{ m.nombre }}</app-opcion>
     }
-  </select>
+  </app-selector>
   @if (municipioSel()) {
     <span class="dane" title="Código DANE (DIVIPOLA)">{{ municipioSel() }}</span>
   }

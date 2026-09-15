@@ -25,11 +25,11 @@
         <form class="crear-inline" [formGroup]="agenciaForm" (ngSubmit)="crearAgencia()">
           <input formControlName="codigo" placeholder="código (p. ej. POLICIA)" />
           <input formControlName="nombre" placeholder="Nombre de la agencia" />
-          <select formControlName="tipo">
+          <app-selector formControlName="tipo">
             @for (t of tiposAgencia; track t) {
-              <option [value]="t">{{ t }}</option>
+              <app-opcion [valor]="t">{{ t }}</app-opcion>
             }
-          </select>
+          </app-selector>
           <input class="orden" type="number" formControlName="orden"
             placeholder="orden" title="Posición en Recepción, de izquierda a derecha (vacío = al final)" />
           <button type="submit" class="btn btn--primary" [disabled]="agenciaForm.invalid">Crear agencia</button>
@@ -64,11 +64,11 @@
                 aria-label="Código de la agencia" />
               <input formControlName="nombre"
                 aria-label="Nombre de la agencia" />
-              <select formControlName="tipo" aria-label="Tipo">
+              <app-selector formControlName="tipo" [ariaLabel]="'Tipo'">
                 @for (t of tiposAgencia; track t) {
-                  <option [value]="t">{{ t }}</option>
+                  <app-opcion [valor]="t">{{ t }}</app-opcion>
                 }
-              </select>
+              </app-selector>
               <input class="orden" type="number" formControlName="orden" aria-label="Orden en Recepción"
                 title="Posición en Recepción, de izquierda a derecha" />
               <span class="acciones">
@@ -139,10 +139,10 @@
             </label>
             <label class="opcion">
               <span>Si el código ya existe</span>
-              <select [formControl]="existentesCtrl">
-                <option value="omitir">dejarlo como está</option>
-                <option value="actualizar">actualizarlo</option>
-              </select>
+              <app-selector [formControl]="existentesCtrl">
+                <app-opcion [valor]="'omitir'">dejarlo como está</app-opcion>
+                <app-opcion [valor]="'actualizar'">actualizarlo</app-opcion>
+              </app-selector>
             </label>
           </div>
           <p class="hint">El archivo exportado tiene el mismo formato de la plantilla, así que puede
@@ -203,17 +203,17 @@
         <form class="crear-inline" [formGroup]="codigoForm" (ngSubmit)="crearCodigo()">
           <input formControlName="codigo" placeholder="código (p. ej. 105)" />
           <input formControlName="descripcion" placeholder="Descripción del caso" />
-          <select formControlName="prioridad">
+          <app-selector formControlName="prioridad">
             @for (p of prioridades; track p) {
-              <option [value]="p">{{ p }}</option>
+              <app-opcion [valor]="p">{{ p }}</app-opcion>
             }
-          </select>
-          <select formControlName="agenciaSugeridaId">
-            <option value="">— agencia sugerida —</option>
+          </app-selector>
+          <app-selector formControlName="agenciaSugeridaId">
+            <app-opcion [valor]="''">— agencia sugerida —</app-opcion>
             @for (a of agencias(); track a.id) {
-              <option [value]="a.id">{{ a.nombre }}</option>
+              <app-opcion [valor]="a.id">{{ a.nombre }}</app-opcion>
             }
-          </select>
+          </app-selector>
           <button type="submit" class="btn btn--primary" [disabled]="codigoForm.invalid">Crear código</button>
         </form>
       }
@@ -255,20 +255,20 @@
                   <td><input formControlName="descripcion"
                   aria-label="Descripción" /></td>
                   <td>
-                    <select formControlName="prioridad" aria-label="Prioridad">
+                    <app-selector formControlName="prioridad" [ariaLabel]="'Prioridad'">
                       @for (p of prioridades; track p) {
-                        <option [value]="p">{{ p }}</option>
+                        <app-opcion [valor]="p">{{ p }}</app-opcion>
                       }
-                    </select>
+                    </app-selector>
                   </td>
                   <td>
-                    <select formControlName="agenciaSugeridaId"
-                      aria-label="Agencia sugerida">
-                      <option value="">— ninguna —</option>
+                    <app-selector formControlName="agenciaSugeridaId"
+                      [ariaLabel]="'Agencia sugerida'">
+                      <app-opcion [valor]="''">— ninguna —</app-opcion>
                       @for (a of agencias(); track a.id) {
-                        <option [value]="a.id">{{ a.nombre }}</option>
+                        <app-opcion [valor]="a.id">{{ a.nombre }}</app-opcion>
                       }
-                    </select>
+                    </app-selector>
                   </td>
                   <td><span class="badge" [class.on]="c.activo">{{ c.activo ? 'Activo' : 'Inactivo' }}</span></td>
                   <td class="acciones">

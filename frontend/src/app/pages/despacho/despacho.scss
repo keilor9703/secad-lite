@@ -51,12 +51,17 @@
   font-size: 0.85rem;
   color: var(--muted);
 }
-.filtro-agencia select {
+.filtro-agencia app-selector {
   width: auto;
   font-size: 0.85rem;
+}
+.filtro-agencia app-selector ::ng-deep .sel-disparador {
   padding: 0.2rem 1.8rem 0.2rem 0.5rem;
-  background-position: right 0.5rem center;
-  background-size: 11px;
+}
+.filtro-agencia app-selector ::ng-deep .sel-disparador::after {
+  right: 0.5rem;
+  width: 11px;
+  height: 11px;
 }
 
 .timbre {

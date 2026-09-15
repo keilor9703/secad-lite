@@ -98,11 +98,11 @@
             <div class="grid">
               <div class="field">
                 <label for="fmedio">Medio de comunicación</label>
-                <select id="fmedio" formControlName="canal">
+                <app-selector id="fmedio" formControlName="canal">
                   @for (c of canales; track c) {
-                    <option [value]="c">{{ canalIcon(c) }} {{ canalLabel(c) }}</option>
+                    <app-opcion [valor]="c">{{ canalIcon(c) }} {{ canalLabel(c) }}</app-opcion>
                   }
-                </select>
+                </app-selector>
               </div>
               <div class="field">
                 <label>Entidad de origen</label>
@@ -187,27 +187,27 @@
               <div class="field span2 direccion-est">
                 <span class="lbl-direccion">Dirección del caso</span>
                 <div class="direccion-campos">
-                  <select formControlName="viaTipo" aria-label="Vía principal" title="Vía principal" class="via">
-                    <option value="">Vía…</option>
+                  <app-selector formControlName="viaTipo" [ariaLabel]="'Vía principal'" title="Vía principal" class="via">
+                    <app-opcion [valor]="''">Vía…</app-opcion>
                     @for (t of tiposVia; track t) {
-                      <option [value]="t.nombre">{{ t.nombre }} ({{ t.abrev }})</option>
+                      <app-opcion [valor]="t.nombre">{{ t.nombre }} ({{ t.abrev }})</app-opcion>
                     }
-                  </select>
+                  </app-selector>
                   <input formControlName="viaNumero" placeholder="N°" aria-label="Número de vía" />
-                  <select formControlName="viaLetra" aria-label="Letra o prefijo" title="Letra / prefijo (opcional)">
-                    <option value="">—</option>
-                    @for (l of letrasVia; track l) { <option [value]="l">{{ l }}</option> }
-                    @for (o of orientaciones; track o) { <option [value]="o">{{ o }}</option> }
-                  </select>
+                  <app-selector formControlName="viaLetra" [ariaLabel]="'Letra o prefijo'" title="Letra / prefijo (opcional)">
+                    <app-opcion [valor]="''">—</app-opcion>
+                    @for (l of letrasVia; track l) { <app-opcion [valor]="l">{{ l }}</app-opcion> }
+                    @for (o of orientaciones; track o) { <app-opcion [valor]="o">{{ o }}</app-opcion> }
+                  </app-selector>
                   <span class="numeral">#</span>
                   <input formControlName="numeroGenerador" placeholder="N° generador" aria-label="Número generador" />
                   <input formControlName="placa" placeholder="N° (placa)" aria-label="Segundo número (placa)" title="Segundo número — distancia al cruce (opcional)" />
-                  <select formControlName="municipioCodigo" aria-label="Municipio del caso" title="Municipio del caso" class="municipio">
-                    <option value="">Municipio…</option>
+                  <app-selector formControlName="municipioCodigo" [ariaLabel]="'Municipio del caso'" title="Municipio del caso" class="municipio">
+                    <app-opcion [valor]="''">Municipio…</app-opcion>
                     @for (m of municipiosTenant(); track m.codigoDane) {
-                      <option [value]="m.codigoDane">{{ m.nombre }}</option>
+                      <app-opcion [valor]="m.codigoDane">{{ m.nombre }}</app-opcion>
                     }
-                  </select>
+                  </app-selector>
                 </div>
                 <div class="con-boton">
                   <input formControlName="direccion" readonly placeholder="Se arma sola con los campos de arriba" title="Dirección completa — la buscada en el mapa y guardada en el caso" />
@@ -283,11 +283,11 @@
           <div class="grid">
             <div class="field span2">
               <label for="fag">Entidad principal</label>
-              <select id="fag" formControlName="agenciaResponsableId">
+              <app-selector id="fag" formControlName="agenciaResponsableId">
                 @for (a of agenciasMarcadas(); track a) {
-                  <option [ngValue]="a.id">{{ a.nombre }}</option>
+                  <app-opcion [valor]="a.id">{{ a.nombre }}</app-opcion>
                 }
-              </select>
+              </app-selector>
               <small class="ayuda">Encabeza el caso y es la que aparece en los reportes.</small>
             </div>
           </div>

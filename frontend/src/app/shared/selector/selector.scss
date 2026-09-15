@@ -1,0 +1,103 @@
+:host {
+  display: block;
+  width: 100%;
+}
+
+.selector {
+  position: relative;
+}
+
+/* Misma caja que un input/select: borde, radio y fondo del tema — para que
+   no se note cuál campo es un <select> nativo y cuál es este componente. */
+.sel-disparador {
+  appearance: none;
+  -webkit-appearance: none;
+  font: inherit;
+  color: var(--ink);
+  background: var(--surface);
+  border: 1px solid var(--border-2);
+  border-radius: var(--radius-sm);
+  padding: 0.55rem 2.15rem 0.55rem 0.7rem;
+  width: 100%;
+  display: block;
+  text-align: left;
+  cursor: pointer;
+  position: relative;
+}
+.sel-disparador:focus-visible,
+.sel-disparador:focus {
+  outline: none;
+  border-color: var(--accent);
+  box-shadow: 0 0 0 3px var(--accent-soft);
+}
+.sel-disparador:disabled {
+  cursor: not-allowed;
+  opacity: 0.6;
+}
+.sel-etq {
+  display: block;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+/* Flecha propia con mask-image: el color sale de background-color (que sí
+   sigue el tema), así no hace falta un SVG distinto para modo oscuro. */
+.sel-disparador::after {
+  content: '';
+  position: absolute;
+  right: 0.65rem;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 13px;
+  height: 13px;
+  background-color: var(--muted);
+  mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16' fill='none' stroke='%23000' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='4 6 8 10 12 6'/%3E%3C/svg%3E") center / contain no-repeat;
+  -webkit-mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16' fill='none' stroke='%23000' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='4 6 8 10 12 6'/%3E%3C/svg%3E") center / contain no-repeat;
+}
+.sel-disparador:disabled::after {
+  opacity: 0.6;
+}
+
+/* Lista propia — mismo look que la de app-autocompletar, para que toda
+   lista desplegable del sistema se vea igual. */
+.sel-lista {
+  display: none;
+  position: absolute;
+  z-index: 20;
+  top: calc(100% + 4px);
+  left: 0;
+  right: 0;
+  margin: 0;
+  padding: 0.3rem;
+  list-style: none;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  box-shadow: var(--shadow);
+  max-height: 260px;
+  overflow-y: auto;
+}
+.sel-lista.abierta {
+  display: block;
+}
+
+::ng-deep .sel-opcion {
+  display: block;
+  padding: 0.45rem 0.6rem;
+  border-radius: 6px;
+  cursor: pointer;
+  font-size: 0.86rem;
+  color: var(--ink);
+}
+::ng-deep .sel-opcion:hover,
+::ng-deep .sel-opcion.resaltada {
+  background: var(--accent-soft);
+}
+::ng-deep .sel-opcion.activa {
+  font-weight: 600;
+}
+::ng-deep .sel-opcion.deshabilitada {
+  color: var(--muted);
+  cursor: not-allowed;
+  pointer-events: none;
+}

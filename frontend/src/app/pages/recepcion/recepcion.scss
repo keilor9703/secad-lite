@@ -72,9 +72,9 @@
 .direccion-est { display: flex; flex-direction: column; gap: 0.35rem; }
 .lbl-direccion { font-size: 0.8rem; font-weight: 600; color: var(--ink-soft); }
 .direccion-campos { display: flex; flex-wrap: wrap; gap: 0.4rem; align-items: center; }
-.direccion-campos select.via { flex: 0 1 150px; min-width: 130px; }
-.direccion-campos input, .direccion-campos select:not(.via):not(.municipio) { flex: 1 1 110px; min-width: 95px; }
-.direccion-campos select.municipio { flex: 2 1 200px; min-width: 170px; }
+.direccion-campos app-selector.via { flex: 0 1 150px; min-width: 130px; }
+.direccion-campos input, .direccion-campos app-selector:not(.via):not(.municipio) { flex: 1 1 110px; min-width: 95px; }
+.direccion-campos app-selector.municipio { flex: 2 1 200px; min-width: 170px; }
 .direccion-campos .numeral { font-weight: 700; color: var(--muted); padding: 0 0.1rem; }
 
 /* 14. Responsivo */

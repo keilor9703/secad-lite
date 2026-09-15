@@ -19,18 +19,18 @@
   <div class="filtros" [formGroup]="filtroForm">
     <input formControlName="texto"
       placeholder="Buscar por motivo, ciudadano, dirección, código…" aria-label="Buscar casos" />
-    <select formControlName="estadoSel" aria-label="Filtrar por estado">
-      <option value="">Todos los estados</option>
+    <app-selector formControlName="estadoSel" [ariaLabel]="'Filtrar por estado'">
+      <app-opcion [valor]="''">Todos los estados</app-opcion>
       @for (e of estados; track e) {
-        <option [value]="e">{{ estadoLabel(e) }}</option>
+        <app-opcion [valor]="e">{{ estadoLabel(e) }}</app-opcion>
       }
-    </select>
-    <select formControlName="prioridadSel" aria-label="Filtrar por prioridad">
-      <option value="">Toda prioridad</option>
+    </app-selector>
+    <app-selector formControlName="prioridadSel" [ariaLabel]="'Filtrar por prioridad'">
+      <app-opcion [valor]="''">Toda prioridad</app-opcion>
       @for (p of prioridades; track p) {
-        <option [value]="p">{{ p }}</option>
+        <app-opcion [valor]="p">{{ p }}</app-opcion>
       }
-    </select>
+    </app-selector>
     <div class="rango">
       <label for="fdesde">Del</label>
       <input id="fdesde" type="date" formControlName="desde" (change)="aplicarFechas()" aria-label="Desde" />

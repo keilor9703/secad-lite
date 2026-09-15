@@ -1,5 +1,5 @@
 .selector-municipio { display: flex; flex-wrap: wrap; gap: 0.4rem; align-items: center; }
-.selector-municipio select { flex: 1; min-width: 140px; width: auto; }
+.selector-municipio app-selector { flex: 1; min-width: 140px; width: auto; }
 .selector-municipio .dane {
   font-family: var(--mono); font-size: 0.75rem; color: var(--muted);
   background: var(--surface-2); border-radius: var(--radius-sm); padding: 0.15rem 0.45rem;

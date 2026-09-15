@@ -28,12 +28,12 @@
       <label for="fhasta">al</label>
       <input id="fhasta" type="date" formControlName="hasta" (change)="aplicarFechas()" aria-label="Hasta" />
     </div>
-    <select formControlName="codigoSel" (change)="cargar()" aria-label="Filtrar por código de caso">
-      <option value="">Todos los códigos</option>
+    <app-selector formControlName="codigoSel" (cambio)="cargar()" [ariaLabel]="'Filtrar por código de caso'">
+      <app-opcion [valor]="''">Todos los códigos</app-opcion>
       @for (c of codigos(); track c) {
-        <option [value]="c.codigo">{{ c.codigo }} — {{ c.descripcion }}</option>
+        <app-opcion [valor]="c.codigo">{{ c.codigo }} — {{ c.descripcion }}</app-opcion>
       }
-    </select>
+    </app-selector>
     @if (filtroForm.controls.desde.value || filtroForm.controls.hasta.value || filtroForm.controls.codigoSel.value) {
       <button type="button" class="btn btn--ghost mini" (click)="limpiarFiltros()">
         Quitar filtros

@@ -4,6 +4,8 @@ import { FormControl, FormGroup, FormsModule, ReactiveFormsModule, Validators } 
 import { AdminService } from '../../core/admin.service';
 import { EstadoSuscripcion, PlanTenant, Tenant } from '../../core/models';
 import { SelectorMunicipioComponent } from '../../shared/selector-municipio/selector-municipio';
+import { SelectorComponent } from '../../shared/selector/selector';
+import { OpcionComponent } from '../../shared/selector/opcion';
 
 /**
  * Supervisión de la plataforma: es la vista del dueño de FALCON CAD, no la del
@@ -14,7 +16,7 @@ import { SelectorMunicipioComponent } from '../../shared/selector-municipio/sele
 @Component({
   selector: 'app-plataforma',
   standalone: true,
-  imports: [CommonModule, ReactiveFormsModule, FormsModule, SelectorMunicipioComponent],
+  imports: [CommonModule, ReactiveFormsModule, FormsModule, SelectorMunicipioComponent, SelectorComponent, OpcionComponent],
   templateUrl: './plataforma.html',
   styleUrl: './plataforma.scss',
   changeDetection: ChangeDetectionStrategy.OnPush,

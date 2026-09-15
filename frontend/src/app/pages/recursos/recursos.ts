@@ -6,6 +6,8 @@ import { AuthService } from '../../core/auth.service';
 import { CatalogosService } from '../../core/catalogos.service';
 import { Agencia, EstadoRecurso, Recurso, TipoRecurso } from '../../core/models';
 import { ToastService } from '../../shared/toast/toast.service';
+import { SelectorComponent } from '../../shared/selector/selector';
+import { OpcionComponent } from '../../shared/selector/opcion';
 
 /**
  * Gestión de la flota: alta, edición, baja y disponibilidad. La agencia sale
@@ -15,7 +17,7 @@ import { ToastService } from '../../shared/toast/toast.service';
 @Component({
   selector: 'app-recursos',
   standalone: true,
-  imports: [ReactiveFormsModule],
+  imports: [ReactiveFormsModule, SelectorComponent, OpcionComponent],
   templateUrl: './recursos.html',
   styleUrl: './recursos.scss',
   changeDetection: ChangeDetectionStrategy.OnPush,

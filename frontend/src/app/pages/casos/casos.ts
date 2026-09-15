@@ -5,6 +5,8 @@ import { RouterLink } from '@angular/router';
 import { CasosService } from '../../core/casos.service';
 import { AuthService } from '../../core/auth.service';
 import { Canal, Caso, EstadoCaso, PrioridadCaso } from '../../core/models';
+import { SelectorComponent } from '../../shared/selector/selector';
+import { OpcionComponent } from '../../shared/selector/opcion';
 
 /**
  * Consulta y seguimiento: la bandeja completa con búsqueda. Es la vista de
@@ -14,7 +16,7 @@ import { Canal, Caso, EstadoCaso, PrioridadCaso } from '../../core/models';
 @Component({
   selector: 'app-casos',
   standalone: true,
-  imports: [CommonModule, ReactiveFormsModule, RouterLink],
+  imports: [CommonModule, ReactiveFormsModule, RouterLink, SelectorComponent, OpcionComponent],
   templateUrl: './casos.html',
   styleUrl: './casos.scss',
   changeDetection: ChangeDetectionStrategy.OnPush,

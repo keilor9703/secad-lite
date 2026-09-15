@@ -37,7 +37,7 @@
 .despacho-panel { padding: 1.2rem 1.3rem; display: flex; flex-direction: column; gap: 0.7rem; }
 .despacho-panel h2 { margin: 0; font-size: 1.05rem; }
 .despachar-form { display: flex; gap: 0.5rem; }
-.despachar-form select { flex: 1; }
+.despachar-form app-selector { flex: 1; }
 .despacho-panel .vacio { color: var(--muted); margin: 0; }
 .asig-list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 0.6rem; }
 .asig-list li { border: 1px solid var(--border); border-radius: var(--radius-sm); padding: 0.5rem 0.7rem; }

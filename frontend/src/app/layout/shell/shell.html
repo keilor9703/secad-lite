@@ -66,13 +66,13 @@
       }
       @if (esSuperadmin()) {
         <label class="tenant-sel" title="Tenant en gestión">
-          <select [value]="tenantCtx()" (change)="cambiarTenant($any($event.target).value)"
-            aria-label="Tenant en gestión">
-            <option value="" disabled>tenant…</option>
+          <app-selector [valorActual]="tenantCtx()" (cambio)="cambiarTenant($any($event))"
+            [ariaLabel]="'Tenant en gestión'">
+            <app-opcion [valor]="''" [deshabilitada]="true">tenant…</app-opcion>
             @for (t of tenants(); track t) {
-              <option [value]="t.codigo">{{ t.codigo }}</option>
+              <app-opcion [valor]="t.codigo">{{ t.codigo }}</app-opcion>
             }
-          </select>
+          </app-selector>
         </label>
       } @else {
         <span class="tenant" title="Tenant (instancia)">{{ s.tenant || 'global' }}</span>

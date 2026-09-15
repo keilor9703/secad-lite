@@ -10,6 +10,8 @@ import { AuthService } from '../../core/auth.service';
 import { GeografiaService, Municipio } from '../../core/geografia.service';
 import { ToastService } from '../../shared/toast/toast.service';
 import { AutocompletarComponent, OpcionAutocompletar } from '../../shared/autocompletar/autocompletar';
+import { SelectorComponent } from '../../shared/selector/selector';
+import { OpcionComponent } from '../../shared/selector/opcion';
 import {
   Agencia, Canal, CanalAtencion, Caso, CodigoCaso, CrearCaso, EstadoCaso, Llamada, PrioridadCaso,
 } from '../../core/models';
@@ -17,7 +19,7 @@ import {
 @Component({
   selector: 'app-recepcion',
   standalone: true,
-  imports: [CommonModule, ReactiveFormsModule, RouterLink, AutocompletarComponent],
+  imports: [CommonModule, ReactiveFormsModule, RouterLink, AutocompletarComponent, SelectorComponent, OpcionComponent],
   templateUrl: './recepcion.html',
   styleUrl: './recepcion.scss',
   changeDetection: ChangeDetectionStrategy.OnPush,

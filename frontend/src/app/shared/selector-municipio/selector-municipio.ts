@@ -1,6 +1,8 @@
 import { ChangeDetectionStrategy, Component, forwardRef, inject, signal } from '@angular/core';
 import { ControlValueAccessor, FormsModule, NG_VALUE_ACCESSOR } from '@angular/forms';
 import { Departamento, GeografiaService, Municipio } from '../../core/geografia.service';
+import { OpcionComponent } from '../selector/opcion';
+import { SelectorComponent } from '../selector/selector';
 
 /**
  * Departamento -> municipio de Colombia, como un solo control de formulario
@@ -17,7 +19,7 @@ import { Departamento, GeografiaService, Municipio } from '../../core/geografia.
 @Component({
   selector: 'app-selector-municipio',
   standalone: true,
-  imports: [FormsModule],
+  imports: [FormsModule, SelectorComponent, OpcionComponent],
   templateUrl: './selector-municipio.html',
   styleUrl: './selector-municipio.scss',
   changeDetection: ChangeDetectionStrategy.OnPush,

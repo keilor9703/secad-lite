@@ -5,6 +5,8 @@ import { CatalogosService, ResultadoImportacion } from '../../core/catalogos.ser
 import { AuthService } from '../../core/auth.service';
 import { Agencia, CanalAtencion, CodigoCaso, CodigoCierre, PrioridadCaso, TipoAgencia } from '../../core/models';
 import { ToastService } from '../../shared/toast/toast.service';
+import { SelectorComponent } from '../../shared/selector/selector';
+import { OpcionComponent } from '../../shared/selector/opcion';
 
 /** Qué registro se está editando: su sección y su id. */
 interface Edicion {
@@ -25,7 +27,7 @@ interface Edicion {
 @Component({
   selector: 'app-catalogos',
   standalone: true,
-  imports: [ReactiveFormsModule],
+  imports: [ReactiveFormsModule, SelectorComponent, OpcionComponent],
   templateUrl: './catalogos.html',
   styleUrl: './catalogos.scss',
   changeDetection: ChangeDetectionStrategy.OnPush,

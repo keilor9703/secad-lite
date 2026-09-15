@@ -227,12 +227,12 @@
           <div class="pbx-field">
             <label>A quién se envían los casos que entren por WhatsApp</label>
             <div class="pbx-row">
-              <select formControlName="agenciaResponsableId" (change)="waCanales.set([])">
-                <option [ngValue]="null">— agencia responsable —</option>
+              <app-selector formControlName="agenciaResponsableId" (cambio)="waCanales.set([])">
+                <app-opcion [valor]="null">— agencia responsable —</app-opcion>
                 @for (a of agencias(); track a) {
-                  <option [ngValue]="a.id" [disabled]="!a.activo">{{ a.nombre }}</option>
+                  <app-opcion [valor]="a.id" [deshabilitada]="!a.activo">{{ a.nombre }}</app-opcion>
                 }
-              </select>
+              </app-selector>
             </div>
             @if (waForm.controls.agenciaResponsableId.value) {
               <div class="canales-pick">
@@ -279,12 +279,12 @@
             <div class="pbx-field">
               <label>Agencia responsable de los casos remitidos</label>
               <div class="pbx-row">
-                <select formControlName="agenciaResponsableId" (change)="remisionCanales.set([])">
-                  <option [ngValue]="null">— agencia responsable —</option>
+                <app-selector formControlName="agenciaResponsableId" (cambio)="remisionCanales.set([])">
+                  <app-opcion [valor]="null">— agencia responsable —</app-opcion>
                   @for (a of agencias(); track a) {
-                    <option [ngValue]="a.id" [disabled]="!a.activo">{{ a.nombre }}</option>
+                    <app-opcion [valor]="a.id" [deshabilitada]="!a.activo">{{ a.nombre }}</app-opcion>
                   }
-                </select>
+                </app-selector>
                 <button type="button" class="btn btn--primary mini" [disabled]="remisionGuardando()" (click)="guardarRemision()">
                   {{ remisionGuardando() ? 'Guardando…' : 'Guardar' }}
                 </button>
@@ -322,12 +322,12 @@
             Con <code>GET {{ '{' }}url{{ '}' }}/:casoId</code> consultan el estado de sus casos.</p>
             <form class="crear-inline" [formGroup]="entidadForm" (ngSubmit)="crearEntidad()">
               <input formControlName="nombre" placeholder="Nombre (p. ej. Bomberos)" />
-              <select formControlName="agenciaResponsableId" (change)="entidadCanales.set([])">
-                <option [ngValue]="null">— agencia responsable —</option>
+              <app-selector formControlName="agenciaResponsableId" (cambio)="entidadCanales.set([])">
+                <app-opcion [valor]="null">— agencia responsable —</app-opcion>
                 @for (a of agencias(); track a) {
-                  <option [ngValue]="a.id" [disabled]="!a.activo">{{ a.nombre }}</option>
+                  <app-opcion [valor]="a.id" [deshabilitada]="!a.activo">{{ a.nombre }}</app-opcion>
                 }
-              </select>
+              </app-selector>
               <button type="submit" class="btn btn--primary" [disabled]="entidadForm.invalid">Registrar entidad</button>
             </form>
             <!-- Canales de la agencia elegida: a dónde llegan los casos que radique. -->
@@ -402,12 +402,12 @@
                         <tr class="fila-edicion">
                           <td>{{ e.nombre }}</td>
                           <td colspan="3" [formGroup]="entidadEdicionForm">
-                            <select formControlName="agenciaResponsableId" (change)="entidadEdicionCanales.set([])">
-                              <option [ngValue]="null">— agencia responsable —</option>
+                            <app-selector formControlName="agenciaResponsableId" (cambio)="entidadEdicionCanales.set([])">
+                              <app-opcion [valor]="null">— agencia responsable —</app-opcion>
                               @for (a of agencias(); track a) {
-                                <option [ngValue]="a.id" [disabled]="!a.activo">{{ a.nombre }}</option>
+                                <app-opcion [valor]="a.id" [deshabilitada]="!a.activo">{{ a.nombre }}</app-opcion>
                               }
-                            </select>
+                            </app-selector>
                             @if (entidadEdicionForm.controls.agenciaResponsableId.value; as edicionAgenciaId) {
                               <div class="canales-pick">
                                 @for (c of canalesDe(edicionAgenciaId); track c) {
@@ -450,17 +450,17 @@
             </div>
             <input formControlName="nombre" placeholder="Nombre completo" />
             <input formControlName="contrasena" type="password" placeholder="contraseña" />
-            <select formControlName="rol">
+            <app-selector formControlName="rol">
               @for (r of rolesDisponibles(); track r) {
-                <option [value]="r">{{ r }}</option>
+                <app-opcion [valor]="r">{{ r }}</app-opcion>
               }
-            </select>
-            <select formControlName="agenciaId" (change)="usuarioCanales.set([])">
-              <option [ngValue]="null">— agencia —</option>
+            </app-selector>
+            <app-selector formControlName="agenciaId" (cambio)="usuarioCanales.set([])">
+              <app-opcion [valor]="null">— agencia —</app-opcion>
               @for (a of agencias(); track a) {
-                <option [ngValue]="a.id" [disabled]="!a.activo">{{ a.nombre }}</option>
+                <app-opcion [valor]="a.id" [deshabilitada]="!a.activo">{{ a.nombre }}</app-opcion>
               }
-            </select>
+            </app-selector>
             <input formControlName="extension" placeholder="extensión PBX (opcional)"
               title="Extensión de la planta telefónica. La central dirige aquí las llamadas de este funcionario." />
             @if (esSuperadmin()) {
@@ -503,25 +503,25 @@
                     </td>
                     <td>
                       @if (puedeEditarRolDe(u)) {
-                        <select class="acc"
+                        <app-selector class="acc"
                           [ngModel]="u.rol" (ngModelChange)="cambiarRolUsuario(u, $event)">
                           @for (r of rolesDisponibles(); track r) {
-                            <option [ngValue]="r">{{ r }}</option>
+                            <app-opcion [valor]="r">{{ r }}</app-opcion>
                           }
-                        </select>
+                        </app-selector>
                       } @else {
                         <span class="rol">{{ u.rol }}</span>
                       }
                     </td>
                     <td>
                       @if (editandoUsuario() === u.id) {
-                        <select class="acc" [formControl]="edicionUsuarioForm.controls.agenciaId"
-                          (change)="cambiarAgenciaEdicion()" [attr.aria-label]="'Agencia de ' + u.username">
-                          <option [ngValue]="null">— agencia —</option>
+                        <app-selector class="acc" [formControl]="edicionUsuarioForm.controls.agenciaId"
+                          (cambio)="cambiarAgenciaEdicion()" [ariaLabel]="'Agencia de ' + u.username">
+                          <app-opcion [valor]="null">— agencia —</app-opcion>
                           @for (a of agencias(); track a) {
-                            <option [ngValue]="a.id" [disabled]="!a.activo">{{ a.nombre }}</option>
+                            <app-opcion [valor]="a.id" [deshabilitada]="!a.activo">{{ a.nombre }}</app-opcion>
                           }
-                        </select>
+                        </app-selector>
                       } @else {
                         {{ nombreAgencia(u.agenciaId) }}
                       }

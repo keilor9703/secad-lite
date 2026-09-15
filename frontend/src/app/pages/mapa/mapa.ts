@@ -7,6 +7,8 @@ import { CatalogosService } from '../../core/catalogos.service';
 import { AnalisisMapa, MetricasService, PuntoMapa } from '../../core/metricas.service';
 import { CodigoCaso } from '../../core/models';
 import { CasosWsService } from '../../core/casos-ws.service';
+import { SelectorComponent } from '../../shared/selector/selector';
+import { OpcionComponent } from '../../shared/selector/opcion';
 
 type ModoVista = 'calor' | 'cluster' | 'puntos';
 
@@ -22,7 +24,7 @@ interface Barra { etiqueta: string; valor: number; }
 @Component({
   selector: 'app-mapa',
   standalone: true,
-  imports: [ReactiveFormsModule],
+  imports: [ReactiveFormsModule, SelectorComponent, OpcionComponent],
   templateUrl: './mapa.html',
   styleUrl: './mapa.scss',
   changeDetection: ChangeDetectionStrategy.OnPush,

@@ -77,12 +77,12 @@
               <h3>Remitir el caso</h3>
               <div class="field">
                 <label for="ragen">Agencia destino</label>
-                <select id="ragen" formControlName="agenciaId" (change)="cambiarAgenciaDestino($any($event.target).value)">
-                  <option value="">— seleccione —</option>
+                <app-selector id="ragen" formControlName="agenciaId" (cambio)="cambiarAgenciaDestino($any($event))">
+                  <app-opcion [valor]="''">— seleccione —</app-opcion>
                   @for (a of agenciasActivas(); track a) {
-                    <option [value]="a.id">{{ a.nombre }}</option>
+                    <app-opcion [valor]="a.id">{{ a.nombre }}</app-opcion>
                   }
-                </select>
+                </app-selector>
               </div>
               @if (remisionForm.controls.agenciaId.value) {
                 <div class="canales-box">
@@ -134,12 +134,12 @@
                 </p>
                 <div class="field">
                   <label for="rtdest">Instancia destino</label>
-                  <select id="rtdest" formControlName="tenantDestino">
-                    <option value="">— seleccione —</option>
+                  <app-selector id="rtdest" formControlName="tenantDestino">
+                    <app-opcion [valor]="''">— seleccione —</app-opcion>
                     @for (t of tenantsDestino(); track t) {
-                      <option [value]="t.codigo">{{ t.nombre }}</option>
+                      <app-opcion [valor]="t.codigo">{{ t.nombre }}</app-opcion>
                     }
-                  </select>
+                  </app-selector>
                   @if (!tenantsDestino().length) {
                     <span class="vacio-inline">No hay otras instancias disponibles.</span>
                   }
@@ -204,12 +204,12 @@
                 <h3>Cerrar el caso</h3>
                 <div class="field">
                   <label for="ccod">Código de cierre *</label>
-                  <select id="ccod" formControlName="codigo">
-                    <option value="">— cómo terminó —</option>
+                  <app-selector id="ccod" formControlName="codigo">
+                    <app-opcion [valor]="''">— cómo terminó —</app-opcion>
                     @for (k of codigosCierre(); track k) {
-                      <option [value]="k.codigo">{{ k.etiqueta }}</option>
+                      <app-opcion [valor]="k.codigo">{{ k.etiqueta }}</app-opcion>
                     }
-                  </select>
+                  </app-selector>
                 </div>
                 <div class="field">
                   <label for="ccasof">Tipificación (código de caso)</label>
@@ -245,14 +245,14 @@
           <h2>🚓 Despacho</h2>
           @if (c.estado !== 'cerrado') {
             <div class="despachar-form">
-              <select [formControl]="recursoSelCtrl">
-                <option value="" disabled>Recurso disponible…</option>
+              <app-selector [formControl]="recursoSelCtrl">
+                <app-opcion [valor]="''" [deshabilitada]="true">Recurso disponible…</app-opcion>
                 @for (r of disponibles(); track r) {
-                  <option [value]="r.id">
+                  <app-opcion [valor]="r.id">
                     {{ r.codigo }} · {{ r.nombre }} ({{ r.agencia }})
-                  </option>
+                  </app-opcion>
                 }
-              </select>
+              </app-selector>
               <button type="button" class="btn btn--primary" [disabled]="!recursoSelCtrl.value" (click)="despachar()">Despachar</button>
             </div>
           }

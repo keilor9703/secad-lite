@@ -30,19 +30,19 @@
         @if (veTodo() && puedeElegirAgenciaCanal()) {
           <div class="filtro-agencia">
             <span>Viendo:</span>
-            <select [ngModel]="filtroAgenciaId()" (ngModelChange)="cambiarFiltroAgencia($event)" aria-label="Agencia a mostrar">
-              <option [ngValue]="null">Todas las agencias</option>
+            <app-selector [ngModel]="filtroAgenciaId()" (ngModelChange)="cambiarFiltroAgencia($event)" [ariaLabel]="'Agencia a mostrar'">
+              <app-opcion [valor]="null">Todas las agencias</app-opcion>
               @for (a of agenciasTodas(); track a.id) {
-                <option [ngValue]="a.id">{{ a.nombre }}</option>
+                <app-opcion [valor]="a.id">{{ a.nombre }}</app-opcion>
               }
-            </select>
+            </app-selector>
             @if (filtroAgenciaId()) {
-              <select [ngModel]="filtroCanalId()" (ngModelChange)="filtroCanalId.set($event)" aria-label="Canal a mostrar">
-                <option [ngValue]="null">Todos los canales</option>
+              <app-selector [ngModel]="filtroCanalId()" (ngModelChange)="filtroCanalId.set($event)" [ariaLabel]="'Canal a mostrar'">
+                <app-opcion [valor]="null">Todos los canales</app-opcion>
                 @for (c of canalesDeAgenciaFiltro(); track c.id) {
-                  <option [ngValue]="c.id">{{ c.codigo }} · {{ c.nombre }}</option>
+                  <app-opcion [valor]="c.id">{{ c.codigo }} · {{ c.nombre }}</app-opcion>
                 }
-              </select>
+              </app-selector>
             }
           </div>
         }

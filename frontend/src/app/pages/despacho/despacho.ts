@@ -9,6 +9,8 @@ import { NotificacionesService } from '../../core/notificaciones.service';
 import { CasosWsService } from '../../core/casos-ws.service';
 import { Agencia, CanalAtencion, Caso, EstadoCaso } from '../../core/models';
 import { ToastService } from '../../shared/toast/toast.service';
+import { SelectorComponent } from '../../shared/selector/selector';
+import { OpcionComponent } from '../../shared/selector/opcion';
 
 /** Una columna del tablero: un estado del ciclo de vida y sus casos. */
 interface Columna {
@@ -26,7 +28,7 @@ interface Columna {
 @Component({
   selector: 'app-despacho',
   standalone: true,
-  imports: [RouterLink, DetalleComponent, FormsModule],
+  imports: [RouterLink, DetalleComponent, FormsModule, SelectorComponent, OpcionComponent],
   templateUrl: './despacho.html',
   styleUrl: './despacho.scss',
   changeDetection: ChangeDetectionStrategy.OnPush,

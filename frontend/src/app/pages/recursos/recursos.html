@@ -14,21 +14,21 @@
       <form class="crear" [formGroup]="nuevoForm" (ngSubmit)="crear()">
         <input formControlName="codigo" placeholder="código (P-03)" />
         <input formControlName="nombre" placeholder="Nombre" />
-        <select formControlName="tipo">
+        <app-selector formControlName="tipo">
           @for (t of tipos; track t) {
-            <option [value]="t">{{ t }}</option>
+            <app-opcion [valor]="t">{{ t }}</app-opcion>
           }
-        </select>
+        </app-selector>
         <!-- La agencia sale del catálogo: así la flota y los casos hablan de
         las mismas entidades y el despacho por agencia cuadra. Solo quien
         administra el secad elige entre todas; el resto queda fijo en la suya. -->
         @if (puedeElegirAgencia()) {
-          <select formControlName="agenciaId" aria-label="Agencia del recurso">
-            <option [ngValue]="null">— agencia —</option>
+          <app-selector formControlName="agenciaId" [ariaLabel]="'Agencia del recurso'">
+            <app-opcion [valor]="null">— agencia —</app-opcion>
             @for (a of agencias(); track a) {
-              <option [ngValue]="a.id">{{ a.nombre }}</option>
+              <app-opcion [valor]="a.id">{{ a.nombre }}</app-opcion>
             }
-          </select>
+          </app-selector>
         } @else {
           <span class="agencia-fija" [title]="'Los recursos que cree quedan en su agencia: ' + miAgenciaNombre()">
             🏢 {{ miAgenciaNombre() }}
@@ -86,20 +86,20 @@
                 <td><input formControlName="nombre"
                 aria-label="Nombre" /></td>
                 <td>
-                  <select formControlName="tipo" aria-label="Tipo">
+                  <app-selector formControlName="tipo" [ariaLabel]="'Tipo'">
                     @for (t of tipos; track t) {
-                      <option [value]="t">{{ t }}</option>
+                      <app-opcion [valor]="t">{{ t }}</app-opcion>
                     }
-                  </select>
+                  </app-selector>
                 </td>
                 <td>
                   @if (puedeElegirAgencia()) {
-                    <select formControlName="agenciaId" aria-label="Agencia">
-                      <option [ngValue]="null">— agencia —</option>
+                    <app-selector formControlName="agenciaId" [ariaLabel]="'Agencia'">
+                      <app-opcion [valor]="null">— agencia —</app-opcion>
                       @for (a of agencias(); track a) {
-                        <option [ngValue]="a.id">{{ a.nombre }}</option>
+                        <app-opcion [valor]="a.id">{{ a.nombre }}</app-opcion>
                       }
-                    </select>
+                    </app-selector>
                   } @else {
                     {{ r.agencia }}
                   }

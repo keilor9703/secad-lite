@@ -1,0 +1,19 @@
+<div class="selector" (focusout)="onFocusOut()">
+  <button
+    type="button"
+    class="sel-disparador"
+    [id]="id()"
+    [attr.aria-label]="ariaLabel()"
+    [attr.aria-haspopup]="'listbox'"
+    [attr.aria-expanded]="abierto()"
+    [attr.aria-activedescendant]="indiceActivo() >= 0 ? optionId(indiceActivo()) : null"
+    [disabled]="deshabilitado()"
+    (click)="alternar()"
+    (keydown)="onKeydown($event)"
+  >
+    <span class="sel-etq">{{ etiquetaActual() }}</span>
+  </button>
+  <ul class="sel-lista" role="listbox" [class.abierta]="abierto()" [attr.aria-hidden]="!abierto()">
+    <ng-content></ng-content>
+  </ul>
+</div>

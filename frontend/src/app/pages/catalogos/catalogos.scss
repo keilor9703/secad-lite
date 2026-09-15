@@ -9,7 +9,7 @@
 .hint { margin: 0; color: var(--muted); font-size: 0.85rem; }
 
 .crear-inline { display: flex; gap: 0.5rem; flex-wrap: wrap; }
-.crear-inline input, .crear-inline select { width: auto; flex: 1; min-width: 140px; }
+.crear-inline input, .crear-inline app-selector { width: auto; flex: 1; min-width: 140px; }
 .crear-inline.sub { margin-top: 0.4rem; }
 
 .agencia { border: 1px solid var(--border); border-radius: var(--radius-sm); padding: 0.7rem 0.9rem; }
@@ -64,8 +64,8 @@ td { padding: 0.5rem 0.6rem; border-bottom: 1px solid var(--border); }
 .btn.peligro { color: var(--danger); }
 .btn.peligro:hover { border-color: var(--danger); }
 .fila-edicion { background: var(--surface-2); }
-.fila-edicion input, .fila-edicion select { width: 100%; min-width: 100px; }
-.agencia-head.editando input, .agencia-head.editando select { width: auto; flex: 1; min-width: 120px; }
+.fila-edicion input, .fila-edicion app-selector { width: 100%; min-width: 100px; }
+.agencia-head.editando input, .agencia-head.editando app-selector { width: auto; flex: 1; min-width: 120px; }
 .agencia-head .corto, .canal-list .corto { flex: 0 0 110px; min-width: 90px; }
 .crear-inline .orden, .agencia-head.editando .orden { flex: 0 0 72px; min-width: 60px; }
 
@@ -76,7 +76,7 @@ td { padding: 0.5rem 0.6rem; border-bottom: 1px solid var(--border); }
 .masiva .archivo { cursor: pointer; margin: 0; }
 .masiva .opcion { display: inline-flex; align-items: center; gap: 0.4rem; margin-left: auto;
                   font-size: 0.8rem; color: var(--muted); }
-.masiva .opcion select { width: auto; }
+.masiva .opcion app-selector { width: auto; }
 .masiva-estado { margin: 0.6rem 0 0; font-size: 0.85rem; color: var(--muted); }
 
 .previa { margin-top: 0.8rem; padding-top: 0.7rem; border-top: 1px solid var(--border); }

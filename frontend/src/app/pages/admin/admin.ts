@@ -12,6 +12,8 @@ import { EntidadesService } from '../../core/entidades.service';
 import { CatalogosService } from '../../core/catalogos.service';
 import { CasosService } from '../../core/casos.service';
 import { ToastService } from '../../shared/toast/toast.service';
+import { SelectorComponent } from '../../shared/selector/selector';
+import { OpcionComponent } from '../../shared/selector/opcion';
 import {
   Agencia, CanalAtencion, CodigoCaso, CtiConfig, EntidadExterna, ModuloPermisos, PbxConfig, PermisoDef, PrioridadCaso,
   RemisionConfig, RolTenant, Tenant, TipoAgencia, UsuarioAdmin, WhatsappConfig,
@@ -28,7 +30,7 @@ const CLAVES_TRANSVERSALES = ['pbx.usar', 'whatsapp.responder'];
 @Component({
   selector: 'app-admin',
   standalone: true,
-  imports: [DatePipe, ReactiveFormsModule, FormsModule],
+  imports: [DatePipe, ReactiveFormsModule, FormsModule, SelectorComponent, OpcionComponent],
   templateUrl: './admin.html',
   styleUrl: './admin.scss',
   changeDetection: ChangeDetectionStrategy.OnPush,

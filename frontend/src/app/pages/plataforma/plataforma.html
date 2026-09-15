@@ -60,19 +60,19 @@
       <div class="t-grid">
         <label class="campo">
           <span>Plan</span>
-          <select [value]="t.plan" (change)="actualizar(t, { plan: $any($event.target).value })">
+          <app-selector [valorActual]="t.plan" (cambio)="actualizar(t, { plan: $any($event) })">
             @for (p of planes; track p) {
-              <option [value]="p">{{ p }}</option>
+              <app-opcion [valor]="p">{{ p }}</app-opcion>
             }
-          </select>
+          </app-selector>
         </label>
         <label class="campo">
           <span>Suscripción</span>
-          <select [value]="t.suscripcion" (change)="actualizar(t, { suscripcion: $any($event.target).value })">
+          <app-selector [valorActual]="t.suscripcion" (cambio)="actualizar(t, { suscripcion: $any($event) })">
             @for (e of estados; track e) {
-              <option [value]="e">{{ e }}</option>
+              <app-opcion [valor]="e">{{ e }}</app-opcion>
             }
-          </select>
+          </app-selector>
         </label>
         <label class="campo">
           <span>Vence</span>
