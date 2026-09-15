@@ -4,10 +4,13 @@ import {
   computed,
   contentChildren,
   effect,
+  ElementRef,
   forwardRef,
+  inject,
   input,
   output,
   signal,
+  viewChild,
 } from '@angular/core';
 import { ControlValueAccessor, NG_VALUE_ACCESSOR } from '@angular/forms';
 import { OpcionComponent, SELECTOR_HOST } from './opcion';
@@ -25,6 +28,10 @@ let contador = 0;
  * </app-opcion> dentro, y funciona con formControlName/[formControl]/
  * [ngModel] (implementa ControlValueAccessor). Para el puñado de casos que
  * no usan formularios reactivos, también admite [valorActual]/(cambio).
+ *
+ * Al abrirse trae su propio buscador (filtra las opciones mientras se
+ * escribe, sin acentos ni mayúsculas) — imprescindible en listas largas
+ * (departamentos, agencias, tenants…), y gratis en las cortas.
  */
 @Component({
   selector: 'app-selector',
@@ -57,8 +64,13 @@ export class SelectorComponent implements ControlValueAccessor {
   readonly abierto = signal(false);
   readonly indiceActivo = signal(-1);
   readonly valorActivo = signal<unknown>(undefined);
+  readonly busqueda = signal('');
   private readonly deshabilitadoCva = signal(false);
   readonly deshabilitado = computed(() => this.disabled() || this.deshabilitadoCva());
+  readonly hayVisibles = computed(() => this.opciones().some((o) => !o.oculta()));
+
+  private readonly elRef = inject(ElementRef<HTMLElement>);
+  private readonly campoBusqueda = viewChild<ElementRef<HTMLInputElement>>('campoBusqueda');
 
   private cvaActivo = false;
   private onChange: (v: unknown) => void = () => {};
@@ -70,6 +82,10 @@ export class SelectorComponent implements ControlValueAccessor {
     // writeValue() manda y esto queda sin efecto.
     effect(() => {
       if (!this.cvaActivo) this.valorActivo.set(this.valorActual());
+    });
+    // Foco automático al buscador apenas se abre, para poder escribir de una.
+    effect(() => {
+      if (this.abierto()) this.campoBusqueda()?.nativeElement.focus();
     });
   }
 
@@ -114,46 +130,68 @@ export class SelectorComponent implements ControlValueAccessor {
   cerrar(): void {
     this.abierto.set(false);
     this.indiceActivo.set(-1);
+    this.busqueda.set('');
   }
 
-  onFocusOut(): void {
+  onBuscar(v: string): void {
+    this.busqueda.set(v);
+    this.indiceActivo.set(-1);
+  }
+
+  /** Cierra solo si el foco de verdad salió del componente (no si se movió del botón al buscador). */
+  onFocusOut(ev: FocusEvent): void {
+    const siguiente = ev.relatedTarget as Node | null;
+    if (siguiente && this.elRef.nativeElement.contains(siguiente)) return;
     this.onTouched();
     this.cerrar();
   }
 
+  private elegible(o: OpcionComponent): boolean {
+    return !o.deshabilitada() && !o.oculta();
+  }
+
+  /**
+   * Compartida entre el botón y el buscador. El espacio no se intercepta
+   * aquí a propósito: en el botón lo abre el propio <button> nativo (que ya
+   * dispara click solo con Enter/Espacio) y en el buscador tiene que poder
+   * escribirse.
+   */
   onKeydown(ev: KeyboardEvent): void {
     const filas = this.opciones();
-    if (!filas.length) return;
     if (ev.key === 'ArrowDown' || ev.key === 'ArrowUp') {
       ev.preventDefault();
       if (!this.abierto()) {
         this.abrir();
         return;
       }
+      if (!filas.length) return;
       const paso = ev.key === 'ArrowDown' ? 1 : -1;
       let i = this.indiceActivo();
       for (let n = 0; n < filas.length; n++) {
         i = (i + paso + filas.length) % filas.length;
-        if (!filas[i].deshabilitada()) break;
+        if (this.elegible(filas[i])) break;
       }
       this.indiceActivo.set(i);
-    } else if (ev.key === 'Enter' || ev.key === ' ') {
-      ev.preventDefault();
+    } else if (ev.key === 'Enter') {
       if (!this.abierto()) {
+        ev.preventDefault();
         this.abrir();
         return;
       }
       const i = this.indiceActivo();
-      if (i >= 0 && filas[i] && !filas[i].deshabilitada()) this.elegir(filas[i].valor());
+      if (i >= 0 && filas[i] && this.elegible(filas[i])) {
+        ev.preventDefault();
+        this.elegir(filas[i].valor());
+      }
     } else if (ev.key === 'Escape') {
       this.cerrar();
     } else if (ev.key === 'Home' && this.abierto()) {
       ev.preventDefault();
-      this.indiceActivo.set(filas.findIndex((o) => !o.deshabilitada()));
+      this.indiceActivo.set(filas.findIndex((o) => this.elegible(o)));
     } else if (ev.key === 'End' && this.abierto()) {
       ev.preventDefault();
       for (let i = filas.length - 1; i >= 0; i--) {
-        if (!filas[i].deshabilitada()) {
+        if (this.elegible(filas[i])) {
           this.indiceActivo.set(i);
           break;
         }

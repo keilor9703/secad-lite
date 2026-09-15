@@ -10,11 +10,17 @@ import { ChangeDetectionStrategy, Component, computed, ElementRef, inject, Injec
 export interface SelectorHost {
   readonly valorActivo: () => unknown;
   readonly indiceActivo: () => number;
+  readonly busqueda: () => string;
   opciones(): readonly OpcionComponent[];
   optionId(i: number): string;
   elegir(valor: unknown): void;
 }
 export const SELECTOR_HOST = new InjectionToken<SelectorHost>('selector-host');
+
+/** Minúsculas y sin acentos, para buscar como habla la gente. */
+function normalizar(t: string): string {
+  return (t ?? '').toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '');
+}
 
 /**
  * Una opción de <app-selector>. Se escribe igual que un <option> nativo
@@ -33,6 +39,7 @@ export const SELECTOR_HOST = new InjectionToken<SelectorHost>('selector-host');
     '[class.activa]': 'activa()',
     '[class.resaltada]': 'resaltada()',
     '[class.deshabilitada]': 'deshabilitada()',
+    '[class.oculta]': 'oculta()',
     '[id]': 'idOpcion()',
     '[attr.aria-selected]': 'activa()',
     '[attr.aria-disabled]': 'deshabilitada() || null',
@@ -51,9 +58,15 @@ export class OpcionComponent {
   private readonly indice = computed(() => this.selector.opciones().indexOf(this));
   readonly resaltada = computed(() => this.selector.indiceActivo() === this.indice());
   readonly idOpcion = computed(() => this.selector.optionId(this.indice()));
+  /** No coincide con lo que se está buscando — se saca de la vista, sin desaparecer del DOM. */
+  readonly oculta = computed(() => {
+    const q = normalizar(this.selector.busqueda());
+    if (!q) return false;
+    return !normalizar(this.elementRef.nativeElement.textContent ?? '').includes(q);
+  });
 
   onClick(): void {
-    if (this.deshabilitada()) return;
+    if (this.deshabilitada() || this.oculta()) return;
     this.selector.elegir(this.valor());
   }
 }

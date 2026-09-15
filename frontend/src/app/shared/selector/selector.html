@@ -1,4 +1,4 @@
-<div class="selector" (focusout)="onFocusOut()">
+<div class="selector" (focusout)="onFocusOut($event)">
   <button
     type="button"
     class="sel-disparador"
@@ -13,7 +13,27 @@
   >
     <span class="sel-etq">{{ etiquetaActual() }}</span>
   </button>
-  <ul class="sel-lista" role="listbox" [class.abierta]="abierto()" [attr.aria-hidden]="!abierto()">
-    <ng-content></ng-content>
-  </ul>
+  <div class="sel-lista" [class.abierta]="abierto()" [attr.aria-hidden]="!abierto()">
+    @if (abierto()) {
+      <input
+        #campoBusqueda
+        type="text"
+        class="sel-buscar"
+        placeholder="Buscar…"
+        autocomplete="off"
+        role="searchbox"
+        aria-label="Buscar en la lista"
+        [value]="busqueda()"
+        (input)="onBuscar($any($event.target).value)"
+        (keydown)="onKeydown($event)"
+        (mousedown)="$event.stopPropagation()"
+      />
+    }
+    <ul class="sel-opciones" role="listbox" [id]="id() + '-lista'">
+      <ng-content></ng-content>
+      @if (busqueda() && !hayVisibles()) {
+        <li class="sel-vacio">Sin resultados</li>
+      }
+    </ul>
+  </div>
 </div>
