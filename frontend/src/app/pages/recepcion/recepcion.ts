@@ -235,10 +235,14 @@ export class RecepcionComponent implements OnInit {
 
     // Municipio del caso: al elegir uno de la lista, se refleja también en el
     // campo "ciudad" que es el que de verdad queda guardado en el caso — la
-    // geocodificación por clic en el mapa lo sigue pudiendo sobrescribir.
+    // geocodificación por clic en el mapa lo sigue pudiendo sobrescribir. Y se
+    // recompone la dirección para que arrastre el municipio nuevo (ver
+    // `componerDireccion`): sin eso, cambiar de municipio dejaba la casilla y
+    // la búsqueda en el mapa apuntando todavía al anterior.
     this.form.controls.municipioCodigo.valueChanges.subscribe((codigo) => {
       const m = this.municipiosTenant().find((x) => x.codigoDane === codigo);
       if (m) this.form.controls.ciudad.setValue(m.nombre);
+      direccion.setValue(this.componerDireccion(), { emitEvent: false });
     });
   }
 
@@ -292,7 +296,27 @@ export class RecepcionComponent implements OnInit {
     // El segundo número (antes "placa") es siempre numérico — va con espacio,
     // nunca pegado, a diferencia de una letra de vía.
     const generador = `${numeroGenerador.trim()}${placa.trim() ? ` ${placa.trim()}` : ''}`;
-    return `${viaTipo} ${numero} # ${generador}`;
+    return this.conMunicipio(`${viaTipo} ${numero} # ${generador}`);
+  }
+
+  /**
+   * Nombre del municipio elegido en el formulario, o vacío si no hay ninguno.
+   */
+  private municipioActual(): string {
+    const codigo = this.form.controls.municipioCodigo.value;
+    return this.municipiosTenant().find((m) => m.codigoDane === codigo)?.nombre ?? '';
+  }
+
+  /**
+   * Pega el municipio elegido al final de una dirección. La misma casilla que
+   * el operador ve es la que se manda a buscar en el mapa — sin el municipio,
+   * Nominatim suele resolver a una calle homónima de otro municipio en vez de
+   * la del caso.
+   */
+  private conMunicipio(base: string): string {
+    if (!base) return base;
+    const municipio = this.municipioActual();
+    return municipio ? `${base}, ${municipio}` : base;
   }
 
   cargar(): void {
@@ -586,7 +610,7 @@ export class RecepcionComponent implements OnInit {
           this.form.patchValue({ viaTipo: '', viaNumero: '', viaLetra: '', numeroGenerador: '', placa: '' }, { emitEvent: false });
         }
         this.form.patchValue({
-          direccion: sobrescribirDireccion ? (via || actual.direccion) : actual.direccion,
+          direccion: sobrescribirDireccion ? (this.conMunicipio(via) || actual.direccion) : actual.direccion,
           barrio: a.neighbourhood ?? a.suburb ?? a.quarter ?? actual.barrio,
           ciudad: a.city ?? a.town ?? a.village ?? a.municipality ?? actual.ciudad,
         });
@@ -594,10 +618,16 @@ export class RecepcionComponent implements OnInit {
       .catch(() => this.error.set('No fue posible obtener la dirección del punto (sin conexión al mapa).'));
   }
 
-  /** De la dirección al punto: centra el mapa en lo que escribió el operador. */
+  /**
+   * De la dirección al punto: centra el mapa en lo que se ve en la casilla de
+   * dirección — que ya trae el municipio elegido pegado al final (ver
+   * `componerDireccion`/`conMunicipio`) — más el barrio. Sin el municipio, el
+   * mapa solía resolver a una calle homónima de otro lado del país.
+   */
   buscarDireccion(): void {
     const v = this.form.getRawValue();
-    const partes = [v.direccion, v.barrio, v.ciudad].filter((p) => p?.trim());
+    const base = v.direccion.trim() || this.municipioActual();
+    const partes = [base, v.barrio].filter((p) => p?.trim());
     if (!partes.length) { this.error.set('Escriba una dirección para buscarla.'); return; }
     this.buscandoDireccion.set(true);
     const q = encodeURIComponent(partes.join(', '));
