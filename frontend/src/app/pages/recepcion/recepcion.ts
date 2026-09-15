@@ -595,27 +595,40 @@ export class RecepcionComponent implements OnInit {
    * respeta lo que el operador ya escribió.
    */
   private geocodificarInverso(lat: number, lng: number, sobrescribirDireccion: boolean): void {
+    // Dos consultas distintas y complementarias:
+    //  · el backend arma la dirección CON numeración («Calle 53 # 52-35»),
+    //    que es lo que necesita una unidad en camino. Nominatim devolvía solo
+    //    el nombre de la vía, porque en Colombia OSM casi no trae portales.
+    //  · Nominatim sigue sirviendo para barrio y ciudad, que sí resuelve bien.
+    if (sobrescribirDireccion) {
+      this.geografia.direccionDe(lat, lng).subscribe({
+        next: (d) => {
+          if (!d?.direccion) return;
+          // La dirección del mapa no tiene por qué calzar con el desglose que
+          // el operador hubiera escrito a mano: se limpia para no dejarlo
+          // mostrando partes que ya no corresponden.
+          this.form.patchValue(
+            { viaTipo: '', viaNumero: '', viaLetra: '', numeroGenerador: '', placa: '' },
+            { emitEvent: false },
+          );
+          this.form.patchValue({ direccion: this.conMunicipio(d.direccion) });
+        },
+        error: () => { /* sin dirección: quedan barrio y ciudad, que ya es algo */ },
+      });
+    }
+
     const url = `https://nominatim.openstreetmap.org/reverse?lat=${lat}&lon=${lng}&format=json&addressdetails=1`;
     fetch(url, { headers: { 'Accept-Language': 'es' } })
       .then((r) => r.json())
       .then((d) => {
         const a = d?.address ?? {};
-        const via = [a.road, a.house_number].filter(Boolean).join(' # ');
         const actual = this.form.getRawValue();
-        // El punto vino de un clic en el mapa: la dirección que trae el mapa no
-        // tiene por qué calzar con lo que había en los campos estructurados
-        // (vía/número/letra/generador/placa) — se limpian para no dejarlos
-        // mostrando un desglose que ya no corresponde a la dirección vigente.
-        if (sobrescribirDireccion && via) {
-          this.form.patchValue({ viaTipo: '', viaNumero: '', viaLetra: '', numeroGenerador: '', placa: '' }, { emitEvent: false });
-        }
         this.form.patchValue({
-          direccion: sobrescribirDireccion ? (this.conMunicipio(via) || actual.direccion) : actual.direccion,
           barrio: a.neighbourhood ?? a.suburb ?? a.quarter ?? actual.barrio,
           ciudad: a.city ?? a.town ?? a.village ?? a.municipality ?? actual.ciudad,
         });
       })
-      .catch(() => this.error.set('No fue posible obtener la dirección del punto (sin conexión al mapa).'));
+      .catch(() => { /* barrio y ciudad son ayuda, no requisito: no se alarma al operador */ });
   }
 
   /**
@@ -627,26 +640,33 @@ export class RecepcionComponent implements OnInit {
   buscarDireccion(): void {
     const v = this.form.getRawValue();
     const base = v.direccion.trim() || this.municipioActual();
-    const partes = [base, v.barrio].filter((p) => p?.trim());
-    if (!partes.length) { this.error.set('Escriba una dirección para buscarla.'); return; }
+    if (!base) { this.error.set('Escriba una dirección para buscarla.'); return; }
     this.buscandoDireccion.set(true);
-    const q = encodeURIComponent(partes.join(', '));
-    fetch(`https://nominatim.openstreetmap.org/search?q=${q}&format=json&limit=1`, {
-      headers: { 'Accept-Language': 'es' },
-    })
-      .then((r) => r.json())
-      .then((d) => {
+    this.error.set('');
+
+    // El municipio va como código DANE y no pegado al texto: el backend lo usa
+    // para acotar la búsqueda, y la dirección le llega limpia para poder
+    // desarmarla en vía y cruce.
+    this.geografia.geocodificar(base, this.form.controls.municipioCodigo.value).subscribe({
+      next: (p) => {
         this.buscandoDireccion.set(false);
-        if (!d?.length) { this.error.set('No se encontró esa dirección.'); return; }
-        const lat = Number(d[0].lat);
-        const lng = Number(d[0].lon);
-        this.fijarPunto(lat, lng, true);
-        this.geocodificarInverso(lat, lng, false);
-      })
-      .catch(() => {
+        if (!p) { this.error.set('No se encontró esa dirección.'); return; }
+        this.fijarPunto(p.lat, p.lng, true);
+        // Cuando solo se pudo llegar a la esquina o a una coincidencia
+        // aproximada se dice, en vez de dejar creer que el punto es el portal:
+        // el operador puede corregirlo arrastrando en el mapa.
+        if (p.precision === 'esquina') {
+          this.error.set('Se ubicó la esquina; ajuste el punto si conoce el lugar exacto.');
+        } else if (p.precision === 'aproximada') {
+          this.error.set('Ubicación aproximada: no se pudo resolver la nomenclatura. Verifique el punto.');
+        }
+        this.geocodificarInverso(p.lat, p.lng, false);
+      },
+      error: () => {
         this.buscandoDireccion.set(false);
         this.error.set('No fue posible buscar la dirección (sin conexión al mapa).');
-      });
+      },
+    });
   }
 
   // --- Prioridad ----------------------------------------------------------

@@ -9,6 +9,7 @@ import { Tenant } from '../../core/models';
 import { FormControl, FormGroup, ReactiveFormsModule, Validators } from '@angular/forms';
 import { ToastService } from '../../shared/toast/toast.service';
 import { TemaToggleComponent } from '../../shared/tema-toggle/tema-toggle';
+import { IconoComponent } from '../../shared/icono/icono';
 import { LogoComponent } from '../../shared/logo/logo';
 import { ToastComponent } from '../../shared/toast/toast';
 import { SelectorComponent } from '../../shared/selector/selector';
@@ -17,7 +18,7 @@ import { OpcionComponent } from '../../shared/selector/opcion';
 @Component({
   selector: 'app-shell',
   standalone: true,
-  imports: [ReactiveFormsModule, RouterOutlet, RouterLink, RouterLinkActive, TemaToggleComponent, LogoComponent, ToastComponent, SelectorComponent, OpcionComponent],
+  imports: [ReactiveFormsModule, RouterOutlet, RouterLink, RouterLinkActive, TemaToggleComponent, LogoComponent, IconoComponent, ToastComponent, SelectorComponent, OpcionComponent],
   templateUrl: './shell.html',
   styleUrl: './shell.scss',
   changeDetection: ChangeDetectionStrategy.OnPush,
@@ -170,4 +171,7 @@ export class ShellComponent implements OnInit {
     this.auth.logout();
     this.router.navigate(['/login']);
   }
+
+  /** Inicial del nombre, para el avatar cuando la instancia no tiene logo propio. */
+  readonly inicial = computed(() => (this.sesion()?.nombre ?? '?').trim().charAt(0).toUpperCase());
 }

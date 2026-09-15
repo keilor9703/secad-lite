@@ -16,23 +16,23 @@
       @if (s.tipo === 'institucional') {
         @if (operativoVisible()) {
           @if (puedeRecepcionar()) {
-            <a routerLink="/recepcion" routerLinkActive="active">Recepción</a>
+            <a routerLink="/recepcion" routerLinkActive="active"><app-icono nombre="recepcion" /><span>Recepción</span></a>
           }
           @if (puedeVerDespacho()) {
-            <a routerLink="/despacho" routerLinkActive="active">Despacho</a>
+            <a routerLink="/despacho" routerLinkActive="active"><app-icono nombre="despacho" /><span>Despacho</span></a>
           }
           @if (puedeConsultar()) {
-            <a routerLink="/casos" routerLinkActive="active">Consulta</a>
+            <a routerLink="/casos" routerLinkActive="active"><app-icono nombre="consulta" /><span>Consulta</span></a>
           }
           @if (puedeVerRecursos()) {
-            <a routerLink="/recursos" routerLinkActive="active">Recursos</a>
+            <a routerLink="/recursos" routerLinkActive="active"><app-icono nombre="recursos" /><span>Recursos</span></a>
           }
           <!-- Mapa y Panel son las dos vistas de análisis (metricas.ver): van juntas. -->
           @if (puedeVerPanel()) {
-            <a routerLink="/dashboard" routerLinkActive="active">Panel</a>
+            <a routerLink="/dashboard" routerLinkActive="active"><app-icono nombre="panel" /><span>Panel</span></a>
           }
           @if (puedeVerPanel()) {
-            <a routerLink="/mapa" routerLinkActive="active">Mapa</a>
+            <a routerLink="/mapa" routerLinkActive="active"><app-icono nombre="mapa" /><span>Mapa</span></a>
           }
         }
         <!-- Indicador global de llamadas timbrando sin tomar: visible en cualquier
@@ -40,54 +40,79 @@
         @if (puedeVerLlamadas() && sonando().length > 0) {
           <a routerLink="/recepcion" class="nav-llamadas"
             title="Hay llamadas en espera sin tomar" aria-label="Ir a recepción, hay llamadas en espera sin tomar">
-            <span role="img" aria-label="Llamadas en espera">📞</span> <span class="ring-badge" aria-label="Cantidad de llamadas">{{ sonando().length }}</span>
+            <app-icono nombre="telefono" /> <span class="ring-badge" aria-label="Cantidad de llamadas">{{ sonando().length }}</span>
           </a>
         }
         @if (puedeVerCatalogos()) {
-          <a routerLink="/catalogos" routerLinkActive="active">Catálogos</a>
+          <a routerLink="/catalogos" routerLinkActive="active"><app-icono nombre="catalogos" /><span>Catálogos</span></a>
         }
         @if (esAdmin()) {
-          <a routerLink="/admin" routerLinkActive="active">Administración</a>
+          <a routerLink="/admin" routerLinkActive="active"><app-icono nombre="admin" /><span>Administración</span></a>
         }
         <!-- Solo el dueño de la plataforma: instancias, suscripciones y módulos. -->
         @if (esSuperadmin()) {
-          <a routerLink="/plataforma" routerLinkActive="active">Plataforma</a>
-          <a routerLink="/monitor" routerLinkActive="active">Monitor</a>
+          <a routerLink="/plataforma" routerLinkActive="active"><app-icono nombre="plataforma" /><span>Plataforma</span></a>
+          <a routerLink="/monitor" routerLinkActive="active"><app-icono nombre="monitor" /><span>Monitor</span></a>
         }
       } @else {
-        <a routerLink="/chat" routerLinkActive="active">Mi chat</a>
+        <a routerLink="/chat" routerLinkActive="active"><app-icono nombre="chat" /><span>Mi chat</span></a>
       }
     </nav>
   }
 
   @if (sesion(); as s) {
     <div class="user">
-      @if (logoTenant(); as logo) {
-        <img class="logo-tenant" [src]="logo" alt="" title="Identidad del tenant" />
-      }
+      <!-- Tres grupos separados por su función, no una fila de controles
+           sueltos: dónde estoy parado, cómo se ve, y quién soy con lo que
+           puedo hacer sobre mi propia cuenta. -->
       @if (esSuperadmin()) {
-        <label class="tenant-sel" title="Tenant en gestión">
+        <label class="tenant-sel" title="Instancia en gestión">
           <app-selector [valorActual]="tenantCtx()" (cambio)="cambiarTenant($any($event))"
-            [ariaLabel]="'Tenant en gestión'">
-            <app-opcion [valor]="''" [deshabilitada]="true">tenant…</app-opcion>
+            [ariaLabel]="'Instancia en gestión'">
+            <app-opcion [valor]="''" [deshabilitada]="true">instancia…</app-opcion>
             @for (t of tenants(); track t) {
               <app-opcion [valor]="t.codigo">{{ t.codigo }}</app-opcion>
             }
           </app-selector>
         </label>
-      } @else {
-        <span class="tenant" title="Tenant (instancia)">{{ s.tenant || 'global' }}</span>
       }
-      <span class="who">
-        <span class="name">{{ s.nombre }}</span>
-        <span class="tipo" [class.civil]="s.tipo === 'civil'">{{ s.rol }}</span>
-      </span>
+
       <app-tema-toggle />
-      @if (s.tipo === 'institucional') {
-        <button type="button" class="btn btn--ghost mini-clave"
-        (click)="abrirCambioClave()" title="Cambiar mi contraseña" aria-label="Cambiar mi contraseña">🔑</button>
-      }
-      <button type="button" class="btn btn--ghost" (click)="salir()">Salir</button>
+
+      <div class="perfil">
+        @if (logoTenant(); as logo) {
+          <img class="perfil-logo" [src]="logo" alt="" title="Identidad de la instancia" />
+        } @else {
+          <span class="perfil-inicial" aria-hidden="true">{{ inicial() }}</span>
+        }
+        <span class="perfil-texto">
+          <span class="perfil-nombre">{{ s.nombre }}</span>
+          <span class="perfil-meta">
+            <span class="perfil-rol" [class.civil]="s.tipo === 'civil'">{{ s.rol }}</span>
+            @if (!esSuperadmin() && s.tenant) {
+              <span class="perfil-sep" aria-hidden="true">·</span>
+              <span class="perfil-tenant">{{ s.tenant }}</span>
+            }
+          </span>
+        </span>
+      </div>
+
+      <!-- Cambiar contraseña y salir son las dos acciones sobre la propia
+           cuenta: van juntas en un mismo grupo, no separadas por el resto de
+           la barra como estaban. -->
+      <div class="acciones-cuenta">
+        @if (s.tipo === 'institucional') {
+          <button type="button" class="accion" (click)="abrirCambioClave()"
+            title="Cambiar mi contraseña" aria-label="Cambiar mi contraseña">
+            <app-icono nombre="llave" [tam]="17" />
+          </button>
+        }
+        <button type="button" class="accion accion--salir" (click)="salir()"
+          title="Cerrar sesión" aria-label="Cerrar sesión">
+          <app-icono nombre="salir" [tam]="17" />
+          <span>Salir</span>
+        </button>
+      </div>
     </div>
   }
 

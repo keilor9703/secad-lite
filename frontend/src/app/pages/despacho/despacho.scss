@@ -275,7 +275,8 @@
   color: var(--ink-soft);
 }
 
-// Un punto del color del paso: da identidad al grupo sin teñir las filas.
+// Un punto de color da identidad al grupo sin teñir las filas. «Sin tomar» no
+// lleva: sus filas ya laten en rojo, y repetir la señal la debilita.
 .grupo-tit::before {
   content: '';
   display: inline-block;
@@ -286,7 +287,6 @@
   background: var(--border-2);
   vertical-align: middle;
 }
-.grupo-head[data-estado='nuevo']      .grupo-tit::before { background: var(--danger); }
 .grupo-head[data-estado='en_gestion'] .grupo-tit::before { background: var(--warn); }
 .grupo-head[data-estado='despachado'] .grupo-tit::before { background: var(--accent); }
 
@@ -325,6 +325,33 @@
   // y no como una pila de cajas.
   border-bottom: 1px solid var(--border);
   transition: background 0.12s ease;
+}
+
+// Un caso que nadie ha tomado se reconoce desde el otro lado de la sala, sin
+// leer nada: un difuminado rojo que late, naciendo en el borde del semáforo y
+// apagándose hacia la derecha para no estorbar la lectura. Se apaga solo en
+// cuanto alguien lo toma —deja de ser `nuevo`—, así que el parpadeo dura
+// exactamente lo que dura el pendiente.
+//
+// El latido va de encendido a tenue, y no al revés, para que el reposo sea el
+// estado VISIBLE: así, a quien pide menos movimiento en su sistema, la regla
+// global que corta la animación le deja el aviso puesto y no apagado.
+.fila.sin-tomar { position: relative; isolation: isolate; }
+
+.fila.sin-tomar::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  border-radius: var(--radius-sm);
+  background: radial-gradient(110% 150% at 0% 50%,
+    color-mix(in srgb, var(--danger) 32%, transparent), transparent 75%);
+  animation: latido-sin-tomar 1.8s ease-in-out infinite;
+}
+
+@keyframes latido-sin-tomar {
+  0%, 100% { opacity: 0.9; }
+  50%      { opacity: 0.35; }
 }
 
 .fila:hover { background: var(--surface-2); }

@@ -8,12 +8,15 @@
   border-bottom: 1px solid var(--border);
 }
 
-.brand { display: flex; align-items: center; gap: 0.55rem; }
+// `flex: none` + `nowrap`: el nombre nunca se parte. La barra envuelve sus
+// pestañas cuando el ancho aprieta (ver el comentario del .nav), y sin esto la
+// marca era lo primero que cedía — «CAD» terminaba cayendo debajo de «FALCON».
+.brand { display: flex; align-items: center; gap: 0.55rem; flex: none; }
 .brand .mark {
   width: 30px; height: 30px; display: grid; place-items: center;
   background: var(--accent); color: var(--on-accent); border-radius: 8px; font-size: 1rem;
 }
-.brand strong { font-size: 1rem; font-weight: 600; letter-spacing: -0.01em; }
+.brand strong { font-size: 1rem; font-weight: 600; letter-spacing: -0.01em; white-space: nowrap; }
 .brand span { color: var(--accent); font-weight: 600; }
 
 /**
@@ -28,12 +31,19 @@
  */
 .nav { display: flex; flex-wrap: wrap; row-gap: 0.25rem; gap: 0.3rem; }
 .nav a {
-  text-decoration: none; color: var(--ink-soft); font-weight: 500; font-size: 0.9rem;
-  padding: 0.4rem 0.7rem; border-radius: 7px;
+  display: inline-flex; align-items: center; gap: 0.45rem;
+  text-decoration: none; color: var(--ink-soft); font-weight: 500; font-size: 0.88rem;
+  padding: 0.42rem 0.7rem; border-radius: 8px;
   transition: background 0.15s ease, color 0.15s ease;
 }
+// El icono pesa menos que la palabra: acompaña, no compite. Al activarse la
+// pestaña sube a la par del texto y el conjunto se lee como una sola pieza.
+.nav a app-icono { opacity: 0.62; transition: opacity 0.15s ease; }
 .nav a:hover { background: var(--surface-2); color: var(--ink); }
-.nav a.active { background: var(--accent-soft); color: var(--accent); }
+.nav a:hover app-icono { opacity: 0.9; }
+.nav a.active { background: var(--accent-soft); color: var(--accent); font-weight: 600; }
+.nav a.active app-icono { opacity: 1; }
+.nav a:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
 .nav-llamadas { display: inline-flex; align-items: center; gap: 0.35rem; }
 
 /** Hamburguesa: oculta en escritorio, la muestra la media query de abajo. */
@@ -54,18 +64,70 @@
 }
 @keyframes ringpulse { 0%,100% { transform: scale(1); } 50% { transform: scale(1.18); } }
 
-.user { margin-left: auto; display: flex; align-items: center; gap: 0.8rem; }
-/* Bandera/logo del tenant: sutil, no compite con la marca del sistema, pero
-   debe alcanzar a distinguirse — no quedar como un punto al lado del tenant. */
-.logo-tenant { width: 26px; height: 26px; border-radius: 6px; object-fit: cover; border: 1px solid var(--border); flex: none; }
-.tenant {
-  font-family: var(--mono); font-size: 0.72rem; text-transform: uppercase; letter-spacing: 0.06em;
-  background: var(--surface-2); color: var(--ink-soft); padding: 0.25rem 0.5rem; border-radius: 6px;
+// El bloque derecho son TRES grupos con sentido propio —dónde estoy, cómo se
+// ve, quién soy—, separados por más aire entre grupos que dentro de ellos. Antes
+// era una fila de controles sueltos a distancia pareja, y por eso la llave de
+// cambiar contraseña parecía no tener nada que ver con «Salir».
+.user {
+  margin-left: auto;
+  display: flex; align-items: center; gap: 0.85rem;
 }
-.who { display: flex; flex-direction: column; line-height: 1.15; text-align: right; }
-.who .name { font-weight: 500; font-size: 0.88rem; }
-.who .tipo { font-size: 0.7rem; color: var(--accent); text-transform: capitalize; }
-.who .tipo.civil { color: var(--warn); }
+
+// Identidad: avatar + dos líneas con aire suficiente para leerse como ficha.
+.perfil {
+  display: flex; align-items: center; gap: 0.55rem;
+  padding: 0.25rem 0.7rem 0.25rem 0.3rem;
+  border: 1px solid var(--border); border-radius: 999px;
+  background: var(--surface-2);
+}
+
+.perfil-logo,
+.perfil-inicial {
+  width: 28px; height: 28px; flex: none; border-radius: 50%;
+  object-fit: cover;
+}
+
+.perfil-inicial {
+  display: grid; place-items: center;
+  background: var(--accent); color: var(--on-accent);
+  font-size: 0.82rem; font-weight: 600; line-height: 1;
+}
+
+.perfil-texto { display: flex; flex-direction: column; gap: 0.1rem; min-width: 0; }
+
+.perfil-nombre {
+  font-size: 0.85rem; font-weight: 600; line-height: 1.2;
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 16ch;
+}
+
+.perfil-meta {
+  display: flex; align-items: center; gap: 0.3rem;
+  font-size: 0.68rem; line-height: 1.2; color: var(--muted);
+}
+
+.perfil-rol { color: var(--accent); text-transform: capitalize; font-weight: 600; letter-spacing: 0.02em; }
+.perfil-rol.civil { color: var(--warn); }
+.perfil-tenant { font-family: var(--mono); }
+
+// Las dos acciones sobre la propia cuenta, en un solo grupo.
+.acciones-cuenta {
+  display: flex; align-items: center; gap: 0.15rem;
+  padding: 0.15rem;
+  border: 1px solid var(--border); border-radius: 999px;
+}
+
+.accion {
+  display: inline-flex; align-items: center; gap: 0.35rem;
+  font: inherit; font-size: 0.82rem; font-weight: 500;
+  color: var(--ink-soft); cursor: pointer;
+  background: transparent; border: 0; border-radius: 999px;
+  padding: 0.35rem 0.55rem;
+  transition: background 0.15s ease, color 0.15s ease;
+}
+.accion:hover { background: var(--surface-2); color: var(--ink); }
+.accion:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
+.accion--salir { padding-right: 0.75rem; }
+.accion--salir:hover { background: var(--tag-danger-bg); color: var(--tag-danger-fg); }
 
 /**
  * Esto es una consola de operación, no un artículo: aprovecha el ancho de la
@@ -96,8 +158,14 @@
   .nav a { padding: 0.7rem 0.8rem; }
 
   .topbar { gap: 0.8rem; flex-wrap: wrap; }
-  .user { flex-wrap: wrap; justify-content: flex-end; row-gap: 0.5rem; }
-  .who .name { max-width: 90px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .user { flex-wrap: wrap; justify-content: flex-end; row-gap: 0.5rem; gap: 0.5rem; }
+  // En pantalla angosta la ficha se reduce al avatar y el botón de salir a su
+  // icono: el nombre completo y la palabra «Salir» son lo primero que sobra
+  // cuando el ancho aprieta.
+  .perfil-texto { display: none; }
+  .perfil { padding: 0.2rem; }
+  .accion--salir span { display: none; }
+  .accion--salir { padding-right: 0.55rem; }
 }
 
 /* Selector de tenant en gestión (solo superadmin). */

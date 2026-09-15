@@ -80,4 +80,13 @@ export class GeografiaService {
       return null;
     }
   }
+
+  /** El municipio con su punto ya resuelto, para acotar una búsqueda de dirección. */
+  async municipioConPunto(codigoDane: string): Promise<{ nombre: string; lat: number; lng: number } | null> {
+    const m = await this.municipioPorCodigo(codigoDane);
+    if (!m) return null;
+    const centro = await this.centroideDe(codigoDane);
+    if (!centro) return null;
+    return { nombre: m.nombre, lat: centro.lat, lng: centro.lng };
+  }
 }

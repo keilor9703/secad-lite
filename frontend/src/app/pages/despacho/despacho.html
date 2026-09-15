@@ -130,7 +130,8 @@
               <button type="button" class="fila" (click)="abrir(c)"
                 [attr.data-sem]="semaforo(c)"
                 [class.activa]="seleccionado() === c.id"
-                [class.sin-ver]="noVisto(c)">
+                [class.sin-ver]="noVisto(c)"
+                [class.sin-tomar]="c.estado === 'nuevo'">
                 <span class="f-sem" aria-hidden="true"></span>
                 <span class="f-espera" [attr.title]="'En cola hace ' + espera(c)">{{ esperaCorta(c) }}</span>
                 <span class="f-cuerpo">
