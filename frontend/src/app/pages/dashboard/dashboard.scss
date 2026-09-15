@@ -7,7 +7,7 @@
 .filtros { display: flex; gap: 0.6rem; flex-wrap: wrap; align-items: center; }
 .rango { display: inline-flex; align-items: center; gap: 0.4rem; }
 .rango label { font-size: 0.8rem; color: var(--muted); }
-.rango input[type='date'] { width: auto; }
+.rango app-fecha { width: 145px; }
 .dato-periodo { font-size: 0.8rem; color: var(--muted); }
 .mini { padding: 0.3rem 0.6rem; font-size: 0.78rem; }
 

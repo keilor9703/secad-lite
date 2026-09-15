@@ -1,0 +1,50 @@
+<div class="fecha" (focusout)="onFocusOut()">
+  <button
+    type="button"
+    class="fecha-disparador"
+    [id]="id()"
+    [attr.aria-label]="ariaLabel()"
+    [attr.aria-haspopup]="'dialog'"
+    [attr.aria-expanded]="abierto()"
+    [disabled]="deshabilitadoEfectivo()"
+    (click)="alternar()"
+    (keydown)="onKeydown($event)"
+  >
+    <span class="fecha-etq" [class.vacia]="!etiquetaActual()">{{ etiquetaActual() || placeholder() }}</span>
+  </button>
+
+  @if (abierto()) {
+    <div class="fecha-cal" role="dialog" [attr.aria-label]="'Elegir fecha'" (keydown)="onKeydown($event)">
+      <div class="cal-cab">
+        <button type="button" class="cal-nav" aria-label="Mes anterior"
+          (mousedown)="$event.preventDefault()" (click)="mesAnterior()">‹</button>
+        <span class="cal-mes">{{ etiquetaMes() }}</span>
+        <button type="button" class="cal-nav" aria-label="Mes siguiente"
+          (mousedown)="$event.preventDefault()" (click)="mesSiguiente()">›</button>
+      </div>
+      <div class="cal-semana">
+        @for (d of diasSemana; track d) {
+          <span>{{ d }}</span>
+        }
+      </div>
+      <div class="cal-grilla">
+        @for (c of celdas(); track c.iso) {
+          <button type="button" class="cal-dia"
+            [class.fuera]="!c.enMes"
+            [class.hoy]="c.iso === hoyIso"
+            [class.activo]="c.iso === valorActivo()"
+            [attr.aria-current]="c.iso === hoyIso ? 'date' : null"
+            [attr.aria-selected]="c.iso === valorActivo()"
+            (mousedown)="$event.preventDefault()"
+            (click)="elegir(c)">
+            {{ c.fecha.getDate() }}
+          </button>
+        }
+      </div>
+      <div class="cal-pie">
+        <button type="button" class="btn btn--ghost mini" (mousedown)="$event.preventDefault()" (click)="hoy()">Hoy</button>
+        <button type="button" class="btn btn--ghost mini" (mousedown)="$event.preventDefault()" (click)="limpiar()">Limpiar</button>
+      </div>
+    </div>
+  }
+</div>

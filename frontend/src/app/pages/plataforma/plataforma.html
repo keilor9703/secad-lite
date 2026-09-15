@@ -27,7 +27,33 @@
     </form>
   </div>
 
-  @for (t of tenants(); track t) {
+  <div class="filtros">
+    <input [ngModel]="filtroTexto()" (ngModelChange)="filtroTexto.set($event)"
+      placeholder="Buscar por nombre, código o código DANE…" aria-label="Buscar instancia" />
+    <app-selector [valorActual]="filtroDepartamento()" (cambio)="cambiarFiltroDepartamento($any($event))"
+      [ariaLabel]="'Filtrar por departamento'">
+      <app-opcion [valor]="null">Todos los departamentos</app-opcion>
+      @for (d of departamentosDisponibles(); track d) {
+        <app-opcion [valor]="d">{{ d }}</app-opcion>
+      }
+    </app-selector>
+    <app-selector [valorActual]="filtroSubregion()" (cambio)="filtroSubregion.set($any($event))"
+      [ariaLabel]="'Filtrar por subregión'" [disabled]="!subregionesDisponibles().length">
+      <app-opcion [valor]="null">Toda subregión</app-opcion>
+      @for (s of subregionesDisponibles(); track s) {
+        <app-opcion [valor]="s">{{ s }}</app-opcion>
+      }
+    </app-selector>
+    <span class="conteo">{{ tenantsFiltrados().length }} de {{ tenants().length }}</span>
+    @if (filtroTexto() || filtroDepartamento() || filtroSubregion()) {
+      <button type="button" class="btn btn--ghost mini" (click)="limpiarFiltros()">Quitar filtros</button>
+    }
+  </div>
+  @if (tenants().length && !tenantsFiltrados().length) {
+    <p class="vacio-inline">Ninguna instancia coincide con la búsqueda.</p>
+  }
+
+  @for (t of tenantsFiltrados(); track t) {
     <div class="tenant card">
       <div class="t-head">
         @if (t.logoDataUrl) {
@@ -76,7 +102,7 @@
         </label>
         <label class="campo">
           <span>Vence</span>
-          <input type="date" [value]="t.vence" (change)="actualizar(t, { vence: $any($event.target).value })" />
+          <app-fecha [valorActual]="t.vence" (cambio)="actualizar(t, { vence: $event })" />
         </label>
       </div>
       <div class="integraciones">

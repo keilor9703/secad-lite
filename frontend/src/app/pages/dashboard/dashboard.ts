@@ -8,6 +8,7 @@ import {
   Cumplimiento, Hallazgos, MetricasService, Ranking, Resumen, ResumenLlamadas, Tendencia,
 } from '../../core/metricas.service';
 import { ExportarService } from '../../core/exportar.service';
+import { FechaComponent } from '../../shared/fecha/fecha';
 
 interface Barra { etiqueta: string; valor: number; clave: string; }
 
@@ -17,7 +18,7 @@ interface Variacion { pct: number; direccion: 'sube' | 'baja' | 'igual'; bueno: 
 @Component({
   selector: 'app-dashboard',
   standalone: true,
-  imports: [ReactiveFormsModule],
+  imports: [ReactiveFormsModule, FechaComponent],
   templateUrl: './dashboard.html',
   styleUrl: './dashboard.scss',
   changeDetection: ChangeDetectionStrategy.OnPush,

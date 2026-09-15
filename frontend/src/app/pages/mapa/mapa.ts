@@ -9,6 +9,7 @@ import { CodigoCaso } from '../../core/models';
 import { CasosWsService } from '../../core/casos-ws.service';
 import { SelectorComponent } from '../../shared/selector/selector';
 import { OpcionComponent } from '../../shared/selector/opcion';
+import { FechaComponent } from '../../shared/fecha/fecha';
 
 type ModoVista = 'calor' | 'cluster' | 'puntos';
 
@@ -24,7 +25,7 @@ interface Barra { etiqueta: string; valor: number; }
 @Component({
   selector: 'app-mapa',
   standalone: true,
-  imports: [ReactiveFormsModule, SelectorComponent, OpcionComponent],
+  imports: [ReactiveFormsModule, SelectorComponent, OpcionComponent, FechaComponent],
   templateUrl: './mapa.html',
   styleUrl: './mapa.scss',
   changeDetection: ChangeDetectionStrategy.OnPush,

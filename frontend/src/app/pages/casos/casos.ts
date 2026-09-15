@@ -7,6 +7,7 @@ import { AuthService } from '../../core/auth.service';
 import { Canal, Caso, EstadoCaso, PrioridadCaso } from '../../core/models';
 import { SelectorComponent } from '../../shared/selector/selector';
 import { OpcionComponent } from '../../shared/selector/opcion';
+import { FechaComponent } from '../../shared/fecha/fecha';
 
 /**
  * Consulta y seguimiento: la bandeja completa con búsqueda. Es la vista de
@@ -16,7 +17,7 @@ import { OpcionComponent } from '../../shared/selector/opcion';
 @Component({
   selector: 'app-casos',
   standalone: true,
-  imports: [CommonModule, ReactiveFormsModule, RouterLink, SelectorComponent, OpcionComponent],
+  imports: [CommonModule, ReactiveFormsModule, RouterLink, SelectorComponent, OpcionComponent, FechaComponent],
   templateUrl: './casos.html',
   styleUrl: './casos.scss',
   changeDetection: ChangeDetectionStrategy.OnPush,

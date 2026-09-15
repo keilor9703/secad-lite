@@ -6,6 +6,7 @@ import { EstadoSuscripcion, PlanTenant, Tenant } from '../../core/models';
 import { SelectorMunicipioComponent } from '../../shared/selector-municipio/selector-municipio';
 import { SelectorComponent } from '../../shared/selector/selector';
 import { OpcionComponent } from '../../shared/selector/opcion';
+import { FechaComponent } from '../../shared/fecha/fecha';
 
 /**
  * Supervisión de la plataforma: es la vista del dueño de FALCON CAD, no la del
@@ -16,7 +17,7 @@ import { OpcionComponent } from '../../shared/selector/opcion';
 @Component({
   selector: 'app-plataforma',
   standalone: true,
-  imports: [CommonModule, ReactiveFormsModule, FormsModule, SelectorMunicipioComponent, SelectorComponent, OpcionComponent],
+  imports: [CommonModule, ReactiveFormsModule, FormsModule, SelectorMunicipioComponent, SelectorComponent, OpcionComponent, FechaComponent],
   templateUrl: './plataforma.html',
   styleUrl: './plataforma.scss',
   changeDetection: ChangeDetectionStrategy.OnPush,
@@ -29,6 +30,55 @@ export class PlataformaComponent implements OnInit {
 
   /** Cuentas de todas las instancias — cada tenant ya trae su propio conteo (GET /tenants). */
   readonly totalCuentas = computed(() => this.tenants().reduce((s, t) => s + (t.totalUsuarios ?? 0), 0));
+
+  // --- Búsqueda y filtros -----------------------------------------------
+  readonly filtroTexto = signal('');
+  readonly filtroDepartamento = signal<string | null>(null);
+  readonly filtroSubregion = signal<string | null>(null);
+
+  /** Departamentos con al menos una instancia, para el filtro. */
+  readonly departamentosDisponibles = computed(() => {
+    const s = new Set(this.tenants().map((t) => t.departamento).filter((d): d is string => !!d));
+    return [...s].sort((a, b) => a.localeCompare(b));
+  });
+  /** Subregiones del departamento elegido (todas, si no hay uno elegido). */
+  readonly subregionesDisponibles = computed(() => {
+    const depto = this.filtroDepartamento();
+    const base = depto ? this.tenants().filter((t) => t.departamento === depto) : this.tenants();
+    const s = new Set(base.map((t) => t.subregion).filter((x): x is string => !!x));
+    return [...s].sort((a, b) => a.localeCompare(b));
+  });
+
+  /** Minúsculas y sin acentos, para buscar como habla la gente. */
+  private normalizar(t: string): string {
+    return (t ?? '').toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '');
+  }
+
+  readonly tenantsFiltrados = computed(() => {
+    const q = this.normalizar(this.filtroTexto().trim());
+    const depto = this.filtroDepartamento();
+    const subregion = this.filtroSubregion();
+    return this.tenants().filter((t) => {
+      if (depto && t.departamento !== depto) return false;
+      if (subregion && t.subregion !== subregion) return false;
+      if (!q) return true;
+      return this.normalizar(t.codigo).includes(q)
+        || this.normalizar(t.nombre).includes(q)
+        || this.normalizar(t.codigoDane ?? '').includes(q);
+    });
+  });
+
+  limpiarFiltros(): void {
+    this.filtroTexto.set('');
+    this.filtroDepartamento.set(null);
+    this.filtroSubregion.set(null);
+  }
+
+  /** Al cambiar de departamento, una subregión de otro departamento ya no aplica. */
+  cambiarFiltroDepartamento(depto: string | null): void {
+    this.filtroDepartamento.set(depto);
+    this.filtroSubregion.set(null);
+  }
 
   readonly planes: PlanTenant[] = ['basico', 'estandar', 'avanzado'];
   readonly estados: EstadoSuscripcion[] = ['prueba', 'activa', 'suspendida'];

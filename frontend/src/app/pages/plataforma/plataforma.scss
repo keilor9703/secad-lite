@@ -16,6 +16,11 @@
 .crear-inline input { width: auto; flex: 1; min-width: 160px; }
 .crear-inline.sub { margin-top: 0.2rem; }
 
+.filtros { display: flex; gap: 0.5rem; flex-wrap: wrap; align-items: center; }
+.filtros input { flex: 2; min-width: 220px; }
+.filtros app-selector { width: auto; flex: 1; min-width: 170px; }
+.vacio-inline { color: var(--muted); font-size: 0.82rem; }
+
 .t-head { display: flex; align-items: flex-start; justify-content: space-between; gap: 1rem; flex-wrap: wrap; }
 .t-logo { width: 34px; height: 34px; border-radius: 6px; object-fit: cover; border: 1px solid var(--border); flex: none; }
 .t-logo-fila { display: flex; gap: 0.5rem; align-items: center; }

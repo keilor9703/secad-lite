@@ -40,7 +40,4 @@ tbody tr:last-child td { border-bottom: none; }
 .filtros { flex-wrap: wrap; }
 .rango { display: inline-flex; align-items: center; gap: 0.4rem; flex-wrap: wrap; }
 .rango label { font-size: 0.8rem; color: var(--muted); }
-/* La regla general ".filtros input" (min-width: 240px, flex: 1) es para el
-   buscador de texto; sin anularla aquí, cada input[date] la heredaba también
-   y el par (480px) por sí solo desbordaba cualquier pantalla de celular. */
-.rango input[type='date'] { width: auto; min-width: 0; flex: none; }
+.rango app-fecha { width: 145px; flex: none; }
