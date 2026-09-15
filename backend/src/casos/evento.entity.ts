@@ -1,9 +1,18 @@
 import { Column, CreateDateColumn, Entity, Index, PrimaryGeneratedColumn } from 'typeorm';
 
-/** Tipo de evento en la bitácora de un caso. */
-export type TipoEvento = 'creacion' | 'estado' | 'derivacion' | 'nota' | 'despacho';
+/**
+ * Tipo de evento en la bitácora de un caso.
+ *
+ * `estado` es el macro-estado del caso (el de la tabla `casos`) y es el que
+ * alimenta las métricas. `estado_canal` es el avance de UNA entidad sobre el
+ * caso, y va aparte a propósito: si los cambios por canal escribieran `estado`,
+ * un caso atendido por tres agencias contaría como tres cierres en el Panel y
+ * en el ranking de operadores (ver la consulta de MetricasService.ranking, que
+ * filtra `ce.tipo = 'estado'`).
+ */
+export type TipoEvento = 'creacion' | 'estado' | 'estado_canal' | 'derivacion' | 'nota' | 'despacho';
 
-export const TIPOS_EVENTO: TipoEvento[] = ['creacion', 'estado', 'derivacion', 'nota', 'despacho'];
+export const TIPOS_EVENTO: TipoEvento[] = ['creacion', 'estado', 'estado_canal', 'derivacion', 'nota', 'despacho'];
 
 /**
  * Bitácora de auditoría de un caso: una fila por acción (creación, cambio de

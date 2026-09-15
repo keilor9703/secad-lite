@@ -27,7 +27,20 @@ export interface Caso {
   agenciaResponsableId?: string | null;
   /** Canales de atención a los que se envió. */
   canales?: string[] | null;
+  /**
+   * Estado del caso. En la vista de bandeja (Despacho, `porCanal=true`) el
+   * backend lo sustituye por el estado de ESE canal — que es lo que el tablero
+   * agrupa en columnas. En Consulta y los reportes es el macro-estado del caso,
+   * que solo llega a `cerrado` cuando todas las entidades cerraron lo suyo.
+   */
   estado: EstadoCaso;
+  /** Cuándo entró a la bandeja del canal que se está mirando (solo con `porCanal`). */
+  enColaDesde?: string;
+  /**
+   * El avance de cada entidad que atiende el caso. Llega por el socket para que
+   * cada tablero se quede con el canal que está mirando, sin pedir nada más.
+   */
+  canalesEstado?: Array<{ canalId: string; agenciaId: string; estado: EstadoCaso }>;
   /** Solicitud de reapertura pendiente de que un supervisor la resuelva. */
   reaperturaSolicitada?: boolean;
   reaperturaMotivo?: string | null;

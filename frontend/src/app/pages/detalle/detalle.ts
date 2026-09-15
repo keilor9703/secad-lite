@@ -74,6 +74,14 @@ export class DetalleComponent implements OnInit, OnDestroy {
   readonly casoId = input<string>();
   /** Oculta el enlace de volver cuando ya se está dentro de otro módulo. */
   readonly incrustado = input(false);
+  /**
+   * Bandeja desde la que se está trabajando el caso, cuando el detalle vive
+   * dentro del tablero de Despacho. Viaja con cada acción: un mismo caso lo
+   * atienden varias entidades y el servidor necesita saber cuál de ellas está
+   * tomando, despachando o cerrando. Sin esto, el cambio se aplicaba al estado
+   * global y afectaba a todas las agencias a la vez.
+   */
+  readonly canalId = input<string | null>(null);
   /** Avisa al módulo que lo contiene: el tablero se recarga y el caso se mueve. */
   readonly cambiado = output<void>();
 
@@ -305,7 +313,7 @@ export class DetalleComponent implements OnInit, OnDestroy {
    */
   private tomarSiEsNuevo(c: Caso): void {
     if (c.estado !== 'nuevo' || !this.auth.tienePermiso('casos.gestionar')) return;
-    this.casosSvc.tomar(c.id).subscribe({
+    this.casosSvc.tomar(c.id, this.canalId()).subscribe({
       next: (act) => { this.caso.set(act); this.cargarAuditoria(); this.cambiado.emit(); },
       error: () => {},
     });
@@ -345,7 +353,7 @@ export class DetalleComponent implements OnInit, OnDestroy {
     }
     const codigoCasoFinal = v.codigoCasoFinal.split(' — ')[0].trim() || undefined;
     this.cerrando.set(true);
-    this.casosSvc.cerrar(this.id, v.codigo, v.comentario.trim(), codigoCasoFinal).subscribe({
+    this.casosSvc.cerrar(this.id, v.codigo, v.comentario.trim(), codigoCasoFinal, this.canalId()).subscribe({
       next: (c) => {
         this.caso.set(c);
         this.cerrando.set(false);
@@ -430,7 +438,7 @@ export class DetalleComponent implements OnInit, OnDestroy {
   cargar(): void {
     this.cargando.set(true);
     this.error.set('');
-    this.casosSvc.obtener(this.id).subscribe({
+    this.casosSvc.obtener(this.id, this.canalId()).subscribe({
       next: (c) => {
         this.caso.set(c);
         this.cargarAuditoria();
@@ -459,7 +467,7 @@ export class DetalleComponent implements OnInit, OnDestroy {
         && !window.confirm('El caso tiene recursos en atención. Al cerrar se liberarán automáticamente. ¿Continuar?')) {
       return;
     }
-    this.casosSvc.cambiarEstado(this.id, estado, agencia).subscribe({
+    this.casosSvc.cambiarEstado(this.id, estado, agencia, this.canalId()).subscribe({
       next: (c) => {
         this.caso.set(c);
         this.cargarAuditoria();

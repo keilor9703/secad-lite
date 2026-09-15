@@ -1,13 +1,13 @@
 import { BadRequestException, ForbiddenException, Injectable, NotFoundException, OnModuleInit, Inject, forwardRef, Optional, Logger } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Between, EntityManager, FindOptionsWhere, LessThan, MoreThanOrEqual, Not, Repository, Brackets } from 'typeorm';
+import { Between, EntityManager, FindOptionsWhere, In, LessThan, MoreThanOrEqual, Not, Repository, Brackets } from 'typeorm';
 import { CasoEntity } from './caso.entity';
 import { EventoCasoEntity, TipoEvento } from './evento.entity';
 import { CANALES, EstadoCaso, ESTADOS, PRIORIDADES } from './caso.model';
 import { CatalogosService } from '../catalogos/catalogos.service';
 import { DespachoService } from '../despacho/despacho.service';
 import { TenantsService } from '../tenants/tenants.service';
-import { CasosGateway } from './casos.gateway';
+import { CasoEnVivo, CasosGateway } from './casos.gateway';
 import { TenantRlsService } from '../common/tenant-rls.service';
 
 /**
@@ -15,6 +15,14 @@ import { TenantRlsService } from '../common/tenant-rls.service';
  * PermisosGuard), no los del token. `canales` son las colas que atiende, y
  * definen qué casos puede siquiera ver.
  */
+/**
+ * Un caso visto DESDE un canal concreto. `estado` viene sustituido por el de
+ * ese canal —que es lo que el tablero agrupa— y `enColaDesde` dice cuándo
+ * llegó a esa bandeja, que no es lo mismo que cuándo ocurrió el hecho: un caso
+ * remitido a bomberos tres horas después empieza a contar para ellos ahí.
+ */
+export type CasoEnCanal = CasoEntity & { enColaDesde: Date };
+
 export interface Actor {
   sub: string;
   rol: string;
@@ -23,6 +31,8 @@ export interface Actor {
   /** Agencia del funcionario; queda como origen de lo que recepcione. */
   agencia?: string | null;
 }
+import { CasoCanalEntity } from './caso-canal.entity';
+import { CasoCanalService } from './caso-canal.service';
 import { CrearCasoDto } from './dto/crear-caso.dto';
 import { CambiarEstadoDto } from './dto/cambiar-estado.dto';
 import { RemitirDto } from './dto/remitir.dto';
@@ -42,6 +52,7 @@ export class CasosService implements OnModuleInit {
     private readonly repo: Repository<CasoEntity>,
     @InjectRepository(EventoCasoEntity)
     private readonly eventos: Repository<EventoCasoEntity>,
+    private readonly canales_: CasoCanalService,
     private readonly despacho: DespachoService,
     private readonly catalogos: CatalogosService,
     private readonly tenants: TenantsService,
@@ -66,8 +77,14 @@ export class CasosService implements OnModuleInit {
   async listar(
     tenant: string,
     actor: Actor,
-    opts?: { limite?: number; abiertos?: boolean; desde?: string; hasta?: string },
+    opts?: { limite?: number; abiertos?: boolean; desde?: string; hasta?: string; canalId?: string | null; porCanal?: boolean },
   ): Promise<CasoEntity[]> {
+    // Vista de bandeja (Despacho): se mira UN canal a la vez y el estado que
+    // manda es el de ese canal, no el macro-estado del caso. Consulta y los
+    // reportes siguen por el camino de abajo, con el caso completo.
+    if (opts?.porCanal) {
+      return this.listarPorCanal(tenant, actor, opts);
+    }
     return this.rls.conTenant(tenant, async (manager) => {
       const repo = manager.getRepository(CasoEntity);
       const limite = Math.min(Math.max(Math.trunc(opts?.limite ?? 200) || 200, 1), 500);
@@ -132,6 +149,75 @@ export class CasosService implements OnModuleInit {
       || actor.permisos.includes('roles.gestionar');
   }
 
+  // --- Estado por canal ------------------------------------------------------
+  //
+  // La mecánica (abrir bandejas, cerrar las que salen, recalcular el
+  // macro-estado) vive en CasoCanalService, que DespachoService también usa.
+  // Aquí queda solo lo que depende de permisos y catálogos.
+
+  /**
+   * Adjunta al caso el estado de cada entidad que lo atiende, para que el
+   * evento en vivo le sirva a todas las pantallas a la vez: cada tablero se
+   * queda con el canal que está mirando. Si falla, se emite el caso sin los
+   * estados — un problema al leer la tabla no debe impedir que el tablero se
+   * entere de que algo cambió.
+   */
+  private async conEstadosDeCanal(tenant: string, caso: CasoEntity): Promise<CasoEnVivo> {
+    try {
+      const filas = await this.rls.conTenant(tenant, (m) => this.canales_.filas(m, tenant, caso.id));
+      return Object.assign(caso, {
+        canalesEstado: filas.map((f) => ({ canalId: f.canalId, agenciaId: f.agenciaId, estado: f.estado })),
+      });
+    } catch {
+      return caso;
+    }
+  }
+
+  /**
+   * Desde qué bandeja se está ejecutando la acción.
+   *
+   * Lo dice el cliente: es el canal que el despachador tiene abierto. No basta
+   * con deducirlo de `actor.canales`, porque un supervisor o un administrador
+   * no tienen canal propio —eligen la bandeja con el selector—, y al no
+   * encontrarles ninguno la acción se iba por el camino de compatibilidad y
+   * movía el MACRO-estado del caso en vez de la fila de su canal. Resultado:
+   * abrir un caso desde policía lo marcaba «en gestión» para todo el mundo y
+   * cerrarlo lo cerraba para todo el mundo, que es exactamente lo que este
+   * rediseño vino a impedir.
+   *
+   * Se valida igual que la lectura: nadie actúa sobre una bandeja que no puede
+   * ver, aunque mande el id a mano.
+   */
+  private async canalDeAccion(tenant: string, actor: Actor, pedido?: string | null): Promise<string | null> {
+    const propio = (actor.canales ?? [])[0] ?? null;
+    return this.resolverCanalVista(tenant, actor, pedido ?? propio);
+  }
+
+  /**
+   * El canal por el que este funcionario mira la bandeja.
+   *
+   * Regla del sistema: se ve un canal a la vez. Un operador tiene el suyo
+   * configurado y no elige; un supervisor o administrador elige con el selector
+   * y aquí se verifica que el elegido esté dentro de su alcance — sin esta
+   * comprobación, bastaría con cambiar el parámetro de la URL para leer la
+   * bandeja de otra entidad.
+   */
+  private async resolverCanalVista(
+    tenant: string,
+    actor: Actor,
+    pedido?: string | null,
+  ): Promise<string | null> {
+    const propio = (actor.canales ?? [])[0] ?? null;
+    if (!pedido) return propio;
+    if (propio === pedido) return pedido;
+    if (this.irrestricto(actor)) return pedido;
+    if (actor.permisos.includes('casos.ver_todos') && actor.agencia) {
+      const canal = (await this.catalogos.listarCanales(tenant, actor.agencia)).find((c) => c.id === pedido);
+      return canal ? pedido : null;
+    }
+    return null;
+  }
+
   /** aaaa-mm-dd → Date, o null si viene vacío o malformado. */
   private fechaValida(v?: string): Date | null {
     if (!v || !/^\d{4}-\d{2}-\d{2}$/.test(v)) return null;
@@ -148,10 +234,94 @@ export class CasosService implements OnModuleInit {
    */
   private alcanza(caso: CasoEntity, actor: Actor): boolean {
     if (this.irrestricto(actor)) return true;
-    if (actor.permisos.includes('casos.ver_todos')) return !!actor.agencia && caso.agenciaResponsableId === actor.agencia;
-    if (caso.creadoPor === actor.sub) return true;
+
+    // Tener el caso en la propia bandeja alcanza, sin importar de quién sea la
+    // agencia «principal». Esta comprobación va PRIMERO a propósito: antes,
+    // quien tenía `casos.ver_todos` se resolvía solo contra
+    // `agenciaResponsableId`, y un supervisor de bomberos no podía tocar un
+    // caso que había entrado por policía aunque estuviera en su propio canal
+    // —lo veía en el tablero y la acción se lo negaba—. La agencia principal
+    // nombra a UNA entidad; el caso lo atienden varias.
     const mios = new Set(actor.canales ?? []);
-    return (caso.canales ?? []).some((id) => mios.has(id));
+    if ((caso.canales ?? []).some((id) => mios.has(id))) return true;
+
+    if (actor.permisos.includes('casos.ver_todos')) return !!actor.agencia && caso.agenciaResponsableId === actor.agencia;
+    return caso.creadoPor === actor.sub;
+  }
+
+  /**
+   * La bandeja de UN canal.
+   *
+   * Dos consultas en vez de un JOIN a propósito: la primera va directo contra
+   * el índice (tenant, canalId, estado) de `casos_canales` y acota el universo
+   * al tamaño de la página; la segunda trae esos casos por id. Es más legible
+   * que un join con selects crudos, y el plan de ejecución es el que se busca.
+   *
+   * Lo que sale lleva el `estado` del CANAL, no el del caso: es lo que el
+   * tablero agrupa en columnas. Como solo se mira un canal a la vez, no hay
+   * ambigüedad posible sobre cuál estado mostrar.
+   */
+  private async listarPorCanal(
+    tenant: string,
+    actor: Actor,
+    opts: { limite?: number; abiertos?: boolean; desde?: string; hasta?: string; canalId?: string | null },
+  ): Promise<CasoEnCanal[]> {
+    const canalId = await this.resolverCanalVista(tenant, actor, opts.canalId);
+    // Sin canal no hay bandeja: ni el operador sin canal configurado, ni el
+    // supervisor que todavía no eligió uno en el selector. Lista vacía, no error.
+    if (!canalId) return [];
+
+    return this.rls.conTenant(tenant, async (manager) => {
+      const limite = Math.min(Math.max(Math.trunc(opts.limite ?? 200) || 200, 1), 500);
+      const qb = manager.getRepository(CasoCanalEntity).createQueryBuilder('cc')
+        .where('cc.tenant = :tenant AND cc.canalId = :canalId', { tenant, canalId });
+      if (opts.abiertos) qb.andWhere("cc.estado != 'cerrado'");
+
+      const desde = this.fechaValida(opts.desde);
+      const hasta = this.fechaValida(opts.hasta);
+      const finExclusivo = hasta ? new Date(hasta.getTime() + 864e5) : null;
+      if (desde) qb.andWhere('cc.creadoEn >= :desde', { desde });
+      if (finExclusivo) qb.andWhere('cc.creadoEn < :hasta', { hasta: finExclusivo });
+
+      const filas = await qb.orderBy('cc.creadoEn', 'DESC').take(limite).getMany();
+      if (!filas.length) return [];
+
+      const casos = await manager.getRepository(CasoEntity).find({
+        where: { tenant, id: In(filas.map((f) => f.casoId)) },
+      });
+      const porId = new Map(casos.map((c) => [c.id, c]));
+
+      // El orden lo manda la bandeja del canal, no el de la tabla de casos.
+      return filas.flatMap((f) => {
+        const caso = porId.get(f.casoId);
+        if (!caso) return [];
+        return [Object.assign(caso, { estado: f.estado, enColaDesde: f.creadoEn }) as CasoEnCanal];
+      });
+    });
+  }
+
+  /**
+   * El caso visto DESDE una bandeja: igual que `obtener`, pero con el estado y
+   * el reloj de ese canal en vez de los del caso.
+   *
+   * Lo usa el panel de gestión cuando vive dentro del tablero. Sin esto, a
+   * bomberos se le mostraba «En gestión» porque policía ya lo había tomado,
+   * aunque su propia fila siguiera en «nuevo» — y de ahí salía que el panel
+   * decidiera mal si tenía que tomar el caso al abrirlo.
+   *
+   * Devuelve una copia: el caso que se guarda en las escrituras debe conservar
+   * su macro-estado real.
+   */
+  async obtenerEnCanal(tenant: string, id: string, actor: Actor, canal?: string | null): Promise<CasoEntity> {
+    const caso = await this.obtener(tenant, id, actor);
+    const canalId = await this.canalDeAccion(tenant, actor, canal);
+    if (!canalId) return caso;
+    const fila = await this.rls.conTenant(tenant, (m) => this.canales_.fila(m, tenant, id, canalId));
+    if (!fila) return caso;
+    return Object.assign(Object.create(Object.getPrototypeOf(caso)), caso, {
+      estado: fila.estado,
+      enColaDesde: fila.creadoEn,
+    });
   }
 
   /**
@@ -219,11 +389,14 @@ export class CasosService implements OnModuleInit {
           creadoPor: usuario,
         }),
       );
+      // Cada canal destino estrena su propia fila en estado `nuevo`: desde aquí
+      // cada entidad avanza por su cuenta.
+      await this.canales_.abrir(manager, tenant, caso.id, canales);
       const destino = canales.length ? ` Enviado a ${this.describirDestino(canales, agencias)}.` : '';
       await this.registrar(tenant, caso.id, 'creacion', `Caso recepcionado por ${caso.canal}.${destino}`, usuario, undefined, undefined, manager);
       return caso;
     });
-    this.gateway?.emitirNuevo(tenant, guardado);
+    this.gateway?.emitirNuevo(tenant, await this.conEstadosDeCanal(tenant, guardado));
     return guardado;
   }
 
@@ -317,10 +490,25 @@ export class CasosService implements OnModuleInit {
     const motivo = dto.observacion?.trim() ? ` Motivo: ${dto.observacion.trim()}` : '';
     const guardado = await this.rls.conTenant(tenant, async (manager) => {
       const guardado = await manager.getRepository(CasoEntity).save(caso);
+      // Gestión conjunta: los canales nuevos estrenan bandeja y los que ya
+      // estaban conservan su avance. Traslado exclusivo: a los que salen se
+      // les cierra su fila, no se les borra — queda el rastro de que
+      // estuvieron y hasta cuándo.
+      await this.canales_.abrir(manager, tenant, id, canales);
+      if (dto.exclusivo) {
+        await this.canales_.retirar(manager, tenant, id, canales.map((c) => c.id));
+      }
       await this.registrar(tenant, id, 'derivacion', `${modo} ${destino}.${motivo}`, usuario, undefined, undefined, manager);
+      const macro = await this.canales_.sincronizarMacro(manager, tenant, guardado);
+      if (macro) {
+        await this.registrar(
+          tenant, id, 'estado', `Estado: ${this.label(macro.anterior)} → ${this.label(macro.nuevo)}.`,
+          usuario, macro.anterior, macro.nuevo, manager,
+        );
+      }
       return guardado;
     });
-    this.gateway?.emitirCambio(tenant, guardado);
+    this.gateway?.emitirCambio(tenant, await this.conEstadosDeCanal(tenant, guardado));
     return guardado;
   }
 
@@ -415,8 +603,18 @@ export class CasosService implements OnModuleInit {
         }),
       );
 
+      // Las bandejas del caso nuevo, todavía con app.tenant en el destino: sin
+      // ellas, el tablero por canal de esa instancia no lo vería nunca.
+      await this.canales_.abrir(
+        em, destino.codigo, nuevo.id,
+        (canalesDestino ?? []).map((id) => ({ id, agenciaId: agenciaIdDestino! })),
+      );
+
       // De vuelta al tenant de origen para actualizar el caso propio.
       await em.query('SELECT set_tenant($1)', [tenant]);
+      // El caso sale de este secad entero: todas las bandejas de aquí quedan
+      // como derivadas, no solo la de quien hizo la remisión.
+      await this.canales_.marcarTodas(em, tenant, id, 'derivado');
       const agenciaPrevia = caso.agencia;
       caso.estado = 'derivado';
       caso.agencia = `Remitido a ${destino.nombre}`;
@@ -444,8 +642,8 @@ export class CasosService implements OnModuleInit {
     // "derivado" sin recargar, y el destino ve llegar el caso nuevo — antes
     // esto último no avisaba a nadie; un supervisor solo lo encontraba si
     // se le ocurría ir a buscarlo en Consulta.
-    this.gateway?.emitirCambio(tenant, caso);
-    this.gateway?.emitirNuevo(destino.codigo, nuevo);
+    this.gateway?.emitirCambio(tenant, await this.conEstadosDeCanal(tenant, caso));
+    this.gateway?.emitirNuevo(destino.codigo, await this.conEstadosDeCanal(destino.codigo, nuevo));
     return caso;
   }
 
@@ -500,7 +698,7 @@ export class CasosService implements OnModuleInit {
       );
       return guardado;
     });
-    this.gateway?.emitirCambio(tenant, guardado);
+    this.gateway?.emitirCambio(tenant, await this.conEstadosDeCanal(tenant, guardado));
     return guardado;
   }
 
@@ -509,20 +707,54 @@ export class CasosService implements OnModuleInit {
    * a gestionar, así que el sistema lo mueve solo y deja constancia de quién
    * lo tomó: el despachador no tiene que acordarse de cambiar el estado.
    */
-  async tomar(tenant: string, id: string, actor: Actor): Promise<CasoEntity> {
+  /**
+   * Toma el caso para la entidad de quien lo toma, y solo para ella.
+   *
+   * Antes esto ponía el caso «en gestión» para todo el mundo: si policía lo
+   * tomaba, bomberos lo veía como si ya lo estuvieran atendiendo sin haberlo
+   * abierto. Ahora avanza la fila del canal del funcionario; el macro-estado
+   * del caso se recalcula después y solo se mueve si de verdad corresponde.
+   */
+  async tomar(tenant: string, id: string, actor: Actor, canal?: string | null): Promise<CasoEntity> {
     const caso = await this.obtener(tenant, id, actor);
-    if (caso.estado !== 'nuevo') return caso;
-    caso.estado = 'en_gestion';
+    const canalId = await this.canalDeAccion(tenant, actor, canal);
+
     const guardado = await this.rls.conTenant(tenant, async (manager) => {
-      const guardado = await manager.getRepository(CasoEntity).save(caso);
-      await this.registrar(tenant, id, 'estado', `Tomado por ${actor.sub}.`, actor.sub, 'nuevo', 'en_gestion', manager);
-      return guardado;
+      const fila = canalId ? await this.canales_.fila(manager, tenant, id, canalId) : null;
+
+      // Sin canal propio (o un caso sin canales, recepcionado sin destino) se
+      // conserva el comportamiento anterior sobre el macro-estado: es el único
+      // estado que existe para ese caso.
+      if (!fila) {
+        if (caso.estado !== 'nuevo') return caso;
+        caso.estado = 'en_gestion';
+        const g = await manager.getRepository(CasoEntity).save(caso);
+        await this.registrar(tenant, id, 'estado', `Tomado por ${actor.sub}.`, actor.sub, 'nuevo', 'en_gestion', manager);
+        return g;
+      }
+
+      if (fila.estado !== 'nuevo') return caso;
+      fila.estado = 'en_gestion';
+      await manager.getRepository(CasoCanalEntity).save(fila);
+      await this.registrar(
+        tenant, id, 'estado_canal', `Tomado por ${actor.sub} para su canal.`,
+        actor.sub, 'nuevo', 'en_gestion', manager,
+      );
+
+      const macro = await this.canales_.sincronizarMacro(manager, tenant, caso);
+      if (macro) {
+        await this.registrar(
+          tenant, id, 'estado', `Estado: ${this.label(macro.anterior)} → ${this.label(macro.nuevo)}.`,
+          actor.sub, macro.anterior, macro.nuevo, manager,
+        );
+      }
+      return caso;
     });
-    this.gateway?.emitirCambio(tenant, guardado);
+    this.gateway?.emitirCambio(tenant, await this.conEstadosDeCanal(tenant, guardado));
     return guardado;
   }
 
-  async cambiarEstado(tenant: string, id: string, dto: CambiarEstadoDto, actor: Actor): Promise<CasoEntity> {
+  async cambiarEstado(tenant: string, id: string, dto: CambiarEstadoDto, actor: Actor, canal?: string | null): Promise<CasoEntity> {
     // Mismo alcance que la lectura: fuera de sus canales no hay nada que cambiar.
     const caso = await this.obtener(tenant, id, actor);
     if (!ESTADOS.includes(dto.estado)) throw new BadRequestException('Estado inválido.');
@@ -536,7 +768,16 @@ export class CasosService implements OnModuleInit {
     if (dto.estado === 'cerrado' && !puede('casos.cerrar')) {
       throw new ForbiddenException('No tiene permiso para cerrar casos.');
     }
-    if (caso.estado === 'cerrado' && dto.estado !== 'cerrado' && !puede('casos.reabrir')) {
+    // Desde aquí, "el estado actual" es el de la entidad que está actuando: si
+    // policía ya cerró lo suyo, es policía quien necesita permiso de reapertura,
+    // no bomberos, que sigue con su parte abierta.
+    const canalActor = await this.canalDeAccion(tenant, actor, canal);
+    const filaActor = canalActor
+      ? await this.rls.conTenant(tenant, (m) => this.canales_.fila(m, tenant, id, canalActor))
+      : null;
+    const estadoActual = filaActor?.estado ?? caso.estado;
+
+    if (estadoActual === 'cerrado' && dto.estado !== 'cerrado' && !puede('casos.reabrir')) {
       throw new ForbiddenException(
         'Un caso cerrado solo lo reabre quien tenga esa autorización. Solicite la reapertura a un supervisor.',
       );
@@ -561,44 +802,71 @@ export class CasosService implements OnModuleInit {
       }
     }
 
-    const anterior = caso.estado;
+    const anterior = estadoActual;
+    const macroAnterior = caso.estado;
     const agenciaAnterior = caso.agencia;
     const codigoCasoAnterior = caso.codigoCaso;
-    caso.estado = dto.estado;
-    if (dto.estado === 'cerrado') caso.codigoCierre = cierre!.codigo;
+    // La tipificación y la agencia describen el HECHO: son compartidas por
+    // todas las entidades y se corrigen en el caso, no en la fila del canal.
     if (dto.estado === 'derivado') caso.agencia = dto.agencia!.trim();
     const corrigioTipificacion = !!tipificacionFinal && tipificacionFinal.codigo !== codigoCasoAnterior;
     if (corrigioTipificacion) caso.codigoCaso = tipificacionFinal!.codigo;
 
-    const guardado = await this.rls.conTenant(tenant, async (manager) => {
-      const guardado = await manager.getRepository(CasoEntity).save(caso);
-      if (dto.estado === 'derivado' && caso.agencia !== agenciaAnterior) {
+    const correccion = corrigioTipificacion
+      ? ` Tipificación corregida a ${tipificacionFinal!.codigo} (${tipificacionFinal!.descripcion}).`
+      : '';
+    const descripcion = dto.estado === 'cerrado'
+      ? `Cerrado como «${cierre!.etiqueta}». ${dto.comentario!.trim()}${correccion}`
+      : `Estado: ${this.label(anterior)} → ${this.label(dto.estado)}.`;
+
+    const { guardado, macro } = await this.rls.conTenant(tenant, async (manager) => {
+      // Sin fila de canal (caso recepcionado sin destino, o actor sin canal)
+      // el macro-estado es el único que existe: se mueve como siempre.
+      if (!filaActor) {
+        caso.estado = dto.estado;
+        if (dto.estado === 'cerrado') caso.codigoCierre = cierre!.codigo;
+        const g = await manager.getRepository(CasoEntity).save(caso);
+        if (dto.estado === 'derivado' && caso.agencia !== agenciaAnterior) {
+          await this.registrar(
+            tenant, id, 'derivacion',
+            `Derivado de ${agenciaAnterior} a ${caso.agencia}.`, usuario, anterior, dto.estado, manager,
+          );
+        } else {
+          await this.registrar(tenant, id, 'estado', descripcion, usuario, anterior, dto.estado, manager);
+        }
+        return { guardado: g, macro: { anterior, nuevo: dto.estado } };
+      }
+
+      // Avanza SOLO la entidad que actúa.
+      filaActor.estado = dto.estado;
+      if (dto.estado === 'cerrado') filaActor.codigoCierre = cierre!.codigo;
+      await manager.getRepository(CasoCanalEntity).save(filaActor);
+      await this.registrar(
+        tenant, id, dto.estado === 'derivado' && caso.agencia !== agenciaAnterior ? 'derivacion' : 'estado_canal',
+        descripcion, usuario, anterior, dto.estado, manager,
+      );
+
+      // Y ahora la regla que sostiene todo esto: el caso solo se cierra cuando
+      // TODAS las entidades cerraron lo suyo. Mientras quede una abierta, el
+      // macro-estado no llega a `cerrado` y el caso no desaparece de ninguna
+      // otra bandeja.
+      const cambio = await this.canales_.sincronizarMacro(manager, tenant, caso);
+      if (cambio) {
         await this.registrar(
-          tenant, id, 'derivacion',
-          `Derivado de ${agenciaAnterior} a ${caso.agencia}.`, usuario, anterior, dto.estado, manager,
-        );
-      } else {
-        const correccion = corrigioTipificacion
-          ? ` Tipificación corregida a ${tipificacionFinal!.codigo} (${tipificacionFinal!.descripcion}).`
-          : '';
-        await this.registrar(
-          tenant, id, 'estado',
-          dto.estado === 'cerrado'
-            ? `Cerrado como «${cierre!.etiqueta}». ${dto.comentario!.trim()}${correccion}`
-            : `Estado: ${this.label(anterior)} → ${this.label(dto.estado)}.`,
-          usuario, anterior, dto.estado, manager,
+          tenant, id, 'estado', `Estado: ${this.label(cambio.anterior)} → ${this.label(cambio.nuevo)}.`,
+          usuario, cambio.anterior, cambio.nuevo, manager,
         );
       }
-      return guardado;
+      return { guardado: caso, macro: cambio };
     });
 
-    // Al cerrar, se liberan automáticamente los recursos aún comprometidos.
-    // Aparte: toca `asignaciones`, con su propio conTenant() independiente.
-    if (dto.estado === 'cerrado' && anterior !== 'cerrado') {
+    // Los recursos son del caso, no de una entidad: se liberan cuando el caso
+    // entero se cierra, no cuando la primera agencia termina lo suyo.
+    if (macro?.nuevo === 'cerrado' && macroAnterior !== 'cerrado') {
       await this.despacho.liberarCaso(tenant, id, usuario);
     }
 
-    this.gateway?.emitirCambio(tenant, guardado);
+    this.gateway?.emitirCambio(tenant, await this.conEstadosDeCanal(tenant, guardado));
     return guardado;
   }
 

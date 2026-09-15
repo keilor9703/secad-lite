@@ -746,8 +746,15 @@ export class AdminComponent implements OnInit {
     return this.usuarioCanales().includes(id);
   }
 
+  /**
+   * Un funcionario atiende UN canal, no varios: elegir otro reemplaza al
+   * anterior, y volver a tocar el marcado lo deja sin canal. El tablero de
+   * Despacho muestra una bandeja a la vez —cada canal lleva su propio avance
+   * sobre el mismo caso—, así que con dos asignados no habría forma de saber
+   * cuál está mirando. El backend rechaza más de uno (UsuariosService).
+   */
   alternarCanalNuevo(id: string): void {
-    this.usuarioCanales.update((cs) => (cs.includes(id) ? cs.filter((c) => c !== id) : [...cs, id]));
+    this.usuarioCanales.update((cs) => (cs.includes(id) ? [] : [id]));
   }
 
   // --- Tenants y usuarios -----------------------------------------------------
@@ -906,8 +913,9 @@ export class AdminComponent implements OnInit {
     return this.canalesEdicion().includes(id);
   }
 
+  /** Un solo canal por funcionario; ver `alternarCanalNuevo`. */
   alternarCanalEdicion(id: string): void {
-    this.canalesEdicion.update((ids) => (ids.includes(id) ? ids.filter((x) => x !== id) : [...ids, id]));
+    this.canalesEdicion.update((ids) => (ids.includes(id) ? [] : [id]));
   }
 
   guardarEdicionUsuario(u: UsuarioAdmin): void {

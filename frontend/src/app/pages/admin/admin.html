@@ -496,10 +496,10 @@
           <!-- Canales que atenderá: solo los de la agencia elegida. -->
           @if (usuarioForm.controls.agenciaId.value; as usuarioAgenciaId) {
             <div class="canales-pick">
-              <span class="canales-lbl">Canales de atención:</span>
+              <span class="canales-lbl">Canal de atención (uno):</span>
               @for (c of canalesDe(usuarioAgenciaId); track c) {
                 <label class="chip" [class.off]="!c.activo">
-                  <input type="checkbox" [checked]="canalMarcado(c.id)" (change)="alternarCanalNuevo(c.id)" />
+                  <input type="radio" name="canalUsuarioNuevo" [checked]="canalMarcado(c.id)" (click)="alternarCanalNuevo(c.id)" />
                   <span>{{ c.codigo }} · {{ c.nombre }}</span>
                 </label>
               }
@@ -557,7 +557,7 @@
                           <div class="canales-pick mini">
                             @for (c of canalesDe(edicionAgenciaId); track c) {
                               <label class="chip" [class.off]="!c.activo">
-                                <input type="checkbox" [checked]="canalMarcadoEdicion(c.id)" (change)="alternarCanalEdicion(c.id)" />
+                                <input type="radio" name="canalUsuarioEdicion" [checked]="canalMarcadoEdicion(c.id)" (click)="alternarCanalEdicion(c.id)" />
                                 <span>{{ c.codigo }}</span>
                               </label>
                             }

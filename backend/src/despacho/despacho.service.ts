@@ -4,6 +4,7 @@ import { EntityManager, Repository } from 'typeorm';
 import { AsignacionEntity, EstadoAsignacion, ESTADOS_ASIGNACION, ESTADOS_ASIGNACION_ACTIVOS } from './asignacion.entity';
 import { RecursoEntity } from './recurso.entity';
 import { CasoEntity } from '../casos/caso.entity';
+import { CasoCanalService } from '../casos/caso-canal.service';
 import { EventoCasoEntity } from '../casos/evento.entity';
 import { TenantRlsService } from '../common/tenant-rls.service';
 
@@ -31,6 +32,7 @@ export class DespachoService {
     @InjectRepository(AsignacionEntity) private readonly asignaciones: Repository<AsignacionEntity>,
     @InjectRepository(EventoCasoEntity) private readonly eventos: Repository<EventoCasoEntity>,
     private readonly rls: TenantRlsService,
+    private readonly casoCanal: CasoCanalService,
   ) {}
 
   listar(tenant: string, casoId: string): Promise<AsignacionEntity[]> {
@@ -74,8 +76,18 @@ export class DespachoService {
       recurso.estado = 'asignado';
       await em.save(recurso);
 
-      // El caso pasa a "despachado" en cuanto tiene recursos en atención.
-      if (caso.estado === 'nuevo' || caso.estado === 'en_gestion') {
+      // "Con recursos" es de la entidad que puso la unidad en la calle, no de
+      // todas las que atienden el caso: que policía despache una patrulla no
+      // significa que bomberos ya tenga máquina en el sitio. Se avanza la
+      // bandeja de la agencia dueña del recurso y se recalcula el macro-estado.
+      if (recurso.agenciaId) {
+        await this.casoCanal.avanzarAgencia(em, tenant, casoId, recurso.agenciaId, 'despachado');
+      }
+      const cambio = await this.casoCanal.sincronizarMacro(em, tenant, caso);
+      // Un caso sin canales (recepcionado sin destino) no tiene de dónde
+      // derivar su estado: conserva el comportamiento de siempre.
+      if (!cambio && !(await this.casoCanal.filas(em, tenant, casoId)).length
+          && (caso.estado === 'nuevo' || caso.estado === 'en_gestion')) {
         caso.estado = 'despachado';
         await em.save(caso);
       }

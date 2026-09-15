@@ -3,29 +3,14 @@
     <header class="desp-head">
       <div class="desp-tit">
         <h1>Despacho</h1>
-        @if (!veTodo()) {
+        @if (canalActivoNombre(); as b) {
           <p class="desp-ctx">
-            @if (miAgenciaNombre(); as agencia) {
-              <strong>{{ agencia }}</strong> ·
-            }
-            Su cola:
-            @if (misCanales().length) {
-              @for (c of misCanales(); track c; let i = $index) {
-                <strong>{{ i ? ', ' : '' }}{{ c.codigo }} · {{ c.nombre }}</strong>
-              }
-            } @else {
-              <strong>ningún canal asignado</strong>
-            }
+            Bandeja de <strong>{{ b.agencia }}</strong> · <strong>{{ b.canal }}</strong>
           </p>
-        }
-        @if (veTodo() && !puedeElegirAgenciaCanal()) {
-          <p class="desp-ctx">
-            @if (miAgenciaNombre(); as agencia) {
-              Todos los casos abiertos de <strong>{{ agencia }}</strong>.
-            } @else {
-              Todos los casos abiertos del secad.
-            }
-          </p>
+        } @else if (debeElegirBandeja()) {
+          <p class="desp-ctx">Elija la agencia y el canal cuya bandeja quiere atender.</p>
+        } @else {
+          <p class="desp-ctx">Su usuario todavía no tiene un canal asignado.</p>
         }
       </div>
       <div class="desp-acciones">
@@ -41,12 +26,13 @@
       </div>
     </header>
 
-    @if (veTodo() || misCanales().length || total()) {
+    @if (canalActivo() || debeElegirBandeja()) {
       <!-- Una sola barra: el panorama por estado a la izquierda (y a la vez el
-           filtro de la cola), el alcance de lo que se mira a la derecha. -->
+           filtro de la cola), la bandeja que se está mirando a la derecha. -->
       <div class="barra">
         <div class="pasos" role="group" aria-label="Filtrar la cola por estado">
-          @for (col of columnas(); track col.estado) {
+          @if (canalActivo()) {
+            @for (col of columnas(); track col.estado) {
             <button type="button" class="paso" [attr.data-estado]="col.estado"
               [class.activo]="filtroEstado() === col.estado"
               [disabled]="!col.casos.length && filtroEstado() !== col.estado"
@@ -56,22 +42,26 @@
               <span class="paso-n">{{ col.casos.length }}</span>
               <span class="paso-l">{{ col.titulo }}</span>
             </button>
+            }
           }
         </div>
 
-        @if (veTodo() && puedeElegirAgenciaCanal()) {
+        @if (debeElegirBandeja()) {
+          <!-- Se atiende UN canal a la vez: no hay opción «todas las agencias»,
+               porque un mismo caso tiene un estado distinto en cada bandeja y
+               una vista combinada tendría que mentir sobre alguno. -->
           <div class="alcance">
-            <span class="alcance-lbl">Viendo</span>
-            <app-selector [ngModel]="filtroAgenciaId()" (ngModelChange)="cambiarFiltroAgencia($event)" [ariaLabel]="'Agencia a mostrar'">
-              <app-opcion [valor]="null">Todas las agencias</app-opcion>
-              @for (a of agenciasTodas(); track a.id) {
+            <span>Bandeja</span>
+            <app-selector [ngModel]="agenciaSel()" (ngModelChange)="cambiarAgencia($event)" [ariaLabel]="'Agencia'">
+              <app-opcion [valor]="null">Elija la agencia…</app-opcion>
+              @for (a of agenciasElegibles(); track a.id) {
                 <app-opcion [valor]="a.id">{{ a.nombre }}</app-opcion>
               }
             </app-selector>
-            @if (filtroAgenciaId()) {
-              <app-selector [ngModel]="filtroCanalId()" (ngModelChange)="filtroCanalId.set($event)" [ariaLabel]="'Canal a mostrar'">
-                <app-opcion [valor]="null">Todos los canales</app-opcion>
-                @for (c of canalesDeAgenciaFiltro(); track c.id) {
+            @if (agenciaSel()) {
+              <app-selector [ngModel]="canalSel()" (ngModelChange)="cambiarCanal($event)" [ariaLabel]="'Canal'">
+                <app-opcion [valor]="null">Elija el canal…</app-opcion>
+                @for (c of canalesDeAgenciaSel(); track c.id) {
                   <app-opcion [valor]="c.id">{{ c.codigo }} · {{ c.nombre }}</app-opcion>
                 }
               </app-selector>
@@ -105,15 +95,24 @@
       <p class="error">{{ error() }}</p>
     }
 
-    @if (!veTodo() && !misCanales().length && !total()) {
+    @if (!canalActivo() && !debeElegirBandeja()) {
       <div class="guia card">
         <h2>Todavía no atiende ningún canal</h2>
-        <p>Aquí llegan los casos que recepción envía a los canales de su agencia. Pídale al
-          administrador que le asigne al menos uno desde <strong>Administración → Usuarios</strong>.</p>
+        <p>Aquí llegan los casos que recepción envía al canal de su agencia. Pídale al
+          administrador que le asigne uno desde <strong>Administración → Usuarios</strong>.</p>
       </div>
     }
 
-    @if (veTodo() || misCanales().length || total()) {
+    @if (!canalActivo() && debeElegirBandeja()) {
+      <div class="guia card">
+        <h2>Elija una bandeja</h2>
+        <p>Cada agencia atiende el mismo caso por separado y con su propio avance, así que
+          el tablero muestra <strong>un canal a la vez</strong>. Escoja arriba la agencia y
+          el canal cuya cola quiere atender.</p>
+      </div>
+    }
+
+    @if (canalActivo()) {
       <!-- La cola: una fila por caso, de la más urgente a la menos. El color
            aparece una sola vez por fila (la barra de espera); todo lo demás se
            lee como texto alineado en columna. -->
@@ -181,7 +180,7 @@
   @if (seleccionado(); as id) {
     <aside class="panel-caso">
       <button type="button" class="cerrar" (click)="cerrarPanel()" aria-label="Cerrar el caso">✕</button>
-      <app-detalle [casoId]="id" [incrustado]="true" (cambiado)="cargar(true)" />
+      <app-detalle [casoId]="id" [incrustado]="true" [canalId]="canalActivo()" (cambiado)="cargar(true)" />
     </aside>
   }
 </section>

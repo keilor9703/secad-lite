@@ -71,12 +71,19 @@ export class CasosController {
     @Query('abiertos') abiertos?: string,
     @Query('desde') desde?: string,
     @Query('hasta') hasta?: string,
+    @Query('canal') canal?: string,
+    @Query('porCanal') porCanal?: string,
   ) {
+    // `porCanal=true` es la vista de bandeja (Despacho): se mira UN canal a la
+    // vez y el estado que vuelve es el de ese canal, no el macro-estado del
+    // caso. Consulta y los reportes no lo pasan y siguen viendo el caso entero.
     const casos = await this.casos.listar(tenant, await this.actor(usuario, permisos), {
       limite: limite ? Number(limite) : undefined,
       abiertos: abiertos === 'true',
       desde,
       hasta,
+      canalId: canal?.trim() || null,
+      porCanal: porCanal === 'true',
     });
     return casos.map((c) => this.ocultarGrabaciones(c, permisos));
   }
@@ -124,15 +131,22 @@ export class CasosController {
     return cfg;
   }
 
-  /** GET /api/casos/:id */
+  /**
+   * GET /api/casos/:id — con `?canal=` devuelve el caso tal como lo ve ESA
+   * bandeja (su estado y su reloj); sin él, el caso con su macro-estado.
+   */
   @Get(':id')
   async obtener(
     @Tenant() tenant: string,
     @Usuario() usuario: JwtPayload,
     @PermisosVigentes() permisos: string[],
     @Param('id') id: string,
+    @Query('canal') canal?: string,
   ) {
-    const caso = await this.casos.obtener(tenant, id, await this.actor(usuario, permisos));
+    const actor = await this.actor(usuario, permisos);
+    const caso = canal?.trim()
+      ? await this.casos.obtenerEnCanal(tenant, id, actor, canal.trim())
+      : await this.casos.obtener(tenant, id, actor);
     return this.ocultarGrabaciones(caso, permisos);
   }
 
@@ -166,8 +180,12 @@ export class CasosController {
     @Usuario() usuario: JwtPayload,
     @PermisosVigentes() permisos: string[],
     @Param('id') id: string,
+    @Query('canal') canal?: string,
   ) {
-    const caso = await this.casos.tomar(tenant, id, await this.actor(usuario, permisos));
+    // `canal` = la bandeja desde la que se actúa. La manda el tablero porque
+    // un supervisor o un administrador no tienen canal propio y sin este dato
+    // la acción no sabría a cuál de las entidades del caso corresponde.
+    const caso = await this.casos.tomar(tenant, id, await this.actor(usuario, permisos), canal?.trim() || null);
     return this.ocultarGrabaciones(caso, permisos);
   }
 
@@ -258,8 +276,10 @@ export class CasosController {
     @PermisosVigentes() permisos: string[],
     @Param('id') id: string,
     @Body() dto: CambiarEstadoDto,
+    @Query('canal') canal?: string,
   ) {
-    const caso = await this.casos.cambiarEstado(tenant, id, dto, await this.actor(usuario, permisos));
+    // Igual que en /tomar: la bandeja desde la que se actúa la dice el cliente.
+    const caso = await this.casos.cambiarEstado(tenant, id, dto, await this.actor(usuario, permisos), canal?.trim() || null);
     return this.ocultarGrabaciones(caso, permisos);
   }
 }

@@ -65,14 +65,8 @@ export class DespachoComponent {
   private readonly ahora = signal(Date.now());
 
   readonly veTodo = computed(() => this.auth.tienePermiso('casos.ver_todos'));
-  /** Administrador o superadmin: puede mirar el tablero de CUALQUIER agencia/canal, no solo el suyo. */
+  /** Administrador o superadmin: puede mirar la bandeja de CUALQUIER agencia/canal, no solo la suya. */
   readonly puedeElegirAgenciaCanal = computed(() => this.auth.esAdmin() || this.auth.esSuperadmin());
-
-  /** Canales que atiende quien mira, resueltos a su nombre. */
-  readonly misCanales = computed(() => {
-    const ids = this.auth.sesion()?.canales ?? [];
-    return this.canales().filter((c) => ids.includes(c.id));
-  });
 
   /** Agencia de quien mira (no aplica al superadmin, que no pertenece a ninguna). */
   readonly miAgenciaNombre = computed(() => {
@@ -80,34 +74,68 @@ export class DespachoComponent {
     return this.agenciasTodas().find((a) => a.id === id)?.nombre ?? null;
   });
 
-  // --- Filtro de agencia/canal (solo admin/superadmin): el tablero completo
-  // por defecto, pero pueden acotarlo a una agencia y, dentro de ella, a un
-  // canal — para ver la cola tal como la vería ESE canal sin tener que
-  // iniciar sesión como uno de sus funcionarios.
-  readonly filtroAgenciaId = signal<string | null>(null);
-  readonly filtroCanalId = signal<string | null>(null);
+  // --- Qué bandeja se está mirando -----------------------------------------
+  //
+  // Regla del sistema: se ve UN canal a la vez, nunca varios mezclados, y no
+  // existe «todas las agencias». No es una simplificación de la interfaz: un
+  // caso que policía ya tomó y bomberos todavía no tiene DOS estados a la vez,
+  // así que una vista combinada tendría que mentir sobre uno de los dos. El
+  // poder del supervisor o del administrador no es ver todo junto, es poder
+  // CAMBIAR de bandeja.
+  //
+  // Quien tiene un canal configurado entra directo al suyo y no elige nada.
 
-  readonly canalesDeAgenciaFiltro = computed(() => {
-    const ag = this.filtroAgenciaId();
+  readonly agenciaSel = signal<string | null>(null);
+  readonly canalSel = signal<string | null>(null);
+
+  /** El canal propio del funcionario, si el administrador le configuró uno. */
+  readonly miCanalId = computed<string | null>(() => this.auth.sesion()?.canales?.[0] ?? null);
+
+  /** La bandeja que se está mirando ahora mismo. Sin ella no hay tablero. */
+  readonly canalActivo = computed<string | null>(() => this.miCanalId() ?? this.canalSel());
+
+  readonly canalActivoNombre = computed(() => {
+    const c = this.canales().find((x) => x.id === this.canalActivo());
+    if (!c) return null;
+    return {
+      canal: `${c.codigo} · ${c.nombre}`,
+      agencia: this.agenciasTodas().find((a) => a.id === c.agenciaId)?.nombre ?? '',
+    };
+  });
+
+  /**
+   * Agencias entre las que puede moverse quien mira. Administrador y
+   * superadmin, todas; un supervisor, solo la suya — el selector le sirve para
+   * cambiar de canal dentro de su entidad, no para mirar otras.
+   */
+  readonly agenciasElegibles = computed(() => {
+    if (this.puedeElegirAgenciaCanal()) return this.agenciasTodas();
+    const mia = this.auth.sesion()?.agencia;
+    return this.agenciasTodas().filter((a) => a.id === mia);
+  });
+
+  readonly canalesDeAgenciaSel = computed(() => {
+    const ag = this.agenciaSel();
     return ag ? this.canales().filter((c) => c.agenciaId === ag) : [];
   });
 
-  cambiarFiltroAgencia(agenciaId: string | null): void {
-    this.filtroAgenciaId.set(agenciaId);
-    this.filtroCanalId.set(null);
+  /** Solo quien NO tiene canal propio elige; los demás entran directo a su bandeja. */
+  readonly debeElegirBandeja = computed(() => !this.miCanalId());
+
+  cambiarAgencia(agenciaId: string | null): void {
+    this.agenciaSel.set(agenciaId);
+    // Al cambiar de entidad, el canal anterior deja de tener sentido.
+    this.canalSel.set(null);
+    this.casos.set([]);
   }
 
-  /** Lo que en verdad se pinta en el tablero: todo (o lo propio), acotado además por el filtro si hay uno activo. */
-  readonly casosFiltrados = computed(() => {
-    const ag = this.filtroAgenciaId();
-    const canal = this.filtroCanalId();
-    if (!ag && !canal) return this.casos();
-    return this.casos().filter((c) => {
-      if (ag && c.agenciaResponsableId !== ag) return false;
-      if (canal && !(c.canales ?? []).includes(canal)) return false;
-      return true;
-    });
-  });
+  cambiarCanal(canalId: string | null): void {
+    this.canalSel.set(canalId);
+    this.cargar();
+  }
+
+  /** El tablero pinta la bandeja del canal activo, tal como viene del servidor. */
+  readonly casosFiltrados = computed(() => this.casos());
 
   /** La cola repartida por paso del ciclo, los más urgentes arriba de cada uno. */
   readonly columnas = computed<Grupo[]>(() => {
@@ -148,11 +176,14 @@ export class DespachoComponent {
    */
   private readonly vistos = signal<Set<string>>(this.leerVistos());
 
-  /** El último caso que entró a su cola, para no perderlo de vista. */
+  /** El último caso que entró a ESTA bandeja, para no perderlo de vista. */
   readonly ultimo = computed<Caso | null>(() => {
     const abiertos = this.casosFiltrados().filter((c) => c.estado !== 'cerrado');
     if (!abiertos.length) return null;
-    return abiertos.reduce((a, b) => (new Date(a.creadoEn) > new Date(b.creadoEn) ? a : b));
+    // Por llegada a la bandeja, igual que el reloj de las filas: lo último que
+    // entró aquí, no lo último que ocurrió en el municipio.
+    const cuando = (c: Caso) => new Date(c.enColaDesde ?? c.creadoEn).getTime();
+    return abiertos.reduce((a, b) => (cuando(a) > cuando(b) ? a : b));
   });
 
   /** Los que llevan más de 5 minutos en la cola sin que nadie los abra. */
@@ -172,24 +203,16 @@ export class DespachoComponent {
     this.seleccionado.set(this.ruta.snapshot.paramMap.get('id') ?? this.ruta.snapshot.queryParamMap.get('caso'));
     effect(() => {
       this.auth.tenantActivo();
-      this.cargar();
       this.catalogos.canales().subscribe({ next: (c) => this.canales.set(c), error: () => {} });
       this.catalogos.agencias().subscribe({ next: (a) => this.agenciasTodas.set(a), error: () => {} });
-      this.filtroAgenciaId.set(null);
-      this.filtroCanalId.set(null);
+      this.agenciaSel.set(null);
+      this.canalSel.set(null);
       this.filtroEstado.set(null);
+      this.casos.set([]);
+      this.cargar();
     });
     this.casosWs.conectar();
-    this.casosWs.eventos.subscribe(({ tipo, caso }) => {
-      if (tipo === 'nuevo') {
-        this.casos.update(cs => {
-          const existe = cs.some(c => c.id === caso.id);
-          return existe ? cs.map(c => c.id === caso.id ? caso : c) : [caso, ...cs];
-        });
-      } else {
-        this.casos.update(cs => cs.map(c => c.id === caso.id ? caso : c));
-      }
-    });
+    this.casosWs.eventos.subscribe(({ tipo, caso }) => this.aplicarEnVivo(tipo, caso));
     // La cola cambia sola: se refresca sin que el despachador tenga que recargar.
     setInterval(() => { this.ahora.set(Date.now()); if (!document.hidden) this.cargar(true); }, 60_000);
   }
@@ -234,11 +257,50 @@ export class DespachoComponent {
   }
 
   cargar(silencioso = false): void {
+    const canal = this.canalActivo();
+    // Sin bandeja elegida no hay nada que pedir: la pantalla invita a elegirla.
+    if (!canal) { this.casos.set([]); this.cargando.set(false); return; }
     if (!silencioso) this.cargando.set(true);
-    // El tablero solo trabaja casos abiertos: se piden así al servidor.
-    this.casosSvc.listar({ abiertos: true, limite: 500 }).subscribe({
+    // El tablero solo trabaja casos abiertos de ESTE canal, y cada caso vuelve
+    // con el estado de esta bandeja, no con el macro-estado del caso.
+    this.casosSvc.listar({ abiertos: true, limite: 500, canalId: canal }).subscribe({
       next: (cs) => { this.anunciarNuevos(cs); this.casos.set(cs); this.cargando.set(false); },
       error: () => { this.error.set('No fue posible cargar la cola.'); this.cargando.set(false); },
+    });
+  }
+
+  /**
+   * Un caso que cambió en vivo, traído al tablero de ESTA bandeja.
+   *
+   * El servidor emite a todo el secad porque el socket tiene una sola sala por
+   * inquilino, así que cada pantalla filtra lo suyo: se descarta lo que no toca
+   * a este canal, y el estado que se pinta es el de este canal —no el del caso,
+   * que puede ir muy por delante si otra entidad ya despachó—. Un caso que se
+   * cierra para esta bandeja sale de ella aunque el caso siga abierto para las
+   * demás; eso es justamente lo que se buscaba.
+   */
+  private aplicarEnVivo(tipo: 'nuevo' | 'actualizado', caso: Caso): void {
+    const canal = this.canalActivo();
+    if (!canal) return;
+
+    const mio = caso.canalesEstado?.find((e) => e.canalId === canal);
+    // Sin estados por canal (caso sin bandejas) se usa el del propio caso.
+    const estado = mio?.estado ?? (caso.canalesEstado ? null : caso.estado);
+    if (estado === null) {
+      // Llegó a otros canales, no al mío: no me incumbe.
+      this.casos.update((cs) => cs.filter((c) => c.id !== caso.id));
+      return;
+    }
+
+    const enBandeja = { ...caso, estado } as Caso;
+    if (estado === 'cerrado') {
+      this.casos.update((cs) => cs.filter((c) => c.id !== caso.id));
+      return;
+    }
+    this.casos.update((cs) => {
+      const existe = cs.some((c) => c.id === caso.id);
+      if (existe) return cs.map((c) => (c.id === caso.id ? enBandeja : c));
+      return tipo === 'nuevo' ? [enBandeja, ...cs] : cs;
     });
   }
 
@@ -312,9 +374,19 @@ export class DespachoComponent {
     } catch { /* sin audio disponible */ }
   }
 
-  /** Minutos desde que entró el caso. */
+  /**
+   * Minutos que este caso lleva en ESTA bandeja.
+   *
+   * No es lo mismo que el tiempo desde que ocurrió el hecho: un caso remitido a
+   * bomberos tres horas después empieza a contar para ellos cuando les llega, y
+   * medirles el tiempo desde la llamada original los haría aparecer siempre en
+   * rojo por un retraso que no fue suyo. `enColaDesde` lo trae el servidor con
+   * la vista por canal; sin él (Consulta, casos sin bandeja) se usa la
+   * recepción del caso.
+   */
   minutos(c: Caso): number {
-    return Math.max(0, Math.floor((this.ahora() - new Date(c.creadoEn).getTime()) / 60000));
+    const desde = new Date(c.enColaDesde ?? c.creadoEn).getTime();
+    return Math.max(0, Math.floor((this.ahora() - desde) / 60000));
   }
 
   espera(c: Caso): string {

@@ -317,9 +317,15 @@ export class UsuariosService implements OnModuleInit {
   }
 
   /**
-   * Valida la agencia y los canales del funcionario: ambos deben existir en su
-   * secad, y los canales deben pertenecer a su agencia — un funcionario solo
+   * Valida la agencia y el canal del funcionario: ambos deben existir en su
+   * secad, y el canal debe pertenecer a su agencia — un funcionario solo
    * atiende las colas de la entidad de la que hace parte.
+   *
+   * UN canal por funcionario, no varios. El tablero de Despacho muestra una
+   * bandeja a la vez porque un mismo caso tiene un estado distinto en cada
+   * canal (ver CasoCanalService): con dos canales asignados, el funcionario no
+   * sabría cuál de los dos está mirando. La columna sigue siendo una lista por
+   * compatibilidad con lo ya guardado, pero aquí se corta en uno.
    */
   private async resolverAdscripcion(
     tenant: string | null,
@@ -328,8 +334,12 @@ export class UsuariosService implements OnModuleInit {
   ): Promise<{ agenciaId: string | null; canales: string[] }> {
     if (!tenant || !agenciaId) return { agenciaId: null, canales: [] };
     const agencia = await this.catalogos.agenciaDe(tenant, agenciaId);
-    const validos = await this.catalogos.validarCanales(tenant, canales ?? [], agencia.id);
-    return { agenciaId: agencia.id, canales: validos.map((c) => c.id) };
+    const pedidos = canales ?? [];
+    if (pedidos.length > 1) {
+      throw new BadRequestException('Un funcionario atiende un solo canal: elija uno.');
+    }
+    const validos = await this.catalogos.validarCanales(tenant, pedidos, agencia.id);
+    return { agenciaId: agencia.id, canales: validos.slice(0, 1).map((c) => c.id) };
   }
 
   private aDto(u: UsuarioEntity): UsuarioDto {

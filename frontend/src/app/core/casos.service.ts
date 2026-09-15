@@ -16,12 +16,18 @@ export class CasosService {
    * por defecto, tope 500) y, con `abiertos`, solo los no cerrados — lo que
    * necesita el tablero, sin arrastrar meses de historial en cada refresco.
    */
-  listar(opts?: { limite?: number; abiertos?: boolean; desde?: string; hasta?: string }): Observable<Caso[]> {
+  /**
+   * `canalId` activa la vista de bandeja: se mira UN canal a la vez y cada caso
+   * vuelve con el estado de ese canal, no con el macro-estado. Sin él, el
+   * listado es el de siempre (Consulta, reportes), con el caso completo.
+   */
+  listar(opts?: { limite?: number; abiertos?: boolean; desde?: string; hasta?: string; canalId?: string | null }): Observable<Caso[]> {
     let params = new HttpParams();
     if (opts?.limite) params = params.set('limite', String(opts.limite));
     if (opts?.abiertos) params = params.set('abiertos', 'true');
     if (opts?.desde) params = params.set('desde', opts.desde);
     if (opts?.hasta) params = params.set('hasta', opts.hasta);
+    if (opts?.canalId) params = params.set('canal', opts.canalId).set('porCanal', 'true');
     return this.http.get<Caso[]>(this.base, { params });
   }
 
@@ -68,8 +74,19 @@ export class CasosService {
     return this.http.post<Caso>(this.base, dto);
   }
 
-  cambiarEstado(id: string, estado: EstadoCaso, agencia?: string): Observable<Caso> {
-    return this.http.patch<Caso>(`${this.base}/${id}/estado`, { estado, agencia });
+  /**
+   * `canalId` es la bandeja desde la que se actúa. Es obligatorio en la práctica
+   * para un caso multi-agencia: sin él, el servidor no sabe a cuál de las
+   * entidades corresponde el cambio y termina moviendo el estado global — que
+   * es lo que hacía desaparecer el caso de las demás bandejas.
+   */
+  cambiarEstado(id: string, estado: EstadoCaso, agencia?: string, canalId?: string | null): Observable<Caso> {
+    return this.http.patch<Caso>(`${this.base}/${id}/estado`, { estado, agencia }, { params: this.desdeCanal(canalId) });
+  }
+
+  /** El canal activo viaja como parámetro; si no hay, el servidor usa el propio del usuario. */
+  private desdeCanal(canalId?: string | null): HttpParams {
+    return canalId ? new HttpParams().set('canal', canalId) : new HttpParams();
   }
 
   /**
@@ -78,19 +95,20 @@ export class CasosService {
    * catálogo de códigos de caso de recepción) si el caso resultó ser otra
    * cosa distinta a como se recepcionó.
    */
-  cerrar(id: string, codigoCierre: string, comentario: string, codigoCasoFinal?: string): Observable<Caso> {
+  cerrar(id: string, codigoCierre: string, comentario: string, codigoCasoFinal?: string, canalId?: string | null): Observable<Caso> {
     return this.http.patch<Caso>(`${this.base}/${id}/estado`, {
       estado: 'cerrado', codigoCierre, comentario, codigoCasoFinal,
-    });
+    }, { params: this.desdeCanal(canalId) });
   }
 
-  /** Se hace cargo del caso: si estaba nuevo, pasa a gestión. */
-  tomar(id: string): Observable<Caso> {
-    return this.http.post<Caso>(`${this.base}/${id}/tomar`, {});
+  /** Se hace cargo del caso PARA SU BANDEJA: si estaba nuevo ahí, pasa a gestión. */
+  tomar(id: string, canalId?: string | null): Observable<Caso> {
+    return this.http.post<Caso>(`${this.base}/${id}/tomar`, {}, { params: this.desdeCanal(canalId) });
   }
 
-  obtener(id: string): Observable<Caso> {
-    return this.http.get<Caso>(`${this.base}/${id}`);
+  /** Con `canalId`, el caso vuelve con el estado y el reloj de ESA bandeja. */
+  obtener(id: string, canalId?: string | null): Observable<Caso> {
+    return this.http.get<Caso>(`${this.base}/${id}`, { params: this.desdeCanal(canalId) });
   }
 
   auditoria(id: string): Observable<EventoCaso[]> {

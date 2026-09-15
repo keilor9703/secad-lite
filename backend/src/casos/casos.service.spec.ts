@@ -7,6 +7,7 @@ import { DespachoService } from '../despacho/despacho.service';
 import { CatalogosService } from '../catalogos/catalogos.service';
 import { TenantsService } from '../tenants/tenants.service';
 import { TenantRlsService } from '../common/tenant-rls.service';
+import { CasoCanalService } from './caso-canal.service';
 import { BadRequestException, NotFoundException } from '@nestjs/common';
 import { Actor } from './casos.service';
 
@@ -51,6 +52,17 @@ describe('CasosService', () => {
         { provide: getRepositoryToken(CasoEntity), useFactory: mockRepo },
         { provide: getRepositoryToken(EventoCasoEntity), useFactory: mockRepo },
         { provide: DespachoService, useValue: { liberarCaso: jest.fn() } },
+        // Sin filas por canal: estos casos de prueba no pasan por bandeja de
+        // agencia, así que el macro-estado se comporta como el estado único de
+        // siempre (ver CasoCanalService.sincronizarMacro con lista vacía).
+        { provide: CasoCanalService, useValue: {
+          abrir: jest.fn(),
+          retirar: jest.fn(),
+          fila: jest.fn().mockResolvedValue(null),
+          filas: jest.fn().mockResolvedValue([]),
+          avanzarAgencia: jest.fn(),
+          sincronizarMacro: jest.fn().mockResolvedValue(null),
+        }},
         { provide: CatalogosService, useValue: {
           listarCodigos: jest.fn().mockResolvedValue([]),
           validarCanales: jest.fn().mockResolvedValue([]),
