@@ -36,14 +36,41 @@
   padding: 0.42rem 0.7rem; border-radius: 8px;
   transition: background 0.15s ease, color 0.15s ease;
 }
-// El icono pesa menos que la palabra: acompaña, no compite. Al activarse la
-// pestaña sube a la par del texto y el conjunto se lee como una sola pieza.
-.nav a app-icono { opacity: 0.62; transition: opacity 0.15s ease; }
+// Cada módulo tiene su color y lo lleva el ICONO; el texto se queda neutro.
+// Así la barra se puede escanear por color —la memoria encuentra «el naranja»
+// antes que leer «Despacho»— sin que once palabras de colores distintos
+// compitan entre sí. En reposo el icono va algo atenuado para que el conjunto
+// respire; al pasar por encima o al activarse, sube a todo color.
+.nav a app-icono {
+  color: var(--mod, var(--ink-soft));
+  opacity: 0.8;
+  transition: opacity 0.15s ease;
+}
+.nav a[data-mod='recepcion']  { --mod: var(--mod-recepcion); }
+.nav a[data-mod='despacho']   { --mod: var(--mod-despacho); }
+.nav a[data-mod='consulta']   { --mod: var(--mod-consulta); }
+.nav a[data-mod='recursos']   { --mod: var(--mod-recursos); }
+.nav a[data-mod='panel']      { --mod: var(--mod-panel); }
+.nav a[data-mod='mapa']       { --mod: var(--mod-mapa); }
+.nav a[data-mod='catalogos']  { --mod: var(--mod-catalogos); }
+.nav a[data-mod='admin']      { --mod: var(--mod-admin); }
+.nav a[data-mod='plataforma'] { --mod: var(--mod-plataforma); }
+.nav a[data-mod='monitor']    { --mod: var(--mod-monitor); }
+.nav a[data-mod='chat']       { --mod: var(--mod-chat); }
+
 .nav a:hover { background: var(--surface-2); color: var(--ink); }
-.nav a:hover app-icono { opacity: 0.9; }
-.nav a.active { background: var(--accent-soft); color: var(--accent); font-weight: 600; }
+.nav a:hover app-icono { opacity: 1; }
+
+// La pestaña activa se tiñe del color de SU módulo, no de un acento único:
+// el fondo es ese mismo color muy diluido, así que el contraste del texto se
+// mantiene en los dos temas sin tener que definir un par por módulo.
+.nav a.active {
+  background: color-mix(in srgb, var(--mod, var(--accent)) 14%, transparent);
+  color: var(--mod, var(--accent));
+  font-weight: 600;
+}
 .nav a.active app-icono { opacity: 1; }
-.nav a:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+.nav a:focus-visible { outline: 2px solid var(--mod, var(--accent)); outline-offset: 2px; }
 .nav-llamadas { display: inline-flex; align-items: center; gap: 0.35rem; }
 
 /** Hamburguesa: oculta en escritorio, la muestra la media query de abajo. */

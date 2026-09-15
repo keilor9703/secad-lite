@@ -35,6 +35,20 @@
      luminosidad, piso de croma y separación CVD/visión normal) — la paleta
      anterior no pasaba el piso de croma en modo claro ni la separación en
      oscuro. */
+  // Color por módulo (barra superior). Tonos claros y poco saturados: sobre
+  // fondo oscuro, un color vivo deslumbra y ensucia la lectura del texto.
+  --mod-recepcion:  #2dd4bf;
+  --mod-despacho:   #fb923c;
+  --mod-consulta:   #8fa6e6;
+  --mod-recursos:   #4ade80;
+  --mod-panel:      #a78bfa;
+  --mod-mapa:       #fb7185;
+  --mod-catalogos:  #fbbf24;
+  --mod-admin:      #94a3b8;
+  --mod-plataforma: #e879f9;
+  --mod-monitor:    #a3e635;
+  --mod-chat:       #22d3ee;
+
   --serie-teal:  #1fa3b3;
   --serie-azul:  #8f7ae8;
   --serie-ambar: #c47328;
@@ -76,6 +90,22 @@
   /* Validadas con scripts/validate_palette.js del skill dataviz (banda de
      luminosidad, piso de croma y separación CVD/visión normal) — la paleta
      anterior no pasaba el piso de croma (el teal se leía gris). */
+  /* Color por módulo (barra superior): el icono lleva la identidad y el texto
+     se queda neutro, así la barra se escanea por color sin volverse un
+     arcoíris. Todos en una banda de luminosidad parecida —oscuros aquí,
+     claros en el tema oscuro— para que ninguno pese más que los demás. */
+  --mod-recepcion:  #115e59;
+  --mod-despacho:   #9a3412;
+  --mod-consulta:   #2f5fd9;
+  --mod-recursos:   #166534;
+  --mod-panel:      #6d28d9;
+  --mod-mapa:       #9f1239;
+  --mod-catalogos:  #854d0e;
+  --mod-admin:      #475569;
+  --mod-plataforma: #8d2668;
+  --mod-monitor:    #3f6212;
+  --mod-chat:       #155e75;
+
   --serie-teal:  #0891a8;
   --serie-azul:  #2f5fd9;
   --serie-ambar: #b5650a;

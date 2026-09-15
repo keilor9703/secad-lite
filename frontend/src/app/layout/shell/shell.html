@@ -16,23 +16,23 @@
       @if (s.tipo === 'institucional') {
         @if (operativoVisible()) {
           @if (puedeRecepcionar()) {
-            <a routerLink="/recepcion" routerLinkActive="active"><app-icono nombre="recepcion" /><span>Recepción</span></a>
+            <a routerLink="/recepcion" routerLinkActive="active" data-mod="recepcion"><app-icono nombre="recepcion" /><span>Recepción</span></a>
           }
           @if (puedeVerDespacho()) {
-            <a routerLink="/despacho" routerLinkActive="active"><app-icono nombre="despacho" /><span>Despacho</span></a>
+            <a routerLink="/despacho" routerLinkActive="active" data-mod="despacho"><app-icono nombre="despacho" /><span>Despacho</span></a>
           }
           @if (puedeConsultar()) {
-            <a routerLink="/casos" routerLinkActive="active"><app-icono nombre="consulta" /><span>Consulta</span></a>
+            <a routerLink="/casos" routerLinkActive="active" data-mod="consulta"><app-icono nombre="consulta" /><span>Consulta</span></a>
           }
           @if (puedeVerRecursos()) {
-            <a routerLink="/recursos" routerLinkActive="active"><app-icono nombre="recursos" /><span>Recursos</span></a>
+            <a routerLink="/recursos" routerLinkActive="active" data-mod="recursos"><app-icono nombre="recursos" /><span>Recursos</span></a>
           }
           <!-- Mapa y Panel son las dos vistas de análisis (metricas.ver): van juntas. -->
           @if (puedeVerPanel()) {
-            <a routerLink="/dashboard" routerLinkActive="active"><app-icono nombre="panel" /><span>Panel</span></a>
+            <a routerLink="/dashboard" routerLinkActive="active" data-mod="panel"><app-icono nombre="panel" /><span>Panel</span></a>
           }
           @if (puedeVerPanel()) {
-            <a routerLink="/mapa" routerLinkActive="active"><app-icono nombre="mapa" /><span>Mapa</span></a>
+            <a routerLink="/mapa" routerLinkActive="active" data-mod="mapa"><app-icono nombre="mapa" /><span>Mapa</span></a>
           }
         }
         <!-- Indicador global de llamadas timbrando sin tomar: visible en cualquier
@@ -44,18 +44,18 @@
           </a>
         }
         @if (puedeVerCatalogos()) {
-          <a routerLink="/catalogos" routerLinkActive="active"><app-icono nombre="catalogos" /><span>Catálogos</span></a>
+          <a routerLink="/catalogos" routerLinkActive="active" data-mod="catalogos"><app-icono nombre="catalogos" /><span>Catálogos</span></a>
         }
         @if (esAdmin()) {
-          <a routerLink="/admin" routerLinkActive="active"><app-icono nombre="admin" /><span>Administración</span></a>
+          <a routerLink="/admin" routerLinkActive="active" data-mod="admin"><app-icono nombre="admin" /><span>Administración</span></a>
         }
         <!-- Solo el dueño de la plataforma: instancias, suscripciones y módulos. -->
         @if (esSuperadmin()) {
-          <a routerLink="/plataforma" routerLinkActive="active"><app-icono nombre="plataforma" /><span>Plataforma</span></a>
-          <a routerLink="/monitor" routerLinkActive="active"><app-icono nombre="monitor" /><span>Monitor</span></a>
+          <a routerLink="/plataforma" routerLinkActive="active" data-mod="plataforma"><app-icono nombre="plataforma" /><span>Plataforma</span></a>
+          <a routerLink="/monitor" routerLinkActive="active" data-mod="monitor"><app-icono nombre="monitor" /><span>Monitor</span></a>
         }
       } @else {
-        <a routerLink="/chat" routerLinkActive="active"><app-icono nombre="chat" /><span>Mi chat</span></a>
+        <a routerLink="/chat" routerLinkActive="active" data-mod="chat"><app-icono nombre="chat" /><span>Mi chat</span></a>
       }
     </nav>
   }
