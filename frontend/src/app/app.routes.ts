@@ -47,6 +47,11 @@ export const routes: Routes = [
         loadComponent: () => import('./pages/admin/admin').then((m) => m.AdminComponent) },
       { path: 'plataforma', canActivate: [superadminGuard],
         loadComponent: () => import('./pages/plataforma/plataforma').then((m) => m.PlataformaComponent) },
+      // Monitoreo de la plataforma sobre sí misma: salud, infraestructura,
+      // cartera de instancias y uso real. Solo mira; quien cambia algo lo hace
+      // desde /plataforma.
+      { path: 'monitor', canActivate: [superadminGuard],
+        loadComponent: () => import('./pages/monitor/monitor').then((m) => m.MonitorComponent) },
     ],
   },
   { path: '**', redirectTo: '' },

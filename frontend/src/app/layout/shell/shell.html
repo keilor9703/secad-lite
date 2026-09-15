@@ -52,6 +52,7 @@
         <!-- Solo el dueño de la plataforma: instancias, suscripciones y módulos. -->
         @if (esSuperadmin()) {
           <a routerLink="/plataforma" routerLinkActive="active">Plataforma</a>
+          <a routerLink="/monitor" routerLinkActive="active">Monitor</a>
         }
       } @else {
         <a routerLink="/chat" routerLinkActive="active">Mi chat</a>

@@ -1,0 +1,291 @@
+<section class="mon">
+  <header class="mon-head">
+    <div>
+      <h1>Monitor de plataforma</h1>
+      <p class="mon-ctx">Estado, uso y cartera de FALCON CAD en todas sus instancias.</p>
+    </div>
+    <div class="mon-head-der">
+      @if (actualizado(); as a) {
+        <span class="sello">Actualizado {{ hora(a) }}</span>
+      }
+      <button type="button" class="btn mini" (click)="refrescar()">Actualizar</button>
+    </div>
+  </header>
+
+  @if (error()) {
+    <p class="error">{{ error() }}</p>
+  }
+
+  <!-- 1. Salud: lo primero es saber si el servicio está en pie -->
+  <section class="bloque">
+    <h2 class="bloque-tit">Estado del servicio</h2>
+    <div class="tarjetas">
+      @if (salud(); as s) {
+        <div class="tarjeta" data-sem="ok">
+          <span class="t-lbl">API</span>
+          <span class="t-val">En servicio</span>
+          <span class="t-pie">{{ s.api.entorno }} · activa hace {{ duracion(s.api.uptimeSegundos) }}</span>
+        </div>
+
+        <div class="tarjeta" [attr.data-sem]="semaforoBase()">
+          <span class="t-lbl">Base de datos</span>
+          @if (valor(s.base); as b) {
+            <span class="t-val">{{ b.latenciaMs }} ms</span>
+            <span class="t-pie">
+              @if (valor(b.version); as v) { PostgreSQL {{ v }} · }
+              @if (valor(b.tamanoBytes); as t) { {{ bytes(t) }} }
+              @else { tamaño no disponible }
+            </span>
+          } @else {
+            <span class="t-val">Sin conexión</span>
+            <span class="t-pie">{{ motivo(s.base) }}</span>
+          }
+        </div>
+
+        @if (valor(s.base); as b) {
+          <div class="tarjeta" [attr.data-sem]="semaforoConexiones()">
+            <span class="t-lbl">Conexiones</span>
+            @if (valor(b.conexiones); as c) {
+              <span class="t-val">{{ c.enUso }} <span class="t-de">de {{ c.maximo }}</span></span>
+              <span class="t-pie">Sesiones abiertas contra la base</span>
+            } @else {
+              <span class="t-val t-nd">No medible</span>
+              <span class="t-pie">{{ motivo(b.conexiones) }}</span>
+            }
+          </div>
+        }
+
+        <div class="tarjeta" [attr.data-sem]="salud()?.redis?.disponible ? 'ok' : 'neutro'">
+          <span class="t-lbl">Redis</span>
+          @if (valor(s.redis); as r) {
+            <span class="t-val">{{ bytes(r.memoriaBytes) }}</span>
+            <span class="t-pie">v{{ r.version }} · {{ r.clientes }} cliente{{ r.clientes === 1 ? '' : 's' }}</span>
+          } @else {
+            <span class="t-val t-nd">No configurado</span>
+            <span class="t-pie">{{ motivo(s.redis) }}</span>
+          }
+        </div>
+      } @else {
+        <p class="cargando">Consultando el estado…</p>
+      }
+    </div>
+  </section>
+
+  <!-- 2. Infraestructura del servidor donde corre la API -->
+  @if (infra(); as i) {
+    <section class="bloque">
+      <h2 class="bloque-tit">
+        Infraestructura
+        <span class="bloque-nota">
+          {{ i.contenedor ? 'Medido contra los límites del contenedor' : 'Medido sobre el sistema operativo' }}
+          · Node {{ i.proceso.versionNode }} · {{ i.proceso.plataforma }}
+        </span>
+      </h2>
+      <div class="medidores">
+        <div class="medidor" [attr.data-sem]="semaforoConsumo(valor(i.cpu)?.porcentaje)">
+          <div class="m-top">
+            <span class="m-lbl">CPU</span>
+            @if (valor(i.cpu); as c) {
+              <span class="m-val">{{ c.porcentaje }}%</span>
+            } @else { <span class="m-val m-nd">n/d</span> }
+          </div>
+          @if (valor(i.cpu); as c) {
+            <div class="barra"><span class="barra-fill" [style.width.%]="c.porcentaje"></span></div>
+            <span class="m-pie">{{ c.nucleos }} núcleo{{ c.nucleos === 1 ? '' : 's' }} · {{ fuente(c.fuente) }}</span>
+          } @else {
+            <span class="m-pie">{{ motivo(i.cpu) }}</span>
+          }
+        </div>
+
+        <div class="medidor" [attr.data-sem]="semaforoConsumo(valor(i.memoria)?.porcentaje)">
+          <div class="m-top">
+            <span class="m-lbl">Memoria</span>
+            @if (valor(i.memoria); as m) {
+              <span class="m-val">{{ m.porcentaje }}%</span>
+            } @else { <span class="m-val m-nd">n/d</span> }
+          </div>
+          @if (valor(i.memoria); as m) {
+            <div class="barra"><span class="barra-fill" [style.width.%]="m.porcentaje"></span></div>
+            <span class="m-pie">{{ bytes(m.usadoBytes) }} de {{ bytes(m.totalBytes) }} · {{ fuente(m.fuente) }}</span>
+          } @else {
+            <span class="m-pie">{{ motivo(i.memoria) }}</span>
+          }
+        </div>
+
+        <div class="medidor" [attr.data-sem]="semaforoConsumo(valor(i.disco)?.porcentaje)">
+          <div class="m-top">
+            <span class="m-lbl">Disco</span>
+            @if (valor(i.disco); as d) {
+              <span class="m-val">{{ d.porcentaje }}%</span>
+            } @else { <span class="m-val m-nd">n/d</span> }
+          </div>
+          @if (valor(i.disco); as d) {
+            <div class="barra"><span class="barra-fill" [style.width.%]="d.porcentaje"></span></div>
+            <span class="m-pie">{{ bytes(d.usadoBytes) }} de {{ bytes(d.totalBytes) }}</span>
+          } @else {
+            <span class="m-pie">{{ motivo(i.disco) }}</span>
+          }
+        </div>
+
+        <div class="medidor" data-sem="neutro">
+          <div class="m-top">
+            <span class="m-lbl">Proceso</span>
+            <span class="m-val">{{ bytes(i.proceso.rssBytes) }}</span>
+          </div>
+          <div class="barra">
+            <span class="barra-fill" [style.width.%]="(i.proceso.heapUsadoBytes / i.proceso.heapTotalBytes) * 100"></span>
+          </div>
+          <span class="m-pie">
+            Memoria residente · montón {{ bytes(i.proceso.heapUsadoBytes) }} de {{ bytes(i.proceso.heapTotalBytes) }}
+            · en pie hace {{ duracion(i.proceso.uptimeSegundos) }}
+          </span>
+        </div>
+      </div>
+      <p class="aclaracion">
+        La base de datos corre en un servicio aparte: de ella se informa lo que PostgreSQL expone
+        (latencia, conexiones y tamaño). Su CPU y su disco no son observables desde aquí.
+      </p>
+    </section>
+  }
+
+  <!-- 3. Cartera: el estado comercial de las instancias -->
+  @if (cartera(); as c) {
+    <section class="bloque">
+      <h2 class="bloque-tit">Cartera de instancias</h2>
+      <div class="cifras">
+        <div class="cifra"><span class="c-n">{{ c.total }}</span><span class="c-l">instancias</span></div>
+        <div class="cifra"><span class="c-n">{{ c.totalCuentas }}</span><span class="c-l">cuentas</span></div>
+        @for (p of pares(c.porSuscripcion); track p.clave) {
+          <div class="cifra"><span class="c-n">{{ p.valor }}</span><span class="c-l">{{ p.clave }}</span></div>
+        }
+        @for (p of pares(c.porPlan); track p.clave) {
+          <div class="cifra cifra--plan"><span class="c-n">{{ p.valor }}</span><span class="c-l">plan {{ p.clave }}</span></div>
+        }
+      </div>
+
+      @if (c.alertas.length) {
+        <div class="lista">
+          @for (a of c.alertas; track a.codigo + a.tipo) {
+            <div class="fila" [attr.data-alerta]="a.tipo">
+              <span class="f-sem" aria-hidden="true"></span>
+              <span class="f-etq">{{ etiquetaAlerta(a.tipo) }}</span>
+              <span class="f-cuerpo">
+                <span class="f-tit">{{ a.nombre }}</span>
+                <span class="f-sub">{{ a.detalle }}</span>
+              </span>
+              <span class="f-cod">{{ a.codigo }}</span>
+            </div>
+          }
+        </div>
+        <p class="aclaracion">
+          «Sin actividad» significa que la instancia no ha registrado casos nuevos ni cambios de
+          configuración. Una donde solo se consulte información existente aparecerá aquí igual.
+        </p>
+      } @else {
+        <p class="vacio">Nada que atender: ninguna instancia vencida, suspendida ni inactiva.</p>
+      }
+    </section>
+  }
+
+  <!-- 4. Uso real: transaccionalidad de toda la plataforma -->
+  @if (uso(); as u) {
+    <section class="bloque">
+      <h2 class="bloque-tit">
+        Uso y transaccionalidad
+        <span class="bloque-nota">Últimos {{ u.dias }} días</span>
+      </h2>
+      <div class="cifras">
+        <div class="cifra"><span class="c-n">{{ u.totales.casos }}</span><span class="c-l">casos</span></div>
+        <div class="cifra"><span class="c-n">{{ u.totales.casosHoy }}</span><span class="c-l">casos hoy</span></div>
+        <div class="cifra"><span class="c-n">{{ u.totales.llamadas }}</span><span class="c-l">llamadas</span></div>
+        <div class="cifra"><span class="c-n">{{ u.totales.mensajes }}</span><span class="c-l">mensajes</span></div>
+      </div>
+
+      <div class="grafica"><canvas #canvasUso></canvas></div>
+
+      <div class="tabla-envoltura">
+        <table class="tabla">
+          <caption class="sr">Volumen por instancia en los últimos {{ u.dias }} días</caption>
+          <thead>
+            <tr>
+              <th scope="col">Instancia</th>
+              <th scope="col" class="num">Casos</th>
+              <th scope="col" class="num">Llamadas</th>
+              <th scope="col" class="num">Mensajes</th>
+              <th scope="col" class="num">Cuentas</th>
+            </tr>
+          </thead>
+          <tbody>
+            @for (r of u.ranking; track r.codigo) {
+              <tr [class.inactiva]="!r.casos && !r.llamadas">
+                <td>{{ r.nombre }} <span class="cod">{{ r.codigo }}</span></td>
+                <td class="num">{{ r.casos }}</td>
+                <td class="num">{{ r.llamadas }}</td>
+                <td class="num">{{ r.mensajes }}</td>
+                <td class="num">{{ r.cuentas }}</td>
+              </tr>
+            }
+          </tbody>
+        </table>
+      </div>
+    </section>
+  }
+
+  <!-- 5. Adopción: lo que se paga frente a lo que se usa -->
+  @if (adopcion(); as a) {
+    <section class="bloque">
+      <h2 class="bloque-tit">
+        Adopción de módulos
+        <span class="bloque-nota">Contratado frente a uso real en {{ a.dias }} días</span>
+      </h2>
+      <div class="lista">
+        @for (m of a.modulos; track m.clave) {
+          <div class="fila" [attr.data-alerta]="m.ociosas.length || m.sinConfigurar.length ? 'por_vencer' : 'ok'">
+            <span class="f-sem" aria-hidden="true"></span>
+            <span class="f-etq">{{ m.enUso }}/{{ m.contratado }}</span>
+            <span class="f-cuerpo">
+              <span class="f-tit">{{ m.nombre }}</span>
+              <span class="f-sub">
+                @if (!m.contratado) {
+                  Ninguna instancia lo tiene contratado.
+                } @else if (!m.ociosas.length && !m.sinConfigurar.length) {
+                  Todas las instancias que lo contrataron lo están usando.
+                } @else {
+                  @if (m.sinConfigurar.length) {
+                    <strong>Sin configurar:</strong>
+                    @for (t of m.sinConfigurar; track t.codigo) {<span>{{ t.nombre }}. </span>}
+                  }
+                  @if (m.ociosas.length) {
+                    <strong>Configurado y sin uso:</strong>
+                    @for (t of m.ociosas; track t.codigo) {<span>{{ t.nombre }}. </span>}
+                  }
+                }
+              </span>
+            </span>
+          </div>
+        }
+      </div>
+    </section>
+  }
+
+  <!-- 6. Bitácora de todas las instancias -->
+  @if (bitacora().length) {
+    <section class="bloque">
+      <h2 class="bloque-tit">
+        Movimientos administrativos
+        <span class="bloque-nota">Todas las instancias</span>
+      </h2>
+      <div class="lista">
+        @for (b of bitacora(); track b.id) {
+          <div class="fila fila--log">
+            <span class="f-hora">{{ hora(b.creadoEn) }}</span>
+            <span class="f-cuerpo">
+              <span class="f-tit"><span class="accion">{{ b.accion }}</span> {{ b.detalle }}</span>
+              <span class="f-sub">{{ b.nombreTenant }} · {{ b.autor }}</span>
+            </span>
+          </div>
+        }
+      </div>
+    </section>
+  }
+</section>

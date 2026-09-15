@@ -28,6 +28,7 @@ import { WhatsappModule } from './whatsapp/whatsapp.module';
 import { IntegracionModule } from './integracion/integracion.module';
 import { CtiModule } from './cti/cti.module';
 import { GeografiaModule } from './geografia/geografia.module';
+import { PlataformaModule } from './plataforma/plataforma.module';
 
 @Module({
   imports: [
@@ -112,6 +113,7 @@ import { GeografiaModule } from './geografia/geografia.module';
     CtiModule,
     IntegracionModule,
     GeografiaModule,
+    PlataformaModule,
   ],
   controllers: [AppController],
   providers: [
