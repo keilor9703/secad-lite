@@ -27,6 +27,13 @@ import {
  */
 const CLAVES_TRANSVERSALES = ['pbx.usar', 'whatsapp.responder'];
 
+/** Una pestaña del módulo: una de las secciones en que se reparte Administración. */
+interface PestanaAdmin {
+  id: string;
+  etiqueta: string;
+  icono: string;
+}
+
 @Component({
   selector: 'app-admin',
   standalone: true,
@@ -77,6 +84,28 @@ export class AdminComponent implements OnInit {
   readonly haySucios = computed(() => this.sucios().size > 0);
   /** El superadmin ve la matriz solo cuando ya eligió un tenant. */
   readonly puedeVerMatriz = computed(() => this.gestionaRoles() && (!this.esSuperadmin() || !!this.tenantCtx()));
+
+  /**
+   * Cada sección de Administración es una pestaña: solo entran las que el rol
+   * puede ver o que ya tienen algo que mostrar (una integración cargada, p.
+   * ej.), en el mismo orden en que antes aparecían apiladas en la página.
+   */
+  readonly pestanas = computed<PestanaAdmin[]>(() => {
+    const p: PestanaAdmin[] = [];
+    if (this.puedeVerMatriz()) p.push({ id: 'roles', etiqueta: 'Roles y permisos', icono: '🛡️' });
+    if (this.pbxConfig()) p.push({ id: 'pbx', etiqueta: 'Planta telefónica', icono: '📞' });
+    if (this.ctiConfig()) p.push({ id: 'cti', etiqueta: 'CTI / YACO', icono: '🖥️' });
+    if (this.waConfig()) p.push({ id: 'whatsapp', etiqueta: 'WhatsApp', icono: '🟢' });
+    if (this.configuraRemision && this.remisionConfig()) p.push({ id: 'remisiones', etiqueta: 'Remisiones', icono: '↩' });
+    if (this.gestionaEntidades && !!this.tenantActivo() && this.tieneIntegracion('api')) {
+      p.push({ id: 'entidades', etiqueta: 'Entidades externas', icono: '🔌' });
+    }
+    p.push({ id: 'usuarios', etiqueta: 'Usuarios', icono: '👤' });
+    if (!this.esSuperadmin() || this.tenantCtx()) p.push({ id: 'bitacora', etiqueta: 'Bitácora', icono: '🧾' });
+    return p;
+  });
+  /** Pestaña que se está viendo. Null hasta que se conoce la primera disponible. */
+  readonly pestanaActiva = signal<string | null>(null);
   readonly rolForm = new FormGroup({
     nombre: new FormControl('', { nonNullable: true, validators: [Validators.required] }),
   });
@@ -186,6 +215,16 @@ export class AdminComponent implements OnInit {
   readonly usuarioUsernameEstado = signal<'inactivo' | 'verificando' | 'disponible' | 'ocupado'>('inactivo');
 
   constructor() {
+    // Al entrar, o si la pestaña activa deja de existir (cambió de tenant o
+    // de rol y ya no la puede ver), se cae a la primera disponible. No
+    // reasigna si el usuario ya está viendo una pestaña que sigue vigente,
+    // para no sacarlo de donde está cada vez que carga una integración más.
+    effect(() => {
+      const p = this.pestanas();
+      if (p.length && !p.some((x) => x.id === this.pestanaActiva())) {
+        this.pestanaActiva.set(p[0].id);
+      }
+    });
     // Username único en TODA la plataforma (no solo en el tenant): se avisa
     // apenas se escribe, sin esperar al intento de guardar — el backend
     // vuelve a validarlo igual al crear, esto es solo adelanto para el ojo.
