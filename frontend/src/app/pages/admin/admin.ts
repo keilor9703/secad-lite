@@ -86,21 +86,26 @@ export class AdminComponent implements OnInit {
   readonly puedeVerMatriz = computed(() => this.gestionaRoles() && (!this.esSuperadmin() || !!this.tenantCtx()));
 
   /**
+   * ¿Hay alguna integración que mostrar? Todas viven juntas en una sola
+   * pestaña «Integraciones» — no una pestaña por cada una —, y esa pestaña
+   * solo entra a la lista si el tenant tiene al menos una habilitada por el
+   * superadmin en Plataforma (cada `xConfig()` solo trae datos si la
+   * integración está contratada; si no, se queda en null y no se carga).
+   */
+  readonly hayIntegraciones = computed(() =>
+    !!this.pbxConfig() || !!this.ctiConfig() || !!this.waConfig()
+    || (this.configuraRemision && !!this.remisionConfig())
+    || (this.gestionaEntidades && !!this.tenantActivo() && this.tieneIntegracion('api')));
+
+  /**
    * Cada sección de Administración es una pestaña: solo entran las que el rol
-   * puede ver o que ya tienen algo que mostrar (una integración cargada, p.
-   * ej.), en el mismo orden en que antes aparecían apiladas en la página.
+   * puede ver o que ya tienen algo que mostrar.
    */
   readonly pestanas = computed<PestanaAdmin[]>(() => {
     const p: PestanaAdmin[] = [];
     if (this.puedeVerMatriz()) p.push({ id: 'roles', etiqueta: 'Roles y permisos', icono: '🛡️' });
-    if (this.pbxConfig()) p.push({ id: 'pbx', etiqueta: 'Planta telefónica', icono: '📞' });
-    if (this.ctiConfig()) p.push({ id: 'cti', etiqueta: 'CTI / YACO', icono: '🖥️' });
-    if (this.waConfig()) p.push({ id: 'whatsapp', etiqueta: 'WhatsApp', icono: '🟢' });
-    if (this.configuraRemision && this.remisionConfig()) p.push({ id: 'remisiones', etiqueta: 'Remisiones', icono: '↩' });
-    if (this.gestionaEntidades && !!this.tenantActivo() && this.tieneIntegracion('api')) {
-      p.push({ id: 'entidades', etiqueta: 'Entidades externas', icono: '🔌' });
-    }
     p.push({ id: 'usuarios', etiqueta: 'Usuarios', icono: '👤' });
+    if (this.hayIntegraciones()) p.push({ id: 'integraciones', etiqueta: 'Integraciones', icono: '🔗' });
     if (!this.esSuperadmin() || this.tenantCtx()) p.push({ id: 'bitacora', etiqueta: 'Bitácora', icono: '🧾' });
     return p;
   });

@@ -6,6 +6,10 @@
 .panel { padding: 1.1rem 1.2rem; display: flex; flex-direction: column; gap: 0.9rem; min-width: 0; }
 .panel h2 { margin: 0; font-size: 1.05rem; display: flex; align-items: center; gap: 0.4rem; flex-wrap: wrap; }
 
+/* Una sola pestaña con todas las integraciones habilitadas, cada una su
+   propia tarjeta apilada — no una pestaña por integración. */
+.pestana-integraciones { display: flex; flex-direction: column; gap: 1.1rem; }
+
 /* Pestañas: cada sección de Administración vive en la suya, en vez de
    apilarse todas una tras otra en una sola página larga. */
 .admin-tabs {
