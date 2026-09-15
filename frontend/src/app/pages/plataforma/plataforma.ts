@@ -143,8 +143,18 @@ export class PlataformaComponent implements OnInit {
     });
   }
 
-  /** Municipio elegido desde <app-selector-municipio> para una instancia ya creada. */
+  /**
+   * Municipio elegido desde <app-selector-municipio> para una instancia ya
+   * creada. Ese control emite `null` en cuanto se elige el departamento —
+   * antes de que haya municipio —, porque su valor ES el código DANE del
+   * municipio y todavía no hay uno. Si se guardara ese null intermedio, el
+   * PATCH volvería con codigoDane/departamento/municipio en null, el
+   * [ngModel] se lo devolvería al selector y este se limpiaría solo antes
+   * de que la persona alcanzara a elegir el municipio. Por eso solo se
+   * persiste cuando ya hay un municipio real elegido.
+   */
   cambiarUbicacion(t: Tenant, codigoDane: string | null): void {
+    if (!codigoDane) return;
     this.actualizar(t, { codigoDane });
   }
 

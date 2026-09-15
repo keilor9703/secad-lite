@@ -7,6 +7,7 @@ import { CasosService } from '../../core/casos.service';
 import { PbxService } from '../../core/pbx.service';
 import { CatalogosService } from '../../core/catalogos.service';
 import { AuthService } from '../../core/auth.service';
+import { AdminService } from '../../core/admin.service';
 import { GeografiaService, Municipio } from '../../core/geografia.service';
 import { ToastService } from '../../shared/toast/toast.service';
 import { AutocompletarComponent, OpcionAutocompletar } from '../../shared/autocompletar/autocompletar';
@@ -28,6 +29,7 @@ export class RecepcionComponent implements OnInit {
   private casosSvc = inject(CasosService);
   private catalogos = inject(CatalogosService);
   private auth = inject(AuthService);
+  private admin = inject(AdminService);
   private geografia = inject(GeografiaService);
   private pbx = inject(PbxService);
   private toast = inject(ToastService);
@@ -245,9 +247,27 @@ export class RecepcionComponent implements OnInit {
    * tenant preseleccionado — el operador puede cambiarlo si el caso es de un
    * municipio vecino, pero lo normal (la inmensa mayoría de los casos) es el
    * suyo propio.
+   *
+   * `sesion().municipioCodigo` es del tenant DEL TOKEN — para el superadmin
+   * eso es siempre null (él no pertenece a ninguno fijo), así que sin este
+   * caso aparte la lista quedaba vacía en todo tenant que gestionara. Se
+   * resuelve entonces como en otras vistas: de la lista de tenants que ya
+   * tiene cargada, buscando el que tiene en gestión.
    */
   private cargarMunicipioPorDefecto(): void {
-    const codigoTenant = this.auth.sesion()?.municipioCodigo ?? '';
+    if (this.auth.esSuperadmin()) {
+      const tenant = this.auth.tenantActivo();
+      if (!tenant) { this.municipiosTenant.set([]); return; }
+      this.admin.listarTenants().subscribe({
+        next: (ts) => this.cargarMunicipiosDelCodigo(ts.find((t) => t.codigo === tenant)?.codigoDane ?? ''),
+        error: () => this.municipiosTenant.set([]),
+      });
+      return;
+    }
+    this.cargarMunicipiosDelCodigo(this.auth.sesion()?.municipioCodigo ?? '');
+  }
+
+  private cargarMunicipiosDelCodigo(codigoTenant: string): void {
     if (!codigoTenant) { this.municipiosTenant.set([]); return; }
     this.geografia.municipios(codigoTenant.slice(0, 2)).subscribe((m) => {
       this.municipiosTenant.set(m);
