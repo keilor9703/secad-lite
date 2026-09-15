@@ -1,4 +1,4 @@
-import { ChangeDetectionStrategy, Component, computed, effect, inject, signal } from '@angular/core';
+import { ChangeDetectionStrategy, Component, computed, effect, inject, signal, untracked } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { ActivatedRoute, Router, RouterLink } from '@angular/router';
 import { DetalleComponent } from '../detalle/detalle';
@@ -201,15 +201,25 @@ export class DespachoComponent {
     // Si la dirección trae un caso, se abre en el panel al entrar.
     // Acepta ambas formas: el enlace antiguo /despacho/:id y ?caso=.
     this.seleccionado.set(this.ruta.snapshot.paramMap.get('id') ?? this.ruta.snapshot.queryParamMap.get('caso'));
+    // Cambiar de instancia deja sin sentido la bandeja elegida: se limpia todo
+    // y se vuelve a empezar.
+    //
+    // El cuerpo va dentro de `untracked` a propósito. `cargar()` lee
+    // `canalActivo()` —y con él `canalSel`—, así que sin aislarlo el efecto
+    // quedaba dependiendo de la misma señal que borra dos líneas más arriba:
+    // al elegir un canal, el efecto se volvía a disparar y dejaba el selector
+    // otra vez en blanco. La única dependencia que debe tener es el tenant.
     effect(() => {
       this.auth.tenantActivo();
-      this.catalogos.canales().subscribe({ next: (c) => this.canales.set(c), error: () => {} });
-      this.catalogos.agencias().subscribe({ next: (a) => this.agenciasTodas.set(a), error: () => {} });
-      this.agenciaSel.set(null);
-      this.canalSel.set(null);
-      this.filtroEstado.set(null);
-      this.casos.set([]);
-      this.cargar();
+      untracked(() => {
+        this.catalogos.canales().subscribe({ next: (c) => this.canales.set(c), error: () => {} });
+        this.catalogos.agencias().subscribe({ next: (a) => this.agenciasTodas.set(a), error: () => {} });
+        this.agenciaSel.set(null);
+        this.canalSel.set(null);
+        this.filtroEstado.set(null);
+        this.casos.set([]);
+        this.cargar();
+      });
     });
     this.casosWs.conectar();
     this.casosWs.eventos.subscribe(({ tipo, caso }) => this.aplicarEnVivo(tipo, caso));
