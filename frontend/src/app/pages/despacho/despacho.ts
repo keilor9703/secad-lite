@@ -12,18 +12,31 @@ import { ToastService } from '../../shared/toast/toast.service';
 import { SelectorComponent } from '../../shared/selector/selector';
 import { OpcionComponent } from '../../shared/selector/opcion';
 
-/** Una columna del tablero: un estado del ciclo de vida y sus casos. */
-interface Columna {
+/** Un paso del ciclo de vida y los casos que están en él. */
+interface Grupo {
   estado: EstadoCaso;
   titulo: string;
   pista: string;
   casos: Caso[];
 }
 
+/** Los pasos del ciclo, en el orden en que avanza un caso. */
+const PASOS: ReadonlyArray<[EstadoCaso, string, string]> = [
+  ['nuevo', 'Sin tomar', 'Llegaron a su canal y nadie los ha tomado'],
+  ['en_gestion', 'En gestión', 'Los atiende alguien, sin recursos en camino'],
+  ['despachado', 'Con recursos', 'Hay una unidad asignada o en el sitio'],
+  ['derivado', 'Remitidos', 'Se enviaron a otra entidad'],
+];
+
 /**
- * Consola del despachador: los casos que llegan a SUS canales, ordenados por lo
- * que hay que hacer con ellos. Cada columna es un paso del ciclo de vida, así
- * que el tablero se lee de izquierda a derecha y lo pendiente salta a la vista.
+ * Consola del despachador: los casos que llegan a SUS canales en una sola cola
+ * priorizada, de la más urgente a la menos.
+ *
+ * Se descartó el tablero de columnas: en operación real la carga se concentra
+ * en uno o dos estados, así que tres cuartas partes del ancho quedaban vacías
+ * mientras los casos que sí importan se apretaban en una columna angosta. Aquí
+ * el estado es un encabezado (y un filtro), no una columna, y cada caso ocupa
+ * una fila completa — se escanea de arriba abajo, que es como se lee una cola.
  */
 @Component({
   selector: 'app-despacho',
@@ -96,19 +109,33 @@ export class DespachoComponent {
     });
   });
 
-  /** El tablero: un paso por columna, los más urgentes arriba. */
-  readonly columnas = computed<Columna[]>(() => {
+  /** La cola repartida por paso del ciclo, los más urgentes arriba de cada uno. */
+  readonly columnas = computed<Grupo[]>(() => {
     const abiertos = this.casosFiltrados().filter((c) => c.estado !== 'cerrado');
-    const def: Array<[EstadoCaso, string, string]> = [
-      ['nuevo', 'Sin tomar', 'Llegaron a su canal y nadie los ha tomado'],
-      ['en_gestion', 'En gestión', 'Los está atendiendo alguien, sin recursos en camino'],
-      ['despachado', 'Con recursos', 'Hay una unidad asignada o en el sitio'],
-      ['derivado', 'Remitidos', 'Se enviaron a otra entidad'],
-    ];
-    return def.map(([estado, titulo, pista]) => ({
+    return PASOS.map(([estado, titulo, pista]) => ({
       estado, titulo, pista,
       casos: abiertos.filter((c) => c.estado === estado).sort((a, b) => this.urgencia(b) - this.urgencia(a)),
     }));
+  });
+
+  /**
+   * Paso al que se acotó la cola, si el despachador tocó uno de los contadores.
+   * Sin filtro se ven todos los pasos, cada uno bajo su encabezado.
+   */
+  readonly filtroEstado = signal<EstadoCaso | null>(null);
+
+  alternarEstado(estado: EstadoCaso): void {
+    this.filtroEstado.update((v) => (v === estado ? null : estado));
+  }
+
+  tituloEstado(estado: EstadoCaso): string {
+    return PASOS.find(([e]) => e === estado)?.[1] ?? estado;
+  }
+
+  /** Lo que se pinta: los pasos con casos, acotados al filtro si hay uno. */
+  readonly gruposVisibles = computed(() => {
+    const f = this.filtroEstado();
+    return this.columnas().filter((g) => g.casos.length && (!f || g.estado === f));
   });
 
   /** Caso abierto en el panel de gestión, a la derecha de la cola. */
@@ -137,7 +164,6 @@ export class DespachoComponent {
     return !this.vistos().has(c.id);
   }
 
-    readonly sinTomar = computed(() => this.columnas()[0]?.casos.length ?? 0);
   readonly total = computed(() => this.columnas().reduce((n, c) => n + c.casos.length, 0));
 
   constructor() {
@@ -151,6 +177,7 @@ export class DespachoComponent {
       this.catalogos.agencias().subscribe({ next: (a) => this.agenciasTodas.set(a), error: () => {} });
       this.filtroAgenciaId.set(null);
       this.filtroCanalId.set(null);
+      this.filtroEstado.set(null);
     });
     this.casosWs.conectar();
     this.casosWs.eventos.subscribe(({ tipo, caso }) => {
@@ -298,6 +325,20 @@ export class DespachoComponent {
   }
 
   /**
+   * La misma espera, abreviada: en la cola vive en una columna de ancho fijo,
+   * así que necesita caber siempre igual para que los tiempos se comparen de un
+   * vistazo, uno debajo del otro.
+   */
+  esperaCorta(c: Caso): string {
+    const m = this.minutos(c);
+    if (m < 60) return `${m}m`;
+    const h = Math.floor(m / 60);
+    if (h < 24) return `${h}h ${m % 60}m`;
+    const d = Math.floor(h / 24);
+    return `${d}d ${h % 24}h`;
+  }
+
+  /**
    * Semáforo de atención: combina prioridad y espera. Un caso de prioridad alta
    * envejece más rápido, que es como se prioriza en una sala de despacho.
    */
@@ -318,10 +359,6 @@ export class DespachoComponent {
     const ids = c.canales ?? [];
     const cods = this.canales().filter((x) => ids.includes(x.id)).map((x) => x.codigo);
     return cods.join(', ');
-  }
-
-  canalIcon(c: Caso): string {
-    return { llamada: '📞', chat: '💬', whatsapp: '🟢', integracion: '🔌' }[c.canal] ?? '•';
   }
 
   canalIconData(c: Caso): { emoji: string; label: string } {

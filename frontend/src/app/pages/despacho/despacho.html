@@ -1,10 +1,10 @@
 <section class="desp" [class.con-panel]="seleccionado()">
   <div class="cola">
     <header class="desp-head">
-      <div>
+      <div class="desp-tit">
         <h1>Despacho</h1>
         @if (!veTodo()) {
-          <p>
+          <p class="desp-ctx">
             @if (miAgenciaNombre(); as agencia) {
               <strong>{{ agencia }}</strong> ·
             }
@@ -19,7 +19,7 @@
           </p>
         }
         @if (veTodo() && !puedeElegirAgenciaCanal()) {
-          <p>
+          <p class="desp-ctx">
             @if (miAgenciaNombre(); as agencia) {
               Todos los casos abiertos de <strong>{{ agencia }}</strong>.
             } @else {
@@ -27,9 +27,41 @@
             }
           </p>
         }
+      </div>
+      <div class="desp-acciones">
+        <a routerLink="/wallboard" class="btn btn--ghost btn-icono" title="Pantalla grande para la sala">
+          <span aria-hidden="true">📺</span> Sala
+        </a>
+        <button type="button" class="btn btn--ghost btn-icono timbre" (click)="alternarSonido()"
+          [title]="sonidoActivo() ? 'Silenciar el aviso de casos nuevos' : 'Activar el aviso sonoro de casos nuevos'"
+          [attr.aria-label]="sonidoActivo() ? 'Silenciar aviso de casos nuevos' : 'Activar aviso sonoro de casos nuevos'"
+          [attr.aria-pressed]="sonidoActivo()">
+          <span aria-hidden="true">{{ sonidoActivo() ? '🔔' : '🔕' }}</span>
+        </button>
+      </div>
+    </header>
+
+    @if (veTodo() || misCanales().length || total()) {
+      <!-- Una sola barra: el panorama por estado a la izquierda (y a la vez el
+           filtro de la cola), el alcance de lo que se mira a la derecha. -->
+      <div class="barra">
+        <div class="pasos" role="group" aria-label="Filtrar la cola por estado">
+          @for (col of columnas(); track col.estado) {
+            <button type="button" class="paso" [attr.data-estado]="col.estado"
+              [class.activo]="filtroEstado() === col.estado"
+              [disabled]="!col.casos.length && filtroEstado() !== col.estado"
+              [attr.aria-pressed]="filtroEstado() === col.estado"
+              [title]="col.pista"
+              (click)="alternarEstado(col.estado)">
+              <span class="paso-n">{{ col.casos.length }}</span>
+              <span class="paso-l">{{ col.titulo }}</span>
+            </button>
+          }
+        </div>
+
         @if (veTodo() && puedeElegirAgenciaCanal()) {
-          <div class="filtro-agencia">
-            <span>Viendo:</span>
+          <div class="alcance">
+            <span class="alcance-lbl">Viendo</span>
             <app-selector [ngModel]="filtroAgenciaId()" (ngModelChange)="cambiarFiltroAgencia($event)" [ariaLabel]="'Agencia a mostrar'">
               <app-opcion [valor]="null">Todas las agencias</app-opcion>
               @for (a of agenciasTodas(); track a.id) {
@@ -47,34 +79,23 @@
           </div>
         }
       </div>
-      <div class="desp-head-der">
-        <a routerLink="/wallboard" class="btn btn--ghost" title="Pantalla grande para la sala">📺 Sala</a>
-        <button type="button" class="btn btn--ghost timbre" (click)="alternarSonido()"
-          [title]="sonidoActivo() ? 'Silenciar el aviso de casos nuevos' : 'Activar el aviso sonoro de casos nuevos'"
-          [attr.aria-label]="sonidoActivo() ? 'Silenciar aviso de casos nuevos' : 'Activar aviso sonoro de casos nuevos'">
-          {{ sonidoActivo() ? '🔔' : '🔕' }}
-        </button>
-        @if (total()) {
-          <div class="marcador">
-            <span class="pend" [class.hay]="sinTomar()">{{ sinTomar() }}</span>
-            <span class="lbl">sin tomar</span>
-          </div>
-        }
-      </div>
-    </header>
+    }
 
     <!-- Lo primero que necesita saber: qué acaba de llegar y qué no ha mirado -->
     @if (ultimo(); as u) {
-      <div class="alertas">
-        <a class="alerta nuevo" (click)="abrir(u)" [class.sin-ver]="noVisto(u)">
-          <span class="etq">Último en llegar</span>
-          <strong>{{ u.titulo }}</strong>
-          <span class="hace">hace {{ espera(u) }}</span>
-        </a>
+      <div class="avisos">
+        <button type="button" class="aviso aviso--nuevo" (click)="abrir(u)" [class.sin-ver]="noVisto(u)">
+          <span class="aviso-etq">Último en llegar</span>
+          <span class="aviso-txt">{{ u.titulo }}</span>
+          <span class="aviso-dato">hace {{ espera(u) }}</span>
+        </button>
         @if (sinAbrir().length) {
-          <div class="alerta pendiente">
-            ⚠ <strong>{{ sinAbrir().length }}</strong>
-            {{ sinAbrir().length === 1 ? 'caso lleva' : 'casos llevan' }} más de 5 minutos sin que los abra
+          <div class="aviso aviso--pendiente">
+            <span class="aviso-etq">Sin abrir</span>
+            <span class="aviso-txt">
+              <strong>{{ sinAbrir().length }}</strong>
+              {{ sinAbrir().length === 1 ? 'caso lleva' : 'casos llevan' }} más de 5 min esperando
+            </span>
           </div>
         }
       </div>
@@ -89,54 +110,78 @@
         <h2>Todavía no atiende ningún canal</h2>
         <p>Aquí llegan los casos que recepción envía a los canales de su agencia. Pídale al
           administrador que le asigne al menos uno desde <strong>Administración → Usuarios</strong>.</p>
-        </div>
-      }
-
-      @if (veTodo() || misCanales().length || total()) {
-        <div class="tablero">
-          @for (col of columnas(); track col) {
-            <div class="col">
-              <div class="col-head">
-                <h2>{{ col.titulo }}</h2>
-                <span class="cuenta">{{ col.casos.length }}</span>
-              </div>
-              <p class="col-pista">{{ col.pista }}</p>
-              @for (c of col.casos; track c) {
-                <button type="button" class="tarjeta" (click)="abrir(c)"
-                  [attr.data-sem]="semaforo(c)" [class.activa]="seleccionado() === c.id"
-                  [class.sin-ver]="noVisto(c)">
-                  <div class="t-top">
-                    <span class="prio" [attr.data-prio]="c.prioridad">{{ c.prioridad }}</span>
-                    <span class="espera">{{ espera(c) }}</span>
-                  </div>
-                  <h3>{{ c.titulo }}</h3>
-                  @if (c.direccion || c.barrio) {
-                    <p class="t-dir">📍 {{ c.direccion }}@if (c.barrio) {
-                      <span> · {{ c.barrio }}</span>
-                    }</p>
-                  }
-                  <p class="t-meta">
-                    <span><span role="img" [attr.aria-label]="canalIconData(c).label">{{ canalIconData(c).emoji }}</span> {{ c.ciudadano }}</span>
-                    @if (canalesDe(c)) {
-                      <span class="mono">{{ canalesDe(c) }}</span>
-                    }
-                  </p>
-                </button>
-              }
-              @if (!col.casos.length) {
-                <p class="col-vacia">Nada aquí.</p>
-              }
-            </div>
-          }
-        </div>
-      }
-    </div>
-
-    <!-- Gestión del caso, sin salir del módulo: despacho de recursos, notas, remisión -->
-    @if (seleccionado(); as id) {
-      <aside class="panel-caso">
-        <button type="button" class="cerrar" (click)="cerrarPanel()" aria-label="Cerrar el caso">✕</button>
-        <app-detalle [casoId]="id" [incrustado]="true" (cambiado)="cargar(true)" />
-      </aside>
+      </div>
     }
-  </section>
+
+    @if (veTodo() || misCanales().length || total()) {
+      <!-- La cola: una fila por caso, de la más urgente a la menos. El color
+           aparece una sola vez por fila (la barra de espera); todo lo demás se
+           lee como texto alineado en columna. -->
+      <div class="lista">
+        @for (g of gruposVisibles(); track g.estado) {
+          <section class="grupo">
+            @if (!filtroEstado()) {
+              <h2 class="grupo-head" [attr.data-estado]="g.estado">
+                <span class="grupo-tit">{{ g.titulo }}</span>
+                <span class="grupo-n">{{ g.casos.length }}</span>
+                <span class="grupo-pista">{{ g.pista }}</span>
+              </h2>
+            }
+            @for (c of g.casos; track c.id) {
+              <button type="button" class="fila" (click)="abrir(c)"
+                [attr.data-sem]="semaforo(c)"
+                [class.activa]="seleccionado() === c.id"
+                [class.sin-ver]="noVisto(c)">
+                <span class="f-sem" aria-hidden="true"></span>
+                <span class="f-espera" [attr.title]="'En cola hace ' + espera(c)">{{ esperaCorta(c) }}</span>
+                <span class="f-cuerpo">
+                  <span class="f-l1">
+                    <span class="f-prio" [attr.data-prio]="c.prioridad">{{ c.prioridad }}</span>
+                    <span class="f-titulo">{{ c.titulo }}</span>
+                    @if (noVisto(c)) {
+                      <span class="f-punto" role="img" aria-label="Todavía no lo ha abierto"></span>
+                    }
+                  </span>
+                  <span class="f-l2">
+                    @if (c.direccion || c.barrio) {
+                      <span class="f-dato f-dir">
+                        <span aria-hidden="true">📍</span>
+                        {{ c.direccion }}@if (c.direccion && c.barrio) {<span> · </span>}{{ c.barrio }}
+                      </span>
+                    }
+                    <span class="f-dato">
+                      <span role="img" [attr.aria-label]="canalIconData(c).label">{{ canalIconData(c).emoji }}</span>
+                      {{ c.ciudadano }}
+                    </span>
+                    @if (canalesDe(c); as cods) {
+                      <span class="f-canal">{{ cods }}</span>
+                    }
+                  </span>
+                </span>
+              </button>
+            }
+          </section>
+        }
+
+        @if (!gruposVisibles().length) {
+          <p class="lista-vacia">
+            @if (filtroEstado()) {
+              Nada en «{{ tituloEstado(filtroEstado()!) }}».
+              <button type="button" class="btn mini" (click)="filtroEstado.set(null)">Ver toda la cola</button>
+            } @else {
+              Sin casos abiertos. La cola está en calma.
+            }
+          </p>
+        }
+      </div>
+    }
+  </div>
+
+  <!-- Gestión del caso, sin salir del módulo: despacho de recursos, notas, remisión -->
+  @if (seleccionado(); as id) {
+    <aside class="panel-caso">
+      <button type="button" class="cerrar" (click)="cerrarPanel()" aria-label="Cerrar el caso">✕</button>
+      <app-detalle [casoId]="id" [incrustado]="true" (cambiado)="cargar(true)" />
+    </aside>
+  }
+</section>
