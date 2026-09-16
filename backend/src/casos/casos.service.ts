@@ -174,6 +174,18 @@ export class CasosService implements OnModuleInit {
   }
 
   /**
+   * Caso completo con el desglose de estado por entidad, para Consulta: quien
+   * supervisa ve de un vistazo cuál entidad ya cerró su parte y cuál sigue
+   * trabajando, sin entrar al tablero de cada una. Es la contraparte de
+   * `obtenerEnCanal` (que sustituye el estado por el de UN canal, para
+   * Despacho): aquí se ve el caso completo y se AGREGA el desglose aparte.
+   */
+  async obtenerConEstados(tenant: string, id: string, actor?: Actor): Promise<CasoEnVivo> {
+    const caso = await this.obtener(tenant, id, actor);
+    return this.conEstadosDeCanal(tenant, caso);
+  }
+
+  /**
    * Desde qué bandeja se está ejecutando la acción.
    *
    * Lo dice el cliente: es el canal que el despachador tiene abierto. No basta

@@ -133,7 +133,9 @@ export class CasosController {
 
   /**
    * GET /api/casos/:id — con `?canal=` devuelve el caso tal como lo ve ESA
-   * bandeja (su estado y su reloj); sin él, el caso con su macro-estado.
+   * bandeja (su estado y su reloj); sin él, el caso completo con su
+   * macro-estado y el desglose de estado por entidad (`canalesEstado`), para
+   * que Consulta pueda mostrar cuál ya cerró su parte y cuál sigue trabajando.
    */
   @Get(':id')
   async obtener(
@@ -146,7 +148,7 @@ export class CasosController {
     const actor = await this.actor(usuario, permisos);
     const caso = canal?.trim()
       ? await this.casos.obtenerEnCanal(tenant, id, actor, canal.trim())
-      : await this.casos.obtener(tenant, id, actor);
+      : await this.casos.obtenerConEstados(tenant, id, actor);
     return this.ocultarGrabaciones(caso, permisos);
   }
 

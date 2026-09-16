@@ -58,7 +58,12 @@
           <div class="canales-caso">
             <span class="ubic-lbl">Canales de atención</span>
             @for (id of c.canales ?? []; track id) {
-              <span class="chip-ro">{{ nombreCanal(id) }}</span>
+              <span class="chip-canal">
+                {{ nombreCanal(id) }}
+                @if (estadoDeCanal(id); as e) {
+                  <span class="badge mini" [attr.data-estado]="e">{{ estadoLabel(e) }}</span>
+                }
+              </span>
             }
           </div>
         }

@@ -382,6 +382,16 @@ export class DetalleComponent implements OnInit, OnDestroy {
     return c ? `${c.codigo} · ${c.nombre}` : id.slice(0, 8);
   }
 
+  /**
+   * Estado de ESA entidad frente al caso (ver `casos_canales`), o null si no
+   * hay fila propia todavía — casos de antes del rediseño por canal, o el
+   * instante entre remitir y que la bandeja termine de abrirse. Sin fila, no
+   * se muestra badge: mejor nada que un estado inventado.
+   */
+  estadoDeCanal(canalId: string): EstadoCaso | null {
+    return this.caso()?.canalesEstado?.find((e) => e.canalId === canalId)?.estado ?? null;
+  }
+
   /** Une dirección, barrio y ciudad omitiendo lo que no se diligenció. */
   ubicacionTexto(c: Caso): string {
     return [c.direccion, c.barrio, c.ciudad].filter((p) => p?.trim()).join(', ') || 'Sin dirección';

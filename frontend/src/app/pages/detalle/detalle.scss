@@ -99,6 +99,13 @@
 .ubic .coord:hover { text-decoration: underline; }
 .chip-ro { font-size: 0.78rem; border: 1px solid var(--border-2); border-radius: 999px;
            padding: 0.12rem 0.55rem; background: var(--surface-2); }
+/* Canal de atención + el estado de ESA entidad frente al caso (ver casos_canales). */
+.chip-canal {
+  display: inline-flex; align-items: center; gap: 0.4rem; font-size: 0.78rem;
+  border: 1px solid var(--border-2); border-radius: 999px;
+  padding: 0.12rem 0.3rem 0.12rem 0.55rem; background: var(--surface-2);
+}
+.badge.mini { padding: 0.12rem 0.45rem; font-size: 0.68rem; }
 .prio { font-size: 0.74rem; font-weight: 600; padding: 0.1rem 0.45rem; border-radius: 999px;
         background: var(--surface-2); color: var(--muted); text-transform: capitalize; }
 .prio[data-prio="alta"]  { background: var(--tag-danger-bg); color: var(--tag-danger-fg); }
