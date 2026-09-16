@@ -65,7 +65,8 @@
         @if (c.descripcion) {
           <p class="desc">{{ c.descripcion }}</p>
         }
-        <!-- Remisión a otra entidad -->
+        <!-- Remisión a otra entidad: un caso cerrado no se remite más — nada que atender ya. -->
+        @if (c.estado !== 'cerrado') {
         <div class="remitir-caja">
           @if (!mostrarRemitir()) {
             <button type="button" class="btn btn--ghost" (click)="abrirRemitir()">
@@ -117,6 +118,7 @@
             </div>
           }
         </div>
+        }
         <!-- Remisión a otra jurisdicción: el caso no le corresponde a este tenant -->
         @if (puedeRemitirTenant() && c.estado !== 'cerrado') {
           <div class="remitir-caja">
