@@ -333,6 +333,13 @@ export interface EntidadExterna {
   /** Solo viene (en claro) al crearla o rotarla: es el único momento de copiarla. */
   apiKey?: string;
   activa: boolean;
+  /** IPs/CIDR desde donde se acepta su key; null/vacío = sin restricción. */
+  ipsPermitidas: string[] | null;
+  /** Última vez que su key se usó con éxito, y desde qué IP. */
+  ultimoUso: string | null;
+  ultimaIp: string | null;
+  /** Últimas IPs distintas vistas con su key (tope acotado; señal de reparto, no historial). */
+  ipsVistas: string[] | null;
   creadoEn?: string;
 }
 

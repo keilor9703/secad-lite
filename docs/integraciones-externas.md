@@ -264,6 +264,17 @@ misma), y cada llamada a estos endpoints ya declara implícitamente el tenant y
 la entidad — el llamante no necesita saber ni declarar a qué instancia
 pertenece.
 
+**Sobre repartir la API key**: es un secreto compartido — quien la tiene,
+puede usarla desde cualquier origen. Si la misma entidad va a llamar desde
+varios sistemas propios, o existe el riesgo de que la comparta con un
+tercero, en Administración → Entidades externas se puede configurar un
+**allowlist de IP/CIDR** (`ipsPermitidas`) por entidad: con eso, la key deja
+de funcionar fuera de las IPs declaradas, aunque se filtre o se copie. Sin
+allowlist configurado (por defecto), no hay restricción de origen. La misma
+pantalla muestra, por entidad, la última vez que su key se usó, desde qué IP,
+y cuántas IPs distintas se le han visto — útil para notar un reparto que no
+se quiere bloquear de entrada con un allowlist.
+
 ### 3.1 `POST /api/integracion/casos` — radicar un caso
 
 **Autenticación**: header `x-api-key` con la API key de la **entidad**
@@ -320,8 +331,10 @@ agencia propia definida.
 ```
 
 **Errores**:
-- `401 Unauthorized` — falta `x-api-key`, no corresponde a ninguna entidad, o
-  la entidad está desactivada.
+- `401 Unauthorized` — falta `x-api-key`, no corresponde a ninguna entidad, la
+  entidad está desactivada, **o la IP de origen no está en su allowlist**
+  (mismo mensaje genérico en los tres casos: no se distingue por HTTP si la
+  key existe pero la IP no coincide).
 - `403 Forbidden` — el tenant dueño de la entidad está bloqueado/suspendido/
   vencido, o no tiene contratada la integración `api`.
 - `400 Bad Request` — falta `codigoCaso`, o el código no existe/está inactivo
@@ -364,14 +377,21 @@ para el tercero, son para quien administra el tenant):
 
 | Endpoint | Uso |
 |---|---|
-| `GET /api/entidades` | Lista las entidades del tenant, con su API key. |
-| `POST /api/entidades` | Registra una entidad nueva: `{ "nombre": "...", "agenciaResponsableId": "uuid \| null", "canales": ["uuid", ...] }`. Genera la API key (`ek_…`). |
-| `PATCH /api/entidades/:id` | Renombra, cambia agencia/canales, o activa/desactiva: `{ "nombre"?, "agenciaResponsableId"?, "canales"?, "activa"? }`. |
+| `GET /api/entidades` | Lista las entidades del tenant, con su API key y su telemetría de uso. |
+| `POST /api/entidades` | Registra una entidad nueva: `{ "nombre": "...", "agenciaResponsableId": "uuid \| null", "canales": ["uuid", ...], "ipsPermitidas"?: ["203.0.113.4", "203.0.113.0/24", ...] }`. Genera la API key (`ek_…`). |
+| `PATCH /api/entidades/:id` | Renombra, cambia agencia/canales/allowlist, o activa/desactiva: `{ "nombre"?, "agenciaResponsableId"?, "canales"?, "activa"?, "ipsPermitidas"? }`. |
 | `POST /api/entidades/:id/rotar` | Regenera la API key de esa entidad (la anterior queda inválida de inmediato). |
 
 `agenciaResponsableId` y `canales` deben existir en el catálogo operativo del
 tenant (agencias/canales de atención de Administración → Catálogos); un
 canal que no pertenezca a la agencia elegida se rechaza con `400`.
+
+`ipsPermitidas` acepta IPs sueltas o rangos CIDR (solo IPv4 para CIDR; IPv6
+solo como IP exacta). Vacío u omitido = sin restricción de origen. Una entrada
+que no sea una IP/CIDR válida se rechaza con `400`. Cada entidad trae además,
+de solo lectura: `ultimoUso` (fecha del último uso exitoso de su key),
+`ultimaIp` (esa IP) e `ipsVistas` (últimas IPs distintas vistas, tope 8 — una
+señal de reparto, no un historial completo).
 
 ---
 

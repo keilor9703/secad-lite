@@ -3,6 +3,7 @@ import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { randomBytes } from 'crypto';
 import { digestApiKey, esDigest } from '../common/secretos';
+import { esReglaIpValida, ipPermitida } from '../common/ip-match';
 import { EntidadEntity } from './entidad.entity';
 import { CasoEntity } from '../casos/caso.entity';
 import { CasosService } from '../casos/casos.service';
@@ -44,6 +45,8 @@ export interface CrearEntidadDto {
   agenciaResponsableId?: string | null;
   /** Canales de esa agencia a los que se envían. */
   canales?: string[];
+  /** IPs/CIDR desde donde se acepta la key. Vacío/omitido = sin restricción. */
+  ipsPermitidas?: string[];
 }
 
 export interface ActualizarEntidadDto {
@@ -51,6 +54,7 @@ export interface ActualizarEntidadDto {
   agenciaResponsableId?: string | null;
   canales?: string[];
   activa?: boolean;
+  ipsPermitidas?: string[];
 }
 
 /**
@@ -85,8 +89,8 @@ export class IntegracionService implements OnModuleInit {
   // --- API pública (x-api-key) ----------------------------------------------
 
   /** Radica un caso a nombre de la entidad dueña de la API key. */
-  async radicar(apiKey: string, dto: RadicarCasoDto) {
-    const entidad = await this.porApiKey(apiKey);
+  async radicar(apiKey: string, dto: RadicarCasoDto, ip?: string) {
+    const entidad = await this.porApiKey(apiKey, ip);
     if (!dto?.codigoCaso?.trim()) {
       throw new BadRequestException('El código de caso (codigoCaso) es obligatorio — es lo que clasifica el caso.');
     }
@@ -128,8 +132,8 @@ export class IntegracionService implements OnModuleInit {
   }
 
   /** Estado de un caso radicado por la MISMA entidad (seguimiento). */
-  async consultar(apiKey: string, casoId: string) {
-    const entidad = await this.porApiKey(apiKey);
+  async consultar(apiKey: string, casoId: string, ip?: string) {
+    const entidad = await this.porApiKey(apiKey, ip);
     // Público, sin sesión: el tenant recién se supo por la API key, así que
     // app.tenant (RLS) se fija dentro de esta transacción.
     const caso = await this.rls.conTenant(entidad.tenant, (manager) =>
@@ -167,6 +171,7 @@ export class IntegracionService implements OnModuleInit {
         tenant, nombre,
         ...atencion,
         apiKey: digestApiKey(clave),
+        ipsPermitidas: this.normalizarIps(dto.ipsPermitidas),
         activa: true,
       }),
     );
@@ -186,6 +191,7 @@ export class IntegracionService implements OnModuleInit {
       e.agenciaResponsableId = atencion.agenciaResponsableId;
       e.canales = atencion.canales;
     }
+    if (dto.ipsPermitidas !== undefined) e.ipsPermitidas = this.normalizarIps(dto.ipsPermitidas);
     if (typeof dto.activa === 'boolean') e.activa = dto.activa;
     return this.sinClave(await this.entidades.save(e));
   }
@@ -232,16 +238,53 @@ export class IntegracionService implements OnModuleInit {
     return e;
   }
 
-  private async porApiKey(apiKey: string): Promise<EntidadEntity> {
+  private async porApiKey(apiKey: string, ip?: string): Promise<EntidadEntity> {
     if (!apiKey?.trim()) throw new UnauthorizedException('Falta la API key (header x-api-key).');
     const e = await this.entidades.findOne({ where: { apiKey: digestApiKey(apiKey) } });
     if (!e || !e.activa) throw new UnauthorizedException('API key inválida o entidad inactiva.');
+    // Mismo mensaje genérico que el resto de esta función: no le confirmamos
+    // a quien golpea desde una IP no autorizada que la key en sí es válida.
+    if (!ipPermitida(ip, e.ipsPermitidas)) throw new UnauthorizedException('API key inválida o entidad inactiva.');
     // Bloqueado, suscripción suspendida/vencida, o sin la integración 'api'
     // contratada: esta ruta es pública, así que el guard global no lo revisa.
     const tenant = await this.tenants.porCodigo(e.tenant);
     if (!tenant) throw new UnauthorizedException('API key inválida o entidad inactiva.');
     this.tenants.asegurarVigente(tenant, 'api');
+    await this.registrarUso(e, ip);
     return e;
+  }
+
+  /**
+   * Deja constancia de que esta key se usó con éxito y desde dónde — visible
+   * en Administración → Entidades externas. `ipsVistas` es una lista corta
+   * (no un historial), pensada solo para notar cuando una key aparece
+   * llamando desde más orígenes de los esperados.
+   */
+  private static readonly MAX_IPS_VISTAS = 8;
+
+  private async registrarUso(e: EntidadEntity, ip?: string): Promise<void> {
+    if (!ip) return;
+    e.ultimoUso = new Date();
+    e.ultimaIp = ip;
+    const vistas = e.ipsVistas ?? [];
+    if (!vistas.includes(ip)) {
+      vistas.push(ip);
+      if (vistas.length > IntegracionService.MAX_IPS_VISTAS) vistas.shift();
+    }
+    e.ipsVistas = vistas;
+    await this.entidades.save(e);
+  }
+
+  /** Recorta, descarta vacías y valida cada entrada como IP o CIDR IPv4. */
+  private normalizarIps(ips?: string[] | null): string[] | null {
+    if (!ips) return null;
+    const limpias = [...new Set(ips.map((ip) => ip.trim()).filter(Boolean))];
+    if (!limpias.length) return null;
+    const invalidas = limpias.filter((ip) => !esReglaIpValida(ip));
+    if (invalidas.length) {
+      throw new BadRequestException(`IP/CIDR inválida: ${invalidas.join(', ')}`);
+    }
+    return limpias;
   }
 
   private generarKey(): string {

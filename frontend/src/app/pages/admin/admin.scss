@@ -159,6 +159,10 @@ tbody tr:last-child td { border-bottom: none; }
 /* Fila de edición en línea (entidades, y cualquier otra tabla editable). */
 .fila-edicion { background: var(--surface-2); }
 .fila-edicion app-selector { width: auto; min-width: 200px; }
+.fila-edicion .ips-input { display: block; width: 100%; max-width: 420px; margin-top: 0.5rem; }
+
+/* Allowlist de IP de una entidad externa (ver .crear-inline / fila-edicion arriba). */
+.ips-input { min-width: 220px; }
 
 /* Bitácora de administración. */
 .bit-detalle { white-space: normal; min-width: 260px; }

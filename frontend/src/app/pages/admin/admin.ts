@@ -130,6 +130,7 @@ export class AdminComponent implements OnInit {
   readonly entidadForm = new FormGroup({
     nombre: new FormControl('', { nonNullable: true, validators: [Validators.required] }),
     agenciaResponsableId: new FormControl<string | null>(null),
+    ipsPermitidas: new FormControl('', { nonNullable: true }),
   });
   readonly entidadCanales = signal<string[]>([]);
 
@@ -137,6 +138,7 @@ export class AdminComponent implements OnInit {
   readonly editandoEntidad = signal<string | null>(null);
   readonly entidadEdicionForm = new FormGroup({
     agenciaResponsableId: new FormControl<string | null>(null),
+    ipsPermitidas: new FormControl('', { nonNullable: true }),
   });
   readonly entidadEdicionCanales = signal<string[]>([]);
 
@@ -417,17 +419,22 @@ export class AdminComponent implements OnInit {
     const nombre = this.entidadForm.controls.nombre.value.trim();
     if (!nombre) return;
     this.error.set('');
-    const { agenciaResponsableId } = this.entidadForm.getRawValue();
-    this.entidadesSvc.crear(nombre, agenciaResponsableId, this.entidadCanales()).subscribe({
+    const { agenciaResponsableId, ipsPermitidas } = this.entidadForm.getRawValue();
+    this.entidadesSvc.crear(nombre, agenciaResponsableId, this.entidadCanales(), this.parsearIps(ipsPermitidas)).subscribe({
       next: (e) => {
         this.entidades.update((es) => [...es, e]);
-        this.entidadForm.reset({ nombre: '', agenciaResponsableId: null });
+        this.entidadForm.reset({ nombre: '', agenciaResponsableId: null, ipsPermitidas: '' });
         this.entidadCanales.set([]);
         this.keyVisible.set(e.id);
         this.toast.exito('Entidad creada.');
       },
       error: (e) => this.error.set(e?.error?.message ?? 'No fue posible crear la entidad.'),
     });
+  }
+
+  /** "203.0.113.4, 203.0.113.0/24" → ['203.0.113.4', '203.0.113.0/24']. */
+  private parsearIps(texto: string): string[] {
+    return texto.split(',').map((s) => s.trim()).filter(Boolean);
   }
 
   canalMarcadoEntidad(id: string): boolean {
@@ -443,7 +450,10 @@ export class AdminComponent implements OnInit {
   abrirEdicionEntidad(e: EntidadExterna): void {
     this.error.set('');
     this.editandoEntidad.set(e.id);
-    this.entidadEdicionForm.reset({ agenciaResponsableId: e.agenciaResponsableId });
+    this.entidadEdicionForm.reset({
+      agenciaResponsableId: e.agenciaResponsableId,
+      ipsPermitidas: (e.ipsPermitidas ?? []).join(', '),
+    });
     this.entidadEdicionCanales.set([...(e.canales ?? [])]);
   }
 
@@ -464,6 +474,7 @@ export class AdminComponent implements OnInit {
     this.entidadesSvc.actualizar(e.id, {
       agenciaResponsableId: this.entidadEdicionForm.controls.agenciaResponsableId.value,
       canales: this.entidadEdicionCanales(),
+      ipsPermitidas: this.parsearIps(this.entidadEdicionForm.controls.ipsPermitidas.value),
     }).subscribe({
       next: (act) => {
         this.entidades.update((es) => es.map((x) => (x.id === act.id ? act : x)));

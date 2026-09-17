@@ -349,8 +349,14 @@
                   <app-opcion [valor]="a.id" [deshabilitada]="!a.activo">{{ a.nombre }}</app-opcion>
                 }
               </app-selector>
+              <input formControlName="ipsPermitidas" placeholder="IPs/CIDR permitidas (opcional, separadas por coma)" class="ips-input" />
               <button type="submit" class="btn btn--primary" [disabled]="entidadForm.invalid">Registrar entidad</button>
             </form>
+            <p class="pbx-hint">
+              <strong>IPs/CIDR permitidas</strong>: si se dejan vacías, la API key funciona desde cualquier
+              origen — quien la tenga, la puede usar. Con una o más IPs/rangos (p. ej. <code>203.0.113.4</code>
+              o <code>203.0.113.0/24</code>), la key deja de servir fuera de ellas, aunque se filtre o se copie.
+            </p>
             <!-- Canales de la agencia elegida: a dónde llegan los casos que radique. -->
             @if (entidadForm.controls.agenciaResponsableId.value; as entidadAgenciaId) {
               <div class="canales-pick">
@@ -377,7 +383,12 @@
             @if (entidades().length) {
               <div class="tbl-wrap">
                 <table>
-                  <thead><tr><th>Entidad</th><th>A quién se envía</th><th>API key</th><th>Estado</th><th></th></tr></thead>
+                  <thead>
+                    <tr>
+                      <th>Entidad</th><th>A quién se envía</th><th>API key</th><th>Origen permitido</th>
+                      <th>Última actividad</th><th>Estado</th><th></th>
+                    </tr>
+                  </thead>
                   <tbody>
                     @for (e of entidades(); track e) {
                       @if (editandoEntidad() !== e.id) {
@@ -410,6 +421,25 @@
                             }
                             <button type="button" class="btn btn--ghost mini" (click)="rotarEntidad(e)">Rotar</button>
                           </td>
+                          <td class="mono">
+                            @if (e.ipsPermitidas?.length) {
+                              <span>{{ e.ipsPermitidas!.join(', ') }}</span>
+                            } @else {
+                              <span class="vacio-inline" title="La key funciona desde cualquier IP">Sin restricción</span>
+                            }
+                          </td>
+                          <td>
+                            @if (e.ultimoUso) {
+                              <span>{{ e.ultimoUso | date: 'dd/MM HH:mm' }} · {{ e.ultimaIp }}</span>
+                              @if ((e.ipsVistas?.length ?? 0) > 1) {
+                                <span class="vacio-inline" [title]="'IPs vistas: ' + e.ipsVistas!.join(', ')">
+                                  · {{ e.ipsVistas!.length }} IPs distintas ⚠
+                                </span>
+                              }
+                            } @else {
+                              <span class="vacio-inline">Sin uso aún</span>
+                            }
+                          </td>
                           <td><span class="badge" [class.on]="e.activa">{{ e.activa ? 'Activa' : 'Inactiva' }}</span></td>
                           <td>
                             <button type="button" class="btn btn--ghost mini" (click)="abrirEdicionEntidad(e)">Editar destino</button>
@@ -422,7 +452,7 @@
                       @if (editandoEntidad() === e.id) {
                         <tr class="fila-edicion">
                           <td>{{ e.nombre }}</td>
-                          <td colspan="3" [formGroup]="entidadEdicionForm">
+                          <td colspan="5" [formGroup]="entidadEdicionForm">
                             <app-selector formControlName="agenciaResponsableId" (cambio)="entidadEdicionCanales.set([])">
                               <app-opcion [valor]="null">— agencia responsable —</app-opcion>
                               @for (a of agencias(); track a) {
@@ -439,6 +469,7 @@
                                 }
                               </div>
                             }
+                            <input formControlName="ipsPermitidas" placeholder="IPs/CIDR permitidas (vacío = sin restricción)" class="ips-input" />
                           </td>
                           <td>
                             <button type="button" class="btn btn--primary mini" (click)="guardarEdicionEntidad(e)">Guardar</button>
