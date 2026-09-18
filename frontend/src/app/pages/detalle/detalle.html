@@ -288,28 +288,6 @@
             }
           </ul>
         </div>
-        <!-- Chat en vivo (solo canal chat) -->
-        @if (c.canal === 'chat') {
-          <div class="chat-panel card">
-            <h2>💬 Chat en vivo</h2>
-            <div class="chat-msgs">
-              @if (chatMensajes().length === 0) {
-                <p class="vacio">Sin mensajes aún.</p>
-              }
-              @for (m of chatMensajes(); track m) {
-                <div class="cmsg" [class.propio]="m.autorTipo === 'operador'">
-                  <span class="autor">{{ m.autorTipo === 'operador' ? m.autorNombre + ' (operador)' : m.autorNombre }}</span>
-                  <p class="texto">{{ m.texto }}</p>
-                  <span class="hora">{{ m.creadoEn | date:'shortTime' }}</span>
-                </div>
-              }
-            </div>
-            <form class="chat-entrada" [formGroup]="chatForm" (ngSubmit)="enviarChat()">
-              <input formControlName="texto" placeholder="Responder al ciudadano…" autocomplete="off" />
-              <button type="submit" class="btn btn--primary" [disabled]="!chatForm.controls.texto.value.trim()">Enviar</button>
-            </form>
-          </div>
-        }
         <!-- Conversación WhatsApp (solo canal whatsapp) -->
         @if (c.canal === 'whatsapp') {
           <div class="chat-panel card">

@@ -6,7 +6,7 @@ import { ToastService } from '../shared/toast/toast.service';
 import { AuthService } from './auth.service';
 
 /** El login ya muestra su propio error justo bajo el formulario; un toast ahí sería ruido duplicado. */
-const SILENCIOSAS = ['/auth/login', '/auth/civil/login'];
+const SILENCIOSAS = ['/auth/login'];
 
 /**
  * Avisa con un toast cualquier petición que el backend rechace, además del

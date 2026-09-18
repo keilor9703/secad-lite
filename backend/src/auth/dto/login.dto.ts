@@ -22,12 +22,12 @@ export class CambiarContrasenaDto {
 export interface LoginResult {
   token: string;
   usuario: string;
-  tipo: 'institucional' | 'civil';
+  tipo: 'institucional';
   nombre: string;
   rol: string;
   permisos: string[];
   tenant: string | null;
-  /** Agencia del funcionario (agencias.id); nula para superadmin y ciudadanos. */
+  /** Agencia del funcionario (agencias.id); nula para el superadmin. */
   agencia?: string | null;
   /**
    * Integraciones contratadas por SU tenant (pbx, whatsapp, api, cti…). Sin

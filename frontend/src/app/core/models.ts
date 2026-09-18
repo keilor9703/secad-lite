@@ -246,7 +246,7 @@ export interface CodigoCierre {
 
 /**
  * Código de rol. Con el RBAC dinámico los roles viven por tenant en el backend;
- * 'superadmin' (global) y 'ciudadano' (acceso civil) son reservados.
+ * 'superadmin' (global) es el único reservado.
  */
 export type Rol = string;
 
@@ -254,7 +254,7 @@ export interface Sesion {
   token: string;
   usuario: string;
   nombre: string;
-  tipo: 'institucional' | 'civil';
+  tipo: 'institucional';
   rol: Rol;
   /** Permisos efectivos del rol (RBAC dinámico), emitidos en el login. */
   permisos?: string[];

@@ -54,8 +54,6 @@
           <a routerLink="/plataforma" routerLinkActive="active" data-mod="plataforma"><app-icono nombre="plataforma" /><span>Plataforma</span></a>
           <a routerLink="/monitor" routerLinkActive="active" data-mod="monitor"><app-icono nombre="monitor" /><span>Monitor</span></a>
         }
-      } @else {
-        <a routerLink="/chat" routerLinkActive="active" data-mod="chat"><app-icono nombre="chat" /><span>Mi chat</span></a>
       }
     </nav>
   }
@@ -88,7 +86,7 @@
         <span class="perfil-texto">
           <span class="perfil-nombre">{{ s.nombre }}</span>
           <span class="perfil-meta">
-            <span class="perfil-rol" [class.civil]="s.tipo === 'civil'">{{ s.rol }}</span>
+            <span class="perfil-rol">{{ s.rol }}</span>
             @if (!esSuperadmin() && s.tenant) {
               <span class="perfil-sep" aria-hidden="true">·</span>
               <span class="perfil-tenant">{{ s.tenant }}</span>

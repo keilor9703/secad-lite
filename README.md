@@ -94,14 +94,12 @@ npm install
 npm start                 # http://localhost:4200
 ```
 
-**Credenciales de demo** (pestaña *Usuario*, contraseña `demo`):
+**Credenciales de demo** (contraseña `demo`):
 `superadmin` (global) · `admin1` · `supervisor1` · `operador1` (tenant `demo`).
-Pestaña *Ciudadano*: cualquier correo con contraseña `demo`.
 
 ## Qué incluye
 
-- **Login** de usuarios (username único global; el tenant se deduce del usuario)
-  + acceso *Ciudadano* aparte para el chat.
+- **Login** de usuarios (username único global; el tenant se deduce del usuario).
 - **Administración**: un **superadmin** global crea **tenants** (instancias) y sus
   usuarios; cada **admin de tenant** gestiona solo los usuarios de su tenant. Cada
   usuario queda asociado a un tenant.
@@ -122,10 +120,8 @@ Pestaña *Ciudadano*: cualquier correo con contraseña `demo`.
 - **Roles y permisos dinámicos (RBAC)**: catálogo fijo de permisos verificados
   en código (`@Permisos` + guard) y **roles por tenant** editables desde la
   **matriz de permisos** en Administración (crear roles a medida, marcar qué
-  puede hacer cada uno); `superadmin` y `ciudadano` son reservados. Los permisos
+  puede hacer cada uno); `superadmin` es el único reservado. Los permisos
   se emiten en el JWT al iniciar sesión.
-- **Chat en vivo** (Socket.IO): el ciudadano abre un chat que crea un caso y
-  conversa con el operador en tiempo real.
 - **Panel de gestión**: métricas de casos por estado, canal y agencia.
 - **Integración con planta telefónica (PBX)**: la central llama a un **webhook**
   (`POST /api/pbx/webhook`) autenticado con la **API key del tenant** (header

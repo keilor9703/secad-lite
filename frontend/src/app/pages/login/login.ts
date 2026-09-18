@@ -10,9 +10,7 @@ import { ToastComponent } from '../../shared/toast/toast';
 /**
  * Entrada a la consola. Solo hay una forma de identificarse, porque quien entra
  * aquí siempre es un funcionario del secad: operador, despachador, supervisor o
- * administrador. El acceso del ciudadano no vive en esta consola —si algún día
- * se abre un portal público de chat, será una aplicación aparte con su propia
- * puerta (el backend conserva el endpoint para eso).
+ * administrador.
  */
 @Component({
   selector: 'app-login',

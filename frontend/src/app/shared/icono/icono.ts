@@ -21,7 +21,7 @@ import { ChangeDetectionStrategy, Component, input } from '@angular/core';
  */
 export type NombreIcono =
   | 'recepcion' | 'despacho' | 'consulta' | 'recursos' | 'panel' | 'mapa'
-  | 'catalogos' | 'admin' | 'plataforma' | 'monitor' | 'chat' | 'sala'
+  | 'catalogos' | 'admin' | 'plataforma' | 'monitor' | 'sala'
   | 'llave' | 'salir' | 'telefono';
 
 @Component({
@@ -75,9 +75,6 @@ export type NombreIcono =
         @case ('monitor') {
           <!-- Pulso: la salud de la plataforma. -->
           <path d="M3 12h3.5L9 5.5l4 13 2.5-6.5H21" />
-        }
-        @case ('chat') {
-          <path d="M21 12a8 8 0 0 1-11.6 7.1L3 21l1.9-6.4A8 8 0 1 1 21 12z" />
         }
         @case ('sala') {
           <rect x="2.5" y="4" width="19" height="12.5" rx="2" />

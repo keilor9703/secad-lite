@@ -54,10 +54,6 @@ export class PermisosGuard implements CanActivate {
   }
 
   private async vigentes(user: JwtPayload): Promise<string[]> {
-    // El ciudadano no está en el directorio de funcionarios: sus permisos son
-    // los del token (vacíos salvo lo propio del chat).
-    if (user.tipo === 'civil') return user.permisos ?? [];
-
     const clave = `${user.tenant ?? '-'}|${user.sub}`;
     const guardado = this.cache.get(clave);
     if (guardado && guardado.expira > Date.now()) return guardado.permisos;

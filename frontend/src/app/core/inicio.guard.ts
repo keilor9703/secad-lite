@@ -10,9 +10,6 @@ import { AuthService } from './auth.service';
 export const inicioGuard: CanActivateFn = () => {
   const auth = inject(AuthService);
   const router = inject(Router);
-  const sesion = auth.sesion();
-
-  if (sesion?.tipo === 'civil') return router.parseUrl('/chat');
   if (auth.esSuperadmin()) return router.parseUrl('/plataforma');
 
   // Quien recepciona entra por Recepción; quien solo despacha, al tablero.

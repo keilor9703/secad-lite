@@ -2,8 +2,8 @@ import { Column, Entity, Index, PrimaryGeneratedColumn } from 'typeorm';
 
 /**
  * Código de rol. Con el RBAC dinámico los roles viven en la tabla `roles` por
- * tenant; aquí solo queda el alias de tipo. 'superadmin' (global) y 'ciudadano'
- * (acceso civil del chat) son códigos reservados.
+ * tenant; aquí solo queda el alias de tipo. 'superadmin' (global) es el único
+ * código reservado.
  */
 export type Rol = string;
 

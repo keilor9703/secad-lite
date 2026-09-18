@@ -1,5 +1,4 @@
-import { ForbiddenException, Injectable, UnauthorizedException } from '@nestjs/common';
-import { ConfigService } from '@nestjs/config';
+import { Injectable, UnauthorizedException } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
 import { LoginDto, LoginResult } from './dto/login.dto';
 import { UsuariosService } from '../usuarios/usuarios.service';
@@ -9,10 +8,10 @@ import { TenantsService } from '../tenants/tenants.service';
 /** Claims que viajan dentro del JWT. */
 export interface JwtPayload {
   sub: string;
-  /** 'institucional' = usuario del sistema (staff); 'civil' = ciudadano (chat). */
-  tipo: 'institucional' | 'civil';
+  /** Usuario del sistema (staff); único tipo de sesión que existe. */
+  tipo: 'institucional';
   nombre: string;
-  /** Código del rol (dinámico por tenant); 'superadmin'/'ciudadano' son reservados. */
+  /** Código del rol (dinámico por tenant); 'superadmin' es reservado. */
   rol: string;
   /** Permisos efectivos del rol al momento del login (RBAC dinámico). */
   permisos: string[];
@@ -33,7 +32,6 @@ export class AuthService {
     private readonly usuarios: UsuariosService,
     private readonly roles: RolesService,
     private readonly tenants: TenantsService,
-    private readonly config: ConfigService,
   ) {}
 
   async login(dto: LoginDto): Promise<LoginResult> {
@@ -51,27 +49,9 @@ export class AuthService {
     const permisos = await this.roles.permisosDe(u.tenant ?? null, u.rol);
     const { integraciones, logoDataUrl, municipioCodigo } = await this.datosTenant(u.tenant ?? null);
     return this.emitir(
-      u.username, 'institucional', u.nombre, u.rol, u.tenant ?? null, permisos, u.agenciaId ?? null,
+      u.username, u.nombre, u.rol, u.tenant ?? null, permisos, u.agenciaId ?? null,
       integraciones, logoDataUrl, municipioCodigo,
     );
-  }
-
-  loginCivil(dto: LoginDto, tenant: string): LoginResult {
-    // El acceso ciudadano de demostración (cualquier correo + contraseña
-    // 'demo') solo existe fuera de producción, o si el operador de la
-    // plataforma lo enciende a propósito con DEMO_CIVIL=true. Publicado sin
-    // ese flag, queda apagado: era una puerta para leer y escribir chats de
-    // emergencias reales sin ninguna verificación de identidad.
-    const habilitado =
-      process.env.NODE_ENV !== 'production' || this.config.get<string>('DEMO_CIVIL') === 'true';
-    if (!habilitado) {
-      throw new ForbiddenException('El acceso ciudadano de demostración está deshabilitado en esta instancia.');
-    }
-    if (!dto?.usuario?.trim() || dto?.contrasena !== 'demo') {
-      throw new UnauthorizedException('Credenciales de ciudadano inválidas (use contraseña "demo").');
-    }
-    const usuario = dto.usuario.trim();
-    return this.emitir(usuario, 'civil', usuario.split('@')[0], 'ciudadano', tenant, [], null, []);
   }
 
   /**
@@ -80,11 +60,6 @@ export class AuthService {
    * canales asignados), que es lo que debe gobernar la interfaz.
    */
   async perfil(usuario: JwtPayload) {
-    if (usuario?.tipo === 'civil') {
-      return { usuario: usuario.sub, nombre: usuario.nombre, rol: usuario.rol, tipo: usuario.tipo,
-               tenant: usuario.tenant, permisos: [], agencia: null, canales: [], integraciones: [],
-               logoDataUrl: null, municipioCodigo: null };
-    }
     const u = await this.usuarios.buscarPorUsernameYTenant(usuario?.sub ?? '', usuario?.tenant ?? null);
     if (!u) throw new UnauthorizedException('La cuenta no existe o fue desactivada.');
     const permisos = await this.roles.permisosDe(u.tenant ?? null, u.rol);
@@ -121,7 +96,6 @@ export class AuthService {
 
   private emitir(
     sub: string,
-    tipo: 'institucional' | 'civil',
     nombre: string,
     rol: string,
     tenant: string | null,
@@ -131,6 +105,7 @@ export class AuthService {
     logoDataUrl: string | null = null,
     municipioCodigo: string | null = null,
   ): LoginResult {
+    const tipo = 'institucional' as const;
     const payload: JwtPayload = { sub, tipo, nombre, rol, permisos, tenant, agencia };
     return {
       token: this.jwt.sign(payload), usuario: sub, tipo, nombre, rol, permisos, tenant, agencia,

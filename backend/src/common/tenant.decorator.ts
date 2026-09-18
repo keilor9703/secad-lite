@@ -9,19 +9,12 @@ import { JwtPayload } from '../auth/auth.service';
  *  - Superadmin: es global y no pertenece a ninguno, así que trabaja sobre el
  *    "tenant en gestión" que elige en la interfaz y viaja en `X-Tenant-Id`. Sin
  *    él la petición se rechaza en vez de caer silenciosamente en uno cualquiera.
- *  - Rutas públicas (login civil): el header resuelto por TenantMiddleware.
  */
 export const Tenant = createParamDecorator(
   (_data: unknown, ctx: ExecutionContext): string => {
     const req = ctx.switchToHttp().getRequest();
     const user = req.user as JwtPayload | undefined;
-    if (!user) {
-      // Ruta pública (login civil): el tenant DEBE venir en el header; sin él
-      // no se cae en 'demo' a ciegas.
-      const publico = (req.tenantId ?? '').trim();
-      if (!publico) throw new BadRequestException('Indique la instancia (header X-Tenant-Id).');
-      return publico;
-    }
+    if (!user) throw new BadRequestException('No autenticado.');
 
     if (user.rol === 'superadmin') {
       const elegido = (req.header('X-Tenant-Id') ?? '').trim();

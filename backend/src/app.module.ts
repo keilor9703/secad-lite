@@ -1,4 +1,4 @@
-import { MiddlewareConsumer, Module, NestModule, Logger } from '@nestjs/common';
+import { Module, Logger } from '@nestjs/common';
 import { ScheduleModule } from '@nestjs/schedule';
 import { AuditoriaModule } from './auditoria/auditoria.module';
 import { ConfigModule, ConfigService } from '@nestjs/config';
@@ -8,7 +8,6 @@ import { ThrottlerStorageRedisService } from '@nest-lab/throttler-storage-redis'
 import { APP_GUARD } from '@nestjs/core';
 import { AppController } from './app.controller';
 import { AppService } from './app.service';
-import { TenantMiddleware } from './common/tenant.middleware';
 import { CommonModule } from './common/common.module';
 import { AuthModule } from './auth/auth.module';
 import { JwtAuthGuard } from './auth/jwt-auth.guard';
@@ -19,7 +18,6 @@ import { RolesModule } from './roles/roles.module';
 import { CatalogosModule } from './catalogos/catalogos.module';
 import { CasosModule } from './casos/casos.module';
 import { UsuariosModule } from './usuarios/usuarios.module';
-import { ChatModule } from './chat/chat.module';
 import { MetricasModule } from './metricas/metricas.module';
 import { TenantsModule } from './tenants/tenants.module';
 import { DespachoModule } from './despacho/despacho.module';
@@ -105,7 +103,6 @@ import { PlataformaModule } from './plataforma/plataforma.module';
     CatalogosModule,
     AuthModule,
     CasosModule,
-    ChatModule,
     MetricasModule,
     DespachoModule,
     PbxModule,
@@ -128,8 +125,4 @@ import { PlataformaModule } from './plataforma/plataforma.module';
     { provide: APP_GUARD, useClass: PermisosGuard },
   ],
 })
-export class AppModule implements NestModule {
-  configure(consumer: MiddlewareConsumer) {
-    consumer.apply(TenantMiddleware).forRoutes('*');
-  }
-}
+export class AppModule {}

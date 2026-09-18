@@ -2,7 +2,6 @@ import { Body, Controller, ForbiddenException, Get, Post, UseGuards } from '@nes
 import { Throttle, ThrottlerGuard } from '@nestjs/throttler';
 import { AuthService } from './auth.service';
 import { CambiarContrasenaDto, LoginDto } from './dto/login.dto';
-import { Tenant } from '../common/tenant.decorator';
 import { Public } from './public.decorator';
 import { Usuario } from '../common/usuario.decorator';
 import { JwtPayload } from './auth.service';
@@ -55,14 +54,5 @@ export class AuthController {
     const r = await this.usuarios.cambiarContrasenaPropia(usuario.sub, usuario.tenant ?? null, dto.actual, dto.nueva);
     await this.auditoria.registrar(usuario.tenant ?? 'plataforma', usuario.sub, 'contrasena.propia', 'Cambió su propia contraseña.');
     return r;
-  }
-
-  /** POST /api/auth/civil/login — ciudadano (chat); el tenant viene del header. */
-  @Public()
-  @UseGuards(ThrottlerGuard)
-  @Throttle({ default: { limit: 5, ttl: 60_000 } })
-  @Post('civil/login')
-  civil(@Body() dto: LoginDto, @Tenant() tenant: string) {
-    return this.auth.loginCivil(dto, tenant);
   }
 }

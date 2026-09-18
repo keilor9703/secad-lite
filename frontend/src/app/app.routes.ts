@@ -36,7 +36,6 @@ export const routes: Routes = [
         loadComponent: () => import('./pages/mapa/mapa').then((m) => m.MapaComponent) },
       { path: 'wallboard', canActivate: [permisoGuard('despacho.ver', 'metricas.ver')],
         loadComponent: () => import('./pages/wallboard/wallboard').then((m) => m.WallboardComponent) },
-      { path: 'chat', loadComponent: () => import('./pages/chat/chat').then((m) => m.ChatComponent) },
       { path: 'dashboard', canActivate: [permisoGuard('metricas.ver')],
         loadComponent: () => import('./pages/dashboard/dashboard').then((m) => m.DashboardComponent) },
       { path: 'recursos', canActivate: [permisoGuard('recursos.ver')],

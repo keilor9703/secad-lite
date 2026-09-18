@@ -2,11 +2,9 @@ import { ChangeDetectionStrategy, Component, OnDestroy, OnInit, computed, effect
 import { CommonModule } from '@angular/common';
 import { FormControl, FormGroup, ReactiveFormsModule, Validators } from '@angular/forms';
 import { ActivatedRoute, RouterLink } from '@angular/router';
-import { Subscription } from 'rxjs';
 import { CasosService } from '../../core/casos.service';
 import { AuthService } from '../../core/auth.service';
 import { CatalogosService } from '../../core/catalogos.service';
-import { ChatService } from '../../core/chat.service';
 import { DespachoService } from '../../core/despacho.service';
 import { WhatsappService } from '../../core/whatsapp.service';
 import { ToastService } from '../../shared/toast/toast.service';
@@ -29,7 +27,6 @@ export class DetalleComponent implements OnInit, OnDestroy {
   private route = inject(ActivatedRoute);
   private casosSvc = inject(CasosService);
   private auth = inject(AuthService);
-  private chat = inject(ChatService);
   private despachoSvc = inject(DespachoService);
   private catalogos = inject(CatalogosService);
   private whatsappSvc = inject(WhatsappService);
@@ -50,11 +47,6 @@ export class DetalleComponent implements OnInit, OnDestroy {
   readonly eventos = signal<EventoCaso[]>([]);
   readonly cargando = signal(true);
   readonly error = signal('');
-
-  // Chat en vivo (solo casos de canal 'chat').
-  readonly chatMensajes = signal<MensajeChat[]>([]);
-  readonly chatForm = new FormGroup({ texto: new FormControl('', { nonNullable: true }) });
-  private chatSubs: Subscription[] = [];
 
   // Conversación WhatsApp (solo casos de canal 'whatsapp').
   readonly waMensajes = signal<MensajeChat[]>([]);
@@ -398,8 +390,6 @@ export class DetalleComponent implements OnInit, OnDestroy {
   }
 
   ngOnDestroy(): void {
-    this.chatSubs.forEach((s) => s.unsubscribe());
-    this.chat.desconectar();
     if (this.waPoll) clearInterval(this.waPoll);
   }
 
@@ -424,27 +414,6 @@ export class DetalleComponent implements OnInit, OnDestroy {
     });
   }
 
-  /** Conecta el chat en vivo para atender un caso de canal 'chat'. */
-  private iniciarChat(): void {
-    this.chat.conectar();
-    this.chatSubs.push(
-      this.chat.historial$.subscribe(({ casoId, mensajes }) => {
-        if (casoId === this.id) this.chatMensajes.set(mensajes);
-      }),
-      this.chat.mensaje$.subscribe((m) => {
-        if (m.casoId === this.id) this.chatMensajes.update((arr) => [...arr, m]);
-      }),
-    );
-    this.chat.unir(this.id);
-  }
-
-  enviarChat(): void {
-    const t = this.chatForm.controls.texto.value.trim();
-    if (!t) return;
-    this.chat.enviar(this.id, t);
-    this.chatForm.reset({ texto: '' });
-  }
-
   cargar(): void {
     this.cargando.set(true);
     this.error.set('');
@@ -454,7 +423,6 @@ export class DetalleComponent implements OnInit, OnDestroy {
         this.cargarAuditoria();
         this.cargarDespacho();
         this.tomarSiEsNuevo(c);
-        if (c.canal === 'chat' && this.chatSubs.length === 0) this.iniciarChat();
         if (c.canal === 'whatsapp' && !this.waPoll) this.iniciarWhatsapp();
       },
       error: () => { this.error.set('No fue posible cargar el caso.'); this.cargando.set(false); },

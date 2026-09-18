@@ -75,7 +75,7 @@ export class RolesService implements OnModuleInit {
     const permisos = this.validarPermisos(dto?.permisos);
     const codigo = this.slug(nombre);
     if (!codigo) throw new BadRequestException('El nombre del rol no es válido.');
-    if (codigo === 'superadmin' || codigo === 'ciudadano') {
+    if (codigo === 'superadmin') {
       throw new BadRequestException('Ese nombre de rol está reservado.');
     }
     await this.asegurarSeed(tenant);

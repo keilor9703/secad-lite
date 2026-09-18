@@ -104,12 +104,6 @@ export class AuthService {
       .pipe(tap((s) => this.guardar(s)));
   }
 
-  loginCivil(usuario: string, contrasena: string): Observable<Sesion> {
-    return this.http
-      .post<Sesion>(`${this.base}/auth/civil/login`, { usuario, contrasena })
-      .pipe(tap((s) => this.guardar(s)));
-  }
-
   /** Cambia el tenant en gestión (solo aplica al superadmin). */
   setTenantCtx(codigo: string): void {
     this._tenantCtx.set(codigo);
