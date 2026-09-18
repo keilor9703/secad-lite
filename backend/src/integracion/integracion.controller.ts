@@ -1,9 +1,10 @@
-import { Body, Controller, Get, Headers, Ip, Param, Patch, Post } from '@nestjs/common';
+import { Body, Controller, Get, Headers, Param, Patch, Post } from '@nestjs/common';
 import { ActualizarEntidadDto, CrearEntidadDto, IntegracionService, RadicarCasoDto } from './integracion.service';
 import { Public } from '../auth/public.decorator';
 import { Permisos } from '../auth/permisos.decorator';
 import { Tenant } from '../common/tenant.decorator';
 import { Usuario } from '../common/usuario.decorator';
+import { IpCliente } from '../common/ip-cliente.decorator';
 import { JwtPayload } from '../auth/auth.service';
 import { RequiereIntegracion } from '../tenants/integracion.decorator';
 import { AuditoriaAdminService } from '../auditoria/auditoria-admin.service';
@@ -23,14 +24,14 @@ export class IntegracionController {
   /** POST /api/integracion/casos — una entidad externa radica un caso. */
   @Public()
   @Post('integracion/casos')
-  radicar(@Headers('x-api-key') apiKey: string, @Body() dto: RadicarCasoDto, @Ip() ip: string) {
+  radicar(@Headers('x-api-key') apiKey: string, @Body() dto: RadicarCasoDto, @IpCliente() ip: string) {
     return this.integracion.radicar(apiKey, dto, ip);
   }
 
   /** GET /api/integracion/casos/:id — la entidad consulta el estado de SU caso. */
   @Public()
   @Get('integracion/casos/:id')
-  consultar(@Headers('x-api-key') apiKey: string, @Param('id') id: string, @Ip() ip: string) {
+  consultar(@Headers('x-api-key') apiKey: string, @Param('id') id: string, @IpCliente() ip: string) {
     return this.integracion.consultar(apiKey, id, ip);
   }
 
