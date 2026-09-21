@@ -54,3 +54,62 @@ describe('DireccionesService — nomenclatura colombiana', () => {
     }
   });
 });
+
+/**
+ * `porInterseccion` probaba los candidatos de cruce uno por uno, en cascada
+ * (hasta 25s cada intento fallido) — la causa principal de las búsquedas de
+ * "hasta un minuto" reportadas. Ahora se prueban en paralelo. Estas pruebas
+ * simulan Overpass con un `fetch` controlado a mano para verificar que el
+ * cambio dispara ambas llamadas de una vez y que, aun así, sigue ganando el
+ * candidato de mayor prioridad — no el que responda primero.
+ */
+describe('DireccionesService — candidatos de cruce en paralelo (red simulada)', () => {
+  const svc = new DireccionesService();
+  const fetchOriginal = global.fetch;
+  let resolvers: Record<string, (elements: unknown[]) => void>;
+  let fetchMock: jest.Mock;
+
+  beforeEach(() => {
+    resolvers = {};
+    fetchMock = jest.fn((_url: string, opts: { body: URLSearchParams }) => {
+      const data = opts.body.get('data') ?? '';
+      // «Diagonal 40 # 18»: los candidatos de COMPLEMENTO.diagonal son
+      // ['transversal', 'carrera'] — sus patrones de vía no se solapan, así
+      // que basta con mirar cuál aparece en la consulta para saber cuál es.
+      const clave = data.includes('Transversal|Tv') ? 'transversal' : 'carrera';
+      return new Promise((resolve) => {
+        resolvers[clave] = (elements) => resolve({ ok: true, json: async () => ({ elements }) });
+      });
+    }) as unknown as jest.Mock;
+    (global as unknown as { fetch: typeof fetch }).fetch = fetchMock as unknown as typeof fetch;
+  });
+
+  afterEach(() => {
+    (global as unknown as { fetch: typeof fetch }).fetch = fetchOriginal;
+  });
+
+  it('dispara los dos candidatos a la vez, no uno tras otro', () => {
+    const d = svc.parsear('Diagonal 40 # 18')!;
+    void (svc as unknown as { porInterseccion: Function }).porInterseccion(d, {
+      nombre: 'Test', lat: 4.6, lng: -74.1,
+    });
+    // Si siguiera siendo secuencial, en este punto solo se habría llamado una
+    // vez a fetch (el segundo candidato solo se dispara si el primero falla).
+    expect(fetchMock).toHaveBeenCalledTimes(2);
+    resolvers.transversal([]);
+    resolvers.carrera([]);
+  });
+
+  it('conserva la prioridad de la lista aunque el candidato de menor prioridad responda primero', async () => {
+    const d = svc.parsear('Diagonal 40 # 18')!;
+    const p = (svc as unknown as { porInterseccion: Function }).porInterseccion(d, {
+      nombre: 'Test', lat: 4.6, lng: -74.1,
+    });
+    // "carrera" (segunda opción de COMPLEMENTO.diagonal) responde primero...
+    resolvers.carrera([{ lat: 1, lon: 1 }]);
+    // ...pero "transversal" (primera opción) también resuelve, y debe ganar.
+    resolvers.transversal([{ lat: 2, lon: 2 }]);
+    const resultado = await p;
+    expect(resultado).toEqual({ lat: 2, lng: 2, precision: 'esquina', etiqueta: 'Diagonal 40 # 18' });
+  });
+});

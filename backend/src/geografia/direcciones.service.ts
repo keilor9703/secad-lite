@@ -83,6 +83,18 @@ const OVERPASS = 'https://overpass-api.de/api/interpreter';
 const NOMINATIM = 'https://nominatim.openstreetmap.org';
 const UA = 'FalconCAD/1.0 (despacho de emergencias)';
 
+/**
+ * Cuánto se espera por cada llamada a los servicios públicos antes de darla
+ * por perdida. Antes Nominatim no tenía límite y Overpass esperaba hasta 25s
+ * por intento — con hasta 3 intentos en cascada (dos candidatos de cruce más
+ * la esquina siguiente), eso es el "tarda hasta un minuto" que reportaban
+ * los operadores. Recortar el límite hace que un intento fallido se note
+ * rápido y se caiga al siguiente método en vez de quedarse esperando.
+ */
+const TIMEOUT_OVERPASS_MS = 12_000;
+const TIMEOUT_OVERPASS_QL = 10; // segundos, para el [timeout:N] interno de la consulta
+const TIMEOUT_NOMINATIM_MS = 8_000;
+
 @Injectable()
 export class DireccionesService {
   private readonly log = new Logger(DireccionesService.name);
@@ -183,7 +195,7 @@ export class DireccionesService {
   private async overpass<T = any>(consulta: string): Promise<T | null> {
     try {
       const ctrl = new AbortController();
-      const t = setTimeout(() => ctrl.abort(), 25_000);
+      const t = setTimeout(() => ctrl.abort(), TIMEOUT_OVERPASS_MS);
       const r = await fetch(OVERPASS, {
         method: 'POST',
         body: new URLSearchParams({ data: consulta }),
@@ -195,6 +207,26 @@ export class DireccionesService {
       return (await r.json()) as T;
     } catch (e) {
       this.log.warn(`Overpass no respondió: ${(e as Error).message}`);
+      return null;
+    }
+  }
+
+  /** Igual que `overpass()`, pero para las búsquedas en Nominatim: mismo
+   * límite de tiempo, mismo manejo de errores — antes estas llamadas no
+   * tenían ningún timeout y podían colgarse indefinidamente. */
+  private async nominatim<T = any>(ruta: string): Promise<T | null> {
+    try {
+      const ctrl = new AbortController();
+      const t = setTimeout(() => ctrl.abort(), TIMEOUT_NOMINATIM_MS);
+      const r = await fetch(`${NOMINATIM}${ruta}`, {
+        headers: { 'Accept-Language': 'es', 'User-Agent': UA },
+        signal: ctrl.signal,
+      });
+      clearTimeout(t);
+      if (!r.ok) return null;
+      return (await r.json()) as T;
+    } catch (e) {
+      this.log.warn(`Nominatim no respondió: ${(e as Error).message}`);
       return null;
     }
   }
@@ -220,7 +252,7 @@ export class DireccionesService {
     cruceNum: string,
   ): Promise<{ lat: number; lon: number } | null> {
     const q =
-      `[out:json][timeout:22];` +
+      `[out:json][timeout:${TIMEOUT_OVERPASS_QL}];` +
       `way(${caja})["highway"]["name"~"${principal}",i]->.a;` +
       `way(${caja})["highway"]["name"~"${this.patronVia(cruceTipo, cruceNum)}",i]->.b;` +
       `node(w.a)(w.b);out body 1;`;
@@ -241,26 +273,21 @@ export class DireccionesService {
     if (!nombre?.trim()) return null;
     return this.recordar(`m:${nombre}`, async () => {
       const q = encodeURIComponent(`${nombre.trim()}, Colombia`);
-      try {
-        const r = await fetch(`${NOMINATIM}/search?q=${q}&format=json&limit=1&countrycodes=co`, {
-          headers: { 'Accept-Language': 'es', 'User-Agent': UA },
-        });
-        const d = (await r.json()) as Array<{ lat: string; lon: string; boundingbox?: string[] }>;
-        const p = d?.[0];
-        if (!p) return null;
-        // El recuadro real importa: el centroide de «Bogotá D.C.» cae en zona
-        // rural (el distrito incluye Sumapaz) y una caja fija a su alrededor
-        // dejaba la ciudad entera FUERA de la búsqueda.
-        const bb = p.boundingbox?.map(Number);
-        return {
-          nombre: nombre.trim(),
-          lat: Number(p.lat),
-          lng: Number(p.lon),
-          bbox: bb?.length === 4 ? ([bb[0], bb[1], bb[2], bb[3]] as [number, number, number, number]) : undefined,
-        };
-      } catch {
-        return null;
-      }
+      const d = await this.nominatim<Array<{ lat: string; lon: string; boundingbox?: string[] }>>(
+        `/search?q=${q}&format=json&limit=1&countrycodes=co`,
+      );
+      const p = d?.[0];
+      if (!p) return null;
+      // El recuadro real importa: el centroide de «Bogotá D.C.» cae en zona
+      // rural (el distrito incluye Sumapaz) y una caja fija a su alrededor
+      // dejaba la ciudad entera FUERA de la búsqueda.
+      const bb = p.boundingbox?.map(Number);
+      return {
+        nombre: nombre.trim(),
+        lat: Number(p.lat),
+        lng: Number(p.lon),
+        bbox: bb?.length === 4 ? ([bb[0], bb[1], bb[2], bb[3]] as [number, number, number, number]) : undefined,
+      };
     }, 24 * 60);
   }
 
@@ -297,13 +324,19 @@ export class DireccionesService {
     const principal = this.patronVia(d.viaTipo, d.viaNumero);
     const tiposCruce = COMPLEMENTO[d.viaTipo] ?? ['carrera', 'calle'];
 
-    let esquina: { lat: number; lon: number } | null = null;
-    let tipoCruceUsado = '';
-    for (const tc of tiposCruce) {
-      esquina = await this.cruce(caja, principal, tc, d.cruceNumero!);
-      if (esquina) { tipoCruceUsado = tc; break; }
-    }
-    if (!esquina) return null;
+    // Los candidatos de cruce se prueban EN PARALELO (antes se probaban uno
+    // por uno, en cascada): con los dos candidatos típicos de la retícula
+    // colombiana, esto corta a la mitad la espera cuando el primero no existe
+    // con ese nombre en OSM, que es el caso más común de demora.
+    const candidatos = await Promise.all(
+      tiposCruce.map(async (tc) => ({ tc, esquina: await this.cruce(caja, principal, tc, d.cruceNumero!) })),
+    );
+    // Se conserva el orden de prioridad de `tiposCruce` aunque hayan llegado
+    // en paralelo: el primer candidato de la lista sigue ganando si resolvió.
+    const encontrado = candidatos.find((c) => c.esquina);
+    if (!encontrado) return null;
+    const tipoCruceUsado = encontrado.tc;
+    const esquina = encontrado.esquina!;
 
     const etiqueta = this.etiquetaDe(d);
     if (!d.placa) {
@@ -347,23 +380,17 @@ export class DireccionesService {
     const vb = municipio
       ? `&viewbox=${municipio.lng - 0.3},${municipio.lat + 0.3},${municipio.lng + 0.3},${municipio.lat - 0.3}&bounded=1`
       : '';
-    try {
-      const r = await fetch(`${NOMINATIM}/search?q=${q}&format=json&limit=1&countrycodes=co${vb}`, {
-        headers: { 'Accept-Language': 'es', 'User-Agent': UA },
-      });
-      const d = (await r.json()) as Array<{ lat: string; lon: string; display_name: string }>;
-      const p = d?.[0];
-      if (!p) return null;
-      return {
-        lat: Number(p.lat),
-        lng: Number(p.lon),
-        precision: 'aproximada',
-        etiqueta: texto.trim(),
-      };
-    } catch (e) {
-      this.log.warn(`Nominatim no respondió: ${(e as Error).message}`);
-      return null;
-    }
+    const d = await this.nominatim<Array<{ lat: string; lon: string; display_name: string }>>(
+      `/search?q=${q}&format=json&limit=1&countrycodes=co${vb}`,
+    );
+    const p = d?.[0];
+    if (!p) return null;
+    return {
+      lat: Number(p.lat),
+      lng: Number(p.lon),
+      precision: 'aproximada',
+      etiqueta: texto.trim(),
+    };
   }
 
   // --- Punto → dirección ----------------------------------------------------
@@ -383,7 +410,7 @@ export class DireccionesService {
     const clave = `r:${lat.toFixed(4)},${lng.toFixed(4)}`;
     return this.recordar(clave, async () => {
       const q =
-        `[out:json][timeout:22];` +
+        `[out:json][timeout:${TIMEOUT_OVERPASS_QL}];` +
         `way(around:120,${lat},${lng})["highway"]["name"];out tags geom;`;
       const d = await this.overpass<{
         elements: Array<{ tags: Record<string, string>; geometry?: Array<{ lat: number; lon: number }> }>;
