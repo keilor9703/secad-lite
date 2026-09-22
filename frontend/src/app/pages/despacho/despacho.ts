@@ -437,6 +437,11 @@ export class DespachoComponent {
     return peso * 1000 + this.minutos(c);
   }
 
+  /** Misma etiqueta que ya usa Recepción, para el chip de prioridad de la fila. */
+  prioridadLabel(p: Caso['prioridad']): string {
+    return { alta: 'Alta', media: 'Media', baja: 'Baja' }[p ?? 'media'];
+  }
+
   canalesDe(c: Caso): string {
     const ids = c.canales ?? [];
     const cods = this.canales().filter((x) => ids.includes(x.id)).map((x) => x.codigo);

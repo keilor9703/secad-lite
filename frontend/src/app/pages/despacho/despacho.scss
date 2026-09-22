@@ -1,11 +1,16 @@
 // ==========================================================================
 // DESPACHO — consola de cola
 //
-// Regla de color de esta pantalla: UNA señal cromática por caso. La barra de
-// la izquierda dice cuánto lleva esperando frente a su prioridad (el semáforo)
-// y nada más compite con ella: prioridad, canal, dirección y agencia se leen
-// como texto alineado. Un caso tranquilo no tiene color; uno en rojo se ve
-// desde el otro lado de la sala.
+// Dos señales de color, cada una con un trabajo distinto — no más, para que
+// canal, dirección y agencia sigan leyéndose como texto llano sin competir:
+//
+//   1. El chip de prioridad (badge-prio): FIJO, con los mismos colores que
+//      ya usa Recepción. Dice qué es este caso desde que llega, antes de
+//      que haya esperado nada.
+//   2. La barra de espera (semáforo, f-sem): DINÁMICA. Dice si este caso en
+//      particular se está demorando más de lo que su prioridad tolera. Un
+//      caso tranquilo no tiene color ahí; uno en rojo se ve desde el otro
+//      lado de la sala.
 // ==========================================================================
 
 // 1. Armazón --------------------------------------------------------------
@@ -409,19 +414,53 @@
   min-width: 0;
 }
 
-// Prioridad como texto, sin fondo: informa sin robarle el turno al semáforo.
-// Solo la alta se colorea, porque solo la alta cambia lo que se hace.
-.f-prio {
+// Prioridad: el mismo lenguaje de color que ya usa Recepción (chip sólido,
+// no solo texto), para que sea evidente desde que el caso llega — antes el
+// semáforo (abajo) era la única señal, y un caso Alta recién llegado se veía
+// igual de gris que uno Baja hasta que la espera lo hiciera escalar.
+//
+// El punto de "Alta" respira con un halo suave — la misma idea del latido de
+// "sin tomar" (arriba), pero contenida en 6px en vez de todo el fondo de la
+// fila: llama la atención sin competir con el semáforo ni gritar.
+.badge-prio {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.32rem;
   font-size: 0.62rem;
   font-weight: 700;
-  letter-spacing: 0.08em;
+  letter-spacing: 0.06em;
   text-transform: uppercase;
-  color: var(--muted);
   white-space: nowrap;
   order: 2;
   margin-left: auto;
+  padding: 0.14rem 0.5rem 0.14rem 0.4rem;
+  border-radius: 999px;
 }
-.f-prio[data-prio='alta'] { color: var(--danger); }
+.badge-prio-punto {
+  flex: none;
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+}
+
+.badge-prio[data-prio='baja']  { background: var(--tag-ok-bg);     color: var(--tag-ok-fg); }
+.badge-prio[data-prio='baja']  .badge-prio-punto { background: var(--tag-ok-fg); }
+
+.badge-prio[data-prio='media'] { background: var(--tag-warn-bg);   color: var(--tag-warn-fg); }
+.badge-prio[data-prio='media'] .badge-prio-punto { background: var(--tag-warn-fg); }
+
+.badge-prio[data-prio='alta']  { background: var(--tag-danger-bg); color: var(--tag-danger-fg); }
+.badge-prio[data-prio='alta']  .badge-prio-punto {
+  background: var(--tag-danger-fg);
+  animation: respiro-prio-alta 2.4s ease-in-out infinite;
+}
+@keyframes respiro-prio-alta {
+  0%, 100% { box-shadow: 0 0 0 0 color-mix(in srgb, var(--tag-danger-fg) 55%, transparent); }
+  50%      { box-shadow: 0 0 0 4px color-mix(in srgb, var(--tag-danger-fg) 0%, transparent); }
+}
+@media (prefers-reduced-motion: reduce) {
+  .badge-prio-punto { animation: none !important; }
+}
 
 .f-punto {
   flex: none;

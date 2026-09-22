@@ -136,7 +136,10 @@
                 <span class="f-espera" [attr.title]="'En cola hace ' + espera(c)">{{ esperaCorta(c) }}</span>
                 <span class="f-cuerpo">
                   <span class="f-l1">
-                    <span class="f-prio" [attr.data-prio]="c.prioridad">{{ c.prioridad }}</span>
+                    <span class="badge-prio" [attr.data-prio]="c.prioridad">
+                      <span class="badge-prio-punto" aria-hidden="true"></span>
+                      {{ prioridadLabel(c.prioridad) }}
+                    </span>
                     <span class="f-titulo">{{ c.titulo }}</span>
                     @if (noVisto(c)) {
                       <span class="f-punto" role="img" aria-label="Todavía no lo ha abierto"></span>
