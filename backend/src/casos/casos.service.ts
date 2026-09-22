@@ -3,6 +3,7 @@ import { InjectRepository } from '@nestjs/typeorm';
 import { Between, EntityManager, FindOptionsWhere, In, LessThan, MoreThanOrEqual, Not, Repository, Brackets } from 'typeorm';
 import { CasoEntity } from './caso.entity';
 import { EventoCasoEntity, TipoEvento } from './evento.entity';
+import { MensajeChatInternoEntity } from './chat-interno.entity';
 import { CANALES, EstadoCaso, ESTADOS, PRIORIDADES } from './caso.model';
 import { CatalogosService } from '../catalogos/catalogos.service';
 import { DespachoService } from '../despacho/despacho.service';
@@ -355,6 +356,44 @@ export class CasosService implements OnModuleInit {
     return this.rls.conTenant(tenant, (manager) =>
       manager.getRepository(EventoCasoEntity).find({ where: { tenant, casoId }, order: { creadoEn: 'ASC' } }),
     );
+  }
+
+  /**
+   * Chat interno entre operadores/despachadores, anclado al caso. Sin
+   * `actor`: cualquiera con `casos.ver` en el tenant (ya lo exige el guard de
+   * permisos del controller) puede leer y escribir en el chat de CUALQUIER
+   * caso del secad — a propósito más amplio que el alcance por canal de
+   * `obtener()`, porque el propósito es coordinar entre agencias sobre un
+   * mismo caso, no restringir por cola. `obtener()` sin actor solo valida que
+   * el caso exista en este tenant.
+   */
+  async listarChatInterno(tenant: string, casoId: string): Promise<MensajeChatInternoEntity[]> {
+    await this.obtener(tenant, casoId);
+    return this.rls.conTenant(tenant, (manager) =>
+      manager.getRepository(MensajeChatInternoEntity).find({ where: { tenant, casoId }, order: { creadoEn: 'ASC' } }),
+    );
+  }
+
+  /**
+   * Con el caso cerrado el chat queda en solo lectura — igual que se oculta
+   * «Remitir a otra entidad» en un caso cerrado: ya no hay nada operativo que
+   * coordinar, y mantenerlo abierto lo convertiría en charla sin motivo.
+   */
+  async enviarChatInterno(
+    tenant: string, casoId: string, autorId: string, autorNombre: string, texto: string,
+  ): Promise<MensajeChatInternoEntity> {
+    const limpio = texto?.trim();
+    if (!limpio) throw new BadRequestException('El mensaje no puede estar vacío.');
+    const caso = await this.obtener(tenant, casoId);
+    if (caso.estado === 'cerrado') {
+      throw new BadRequestException('El caso está cerrado: el chat quedó en solo lectura.');
+    }
+    const guardado = await this.rls.conTenant(tenant, async (manager) => {
+      const repo = manager.getRepository(MensajeChatInternoEntity);
+      return repo.save(repo.create({ tenant, casoId, autorId, autorNombre, texto: limpio }));
+    });
+    this.gateway?.emitirMensajeChat(tenant, casoId, guardado);
+    return guardado;
   }
 
   async crear(tenant: string, dto: CrearCasoDto, usuario: string, agenciaOrigenId?: string | null): Promise<CasoEntity> {

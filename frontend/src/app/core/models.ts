@@ -190,6 +190,16 @@ export interface MensajeChat {
   creadoEn: string;
 }
 
+/** Chat interno entre operadores/despachadores, anclado al caso. */
+export interface MensajeChatInterno {
+  id: string;
+  casoId: string;
+  autorId: string;
+  autorNombre: string;
+  texto: string;
+  creadoEn: string;
+}
+
 /** Naturaleza de la agencia; agrupa y da ícono en los tableros. */
 export type TipoAgencia = 'policia' | 'bomberos' | 'salud' | 'transito' | 'gestion_riesgo' | 'otra';
 

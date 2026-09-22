@@ -2,7 +2,7 @@ import { Injectable } from '@angular/core';
 import { HttpClient, HttpParams } from '@angular/common/http';
 import { Observable } from 'rxjs';
 import { environment } from '../../environments/environment';
-import { Caso, CrearCaso, EstadoCaso, EventoCaso, RemisionConfig, TenantDirectorio } from './models';
+import { Caso, CrearCaso, EstadoCaso, EventoCaso, MensajeChatInterno, RemisionConfig, TenantDirectorio } from './models';
 
 /** Acceso a la bandeja de recepción (casos) del backend. */
 @Injectable({ providedIn: 'root' })
@@ -117,5 +117,14 @@ export class CasosService {
 
   agregarNota(id: string, texto: string): Observable<EventoCaso> {
     return this.http.post<EventoCaso>(`${this.base}/${id}/notas`, { texto });
+  }
+
+  /** Chat interno entre operadores/despachadores, anclado al caso. */
+  chatListar(id: string): Observable<MensajeChatInterno[]> {
+    return this.http.get<MensajeChatInterno[]>(`${this.base}/${id}/chat`);
+  }
+
+  chatEnviar(id: string, texto: string): Observable<MensajeChatInterno> {
+    return this.http.post<MensajeChatInterno>(`${this.base}/${id}/chat`, { texto });
   }
 }

@@ -2,7 +2,9 @@ import { ChangeDetectionStrategy, Component, OnDestroy, OnInit, computed, effect
 import { CommonModule } from '@angular/common';
 import { FormControl, FormGroup, ReactiveFormsModule, Validators } from '@angular/forms';
 import { ActivatedRoute, RouterLink } from '@angular/router';
+import { Subscription } from 'rxjs';
 import { CasosService } from '../../core/casos.service';
+import { CasosWsService } from '../../core/casos-ws.service';
 import { AuthService } from '../../core/auth.service';
 import { CatalogosService } from '../../core/catalogos.service';
 import { DespachoService } from '../../core/despacho.service';
@@ -12,7 +14,7 @@ import { SelectorComponent } from '../../shared/selector/selector';
 import { OpcionComponent } from '../../shared/selector/opcion';
 import {
   Agencia, Asignacion, Canal, CanalAtencion, Caso, CodigoCaso, CodigoCierre, EstadoAsignacion, EstadoCaso,
-  EventoCaso, MensajeChat, Recurso, TenantDirectorio, TipoEvento,
+  EventoCaso, MensajeChat, MensajeChatInterno, Recurso, TenantDirectorio, TipoEvento,
 } from '../../core/models';
 
 @Component({
@@ -26,6 +28,7 @@ import {
 export class DetalleComponent implements OnInit, OnDestroy {
   private route = inject(ActivatedRoute);
   private casosSvc = inject(CasosService);
+  private casosWs = inject(CasosWsService);
   private auth = inject(AuthService);
   private despachoSvc = inject(DespachoService);
   private catalogos = inject(CatalogosService);
@@ -54,6 +57,14 @@ export class DetalleComponent implements OnInit, OnDestroy {
   readonly waEnviando = signal(false);
   readonly waError = signal('');
   private waPoll?: ReturnType<typeof setInterval>;
+
+  // Chat interno entre operadores/despachadores, anclado al caso.
+  readonly chatMensajes = signal<MensajeChatInterno[]>([]);
+  readonly chatForm = new FormGroup({ texto: new FormControl('', { nonNullable: true }) });
+  readonly chatEnviando = signal(false);
+  readonly chatError = signal('');
+  private chatSub?: Subscription;
+  private chatCasoId = '';
 
   readonly estados: EstadoCaso[] = ['nuevo', 'en_gestion', 'derivado', 'cerrado'];
 
@@ -107,6 +118,7 @@ export class DetalleComponent implements OnInit, OnDestroy {
       this.cargar();
       this.cargarAuditoria();
       this.cargarDespacho();
+      this.cambiarSalaChat(nuevo);
     }
   });
 
@@ -115,6 +127,36 @@ export class DetalleComponent implements OnInit, OnDestroy {
     this.catalogos.codigos(true).subscribe({ next: (c) => this.codigosCaso.set(c), error: () => {} });
     this.catalogos.agencias().subscribe({ next: (a) => this.agencias.set(a), error: () => {} });
     this.catalogos.canales().subscribe({ next: (c) => this.canalesAtencion.set(c), error: () => {} });
+
+    this.casosWs.conectar();
+    this.chatSub = this.casosWs.mensajesChat.subscribe((m) => {
+      if (m.casoId === this.chatCasoId) this.chatMensajes.update((arr) => [...arr, m]);
+    });
+  }
+
+  /** Sale de la sala de chat del caso anterior (si había) y entra a la del nuevo. */
+  private cambiarSalaChat(casoId: string): void {
+    if (this.chatCasoId) this.casosWs.salirDeChat(this.chatCasoId);
+    this.chatCasoId = casoId;
+    this.chatMensajes.set([]);
+    this.casosWs.unirseAChat(casoId);
+    this.casosSvc.chatListar(casoId).subscribe({
+      next: (m) => this.chatMensajes.set(m),
+      error: () => this.chatError.set('No fue posible cargar el chat interno.'),
+    });
+  }
+
+  enviarChat(): void {
+    const t = this.chatForm.controls.texto.value.trim();
+    if (!t) return;
+    this.chatEnviando.set(true);
+    this.chatError.set('');
+    this.casosSvc.chatEnviar(this.id, t).subscribe({
+      // El propio mensaje también llega por el socket (está unido a su sala);
+      // no se agrega aquí dos veces, solo se limpia el formulario.
+      next: () => { this.chatForm.reset({ texto: '' }); this.chatEnviando.set(false); },
+      error: (e) => { this.chatEnviando.set(false); this.chatError.set(e?.error?.message ?? 'No fue posible enviar el mensaje.'); },
+    });
   }
 
   // --- Reapertura de un caso cerrado ------------------------------------------
@@ -391,6 +433,8 @@ export class DetalleComponent implements OnInit, OnDestroy {
 
   ngOnDestroy(): void {
     if (this.waPoll) clearInterval(this.waPoll);
+    if (this.chatCasoId) this.casosWs.salirDeChat(this.chatCasoId);
+    this.chatSub?.unsubscribe();
   }
 
   // WhatsApp -----------------------------------------------------------------
@@ -534,5 +578,10 @@ export class DetalleComponent implements OnInit, OnDestroy {
   }
   eventoIcon(t: TipoEvento): string {
     return { creacion: '🟢', estado: '🔁', derivacion: '➡️', nota: '📝', despacho: '🚓' }[t];
+  }
+
+  /** Para alinear a la derecha los mensajes propios en el chat interno. */
+  esPropio(m: MensajeChatInterno): boolean {
+    return m.autorId === this.auth.sesion()?.usuario;
   }
 }

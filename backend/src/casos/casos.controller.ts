@@ -3,6 +3,7 @@ import { Actor, CasosService } from './casos.service';
 import { CrearCasoDto } from './dto/crear-caso.dto';
 import { CambiarEstadoDto } from './dto/cambiar-estado.dto';
 import { AgregarNotaDto } from './dto/agregar-nota.dto';
+import { EnviarChatDto } from './dto/enviar-chat.dto';
 import { RemitirDto } from './dto/remitir.dto';
 import { RemitirTenantDto } from './dto/remitir-tenant.dto';
 import { ReabrirDto, SolicitarReaperturaDto } from './dto/reabrir.dto';
@@ -161,6 +162,28 @@ export class CasosController {
     @Param('id') id: string,
   ) {
     return this.casos.listarAuditoria(tenant, id, await this.actor(usuario, permisos));
+  }
+
+  /**
+   * GET/POST /api/casos/:id/chat — chat interno entre operadores y
+   * despachadores, anclado al caso. La visibilidad es la del `casos.ver` de
+   * clase (cualquiera que pueda ver la bandeja puede coordinar aquí sobre
+   * cualquier caso del secad) — no se restringe además por canal/agencia,
+   * a propósito: el chat es para coordinar ENTRE entidades, no dentro de una.
+   */
+  @Get(':id/chat')
+  async chatListar(@Tenant() tenant: string, @Param('id') id: string) {
+    return this.casos.listarChatInterno(tenant, id);
+  }
+
+  @Post(':id/chat')
+  async chatEnviar(
+    @Tenant() tenant: string,
+    @Usuario() usuario: JwtPayload,
+    @Param('id') id: string,
+    @Body() dto: EnviarChatDto,
+  ) {
+    return this.casos.enviarChatInterno(tenant, id, usuario?.sub ?? 'desconocido', usuario?.nombre ?? usuario?.sub ?? 'desconocido', dto.texto);
   }
 
   /** POST /api/casos — recepcionar un caso nuevo (creador tomado del JWT). */

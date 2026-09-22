@@ -3,7 +3,7 @@ import { Observable, Subject } from 'rxjs';
 import { io, Socket } from 'socket.io-client';
 import { environment } from '../../environments/environment';
 import { AuthService } from './auth.service';
-import { Caso } from './models';
+import { Caso, MensajeChatInterno } from './models';
 
 /**
  * Canal WebSocket para recibir actualizaciones de casos en tiempo real.
@@ -14,6 +14,7 @@ import { Caso } from './models';
 export class CasosWsService implements OnDestroy {
   private socket: Socket | null = null;
   private readonly caso$ = new Subject<{ tipo: 'nuevo' | 'actualizado'; caso: Caso }>();
+  private readonly chat$ = new Subject<MensajeChatInterno>();
 
   constructor(private auth: AuthService) {}
 
@@ -33,6 +34,7 @@ export class CasosWsService implements OnDestroy {
 
     this.socket.on('caso:nuevo', (caso: Caso) => this.caso$.next({ tipo: 'nuevo', caso }));
     this.socket.on('caso:actualizado', (caso: Caso) => this.caso$.next({ tipo: 'actualizado', caso }));
+    this.socket.on('chat:mensaje', (m: MensajeChatInterno) => this.chat$.next(m));
   }
 
   desconectar(): void {
@@ -40,9 +42,26 @@ export class CasosWsService implements OnDestroy {
     this.socket = null;
   }
 
+  /**
+   * Se une a la sala de chat de UN caso — solo mientras su detalle está en
+   * pantalla, para no recibir el chat de casos que nadie tiene abiertos aquí.
+   */
+  unirseAChat(casoId: string): void {
+    this.socket?.emit('caso:unirse', casoId);
+  }
+
+  salirDeChat(casoId: string): void {
+    this.socket?.emit('caso:salir', casoId);
+  }
+
   /** Observable de eventos de casos (nuevo o actualizado). */
   get eventos(): Observable<{ tipo: 'nuevo' | 'actualizado'; caso: Caso }> {
     return this.caso$.asObservable();
+  }
+
+  /** Observable de mensajes de chat interno (de cualquier caso al que se haya unido). */
+  get mensajesChat(): Observable<MensajeChatInterno> {
+    return this.chat$.asObservable();
   }
 
   ngOnDestroy(): void {

@@ -5,6 +5,7 @@ import { CasoEntity } from './casos/caso.entity';
 import { EventoCasoEntity } from './casos/evento.entity';
 import { UsuarioEntity } from './usuarios/usuario.entity';
 import { MensajeChatEntity } from './chat/mensaje.entity';
+import { MensajeChatInternoEntity } from './casos/chat-interno.entity';
 import { TenantEntity } from './tenants/tenant.entity';
 import { RecursoEntity } from './despacho/recurso.entity';
 import { AsignacionEntity } from './despacho/asignacion.entity';
@@ -28,6 +29,6 @@ export default new DataSource({
   url: process.env.DATABASE_URL,
   // Igual que la app: las bases gestionadas exigen TLS (ver app.module.ts).
   ssl: process.env.DB_SSL === 'true' ? { rejectUnauthorized: false } : undefined,
-  entities: [CasoEntity, EventoCasoEntity, UsuarioEntity, MensajeChatEntity, TenantEntity, RecursoEntity, AsignacionEntity, LlamadaEntity, RolEntity, EntidadEntity, AgenciaEntity, CanalEntity, CodigoCasoEntity, CodigoCierreEntity],
+  entities: [CasoEntity, EventoCasoEntity, UsuarioEntity, MensajeChatEntity, MensajeChatInternoEntity, TenantEntity, RecursoEntity, AsignacionEntity, LlamadaEntity, RolEntity, EntidadEntity, AgenciaEntity, CanalEntity, CodigoCasoEntity, CodigoCierreEntity],
   migrations: ['src/migrations/*.ts'],
 });

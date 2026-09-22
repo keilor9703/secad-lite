@@ -315,6 +315,33 @@
             }
           </div>
         }
+        <!-- Chat interno entre operadores/despachadores, anclado a este caso -->
+        <div class="chat-panel card">
+          <h2>💬 Chat interno</h2>
+          @if (chatError()) {
+            <p class="error">{{ chatError() }}</p>
+          }
+          <div class="chat-msgs">
+            @if (chatMensajes().length === 0) {
+              <p class="vacio">Sin mensajes aún. Coordine aquí con quien más atienda este caso.</p>
+            }
+            @for (m of chatMensajes(); track m.id) {
+              <div class="cmsg" [class.propio]="esPropio(m)">
+                <span class="autor">{{ m.autorNombre }}</span>
+                <p class="texto">{{ m.texto }}</p>
+                <span class="hora">{{ m.creadoEn | date:'shortTime' }}</span>
+              </div>
+            }
+          </div>
+          @if (c.estado !== 'cerrado') {
+            <form class="chat-entrada" [formGroup]="chatForm" (ngSubmit)="enviarChat()">
+              <input formControlName="texto" placeholder="Escriba un mensaje sobre este caso…" autocomplete="off" maxlength="2000" />
+              <button type="submit" class="btn btn--primary" [disabled]="chatEnviando() || !chatForm.controls.texto.value.trim()">Enviar</button>
+            </form>
+          } @else {
+            <p class="vacio">Caso cerrado: el chat quedó en solo lectura.</p>
+          }
+        </div>
         <!-- Bitácora / línea de tiempo -->
         <div class="bitacora card">
           <h2>Bitácora</h2>
