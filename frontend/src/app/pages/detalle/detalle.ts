@@ -1,4 +1,4 @@
-import { ChangeDetectionStrategy, Component, OnDestroy, OnInit, computed, effect, inject, input, output, signal } from '@angular/core';
+import { ChangeDetectionStrategy, Component, ElementRef, OnDestroy, OnInit, computed, effect, inject, input, output, signal, viewChild } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormControl, FormGroup, ReactiveFormsModule, Validators } from '@angular/forms';
 import { ActivatedRoute, RouterLink } from '@angular/router';
@@ -66,6 +66,14 @@ export class DetalleComponent implements OnInit, OnDestroy {
   readonly chatError = signal('');
   private chatSub?: Subscription;
   private chatCasoId = '';
+  private readonly chatMsgsEl = viewChild<ElementRef<HTMLDivElement>>('chatInternoMsgs');
+
+  /** Cada vez que cambian los mensajes (carga inicial o uno nuevo por el socket), baja al final — igual que cualquier chat. */
+  private readonly bajarChatAlFondo = effect(() => {
+    this.chatMensajes();
+    const el = this.chatMsgsEl()?.nativeElement;
+    if (el) queueMicrotask(() => { el.scrollTop = el.scrollHeight; });
+  });
 
   readonly estados: EstadoCaso[] = ['nuevo', 'en_gestion', 'derivado', 'cerrado'];
 

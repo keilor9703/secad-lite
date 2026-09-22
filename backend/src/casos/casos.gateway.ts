@@ -29,13 +29,23 @@ export class CasosGateway implements OnGatewayConnection {
       const token = socket.handshake.auth['token'] as string | undefined
         ?? socket.handshake.headers['authorization']?.replace('Bearer ', '');
       if (!token) { socket.disconnect(); return; }
-      const payload = this.jwt.verify<{ tenant: string }>(token);
-      const sala = `tenant:${payload.tenant}`;
-      // Se guarda el tenant YA VERIFICADO del token, para que 'caso:unirse'
+      const payload = this.jwt.verify<{ tenant: string | null; rol: string }>(token);
+      // El superadmin no tiene tenant propio en su token (es global) — el
+      // tenant real es el que tiene EN GESTIÓN en la interfaz, y viaja aparte
+      // en el handshake (mismo patrón ya usado en PbxGateway). Sin esto, el
+      // socket del superadmin se unía a una sala 'tenant:null' que ninguna
+      // emisión real alcanza nunca — ni el tablero de Despacho en vivo, ni el
+      // chat interno, se enteraban de nada hasta refrescar la página.
+      const tenant = payload.rol === 'superadmin'
+        ? (socket.handshake.auth['tenant'] as string | undefined)?.trim()
+        : payload.tenant;
+      if (!tenant) { socket.disconnect(); return; }
+      // Se guarda el tenant YA VERIFICADO/resuelto, para que 'caso:unirse'
       // no tenga que confiar en lo que el cliente diga que es su tenant —
       // sin esto, alguien podría unirse a la sala de chat de un caso de OTRO
       // tenant con solo adivinar su id.
-      socket.data.tenant = payload.tenant;
+      socket.data.tenant = tenant;
+      const sala = `tenant:${tenant}`;
       await socket.join(sala);
       this.logger.debug(`Socket ${socket.id} unido a sala ${sala}`);
     } catch {

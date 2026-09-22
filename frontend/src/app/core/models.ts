@@ -196,6 +196,7 @@ export interface MensajeChatInterno {
   casoId: string;
   autorId: string;
   autorNombre: string;
+  autorAgencia?: string | null;
   texto: string;
   creadoEn: string;
 }

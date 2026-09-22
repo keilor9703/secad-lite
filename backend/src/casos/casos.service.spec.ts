@@ -69,7 +69,7 @@ describe('CasosService', () => {
         { provide: CatalogosService, useValue: {
           listarCodigos: jest.fn().mockResolvedValue([]),
           validarCanales: jest.fn().mockResolvedValue([]),
-          agenciaDe: jest.fn(),
+          agenciaDe: jest.fn().mockResolvedValue({ id: 'agencia-uuid-1', nombre: 'Policía Nacional' }),
           agenciasDe: jest.fn().mockResolvedValue([]),
           cierreVigente: jest.fn().mockResolvedValue({ codigo: 'AT', etiqueta: 'Atendido' }),
         }},
@@ -180,14 +180,14 @@ describe('CasosService', () => {
     it('lanza NotFoundException si el caso no existe', async () => {
       repo.findOne.mockResolvedValue(null);
       await expect(service.listarChatInterno('demo', 'no-existe')).rejects.toThrow(NotFoundException);
-      await expect(service.enviarChatInterno('demo', 'no-existe', 'operador1', 'Operador Uno', 'hola'))
+      await expect(service.enviarChatInterno('demo', 'no-existe', 'operador1', 'Operador Uno', null, 'hola'))
         .rejects.toThrow(NotFoundException);
     });
 
     it('lanza BadRequestException si el mensaje está vacío', async () => {
       const caso = { id: '1', tenant: 'demo', estado: 'en_gestion', canales: ['canal-uuid-1'], creadoPor: 'actor' } as CasoEntity;
       repo.findOne.mockResolvedValue(caso);
-      await expect(service.enviarChatInterno('demo', '1', 'operador1', 'Operador Uno', '   '))
+      await expect(service.enviarChatInterno('demo', '1', 'operador1', 'Operador Uno', null, '   '))
         .rejects.toThrow(BadRequestException);
       expect(chatRepo.save).not.toHaveBeenCalled();
     });
@@ -195,12 +195,12 @@ describe('CasosService', () => {
     it('impide escribir si el caso ya está cerrado — el chat queda en solo lectura', async () => {
       const caso = { id: '1', tenant: 'demo', estado: 'cerrado', canales: ['canal-uuid-1'], creadoPor: 'actor' } as CasoEntity;
       repo.findOne.mockResolvedValue(caso);
-      await expect(service.enviarChatInterno('demo', '1', 'operador1', 'Operador Uno', 'hola'))
+      await expect(service.enviarChatInterno('demo', '1', 'operador1', 'Operador Uno', null, 'hola'))
         .rejects.toThrow(BadRequestException);
       expect(chatRepo.save).not.toHaveBeenCalled();
     });
 
-    it('guarda el mensaje cuando el caso está abierto, sin restringir por canal del autor', async () => {
+    it('guarda el mensaje cuando el caso está abierto, sin restringir por canal del autor, con la agencia resuelta', async () => {
       // 'supervisor1' no tiene este canal en su Actor de prueba y ni siquiera
       // se pasa un Actor aquí — a propósito: cualquiera con casos.ver puede
       // escribir en el chat de cualquier caso del tenant (ver el comentario
@@ -208,12 +208,23 @@ describe('CasosService', () => {
       const caso = { id: '1', tenant: 'demo', estado: 'en_gestion', canales: ['canal-uuid-1'], creadoPor: 'otro' } as CasoEntity;
       repo.findOne.mockResolvedValue(caso);
       chatRepo.save.mockImplementation((v: unknown) => Promise.resolve({ id: 'msg-1', ...(v as object) }));
-      const resultado = await service.enviarChatInterno('demo', '1', 'supervisor1', 'Supervisor Uno', '  ¿ya llegó la ambulancia?  ');
+      const resultado = await service.enviarChatInterno(
+        'demo', '1', 'supervisor1', 'Supervisor Uno', 'agencia-uuid-1', '  ¿ya llegó la ambulancia?  ',
+      );
       expect(chatRepo.save).toHaveBeenCalled();
       expect(resultado).toMatchObject({
         tenant: 'demo', casoId: '1', autorId: 'supervisor1', autorNombre: 'Supervisor Uno',
+        autorAgencia: 'Policía Nacional',
         texto: '¿ya llegó la ambulancia?', // recortado
       });
+    });
+
+    it('guarda el mensaje sin autorAgencia si el autor no tiene agencia (superadmin) o no se resolvió', async () => {
+      const caso = { id: '1', tenant: 'demo', estado: 'en_gestion', canales: [] as string[], creadoPor: 'otro' } as CasoEntity;
+      repo.findOne.mockResolvedValue(caso);
+      chatRepo.save.mockImplementation((v: unknown) => Promise.resolve({ id: 'msg-2', ...(v as object) }));
+      const resultado = await service.enviarChatInterno('demo', '1', 'superadmin', 'Super Administrador', null, 'hola equipo');
+      expect(resultado).toMatchObject({ autorAgencia: null });
     });
 
     it('lista los mensajes del caso, más antiguos primero', async () => {

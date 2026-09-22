@@ -327,13 +327,13 @@
           @if (chatError()) {
             <p class="error">{{ chatError() }}</p>
           }
-          <div class="chat-msgs">
+          <div class="chat-msgs" #chatInternoMsgs>
             @if (chatMensajes().length === 0) {
               <p class="vacio">Sin mensajes aún. Coordine aquí con quien más atienda este caso.</p>
             }
             @for (m of chatMensajes(); track m.id) {
               <div class="cmsg" [class.propio]="esPropio(m)">
-                <span class="autor">{{ m.autorNombre }}</span>
+                <span class="autor">{{ m.autorNombre }}{{ m.autorAgencia ? ' - ' + m.autorAgencia : '' }}</span>
                 <p class="texto">{{ m.texto }}</p>
                 <span class="hora">{{ m.creadoEn | date:'shortTime' }}</span>
               </div>

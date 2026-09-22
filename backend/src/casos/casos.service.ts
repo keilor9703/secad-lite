@@ -380,7 +380,7 @@ export class CasosService implements OnModuleInit {
    * coordinar, y mantenerlo abierto lo convertiría en charla sin motivo.
    */
   async enviarChatInterno(
-    tenant: string, casoId: string, autorId: string, autorNombre: string, texto: string,
+    tenant: string, casoId: string, autorId: string, autorNombre: string, autorAgenciaId: string | null | undefined, texto: string,
   ): Promise<MensajeChatInternoEntity> {
     const limpio = texto?.trim();
     if (!limpio) throw new BadRequestException('El mensaje no puede estar vacío.');
@@ -388,9 +388,18 @@ export class CasosService implements OnModuleInit {
     if (caso.estado === 'cerrado') {
       throw new BadRequestException('El caso está cerrado: el chat quedó en solo lectura.');
     }
+    // Se resuelve a NOMBRE (no se guarda el id) para no tener que hacer join
+    // al listar — igual que autorNombre. Si la agencia no existe o el autor
+    // no tiene (el superadmin no tiene agencia propia), el mensaje se manda
+    // igual, solo sin esa etiqueta: no es motivo para bloquear la coordinación.
+    let autorAgencia: string | null = null;
+    if (autorAgenciaId) {
+      try { autorAgencia = (await this.catalogos.agenciaDe(tenant, autorAgenciaId)).nombre; }
+      catch { /* agencia inválida/borrada: se omite */ }
+    }
     const guardado = await this.rls.conTenant(tenant, async (manager) => {
       const repo = manager.getRepository(MensajeChatInternoEntity);
-      return repo.save(repo.create({ tenant, casoId, autorId, autorNombre, texto: limpio }));
+      return repo.save(repo.create({ tenant, casoId, autorId, autorNombre, autorAgencia, texto: limpio }));
     });
     this.gateway?.emitirMensajeChat(tenant, casoId, guardado);
     return guardado;

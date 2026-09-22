@@ -28,6 +28,16 @@ export class MensajeChatInternoEntity {
   @Column({ type: 'varchar', length: 120 })
   autorNombre!: string;
 
+  /**
+   * Nombre de la agencia del autor AL MOMENTO de escribir (desnormalizado,
+   * igual que autorNombre) — para mostrar "Kehilor - Policía Nacional" sin
+   * tener que resolver un join contra usuarios/agencias al listar. Nula para
+   * el superadmin (no tiene agencia propia) o si la agencia no se pudo
+   * resolver — el chat sigue funcionando igual, solo sin esa etiqueta.
+   */
+  @Column({ type: 'varchar', length: 120, nullable: true })
+  autorAgencia?: string | null;
+
   @Column({ type: 'text' })
   texto!: string;
 

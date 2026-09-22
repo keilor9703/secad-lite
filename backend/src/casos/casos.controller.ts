@@ -183,7 +183,9 @@ export class CasosController {
     @Param('id') id: string,
     @Body() dto: EnviarChatDto,
   ) {
-    return this.casos.enviarChatInterno(tenant, id, usuario?.sub ?? 'desconocido', usuario?.nombre ?? usuario?.sub ?? 'desconocido', dto.texto);
+    return this.casos.enviarChatInterno(
+      tenant, id, usuario?.sub ?? 'desconocido', usuario?.nombre ?? usuario?.sub ?? 'desconocido', usuario?.agencia, dto.texto,
+    );
   }
 
   /** POST /api/casos — recepcionar un caso nuevo (creador tomado del JWT). */

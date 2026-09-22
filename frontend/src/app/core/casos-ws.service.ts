@@ -26,7 +26,11 @@ export class CasosWsService implements OnDestroy {
 
     const wsUrl = environment.apiBaseUrl.replace('/api', '');
     this.socket = io(`${wsUrl}/casos`, {
-      auth: { token },
+      // El superadmin no tiene tenant propio: se manda el que tiene en
+      // gestión (mismo patrón que PbxService.conectar()) — sin esto el
+      // backend no sabe a qué sala de tenant unirlo y nunca le llega nada
+      // en vivo (ni el tablero de Despacho, ni el chat interno).
+      auth: { token, tenant: this.auth.tenantActivo() },
       transports: ['websocket'],
       reconnection: true,
       reconnectionDelay: 2000,
