@@ -12,6 +12,7 @@ import { WhatsappService } from '../../core/whatsapp.service';
 import { ToastService } from '../../shared/toast/toast.service';
 import { SelectorComponent } from '../../shared/selector/selector';
 import { OpcionComponent } from '../../shared/selector/opcion';
+import { DictadoComponent } from '../../shared/dictado/dictado';
 import {
   Agencia, Asignacion, Canal, CanalAtencion, Caso, CodigoCaso, CodigoCierre, EstadoAsignacion, EstadoCaso,
   EventoCaso, MensajeChat, MensajeChatInterno, Recurso, TenantDirectorio, TipoEvento,
@@ -20,7 +21,7 @@ import {
 @Component({
   selector: 'app-detalle',
   standalone: true,
-  imports: [CommonModule, ReactiveFormsModule, RouterLink, SelectorComponent, OpcionComponent],
+  imports: [CommonModule, ReactiveFormsModule, RouterLink, SelectorComponent, OpcionComponent, DictadoComponent],
   templateUrl: './detalle.html',
   styleUrl: './detalle.scss',
   changeDetection: ChangeDetectionStrategy.OnPush,

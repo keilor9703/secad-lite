@@ -141,6 +141,10 @@ body {
 .field { display: flex; flex-direction: column; gap: 0.35rem; }
 .field > label { font-size: 0.8rem; font-weight: 500; color: var(--ink-soft); }
 
+/* Envuelve un textarea con el botón de dictado por voz (app-dictado) flotando en su esquina. */
+.con-dictado { position: relative; }
+.con-dictado textarea { width: 100%; padding-right: 2.4rem; }
+
 input, textarea {
   font: inherit;
   color: var(--ink);

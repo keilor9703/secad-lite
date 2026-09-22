@@ -184,8 +184,11 @@
             @if (mostrarReapertura()) {
               <div class="reapertura-form">
                 <label for="rmot">{{ puedeReabrir() ? 'Observación de la reapertura' : 'Motivo de la solicitud' }}</label>
-                <textarea id="rmot" rows="2" [formControl]="motivoReaperturaCtrl"
-                placeholder="Queda registrado en la trazabilidad del caso"></textarea>
+                <div class="con-dictado">
+                  <textarea id="rmot" rows="2" [formControl]="motivoReaperturaCtrl"
+                  placeholder="Queda registrado en la trazabilidad del caso"></textarea>
+                  <app-dictado [control]="motivoReaperturaCtrl" />
+                </div>
                 <div class="acciones-remitir">
                   <button type="button" class="btn btn--ghost" (click)="mostrarReapertura.set(false)">Cancelar</button>
                   <button type="button" class="btn btn--primary" (click)="enviarReapertura()"
@@ -232,8 +235,11 @@
                 </div>
                 <div class="field">
                   <label for="ccom">Comentario de cierre *</label>
-                  <textarea id="ccom" rows="3" formControlName="comentario"
-                  placeholder="Qué pasó y cómo se resolvió"></textarea>
+                  <div class="con-dictado">
+                    <textarea id="ccom" rows="3" formControlName="comentario"
+                    placeholder="Qué pasó y cómo se resolvió"></textarea>
+                    <app-dictado [control]="cierreForm.controls.comentario" />
+                  </div>
                 </div>
                 <div class="acciones-remitir">
                   <button type="button" class="btn btn--ghost" (click)="mostrarCierre.set(false)">Cancelar</button>
@@ -346,8 +352,11 @@
         <div class="bitacora card">
           <h2>Bitácora</h2>
           <form class="nota-form" [formGroup]="notaForm" (ngSubmit)="agregarNota()">
-            <textarea formControlName="texto" rows="4"
-            placeholder="Agregar una nota al caso…" maxlength="1000"></textarea>
+            <div class="con-dictado">
+              <textarea formControlName="texto" rows="4"
+              placeholder="Agregar una nota al caso…" maxlength="1000"></textarea>
+              <app-dictado [control]="notaForm.controls.texto" />
+            </div>
             <button type="submit" class="btn btn--primary" [disabled]="guardandoNota() || !notaForm.controls.texto.value.trim()">
               {{ guardandoNota() ? 'Guardando…' : 'Agregar nota' }}
             </button>

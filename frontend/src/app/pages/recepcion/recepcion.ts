@@ -13,6 +13,7 @@ import { ToastService } from '../../shared/toast/toast.service';
 import { AutocompletarComponent, OpcionAutocompletar } from '../../shared/autocompletar/autocompletar';
 import { SelectorComponent } from '../../shared/selector/selector';
 import { OpcionComponent } from '../../shared/selector/opcion';
+import { DictadoComponent } from '../../shared/dictado/dictado';
 import {
   Agencia, Canal, CanalAtencion, Caso, CodigoCaso, CrearCaso, EstadoCaso, Llamada, PrioridadCaso,
 } from '../../core/models';
@@ -20,7 +21,7 @@ import {
 @Component({
   selector: 'app-recepcion',
   standalone: true,
-  imports: [CommonModule, ReactiveFormsModule, RouterLink, AutocompletarComponent, SelectorComponent, OpcionComponent],
+  imports: [CommonModule, ReactiveFormsModule, RouterLink, AutocompletarComponent, SelectorComponent, OpcionComponent, DictadoComponent],
   templateUrl: './recepcion.html',
   styleUrl: './recepcion.scss',
   changeDetection: ChangeDetectionStrategy.OnPush,

@@ -155,8 +155,11 @@
               </div>
               <div class="field span2">
                 <label for="fcom">Comentario / relato</label>
-                <textarea id="fcom" formControlName="descripcion"
-                rows="3" placeholder="Lo que narra quien reporta"></textarea>
+                <div class="con-dictado">
+                  <textarea id="fcom" formControlName="descripcion"
+                  rows="3" placeholder="Lo que narra quien reporta"></textarea>
+                  <app-dictado [control]="form.controls.descripcion" />
+                </div>
                 <!-- El catálogo leyó el relato: sugiere la tipificación, el operador decide. -->
                 @if (sugerenciasCodigo().length) {
                   <div class="sugerencias">
