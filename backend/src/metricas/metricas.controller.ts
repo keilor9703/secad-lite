@@ -115,8 +115,10 @@ export class MetricasController {
 
   /**
    * GET /api/metricas/detalle — los casos exactos detrás de UN valor de un
-   * reporte del Panel/Mapa (doble clic sobre una barra). Un solo filtro a
-   * la vez: agencia, canal, estado, o prioridad+dentroMeta (cumplimiento).
+   * reporte del Panel/Mapa (doble clic sobre una barra o una fila). Un solo
+   * filtro a la vez: agencia, canal, estado, prioridad (sola, para "casos
+   * por prioridad"), o prioridad/hito/dentroMeta combinados (cumplimiento y
+   * tiempos de respuesta, que necesitan saber CUÁNDO pasó un hito).
    */
   @Get('detalle')
   async detalle(
@@ -124,10 +126,11 @@ export class MetricasController {
     @Query('desde') desde?: string, @Query('hasta') hasta?: string,
     @Query('agencia') agencia?: string, @Query('canal') canal?: string, @Query('estado') estado?: string,
     @Query('prioridad') prioridad?: string, @Query('dentroMeta') dentroMeta?: string,
+    @Query('hito') hito?: 'tomado' | 'despacho' | 'cierre',
   ) {
     return this.metricas.detalle(
       tenant,
-      { desde, hasta, agencia, canal, estado, prioridad, dentroMeta: dentroMeta === undefined ? undefined : dentroMeta === 'true' },
+      { desde, hasta, agencia, canal, estado, prioridad, dentroMeta: dentroMeta === undefined ? undefined : dentroMeta === 'true', hito },
       await this.alcanceAgencia(usuario, permisos),
     );
   }

@@ -132,8 +132,10 @@ export interface FiltroDetalle {
   canal?: string;
   estado?: string;
   prioridad?: string;
-  /** Con `prioridad`: true = dentro de la meta, false = fuera. */
+  /** Con `prioridad`: true = dentro de la meta, false = fuera; implica `hito: 'despacho'`. */
   dentroMeta?: boolean;
+  /** Solo los casos que ya llegaron a este hito (para "Tiempos de respuesta"). */
+  hito?: 'tomado' | 'despacho' | 'cierre';
 }
 
 @Injectable({ providedIn: 'root' })
@@ -198,6 +200,7 @@ export class MetricasService {
     if (filtro.estado) params = params.set('estado', filtro.estado);
     if (filtro.prioridad) params = params.set('prioridad', filtro.prioridad);
     if (filtro.dentroMeta !== undefined) params = params.set('dentroMeta', String(filtro.dentroMeta));
+    if (filtro.hito) params = params.set('hito', filtro.hito);
     return this.http.get<Caso[]>(`${this.base}/detalle`, { params });
   }
 }

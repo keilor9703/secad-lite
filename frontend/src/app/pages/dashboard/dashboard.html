@@ -86,11 +86,14 @@
     <!-- Cumplimiento de la meta de despacho por prioridad -->
     @if (cumplimiento(); as c) {
       <div class="panel card">
-        <h2>Cumplimiento de despacho por prioridad</h2>
+        <h2>
+          Cumplimiento de despacho por prioridad
+          <app-ayuda texto="De los casos despachados en el período, qué porcentaje recibió su primer recurso dentro de la meta de tiempo de su prioridad (Alta 5 min, Media 15 min, Baja 30 min). Doble clic en una fila para ver esos casos." />
+        </h2>
         @if (c.porPrioridad.length) {
           <div class="cumplimiento">
             @for (p of c.porPrioridad; track p.prioridad) {
-              <div class="fila-cump clicable" title="Doble clic para ver los casos fuera de meta" (dblclick)="abrirDetalle({prioridad: p.prioridad, dentroMeta: false}, 'Fuera de meta — ' + prioridadLabel(p.prioridad))">
+              <div class="fila-cump clicable" title="Doble clic para ver los casos despachados de esta prioridad" (dblclick)="abrirDetalle({prioridad: p.prioridad, hito: 'despacho'}, 'Despachados — ' + prioridadLabel(p.prioridad))">
                 <span class="cap">
                   <span class="prio" [attr.data-prio]="p.prioridad">{{ prioridadLabel(p.prioridad) }}</span>
                   meta {{ p.metaMin }} min
@@ -113,12 +116,18 @@
     <!-- Tiempos de respuesta del período -->
     @if (tiempos(); as t) {
       <div class="panel card tiempos">
-        <h2>Tiempos de respuesta <span class="periodo">{{ r.periodo.desde }} → {{ r.periodo.hasta }}</span></h2>
+        <h2>
+          Tiempos de respuesta <span class="periodo">{{ r.periodo.desde }} → {{ r.periodo.hasta }}</span>
+          <app-ayuda texto="Cuánto tarda, en promedio, cada etapa de un caso desde que se recepciona. Doble clic en un número o una fila para ver los casos exactos detrás de él." />
+        </h2>
         @if (t.global; as g) {
           <div class="t-kpis">
-            <div class="t-kpi">
+            <div class="t-kpi clicable" title="Doble clic para ver los casos tomados" (dblclick)="abrirDetalle({hito: 'tomado'}, 'Casos tomados')">
               <span class="n">{{ duracion(g.tomaMin) }}</span>
-              <span class="l">Recepción → tomado</span>
+              <span class="l">
+                Recepción → tomado
+                <app-ayuda texto="Minutos entre que se recepciona el caso y que un operador lo toma (pasa a 'En gestión'). Promedio del período." />
+              </span>
               @if (variacionToma(); as v) {
                 <span class="delta" [class.bueno]="v.bueno === true" [class.malo]="v.bueno === false">
                   @if (v.direccion === 'sube') { ▲ } @else if (v.direccion === 'baja') { ▼ } @else { → }
@@ -126,15 +135,21 @@
                 </span>
               }
             </div>
-            <div class="t-kpi">
+            <div class="t-kpi clicable" title="Doble clic para ver los casos despachados" (dblclick)="abrirDetalle({hito: 'despacho'}, 'Casos con primer recurso')">
               <span class="n">{{ duracion(g.despachoMin) }}</span>
-              <span class="l">Recepción → primer recurso</span>
+              <span class="l">
+                Recepción → primer recurso
+                <app-ayuda texto="Minutos entre que se recepciona el caso y que se despacha el primer recurso (vehículo, unidad). Promedio del período." />
+              </span>
             </div>
-            <div class="t-kpi">
+            <div class="t-kpi clicable" title="Doble clic para ver los casos cerrados" (dblclick)="abrirDetalle({hito: 'cierre'}, 'Casos cerrados')">
               <span class="n">{{ duracion(g.cierreMin) }}</span>
-              <span class="l">Recepción → cierre</span>
+              <span class="l">
+                Recepción → cierre
+                <app-ayuda texto="Minutos entre que se recepciona el caso y que se cierra. Promedio del período." />
+              </span>
             </div>
-            <div class="t-kpi">
+            <div class="t-kpi clicable" title="Doble clic para ver todos los casos del período" (dblclick)="abrirDetalle({}, 'Casos del período')">
               <span class="n">{{ g.total }}</span>
               <span class="l">Casos del período</span>
             </div>
@@ -143,11 +158,17 @@
             <div class="tbl-wrap">
               <table class="t-tabla">
                 <thead>
-                  <tr><th>Prioridad</th><th>Casos</th><th>Tomado</th><th>Primer recurso</th><th>Cierre</th></tr>
+                  <tr>
+                    <th>Prioridad</th>
+                    <th>Casos<app-ayuda texto="Todos los casos recepcionados en el período con esta prioridad, sin importar en qué quedaron." /></th>
+                    <th>Tomado<app-ayuda texto="Promedio de minutos hasta que un operador tomó el caso." /></th>
+                    <th>Primer recurso<app-ayuda texto="Promedio de minutos hasta que se despachó el primer recurso." /></th>
+                    <th>Cierre<app-ayuda texto="Promedio de minutos hasta que el caso se cerró." /></th>
+                  </tr>
                 </thead>
                 <tbody>
                   @for (f of t.porPrioridad; track f) {
-                    <tr>
+                    <tr class="clicable" title="Doble clic para ver estos casos" (dblclick)="abrirDetalle({prioridad: f.prioridad}, 'Casos — ' + prioridadLabel(f.prioridad))">
                       <td><span class="prio" [attr.data-prio]="f.prioridad">{{ prioridadLabel(f.prioridad) }}</span></td>
                       <td class="num">{{ f.total }}</td>
                       <td class="num">{{ duracion(f.tomaMin) }}</td>

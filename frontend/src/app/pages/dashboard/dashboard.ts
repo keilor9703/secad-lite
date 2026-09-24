@@ -11,6 +11,7 @@ import { Caso } from '../../core/models';
 import { ExportarService } from '../../core/exportar.service';
 import { FechaComponent } from '../../shared/fecha/fecha';
 import { DetalleReporteModalComponent } from '../../shared/detalle-reporte/detalle-reporte';
+import { AyudaComponent } from '../../shared/ayuda/ayuda';
 
 interface Barra { etiqueta: string; valor: number; clave: string; }
 
@@ -20,7 +21,7 @@ interface Variacion { pct: number; direccion: 'sube' | 'baja' | 'igual'; bueno: 
 @Component({
   selector: 'app-dashboard',
   standalone: true,
-  imports: [ReactiveFormsModule, FechaComponent, DetalleReporteModalComponent],
+  imports: [ReactiveFormsModule, FechaComponent, DetalleReporteModalComponent, AyudaComponent],
   templateUrl: './dashboard.html',
   styleUrl: './dashboard.scss',
   changeDetection: ChangeDetectionStrategy.OnPush,

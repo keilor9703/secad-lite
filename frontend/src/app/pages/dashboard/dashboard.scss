@@ -56,6 +56,9 @@
 /* Barras/tiles con detalle: doble clic abre la modal — pista sutil, no un botón. */
 .clicable { cursor: pointer; border-radius: var(--radius-sm); transition: background-color 0.15s ease; }
 .clicable:hover { background: var(--surface-2); }
+/* Los t-kpi ya usan --surface-2 de fondo — el hover necesita un tono propio para notarse. */
+.t-kpi.clicable:hover { background: var(--border); }
+tr.clicable:hover td { background: var(--surface-2); }
 
 /* Tiempos de respuesta (últimos 30 días). */
 .tiempos { padding: 1rem 1.2rem; margin-bottom: 1.2rem; }

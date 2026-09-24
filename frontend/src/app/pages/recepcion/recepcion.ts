@@ -199,6 +199,12 @@ export class RecepcionComponent implements OnInit {
   private gmpElement?: google.maps.places.PlaceAutocompleteElement;
   private geocoder?: google.maps.Geocoder;
 
+  // Uno de los dos motores de mapa queda activo, nunca los dos a la vez
+  // (ver `iniciarMapaYBuscador`): Google si hay clave, Leaflet si no.
+  private mapaGoogle?: google.maps.Map;
+  private marcadorGoogle?: google.maps.marker.AdvancedMarkerElement;
+  private marcadorGoogleCtor?: typeof google.maps.marker.AdvancedMarkerElement;
+
   private mapa?: import('leaflet').Map;
   private marcador?: import('leaflet').Marker;
 
@@ -298,10 +304,26 @@ export class RecepcionComponent implements OnInit {
   // --- Formulario -------------------------------------------------------------
 
   ngOnInit(): void {
-    // El mapa y el buscador de direcciones se preparan una vez pintado el
-    // formulario, que ya está a la vista.
-    setTimeout(() => this.prepararMapa(), 0);
-    setTimeout(() => this.prepararBuscadorDireccion(), 0);
+    // El mapa y el buscador se preparan una vez pintado el formulario, que ya
+    // está a la vista. Se decide UNA sola vez qué motor de mapa usar (Google
+    // si hay clave, Leaflet/OSM si no) — ambos comparten el mismo contenedor
+    // `#mapaCaso`, así que no pueden intentar montarse los dos a la vez.
+    setTimeout(() => this.iniciarMapaYBuscador(), 0);
+  }
+
+  private async iniciarMapaYBuscador(): Promise<void> {
+    const g = await this.googleMaps.cargar().catch((e) => {
+      console.warn('No se pudo cargar el SDK de Google Maps; se usa el mapa y la dirección manual de respaldo.', e);
+      return null;
+    });
+    if (g) {
+      this.googleDisponible.set(true);
+      await this.prepararMapaGoogle(g);
+      await this.prepararBuscadorDireccion(g);
+    } else {
+      this.googleDisponible.set(false);
+      await this.prepararMapaLeaflet();
+    }
   }
 
   /**
@@ -493,7 +515,7 @@ export class RecepcionComponent implements OnInit {
     });
   }
 
-  // --- Mapa (Leaflet/OpenStreetMap, solo de visualización) --------------------
+  // --- Mapa: Google si hay clave configurada, Leaflet/OpenStreetMap si no ----
 
   /**
    * Carga Leaflet solo cuando hace falta (import dinámico): así el mapa no entra
@@ -518,7 +540,8 @@ export class RecepcionComponent implements OnInit {
     return { centro: [4.711, -74.072], zoom: 12 };
   }
 
-  private async prepararMapa(): Promise<void> {
+  /** Respaldo sin clave de Google: el mapa de siempre (Leaflet + teselas de OpenStreetMap). */
+  private async prepararMapaLeaflet(): Promise<void> {
     if (typeof window === 'undefined' || this.mapa) return;
     const div = document.getElementById('mapaCaso');
     if (!div) return;
@@ -532,15 +555,52 @@ export class RecepcionComponent implements OnInit {
     setTimeout(() => this.mapa?.invalidateSize(), 100);
   }
 
-  private destruirMapa(): void {
-    this.mapa?.remove();
-    this.mapa = undefined;
-    this.marcador = undefined;
+  /**
+   * El mapa mismo, con Google: mismas teselas y estilo que Google Maps, no
+   * solo el buscador. `DEMO_MAP_ID` es el identificador de prueba que Google
+   * documenta para usar marcadores avanzados sin crear uno propio en Cloud
+   * Console — funciona igual, solo que sin estilos personalizados.
+   */
+  private async prepararMapaGoogle(g: typeof google): Promise<void> {
+    if (typeof window === 'undefined' || this.mapaGoogle) return;
+    const div = document.getElementById('mapaCaso');
+    if (!div) return;
+    const [{ Map }, { AdvancedMarkerElement }, { centro, zoom }] = await Promise.all([
+      g.maps.importLibrary('maps'),
+      g.maps.importLibrary('marker'),
+      this.centroInicial(),
+    ]);
+    this.marcadorGoogleCtor = AdvancedMarkerElement;
+    this.mapaGoogle = new Map(div, {
+      center: { lat: centro[0], lng: centro[1] },
+      zoom,
+      mapId: 'DEMO_MAP_ID',
+      streetViewControl: false,
+      mapTypeControl: false,
+      fullscreenControl: false,
+    });
+    this.mapaGoogle.addListener('click', (e: google.maps.MapMouseEvent) => {
+      if (e.latLng) this.alPulsarMapa(e.latLng.lat(), e.latLng.lng());
+    });
   }
 
   /** Coloca el marcador y refleja las coordenadas en el formulario. */
   private async fijarPunto(lat: number, lng: number, centrar = false): Promise<void> {
     this.form.patchValue({ lat: Number(lat.toFixed(6)), lng: Number(lng.toFixed(6)) });
+
+    if (this.mapaGoogle && this.marcadorGoogleCtor) {
+      const posicion = { lat, lng };
+      if (this.marcadorGoogle) this.marcadorGoogle.position = posicion;
+      else {
+        const pin = document.createElement('span');
+        pin.className = 'pin-caso';
+        pin.textContent = '📍';
+        this.marcadorGoogle = new this.marcadorGoogleCtor({ map: this.mapaGoogle, position: posicion, content: pin });
+      }
+      if (centrar) { this.mapaGoogle.setCenter(posicion); this.mapaGoogle.setZoom(16); }
+      return;
+    }
+
     if (!this.mapa) return;
     const L = await this.leaflet();
     // Marcador dibujado en HTML: evita depender de los PNG de Leaflet, que el
@@ -566,9 +626,7 @@ export class RecepcionComponent implements OnInit {
    * formulario muestra en su lugar el campo de dirección manual de siempre,
    * con el botón "Buscar en el mapa" resolviendo contra OpenStreetMap.
    */
-  private async prepararBuscadorDireccion(): Promise<void> {
-    const g = await this.googleMaps.cargar();
-    if (!g) { this.googleDisponible.set(false); return; }
+  private async prepararBuscadorDireccion(g: typeof google): Promise<void> {
     const host = document.getElementById('gmpHost');
     if (!host) return;
 
@@ -587,7 +645,6 @@ export class RecepcionComponent implements OnInit {
     // La geocodificación inversa (clic en el mapa) usa el mismo SDK.
     const { Geocoder } = await g.maps.importLibrary('geocoding');
     this.geocoder = new Geocoder();
-    this.googleDisponible.set(true);
   }
 
   /**
