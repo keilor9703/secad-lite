@@ -49,6 +49,14 @@ export class LlamadaEntity {
   @Column({ type: 'varchar', length: 120, nullable: true })
   destinatario?: string | null;
 
+  /**
+   * El agente que contestó, TAL COMO lo reporta la central (webhook) — no se
+   * resuelve contra un usuario de FALCON, se guarda tal cual. Distinto de
+   * `atendidaPor`: ese es el username de quien atendió DESDE la app.
+   */
+  @Column({ type: 'varchar', length: 120, nullable: true })
+  agentePbx?: string | null;
+
   @Column({ type: 'varchar', length: 20, default: 'sonando' })
   estado!: EstadoLlamada;
 

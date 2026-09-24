@@ -78,6 +78,22 @@ tbody tr:last-child td { border-bottom: none; }
    palabra (sin espacios); sin esto no envuelven y desbordan la página
    entera en una pantalla angosta, en vez de partirse dentro de su párrafo. */
 .pbx-hint code { background: var(--surface-2); padding: 0.05rem 0.3rem; border-radius: 4px; font-size: 0.82em; overflow-wrap: break-word; }
+
+/* Ejemplo de JSON del webhook: bloque propio, con sus saltos de línea reales
+   (antes iba embebido en el párrafo y se cortaba a media palabra). Scroll
+   horizontal en vez de partir el JSON si la pantalla es angosta. */
+.pbx-json {
+  background: var(--surface-2);
+  border: 1px solid var(--border-2);
+  border-radius: var(--radius-sm);
+  padding: 0.7rem 0.9rem;
+  margin: 0 0 0.8rem;
+  overflow-x: auto;
+  font-family: var(--mono);
+  font-size: 0.78rem;
+  line-height: 1.5;
+}
+.pbx-json code { background: none; padding: 0; white-space: pre; }
 .pbx-field { margin-top: 0.7rem; }
 .pbx-field > label { font-size: 0.72rem; text-transform: uppercase; letter-spacing: 0.04em; color: var(--muted); }
 .pbx-row { display: flex; gap: 0.4rem; margin-top: 0.3rem; flex-wrap: wrap; }

@@ -1,4 +1,5 @@
 import { BadRequestException, ForbiddenException, Injectable, NotFoundException, UnauthorizedException } from '@nestjs/common';
+import { IsIn, IsOptional, IsString, MaxLength, ValidateIf } from 'class-validator';
 import { EntityManager, Not } from 'typeorm';
 import { Subject } from 'rxjs';
 import { LlamadaEntity } from './llamada.entity';
@@ -8,19 +9,56 @@ import { TenantsService } from '../tenants/tenants.service';
 import { UsuariosService } from '../usuarios/usuarios.service';
 import { TenantRlsService } from '../common/tenant-rls.service';
 
-export interface WebhookLlamadaDto {
+/**
+ * Antes esto era una `interface`, no una `class` — y el `ValidationPipe`
+ * global solo valida/transforma contra un tipo con decoradores reales; una
+ * interfaz se borra en tiempo de ejecución y el pipe la trata como `Object`,
+ * así que el body pasaba TAL CUAL, sin validar nada. Un JSON mal formado (o
+ * un `Content-Type` que no fuera `application/json`, el error más común al
+ * probar desde Postman) llegaba como `undefined`/`{}` y el único aviso era
+ * "Evento de PBX no reconocido" — cierto, pero no decía POR QUÉ. Con la
+ * clase + los decoradores, el `ValidationPipe` ahora sí valida cada campo y
+ * responde 400 con el campo exacto que falta o está mal, antes de llegar
+ * siquiera al servicio.
+ */
+export class WebhookLlamadaDto {
   /** 'entrante' cuando timbra; 'colgada' cuando termina antes/después de atender. */
-  evento: 'entrante' | 'colgada';
+  @IsIn(['entrante', 'colgada'], { message: 'evento debe ser "entrante" o "colgada".' })
+  evento!: 'entrante' | 'colgada';
+
+  @IsOptional() @IsString() @MaxLength(120)
   callId?: string;
+
+  /**
+   * Obligatorio solo en 'entrante': en 'colgada' la llamada ya existe y se
+   * ubica por callId/número. Sin @MaxLength aparte: un solo mensaje claro
+   * (el largo real ya lo limita la columna de la base).
+   */
+  @ValidateIf((o: WebhookLlamadaDto) => o.evento === 'entrante')
+  @IsString({ message: 'numero es obligatorio cuando evento es "entrante".' })
   numero?: string;
+
+  @IsOptional() @IsString() @MaxLength(40)
   numeroDestino?: string;
+
   /**
    * Extensión a la que el ACD de la central ya decidió dirigir la llamada.
    * Es opcional a propósito: una planta sin colas ACD puede seguir usando la
    * integración tal cual, sin mandar este campo, y la llamada se anuncia a
    * todo el que esté atendiendo el tenant, como antes de tener este mapeo.
    */
+  @IsOptional() @IsString() @MaxLength(20)
   extension?: string;
+
+  /**
+   * El agente/usuario que contestó, tal como lo identifica la central —no
+   * necesariamente el username de FALCON (para eso ya existe `atendidaPor`,
+   * que es quien la atendió DESDE la app). Este es el dato que reporta la
+   * PBX; se guarda tal cual llega, útil incluso si no calza con ningún
+   * usuario de FALCON.
+   */
+  @IsOptional() @IsString() @MaxLength(120)
+  agente?: string;
 }
 
 /** Quién actúa: lo que necesita este servicio para decidir alcance y permisos. */
@@ -104,6 +142,7 @@ export class PbxService {
             numeroDestino: dto.numeroDestino?.trim() || null,
             extension,
             destinatario,
+            agentePbx: dto.agente?.trim() || null,
             estado: 'sonando',
           }),
         );
@@ -116,6 +155,10 @@ export class PbxService {
         if (!llamada) throw new NotFoundException('Llamada no encontrada.');
         if (llamada.estado === 'sonando') llamada.estado = 'perdida';
         else if (llamada.estado === 'atendida') llamada.estado = 'finalizada';
+        // Muchas centrales solo saben quién contestó al momento de colgar
+        // (resumen final de la llamada) — se acepta también aquí, y no pisa
+        // lo que ya se hubiera recibido en 'entrante' si esta vez no lo manda.
+        if (dto.agente?.trim()) llamada.agentePbx = dto.agente.trim();
         const guardada = await llamadas.save(llamada);
         this.eventos$.next({ tenant: tenant.codigo, tipo: 'cambio', llamada: guardada });
         return guardada;

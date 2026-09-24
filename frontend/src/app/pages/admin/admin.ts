@@ -634,6 +634,17 @@ export class AdminComponent implements OnInit {
     return c ? this.pbx.webhookUrl(c.webhookPath) : '';
   }
 
+  /** Ejemplos completos y legibles del body del webhook — antes iban en texto corrido y se cortaban. */
+  get ejemploPbxEntrante(): string {
+    return JSON.stringify({
+      evento: 'entrante', numero: '3001234567', numeroDestino: '6011234567',
+      callId: 'id-que-use-su-central', extension: '105', agente: 'Nombre del agente (opcional)',
+    }, null, 2);
+  }
+  get ejemploPbxColgada(): string {
+    return JSON.stringify({ evento: 'colgada', callId: 'id-que-use-su-central', agente: 'Nombre del agente (opcional)' }, null, 2);
+  }
+
   rotarPbx(): void {
     if (!window.confirm('Al rotar la clave, la PBX dejará de funcionar hasta actualizarla. ¿Continuar?')) return;
     this.pbx.rotarKey().subscribe({

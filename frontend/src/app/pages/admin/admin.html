@@ -122,9 +122,27 @@
       @if (pbxConfig(); as cfg) {
         <div class="panel card">
           <h2>📞 Integración — Planta telefónica (PBX)</h2>
-          <p class="pbx-hint">Configure su central para que envíe un <code>POST</code> al webhook con el
-          header <code>x-api-key</code>. Al timbrar: <code>{{ '{' }}"evento":"entrante","numero":"3001234567","callId":"..."{{ '}' }}</code>;
-          al colgar: <code>{{ '{' }}"evento":"colgada","callId":"..."{{ '}' }}</code>.</p>
+          <p class="pbx-hint">Configure su central para que envíe un <code>POST</code> a la URL de abajo, con el
+          header <code>x-api-key</code> y el body en <code>Content-Type: application/json</code> — sin ese header
+          exacto, la petición no se reconoce como JSON y el webhook la rechaza.</p>
+
+          <p class="pbx-hint"><strong>Al timbrar</strong> (evento <code>entrante</code>) — <code>numero</code> es
+          obligatorio, el resto es opcional:</p>
+          <pre class="pbx-json"><code>{{ ejemploPbxEntrante }}</code></pre>
+
+          <p class="pbx-hint"><strong>Al colgar</strong> (evento <code>colgada</code>) — solo hace falta
+          <code>callId</code> (o <code>numero</code>, si su central no maneja callId) para ubicar la llamada que
+          ya se había registrado:</p>
+          <pre class="pbx-json"><code>{{ ejemploPbxColgada }}</code></pre>
+
+          <p class="pbx-hint">
+            <code>numeroDestino</code>: la línea/DID marcada (opcional).
+            <code>extension</code>: si su central ya enruta por ACD, la extensión del funcionario — FALCON la
+            traduce al usuario dueño y le avisa solo a él.
+            <code>agente</code>: el agente/usuario que contestó, tal como lo identifica su central — se guarda
+            tal cual, sin necesidad de que calce con un usuario de FALCON. Puede mandarse en <code>entrante</code>
+            o en <code>colgada</code> (lo que reporte primero la central); si llega en los dos, gana el último.
+          </p>
           <div class="pbx-field">
             <label>URL del webhook</label>
             <div class="pbx-row">
