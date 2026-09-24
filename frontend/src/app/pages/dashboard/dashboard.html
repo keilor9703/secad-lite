@@ -49,7 +49,9 @@
         }
       </div>
       @for (b of porEstado(); track b) {
-        <div class="kpi"><span class="n">{{ b.valor }}</span><span class="l">{{ b.etiqueta }}</span></div>
+        <div class="kpi clicable" title="Doble clic para ver el detalle" (dblclick)="abrirDetalle({estado: b.clave}, 'Casos — ' + b.etiqueta)">
+          <span class="n">{{ b.valor }}</span><span class="l">{{ b.etiqueta }}</span>
+        </div>
       }
     </div>
 
@@ -88,7 +90,7 @@
         @if (c.porPrioridad.length) {
           <div class="cumplimiento">
             @for (p of c.porPrioridad; track p.prioridad) {
-              <div class="fila-cump">
+              <div class="fila-cump clicable" title="Doble clic para ver los casos fuera de meta" (dblclick)="abrirDetalle({prioridad: p.prioridad, dentroMeta: false}, 'Fuera de meta — ' + prioridadLabel(p.prioridad))">
                 <span class="cap">
                   <span class="prio" [attr.data-prio]="p.prioridad">{{ prioridadLabel(p.prioridad) }}</span>
                   meta {{ p.metaMin }} min
@@ -199,7 +201,7 @@
         <h2>Casos por canal</h2>
         <div class="barras">
           @for (b of porCanal(); track b) {
-            <div class="fila">
+            <div class="fila clicable" title="Doble clic para ver el detalle" (dblclick)="abrirDetalle({canal: b.clave}, 'Casos — ' + b.etiqueta)">
               <span class="cap">{{ b.etiqueta }}</span>
               <div class="track"><div class="fill" [attr.data-clave]="b.clave" [style.width.%]="pct(b.valor, porCanal())"></div></div>
               <span class="val">{{ b.valor }}</span>
@@ -215,7 +217,7 @@
             <p class="vacio">Sin datos.</p>
           }
           @for (a of r.porAgencia; track a) {
-            <div class="fila">
+            <div class="fila clicable" title="Doble clic para ver el detalle" (dblclick)="abrirDetalle({agencia: a.agencia}, 'Casos — ' + a.agencia)">
               <span class="cap">{{ a.agencia }}</span>
               <div class="track"><div class="fill ag" [style.width.%]="(a.total / maxAgencia()) * 100"></div></div>
               <span class="val">{{ a.total }}</span>
@@ -251,5 +253,15 @@
         }
       </div>
     }
+  }
+
+  @if (detalleAbierto()) {
+    <app-detalle-reporte
+      [titulo]="detalleTitulo()"
+      [cargando]="detalleCargando()"
+      [error]="detalleError()"
+      [casos]="detalleCasos()"
+      (cerrar)="cerrarDetalle()"
+    />
   }
 </section>

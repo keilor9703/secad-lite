@@ -113,6 +113,25 @@ export class MetricasController {
     }
   }
 
+  /**
+   * GET /api/metricas/detalle — los casos exactos detrás de UN valor de un
+   * reporte del Panel/Mapa (doble clic sobre una barra). Un solo filtro a
+   * la vez: agencia, canal, estado, o prioridad+dentroMeta (cumplimiento).
+   */
+  @Get('detalle')
+  async detalle(
+    @Tenant() tenant: string, @Usuario() usuario: JwtPayload, @PermisosVigentes() permisos: string[],
+    @Query('desde') desde?: string, @Query('hasta') hasta?: string,
+    @Query('agencia') agencia?: string, @Query('canal') canal?: string, @Query('estado') estado?: string,
+    @Query('prioridad') prioridad?: string, @Query('dentroMeta') dentroMeta?: string,
+  ) {
+    return this.metricas.detalle(
+      tenant,
+      { desde, hasta, agencia, canal, estado, prioridad, dentroMeta: dentroMeta === undefined ? undefined : dentroMeta === 'true' },
+      await this.alcanceAgencia(usuario, permisos),
+    );
+  }
+
   @Get('exportar')
   async exportar(
     @Tenant() tenant: string,

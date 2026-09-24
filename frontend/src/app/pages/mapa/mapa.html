@@ -96,6 +96,22 @@
     </div>
   </div>
 
+  <div class="panel card">
+    <h2>Casos por agencia</h2>
+    <div class="barras">
+      @if (porAgencia().length === 0) {
+        <p class="vacio">Sin datos.</p>
+      }
+      @for (a of porAgencia(); track a) {
+        <div class="fila clicable" title="Doble clic para ver el detalle" (dblclick)="abrirDetalle({agencia: a.agencia}, 'Casos — ' + a.agencia)">
+          <span class="cap">{{ a.agencia }}</span>
+          <div class="track"><div class="fill ag" [style.width.%]="(a.total / maxAgencia()) * 100"></div></div>
+          <span class="val">{{ a.total }}</span>
+        </div>
+      }
+    </div>
+  </div>
+
   <div class="panel card horas">
     <h2>Horarios de mayor afectación</h2>
     @if (horaPico(); as h) {
@@ -111,4 +127,14 @@
       }
     </div>
   </div>
+
+  @if (detalleAbierto()) {
+    <app-detalle-reporte
+      [titulo]="detalleTitulo()"
+      [cargando]="detalleCargando()"
+      [error]="detalleError()"
+      [casos]="detalleCasos()"
+      (cerrar)="cerrarDetalle()"
+    />
+  }
 </section>

@@ -1,0 +1,105 @@
+// Modal de detalle: overlay fijo + tarjeta centrada. Vista propia de nuevo
+// (sin componente de modal genérico en el proyecto): view encapsulation de
+// Angular hace que este archivo no se filtre a nada más, así que replica
+// aquí lo mínimo de .badge/.badge-prio que hace falta, en vez de depender
+// de estilos de otra pantalla (que tampoco se filtrarían hasta aquí).
+
+.dr-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.45);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 1.2rem;
+  z-index: 200;
+}
+
+.dr-card {
+  background: var(--surface);
+  border: 1px solid var(--border-2);
+  border-radius: var(--radius);
+  box-shadow: 0 12px 40px rgba(0, 0, 0, 0.25);
+  width: min(920px, 100%);
+  max-height: min(80vh, 720px);
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.dr-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 1rem 1.2rem;
+  border-bottom: 1px solid var(--border-2);
+}
+.dr-head h2 { margin: 0; font-size: 1rem; font-weight: 600; }
+
+.dr-x {
+  border: none;
+  background: transparent;
+  color: var(--muted);
+  font-size: 1rem;
+  cursor: pointer;
+  padding: 0.2rem 0.5rem;
+  border-radius: var(--radius-sm);
+}
+.dr-x:hover { background: var(--surface-2); color: var(--ink); }
+
+.dr-msg { padding: 2rem; text-align: center; color: var(--muted); margin: 0; }
+.dr-error { color: var(--danger); }
+
+.dr-cuenta { margin: 0.9rem 1.2rem 0.4rem; font-size: 0.8rem; color: var(--muted); }
+
+.dr-tabla-wrap { overflow: auto; padding: 0 1.2rem 1.2rem; }
+
+.dr-tabla { width: 100%; border-collapse: collapse; font-size: 0.82rem; }
+.dr-tabla th {
+  text-align: left;
+  font-size: 0.68rem;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--muted);
+  padding: 0.4rem 0.6rem;
+  border-bottom: 1px solid var(--border-2);
+  white-space: nowrap;
+}
+.dr-tabla td {
+  padding: 0.5rem 0.6rem;
+  border-bottom: 1px solid var(--border-2);
+  vertical-align: middle;
+}
+.dr-tabla tbody tr { cursor: pointer; }
+.dr-tabla tbody tr:hover { background: var(--surface-2); }
+.dr-titulo { max-width: 240px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.mono { font-family: var(--mono); white-space: nowrap; }
+
+/* Estado — mismo vocabulario de color que el resto de la app (tag-*). */
+.badge {
+  display: inline-flex; align-items: center;
+  font-size: 0.68rem; font-weight: 600;
+  padding: 0.12rem 0.55rem; border-radius: 999px;
+  text-transform: uppercase; letter-spacing: 0.04em;
+  white-space: nowrap;
+  background: var(--surface-2); color: var(--muted);
+}
+.badge[data-estado='nuevo']      { background: var(--tag-warn-bg); color: var(--tag-warn-fg); }
+.badge[data-estado='en_gestion'] { background: var(--tag-teal-bg, var(--surface-2)); color: var(--accent); }
+.badge[data-estado='despachado'] { background: var(--tag-teal-bg, var(--surface-2)); color: var(--accent); }
+.badge[data-estado='derivado']   { background: var(--surface-2); color: var(--muted); }
+.badge[data-estado='cerrado']    { background: var(--tag-ok-bg); color: var(--tag-ok-fg); }
+
+/* Prioridad — los mismos colores de Recepción/Despacho, sin el pulso (aquí hay varias filas a la vez). */
+.badge-prio {
+  display: inline-flex; align-items: center; gap: 0.32rem;
+  font-size: 0.68rem; font-weight: 700; letter-spacing: 0.04em; text-transform: uppercase;
+  white-space: nowrap; padding: 0.12rem 0.5rem 0.12rem 0.4rem; border-radius: 999px;
+}
+.badge-prio-punto { flex: none; width: 6px; height: 6px; border-radius: 50%; }
+.badge-prio[data-prio='baja']  { background: var(--tag-ok-bg);     color: var(--tag-ok-fg); }
+.badge-prio[data-prio='baja']  .badge-prio-punto { background: var(--tag-ok-fg); }
+.badge-prio[data-prio='media'] { background: var(--tag-warn-bg);   color: var(--tag-warn-fg); }
+.badge-prio[data-prio='media'] .badge-prio-punto { background: var(--tag-warn-fg); }
+.badge-prio[data-prio='alta']  { background: var(--tag-danger-bg); color: var(--tag-danger-fg); }
+.badge-prio[data-prio='alta']  .badge-prio-punto { background: var(--tag-danger-fg); }

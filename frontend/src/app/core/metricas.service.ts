@@ -2,6 +2,7 @@ import { Injectable, inject } from '@angular/core';
 import { HttpClient, HttpParams } from '@angular/common/http';
 import { Observable } from 'rxjs';
 import { environment } from '../../environments/environment';
+import { Caso } from './models';
 
 /** Tiempos promedio (minutos) desde la recepción, últimos 30 días. */
 export interface TiemposPrioridad {
@@ -120,6 +121,21 @@ export interface ResumenLlamadas {
   tiempoRespuestaProm: number | null;
 }
 
+/**
+ * Qué barra/valor de un reporte se quiere abrir en detalle — un solo filtro
+ * a la vez (el que aplique según de qué reporte vino el doble clic).
+ */
+export interface FiltroDetalle {
+  desde?: string;
+  hasta?: string;
+  agencia?: string;
+  canal?: string;
+  estado?: string;
+  prioridad?: string;
+  /** Con `prioridad`: true = dentro de la meta, false = fuera. */
+  dentroMeta?: boolean;
+}
+
 @Injectable({ providedIn: 'root' })
 export class MetricasService {
   private http = inject(HttpClient);
@@ -170,5 +186,18 @@ export class MetricasService {
 
   llamadas(): Observable<ResumenLlamadas> {
     return this.http.get<ResumenLlamadas>(`${this.base}/llamadas`);
+  }
+
+  /** Los casos exactos detrás de UN valor de un reporte (doble clic sobre una barra). */
+  detalle(filtro: FiltroDetalle): Observable<Caso[]> {
+    let params = new HttpParams();
+    if (filtro.desde) params = params.set('desde', filtro.desde);
+    if (filtro.hasta) params = params.set('hasta', filtro.hasta);
+    if (filtro.agencia) params = params.set('agencia', filtro.agencia);
+    if (filtro.canal) params = params.set('canal', filtro.canal);
+    if (filtro.estado) params = params.set('estado', filtro.estado);
+    if (filtro.prioridad) params = params.set('prioridad', filtro.prioridad);
+    if (filtro.dentroMeta !== undefined) params = params.set('dentroMeta', String(filtro.dentroMeta));
+    return this.http.get<Caso[]>(`${this.base}/detalle`, { params });
   }
 }

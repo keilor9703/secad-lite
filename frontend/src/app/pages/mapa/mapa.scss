@@ -42,6 +42,10 @@
 .fill.ag { background: var(--accent-deep); }
 .val { font-size: 0.82rem; font-weight: 600; text-align: right; font-variant-numeric: tabular-nums; }
 
+/* Barra con detalle: doble clic abre la modal — pista sutil, no un botón. */
+.clicable { cursor: pointer; border-radius: var(--radius-sm); transition: background-color 0.15s ease; }
+.clicable:hover { background: var(--surface-2); }
+
 /* Horarios de mayor afectación: 24 barras verticales, una por hora. */
 .horas { overflow-x: auto; }
 .barras-horas { flex-direction: row; align-items: flex-end; gap: 0.35rem; min-width: max-content; padding-bottom: 0.2rem; }

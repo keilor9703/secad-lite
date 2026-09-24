@@ -725,4 +725,60 @@ export class MetricasService {
 
     return csv;
   }
+
+  /**
+   * El detalle detrás de UN valor de un reporte del Panel/Mapa — lo que
+   * abre el doble clic sobre una barra: los casos exactos que componen ese
+   * número, con el mismo alcance de agencia y el mismo período con que se
+   * calculó. Un solo endpoint para "por agencia", "por canal", "por estado"
+   * y "cumplimiento por prioridad" en vez de cuatro — el filtro que llega
+   * decide cuál de las cuatro preguntas se está respondiendo.
+   *
+   * `agencia`/`canal`/`estado` filtran por esa columna exacta (la MISMA que
+   * agrupa `agrupar()`, para que el detalle nunca descuadre con el número
+   * que el usuario vio). `prioridad` + `dentroMeta` juntos cambian de
+   * pregunta: en vez de "qué casos son de tal agencia", preguntan "de los
+   * despachados en esta prioridad, cuáles cumplieron (o no) la meta" — la
+   * misma cuenta que hace cumplimiento(), pero trayendo las filas.
+   */
+  async detalle(
+    tenant: string,
+    opts: { desde?: string; hasta?: string; agencia?: string; canal?: string; estado?: string; prioridad?: string; dentroMeta?: boolean },
+    agenciaId?: string | null,
+  ): Promise<CasoEntity[]> {
+    if (agenciaId === null) return [];
+    const { desde, finExclusivo } = this.periodo(opts);
+
+    return this.rls.conTenant(tenant, (manager) => {
+      // Pregunta de cumplimiento: exige el JOIN con el primer despacho, así
+      // que va aparte — no es un simple filtro sobre columnas de `casos`.
+      if (opts.prioridad && opts.dentroMeta !== undefined) {
+        const qb = manager.getRepository(CasoEntity).createQueryBuilder('c')
+          .innerJoin(
+            (sub) => sub.select('e."casoId"', 'casoId').addSelect('MIN(e."creadoEn")', 'momento')
+              .from('casos_eventos', 'e').where('e.tenant = :tenant', { tenant }).andWhere("e.tipo = 'despacho'").groupBy('e."casoId"'),
+            'd', 'd."casoId" = c.id',
+          )
+          .where('c.tenant = :tenant', { tenant })
+          .andWhere('c.prioridad = :prioridad', { prioridad: opts.prioridad })
+          .andWhere('c."creadoEn" >= :desde AND c."creadoEn" < :hasta', { desde, hasta: finExclusivo })
+          .andWhere(
+            opts.dentroMeta
+              ? `EXTRACT(EPOCH FROM (d.momento - c."creadoEn")) / 60 <= ${this.metaCaseSql()}`
+              : `EXTRACT(EPOCH FROM (d.momento - c."creadoEn")) / 60 > ${this.metaCaseSql()}`,
+          );
+        if (agenciaId) qb.andWhere('c."agenciaResponsableId" = :agenciaId', { agenciaId });
+        return qb.orderBy('c."creadoEn"', 'DESC').limit(200).getMany();
+      }
+
+      const qb = manager.getRepository(CasoEntity).createQueryBuilder('c')
+        .where('c.tenant = :tenant', { tenant })
+        .andWhere('c."creadoEn" >= :desde AND c."creadoEn" < :hasta', { desde, hasta: finExclusivo });
+      if (agenciaId) qb.andWhere('c."agenciaResponsableId" = :agenciaId', { agenciaId });
+      if (opts.agencia) qb.andWhere('c.agencia = :agencia', { agencia: opts.agencia });
+      if (opts.canal) qb.andWhere('c.canal = :canal', { canal: opts.canal });
+      if (opts.estado) qb.andWhere('c.estado = :estado', { estado: opts.estado });
+      return qb.orderBy('c."creadoEn"', 'DESC').limit(200).getMany();
+    });
+  }
 }

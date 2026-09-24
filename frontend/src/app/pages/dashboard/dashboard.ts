@@ -5,10 +5,12 @@ import { Chart, type ChartConfiguration } from 'chart.js/auto';
 import { AuthService } from '../../core/auth.service';
 import { TemaService } from '../../core/tema.service';
 import {
-  Cumplimiento, Hallazgos, MetricasService, Ranking, Resumen, ResumenLlamadas, Tendencia,
+  Cumplimiento, FiltroDetalle, Hallazgos, MetricasService, Ranking, Resumen, ResumenLlamadas, Tendencia,
 } from '../../core/metricas.service';
+import { Caso } from '../../core/models';
 import { ExportarService } from '../../core/exportar.service';
 import { FechaComponent } from '../../shared/fecha/fecha';
+import { DetalleReporteModalComponent } from '../../shared/detalle-reporte/detalle-reporte';
 
 interface Barra { etiqueta: string; valor: number; clave: string; }
 
@@ -18,7 +20,7 @@ interface Variacion { pct: number; direccion: 'sube' | 'baja' | 'igual'; bueno: 
 @Component({
   selector: 'app-dashboard',
   standalone: true,
-  imports: [ReactiveFormsModule, FechaComponent],
+  imports: [ReactiveFormsModule, FechaComponent, DetalleReporteModalComponent],
   templateUrl: './dashboard.html',
   styleUrl: './dashboard.scss',
   changeDetection: ChangeDetectionStrategy.OnPush,
@@ -42,6 +44,31 @@ export class DashboardComponent implements OnDestroy {
     desde: new FormControl('', { nonNullable: true }),
     hasta: new FormControl('', { nonNullable: true }),
   });
+
+  // --- Modal de detalle: doble clic sobre una barra/valor de un reporte ----
+  readonly detalleAbierto = signal(false);
+  readonly detalleTitulo = signal('');
+  readonly detalleCasos = signal<Caso[]>([]);
+  readonly detalleCargando = signal(false);
+  readonly detalleError = signal('');
+
+  /** Abre el detalle de UN valor de un reporte, con el mismo rango de fechas activo en el filtro. */
+  abrirDetalle(filtro: Omit<FiltroDetalle, 'desde' | 'hasta'>, titulo: string): void {
+    const { desde, hasta } = this.filtroForm.getRawValue();
+    this.detalleTitulo.set(titulo);
+    this.detalleAbierto.set(true);
+    this.detalleCargando.set(true);
+    this.detalleError.set('');
+    this.detalleCasos.set([]);
+    this.metricas.detalle({ ...filtro, desde: desde || undefined, hasta: hasta || undefined }).subscribe({
+      next: (casos) => { this.detalleCasos.set(casos); this.detalleCargando.set(false); },
+      error: () => { this.detalleError.set('No fue posible cargar el detalle.'); this.detalleCargando.set(false); },
+    });
+  }
+
+  cerrarDetalle(): void {
+    this.detalleAbierto.set(false);
+  }
 
   exportarCsv(): void {
     const { desde, hasta } = this.filtroForm.getRawValue();

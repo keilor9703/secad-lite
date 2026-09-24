@@ -4,12 +4,13 @@ import { FormControl, FormGroup, ReactiveFormsModule } from '@angular/forms';
 import { Router } from '@angular/router';
 import { AuthService } from '../../core/auth.service';
 import { CatalogosService } from '../../core/catalogos.service';
-import { AnalisisMapa, MetricasService, PuntoMapa } from '../../core/metricas.service';
-import { CodigoCaso } from '../../core/models';
+import { AnalisisMapa, FiltroDetalle, MetricasService, PuntoMapa } from '../../core/metricas.service';
+import { Caso, CodigoCaso } from '../../core/models';
 import { CasosWsService } from '../../core/casos-ws.service';
 import { SelectorComponent } from '../../shared/selector/selector';
 import { OpcionComponent } from '../../shared/selector/opcion';
 import { FechaComponent } from '../../shared/fecha/fecha';
+import { DetalleReporteModalComponent } from '../../shared/detalle-reporte/detalle-reporte';
 
 type ModoVista = 'calor' | 'cluster' | 'puntos';
 
@@ -25,7 +26,7 @@ interface Barra { etiqueta: string; valor: number; }
 @Component({
   selector: 'app-mapa',
   standalone: true,
-  imports: [ReactiveFormsModule, SelectorComponent, OpcionComponent, FechaComponent],
+  imports: [ReactiveFormsModule, SelectorComponent, OpcionComponent, FechaComponent, DetalleReporteModalComponent],
   templateUrl: './mapa.html',
   styleUrl: './mapa.scss',
   changeDetection: ChangeDetectionStrategy.OnPush,
@@ -42,6 +43,34 @@ export class MapaComponent implements OnInit, OnDestroy {
   readonly cargando = signal(true);
   readonly error = signal('');
   readonly modoVista = signal<ModoVista>('calor');
+
+  /** Mismo reporte "Casos por agencia" del Panel — aquí, para leerlo junto al análisis geográfico. */
+  readonly porAgencia = signal<Array<{ agencia: string; total: number }>>([]);
+  readonly maxAgencia = computed(() => Math.max(1, ...this.porAgencia().map((a) => a.total)));
+
+  // --- Modal de detalle: doble clic sobre una barra/valor de un reporte ----
+  readonly detalleAbierto = signal(false);
+  readonly detalleTitulo = signal('');
+  readonly detalleCasos = signal<Caso[]>([]);
+  readonly detalleCargando = signal(false);
+  readonly detalleError = signal('');
+
+  abrirDetalle(filtro: Omit<FiltroDetalle, 'desde' | 'hasta'>, titulo: string): void {
+    const { desde, hasta } = this.filtroForm.getRawValue();
+    this.detalleTitulo.set(titulo);
+    this.detalleAbierto.set(true);
+    this.detalleCargando.set(true);
+    this.detalleError.set('');
+    this.detalleCasos.set([]);
+    this.metricasSvc.detalle({ ...filtro, desde: desde || undefined, hasta: hasta || undefined }).subscribe({
+      next: (casos) => { this.detalleCasos.set(casos); this.detalleCargando.set(false); },
+      error: () => { this.detalleError.set('No fue posible cargar el detalle.'); this.detalleCargando.set(false); },
+    });
+  }
+
+  cerrarDetalle(): void {
+    this.detalleAbierto.set(false);
+  }
 
   readonly filtroForm = new FormGroup({
     desde: new FormControl('', { nonNullable: true }),
@@ -131,12 +160,19 @@ export class MapaComponent implements OnInit, OnDestroy {
     this.cargando.set(true);
     this.error.set('');
     const { desde, hasta, codigoSel } = this.filtroForm.getRawValue();
+    const filtro = { desde: desde || undefined, hasta: hasta || undefined };
     this.metricasSvc
-      .mapa({ desde: desde || undefined, hasta: hasta || undefined, codigo: codigoSel || undefined })
+      .mapa({ ...filtro, codigo: codigoSel || undefined })
       .subscribe({
         next: (a) => { this.analisis.set(a); this.cargando.set(false); this.pintar(); },
         error: () => { this.error.set('No fue posible cargar el mapa.'); this.cargando.set(false); },
       });
+    // El desglose por agencia viene del mismo resumen del Panel — el filtro de
+    // código no aplica ahí (es propio del análisis geográfico), solo fechas.
+    this.metricasSvc.resumen(filtro).subscribe({
+      next: (r) => this.porAgencia.set(r.porAgencia),
+      error: () => {},
+    });
   }
 
   aplicarFechas(): void {
