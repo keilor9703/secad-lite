@@ -4,6 +4,7 @@ import { EstadoRecurso, RecursoEntity, TIPOS_RECURSO, TipoRecurso } from './recu
 import { CatalogosService } from '../catalogos/catalogos.service';
 import { ReferenciasService } from '../catalogos/referencias.service';
 import { TenantRlsService } from '../common/tenant-rls.service';
+import { DespachoService } from './despacho.service';
 
 export interface CrearRecursoDto {
   codigo: string;
@@ -43,6 +44,7 @@ export class RecursosService implements OnModuleInit {
     private readonly catalogos: CatalogosService,
     private readonly referencias: ReferenciasService,
     private readonly rls: TenantRlsService,
+    private readonly despacho: DespachoService,
   ) {}
 
   /**
@@ -114,7 +116,7 @@ export class RecursosService implements OnModuleInit {
     });
   }
 
-  async actualizar(tenant: string, id: string, dto: ActualizarRecursoDto, alcance: AlcanceRecursos): Promise<RecursoEntity> {
+  async actualizar(tenant: string, id: string, dto: ActualizarRecursoDto, alcance: AlcanceRecursos, autor: string): Promise<RecursoEntity> {
     // Quien no administra el secad solo puede tocar recursos de SU agencia,
     // y no puede reasignarlos a otra distinta.
     if (!alcance.irrestricto && dto.agenciaId !== undefined && dto.agenciaId !== alcance.agenciaId) {
@@ -143,12 +145,29 @@ export class RecursosService implements OnModuleInit {
         r.agencia = agencia.agencia;
       }
       if (typeof dto.activo === 'boolean') r.activo = dto.activo;
-      // Sacar/entrar de servicio solo si el recurso no está comprometido.
       if (typeof dto.fueraServicio === 'boolean') {
-        if (r.estado !== 'disponible' && r.estado !== 'fuera_servicio') {
-          throw new BadRequestException('No se puede cambiar el servicio de un recurso en atención.');
+        if (dto.fueraServicio) {
+          // Sacar de servicio siempre puede: quien tiene acceso al módulo
+          // (agencia/rol ya validados arriba) decide si el recurso queda
+          // operativo, sin importar en qué iba. Si estaba comprometido con
+          // un caso (asignado/en ruta/en sitio), esa asignación se cancela
+          // primero — queda la traza en el caso de por qué el recurso
+          // desapareció, en vez de dejar un despacho apuntando a una unidad
+          // que el propio sistema ya dice que no está.
+          if (r.estado === 'asignado' || r.estado === 'en_ruta' || r.estado === 'en_sitio') {
+            await this.despacho.cancelarActivaDeRecurso(tenant, r.id, autor, 'Recurso puesto fuera de servicio manualmente.');
+          }
+          r.estado = 'fuera_servicio';
+        } else {
+          // Volver a servicio, en cambio, solo tiene sentido desde
+          // 'fuera_servicio' (o ya 'disponible'): si está en atención, la
+          // forma correcta de liberarlo es cerrar/cancelar su despacho
+          // desde el caso, no pisarlo por acá.
+          if (r.estado !== 'disponible' && r.estado !== 'fuera_servicio') {
+            throw new BadRequestException('No se puede volver a servicio un recurso en atención: libere su despacho desde el caso primero.');
+          }
+          r.estado = 'disponible';
         }
-        r.estado = dto.fueraServicio ? 'fuera_servicio' : 'disponible';
       }
       return repo.save(r);
     });

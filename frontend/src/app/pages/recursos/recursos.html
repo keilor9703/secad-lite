@@ -68,11 +68,9 @@
                 @if (gestiona()) {
                   <td class="acciones-col">
                     <button type="button" class="btn btn--ghost mini" (click)="abrirEdicion(r)">Editar</button>
-                    @if (puedeToggle(r)) {
-                      <button type="button" class="btn btn--ghost mini" (click)="toggleServicio(r)">
-                        {{ r.estado === 'fuera_servicio' ? 'Poner en servicio' : 'Fuera de servicio' }}
-                      </button>
-                    }
+                    <button type="button" class="btn btn--ghost mini" (click)="toggleServicio(r)">
+                      {{ r.estado === 'fuera_servicio' ? 'Poner en servicio' : 'Fuera de servicio' }}
+                    </button>
                     <button type="button" class="btn btn--ghost mini peligro" (click)="eliminar(r)">Eliminar</button>
                   </td>
                 }

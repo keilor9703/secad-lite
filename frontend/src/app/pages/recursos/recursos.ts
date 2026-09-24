@@ -135,8 +135,24 @@ export class RecursosComponent {
     });
   }
 
+  /**
+   * Poner fuera de servicio siempre se puede (quien llega aquí ya tiene
+   * `recursos.gestionar` y la agencia validada): si el recurso está en
+   * atención, el backend cancela su despacho activo antes de sacarlo, así
+   * que se avisa primero — no es una acción silenciosa. Volver a servicio,
+   * en cambio, solo tiene sentido desde "Fuera de servicio" (un recurso en
+   * atención nunca llega aquí con ese botón, por el label de abajo).
+   */
   toggleServicio(r: Recurso): void {
     const fuera = r.estado !== 'fuera_servicio';
+    const enAtencion = r.estado === 'asignado' || r.estado === 'en_ruta' || r.estado === 'en_sitio';
+    if (fuera && enAtencion) {
+      const ok = confirm(
+        `${r.codigo} está en atención (${this.estadoLabel(r.estado)}). ` +
+          'Ponerlo fuera de servicio cancela su despacho activo en el caso. ¿Continuar?',
+      );
+      if (!ok) return;
+    }
     this.despacho.fueraServicio(r.id, fuera).subscribe({
       next: (act) => {
         this.recursos.update((rs) => rs.map((x) => (x.id === act.id ? act : x)));
@@ -148,9 +164,5 @@ export class RecursosComponent {
 
   estadoLabel(e: EstadoRecurso): string {
     return { disponible: 'Disponible', asignado: 'Asignado', en_ruta: 'En ruta', en_sitio: 'En sitio', fuera_servicio: 'Fuera de servicio' }[e];
-  }
-
-  puedeToggle(r: Recurso): boolean {
-    return r.estado === 'disponible' || r.estado === 'fuera_servicio';
   }
 }

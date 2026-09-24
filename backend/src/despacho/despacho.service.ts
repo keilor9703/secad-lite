@@ -1,6 +1,6 @@
 import { BadRequestException, ForbiddenException, Injectable, NotFoundException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { EntityManager, Repository } from 'typeorm';
+import { EntityManager, In, Repository } from 'typeorm';
 import { AsignacionEntity, EstadoAsignacion, ESTADOS_ASIGNACION, ESTADOS_ASIGNACION_ACTIVOS } from './asignacion.entity';
 import { RecursoEntity } from './recurso.entity';
 import { CasoEntity } from '../casos/caso.entity';
@@ -182,6 +182,20 @@ export class DespachoService {
         await this.auditar(tenant, casoId, `Caso cerrado — recurso ${a.recursoCodigo} liberado automáticamente.`, autor, em);
       }
     });
+  }
+
+  /**
+   * Cancela la asignación activa de un recurso, si tiene alguna — la usa
+   * Recursos al forzar un recurso fuera de servicio mientras está en
+   * atención (asignado/en ruta/en sitio), para no dejar un despacho
+   * apuntando a una unidad que el propio sistema ya dice que no está. Sin
+   * asignación activa, no hace nada.
+   */
+  async cancelarActivaDeRecurso(tenant: string, recursoId: string, autor: string, motivo: string): Promise<void> {
+    const activa = await this.rls.conTenant(tenant, (em) =>
+      em.getRepository(AsignacionEntity).findOne({ where: { tenant, recursoId, estado: In(ESTADOS_ASIGNACION_ACTIVOS) } }),
+    );
+    if (activa) await this.cambiarEstado(tenant, activa.id, 'cancelada', autor, motivo);
   }
 
   /** Bitácora del despacho; con `em` participa en la transacción en curso. */

@@ -48,7 +48,7 @@ export class RecursosController {
     @Tenant() tenant: string, @Usuario() usuario: JwtPayload, @PermisosVigentes() permisos: string[],
     @Param('id') id: string, @Body() dto: ActualizarRecursoDto,
   ) {
-    return this.recursos.actualizar(tenant, id, dto, this.alcance(usuario, permisos));
+    return this.recursos.actualizar(tenant, id, dto, this.alcance(usuario, permisos), usuario?.sub ?? 'desconocido');
   }
 
   /** Borrado definitivo; falla con 409 si el recurso ya fue despachado. */
