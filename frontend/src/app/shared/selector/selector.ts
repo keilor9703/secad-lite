@@ -58,6 +58,15 @@ export class SelectorComponent implements ControlValueAccessor {
   readonly cambio = output<unknown>();
   /** Para deshabilitarlo por atributo directo (p. ej. junto a [ngModel], sin formulario reactivo). */
   readonly disabled = input(false);
+  /**
+   * Selección múltiple: el valor pasa a ser un arreglo, cada clic
+   * agrega/quita del arreglo en vez de reemplazar y elegir la lista, y la
+   * lista no se cierra sola al elegir (hay que poder marcar varias).
+   */
+  readonly multiple = input(false);
+  /** Cuántos nombres se listan antes de resumir en "N seleccionados" (modo múltiple). */
+  readonly resumenDesde = input(3);
+  readonly placeholder = input('Seleccionar…');
 
   readonly opciones = contentChildren(OpcionComponent);
 
@@ -89,15 +98,24 @@ export class SelectorComponent implements ControlValueAccessor {
     });
   }
 
-  readonly etiquetaActual = computed(() => {
-    const actual = this.valorActivo();
-    const opcion = this.opciones().find((o) => o.valor() === actual);
+  private texto(valor: unknown): string {
+    const opcion = this.opciones().find((o) => o.valor() === valor);
     return opcion ? (opcion.elementRef.nativeElement.textContent ?? '').trim() : '';
+  }
+
+  readonly etiquetaActual = computed(() => {
+    if (this.multiple()) {
+      const arr = (this.valorActivo() as unknown[] | undefined) ?? [];
+      if (!arr.length) return this.placeholder();
+      if (arr.length <= this.resumenDesde()) return arr.map((v) => this.texto(v)).join(', ');
+      return `${arr.length} seleccionados`;
+    }
+    return this.texto(this.valorActivo());
   });
 
   writeValue(v: unknown): void {
     this.cvaActivo = true;
-    this.valorActivo.set(v);
+    this.valorActivo.set(this.multiple() ? (Array.isArray(v) ? v : []) : v);
   }
   registerOnChange(fn: (v: unknown) => void): void {
     this.onChange = fn;
@@ -109,7 +127,21 @@ export class SelectorComponent implements ControlValueAccessor {
     this.deshabilitadoCva.set(deshabilitado);
   }
 
+  estaSeleccionado(valor: unknown): boolean {
+    if (this.multiple()) return ((this.valorActivo() as unknown[] | undefined) ?? []).includes(valor);
+    return this.valorActivo() === valor;
+  }
+
   elegir(valor: unknown): void {
+    if (this.multiple()) {
+      const actual = (this.valorActivo() as unknown[] | undefined) ?? [];
+      const nuevo = actual.includes(valor) ? actual.filter((v) => v !== valor) : [...actual, valor];
+      this.valorActivo.set(nuevo);
+      this.onChange(nuevo);
+      this.cambio.emit(nuevo);
+      // Se deja abierta: elegir varias es justo el punto de este modo.
+      return;
+    }
     this.valorActivo.set(valor);
     this.onChange(valor);
     this.cambio.emit(valor);

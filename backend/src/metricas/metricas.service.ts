@@ -551,14 +551,24 @@ export class MetricasService {
   /**
    * Mapa estadístico y de calor: ubicación de los casos históricos (para
    * puntos/cluster/calor) más el análisis del fenómeno — días y horas de
-   * mayor afectación y el top 5 de códigos de caso — filtrable por rango de
-   * fechas y por código. Siempre acotado al tenant del usuario logueado.
+   * mayor afectación y el top de códigos de caso — filtrable por rango de
+   * fechas, por varios códigos a la vez y por agencia. Siempre acotado al
+   * tenant del usuario logueado.
    */
-  async mapa(tenant: string, opts?: { desde?: string; hasta?: string; codigo?: string }, agenciaId?: string | null): Promise<AnalisisMapa> {
+  async mapa(
+    tenant: string,
+    opts?: { desde?: string; hasta?: string; codigos?: string[]; agencia?: string; limiteCodigos?: number },
+    agenciaId?: string | null,
+  ): Promise<AnalisisMapa> {
     const desde = this.fechaValida(opts?.desde);
     const hasta = this.fechaValida(opts?.hasta);
     const finExclusivo = hasta ? new Date(hasta.getTime() + 864e5) : null;
-    const codigo = opts?.codigo?.trim().toUpperCase() || null;
+    const codigos = [...new Set((opts?.codigos ?? []).map((c) => c.trim().toUpperCase()).filter(Boolean))];
+    const agencia = opts?.agencia?.trim() || null;
+    // Entre 5 y 20: el pedido del panel ("mostrar 10, 15, 20") tiene un techo
+    // — sin él, un tenant con cientos de códigos distintos convertiría el
+    // "top" en la lista completa.
+    const limiteCodigos = Math.min(20, Math.max(5, Math.trunc(opts?.limiteCodigos ?? 5) || 5));
 
     if (agenciaId === null) {
       return {
@@ -573,7 +583,8 @@ export class MetricasService {
     const cond: string[] = ['c.tenant = $1'];
     if (desde) { params.push(desde); cond.push(`c."creadoEn" >= $${params.length}`); }
     if (finExclusivo) { params.push(finExclusivo); cond.push(`c."creadoEn" < $${params.length}`); }
-    if (codigo) { params.push(codigo); cond.push(`c."codigoCaso" = $${params.length}`); }
+    if (codigos.length) { params.push(codigos); cond.push(`c."codigoCaso" = ANY($${params.length})`); }
+    if (agencia) { params.push(agencia); cond.push(`c.agencia = $${params.length}`); }
     if (agenciaId) { params.push(agenciaId); cond.push(`c."agenciaResponsableId" = $${params.length}`); }
     const where = cond.join(' AND ');
 
@@ -606,8 +617,8 @@ export class MetricasService {
            FROM casos c LEFT JOIN codigos_caso k ON k.tenant = c.tenant AND k.codigo = c."codigoCaso"
           WHERE ${where} AND c."codigoCaso" IS NOT NULL
           GROUP BY c."codigoCaso", k.descripcion
-          ORDER BY total DESC LIMIT 5`,
-        params,
+          ORDER BY total DESC LIMIT $${params.length + 1}`,
+        [...params, limiteCodigos],
       );
       const sinUbicacion = await manager.query(
         `SELECT COUNT(*)::int AS total FROM casos c WHERE ${where} AND (c.lat IS NULL OR c.lng IS NULL)`,

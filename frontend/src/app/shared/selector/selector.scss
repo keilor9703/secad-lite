@@ -110,7 +110,9 @@
 }
 
 ::ng-deep .sel-opcion {
-  display: block;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
   padding: 0.45rem 0.6rem;
   border-radius: 6px;
   cursor: pointer;
@@ -123,6 +125,29 @@
 }
 ::ng-deep .sel-opcion.activa {
   font-weight: 600;
+}
+
+/* Modo múltiple: casilla propia (no un checkbox nativo — la fila entera ya
+   es el "click target", igual que las demás opciones de este selector). */
+::ng-deep .sel-opcion.multi::before {
+  content: '';
+  flex: none;
+  width: 15px;
+  height: 15px;
+  border: 1.5px solid var(--border-2);
+  border-radius: 4px;
+  background: var(--surface);
+  transition: background-color 0.12s ease, border-color 0.12s ease;
+}
+::ng-deep .sel-opcion.multi.activa::before {
+  background: var(--accent);
+  border-color: var(--accent);
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16' fill='none' stroke='%23fff' stroke-width='2.4' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='3.5 8.5 6.5 11.5 12.5 4.5'/%3E%3C/polyline%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: center;
+}
+::ng-deep .sel-opcion.multi.activa {
+  font-weight: 400;
 }
 ::ng-deep .sel-opcion.deshabilitada {
   color: var(--muted);

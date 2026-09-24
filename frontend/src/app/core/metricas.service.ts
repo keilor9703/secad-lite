@@ -110,7 +110,11 @@ export interface AnalisisMapa {
 export interface FiltroMapa {
   desde?: string;
   hasta?: string;
-  codigo?: string;
+  /** Uno o varios — vacío es "todos los códigos". */
+  codigos?: string[];
+  agencia?: string;
+  /** Cuántas filas trae el top de códigos (5-20; el backend lo acota igual). */
+  limiteCodigos?: number;
 }
 
 /** Reporte de la planta telefónica (PBX), últimos 30 días. */
@@ -182,7 +186,9 @@ export class MetricasService {
     let params = new HttpParams();
     if (filtro?.desde) params = params.set('desde', filtro.desde);
     if (filtro?.hasta) params = params.set('hasta', filtro.hasta);
-    if (filtro?.codigo) params = params.set('codigo', filtro.codigo);
+    for (const c of filtro?.codigos ?? []) params = params.append('codigos', c);
+    if (filtro?.agencia) params = params.set('agencia', filtro.agencia);
+    if (filtro?.limiteCodigos) params = params.set('limiteCodigos', String(filtro.limiteCodigos));
     return this.http.get<AnalisisMapa>(`${this.base}/mapa`, { params });
   }
 

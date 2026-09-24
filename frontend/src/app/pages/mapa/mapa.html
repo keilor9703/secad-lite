@@ -28,13 +28,19 @@
       <label for="fhasta">al</label>
       <app-fecha id="fhasta" formControlName="hasta" (cambio)="aplicarFechas()" [ariaLabel]="'Hasta'" />
     </div>
-    <app-selector formControlName="codigoSel" (cambio)="cargar()" [ariaLabel]="'Filtrar por código de caso'">
-      <app-opcion [valor]="''">Todos los códigos</app-opcion>
+    <app-selector formControlName="codigosSel" [multiple]="true" (cambio)="cargar()"
+      [ariaLabel]="'Filtrar por código de caso'" [placeholder]="'Todos los códigos'" class="f-codigos">
       @for (c of codigos(); track c) {
         <app-opcion [valor]="c.codigo">{{ c.codigo }} — {{ c.descripcion }}</app-opcion>
       }
     </app-selector>
-    @if (filtroForm.controls.desde.value || filtroForm.controls.hasta.value || filtroForm.controls.codigoSel.value) {
+    <app-selector formControlName="agenciaSel" (cambio)="cargar()" [ariaLabel]="'Filtrar por agencia'" class="f-agencia">
+      <app-opcion [valor]="''">Todas las agencias</app-opcion>
+      @for (a of agencias(); track a.id) {
+        <app-opcion [valor]="a.nombre">{{ a.nombre }}</app-opcion>
+      }
+    </app-selector>
+    @if (filtroForm.controls.desde.value || filtroForm.controls.hasta.value || filtroForm.controls.codigosSel.value.length || filtroForm.controls.agenciaSel.value) {
       <button type="button" class="btn btn--ghost mini" (click)="limpiarFiltros()">
         Quitar filtros
       </button>
@@ -78,7 +84,17 @@
     </div>
 
     <div class="panel card">
-      <h2>Top 5 códigos de caso</h2>
+      <div class="cabecera-top">
+        <h2>Top {{ filtroForm.controls.limiteCodigos.value }} códigos de caso</h2>
+        <div class="mostrar" [formGroup]="filtroForm">
+          <label for="flimite">Mostrar</label>
+          <app-selector id="flimite" formControlName="limiteCodigos" (cambio)="cargar()" [ariaLabel]="'Cuántos códigos mostrar'" class="f-limite">
+            @for (n of opcionesLimite; track n) {
+              <app-opcion [valor]="n">{{ n }}</app-opcion>
+            }
+          </app-selector>
+        </div>
+      </div>
       <div class="barras">
         @if (topCodigos().length === 0) {
           <p class="vacio">Sin datos.</p>

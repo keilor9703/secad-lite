@@ -80,13 +80,26 @@ export class MetricasController {
     return this.metricas.ranking(tenant, { desde, hasta }, await this.alcanceAgencia(usuario, permisos));
   }
 
-  /** GET /api/metricas/mapa — mapa estadístico/de calor de casos históricos. */
+  /**
+   * GET /api/metricas/mapa — mapa estadístico/de calor de casos históricos.
+   * `codigos` puede repetirse (?codigos=102&codigos=103) para filtrar por
+   * varios códigos a la vez; con uno solo, Express lo entrega como string
+   * en vez de arreglo, por eso se normaliza abajo.
+   */
   @Get('mapa')
   async mapa(
     @Tenant() tenant: string, @Usuario() usuario: JwtPayload, @PermisosVigentes() permisos: string[],
-    @Query('desde') desde?: string, @Query('hasta') hasta?: string, @Query('codigo') codigo?: string,
+    @Query('desde') desde?: string, @Query('hasta') hasta?: string,
+    @Query('codigos') codigos?: string | string[],
+    @Query('agencia') agencia?: string,
+    @Query('limiteCodigos') limiteCodigos?: string,
   ) {
-    return this.metricas.mapa(tenant, { desde, hasta, codigo }, await this.alcanceAgencia(usuario, permisos));
+    const listaCodigos = codigos === undefined ? [] : Array.isArray(codigos) ? codigos : [codigos];
+    return this.metricas.mapa(
+      tenant,
+      { desde, hasta, codigos: listaCodigos, agencia, limiteCodigos: limiteCodigos ? Number(limiteCodigos) : undefined },
+      await this.alcanceAgencia(usuario, permisos),
+    );
   }
 
   /** GET /api/metricas/llamadas — reporte de la planta telefónica (PBX), siempre del tenant completo (ver comentario en el servicio). */

@@ -5,7 +5,7 @@ import { Router } from '@angular/router';
 import { AuthService } from '../../core/auth.service';
 import { CatalogosService } from '../../core/catalogos.service';
 import { AnalisisMapa, FiltroDetalle, MetricasService, PuntoMapa } from '../../core/metricas.service';
-import { Caso, CodigoCaso } from '../../core/models';
+import { Agencia, Caso, CodigoCaso } from '../../core/models';
 import { CasosWsService } from '../../core/casos-ws.service';
 import { SelectorComponent } from '../../shared/selector/selector';
 import { OpcionComponent } from '../../shared/selector/opcion';
@@ -40,9 +40,12 @@ export class MapaComponent implements OnInit, OnDestroy {
 
   readonly analisis = signal<AnalisisMapa | null>(null);
   readonly codigos = signal<CodigoCaso[]>([]);
+  readonly agencias = signal<Agencia[]>([]);
   readonly cargando = signal(true);
   readonly error = signal('');
   readonly modoVista = signal<ModoVista>('calor');
+  /** Opciones para "cuántos códigos mostrar" en el top. */
+  readonly opcionesLimite = [5, 10, 15, 20];
 
   /** Mismo reporte "Casos por agencia" del Panel — aquí, para leerlo junto al análisis geográfico. */
   readonly porAgencia = signal<Array<{ agencia: string; total: number }>>([]);
@@ -75,7 +78,9 @@ export class MapaComponent implements OnInit, OnDestroy {
   readonly filtroForm = new FormGroup({
     desde: new FormControl('', { nonNullable: true }),
     hasta: new FormControl('', { nonNullable: true }),
-    codigoSel: new FormControl('', { nonNullable: true }),
+    codigosSel: new FormControl<string[]>([], { nonNullable: true }),
+    agenciaSel: new FormControl('', { nonNullable: true }),
+    limiteCodigos: new FormControl(5, { nonNullable: true }),
   });
 
   /** Sin `casos.ver` el popup no debe ofrecer un enlace que llevaría a un 403. */
@@ -130,6 +135,7 @@ export class MapaComponent implements OnInit, OnDestroy {
   ngOnInit(): void {
     setTimeout(() => this.prepararMapa(), 0);
     this.catalogos.codigos(true).subscribe({ next: (c) => this.codigos.set(c), error: () => {} });
+    this.catalogos.agencias(true).subscribe({ next: (a) => this.agencias.set(a), error: () => {} });
     this.cargar();
 
     this.casosWs.conectar();
@@ -159,16 +165,18 @@ export class MapaComponent implements OnInit, OnDestroy {
   cargar(): void {
     this.cargando.set(true);
     this.error.set('');
-    const { desde, hasta, codigoSel } = this.filtroForm.getRawValue();
+    const { desde, hasta, codigosSel, agenciaSel, limiteCodigos } = this.filtroForm.getRawValue();
     const filtro = { desde: desde || undefined, hasta: hasta || undefined };
     this.metricasSvc
-      .mapa({ ...filtro, codigo: codigoSel || undefined })
+      .mapa({ ...filtro, codigos: codigosSel, agencia: agenciaSel || undefined, limiteCodigos })
       .subscribe({
         next: (a) => { this.analisis.set(a); this.cargando.set(false); this.pintar(); },
         error: () => { this.error.set('No fue posible cargar el mapa.'); this.cargando.set(false); },
       });
-    // El desglose por agencia viene del mismo resumen del Panel — el filtro de
-    // código no aplica ahí (es propio del análisis geográfico), solo fechas.
+    // El desglose por agencia viene del mismo resumen del Panel — los filtros
+    // de código y agencia no aplican ahí (es propio del análisis geográfico),
+    // solo fechas: es justo el reporte que muestra la repartición ENTRE
+    // agencias, así que filtrar por una sola lo dejaría sin sentido.
     this.metricasSvc.resumen(filtro).subscribe({
       next: (r) => this.porAgencia.set(r.porAgencia),
       error: () => {},
@@ -182,7 +190,7 @@ export class MapaComponent implements OnInit, OnDestroy {
   }
 
   limpiarFiltros(): void {
-    this.filtroForm.reset({ desde: '', hasta: '', codigoSel: '' });
+    this.filtroForm.reset({ desde: '', hasta: '', codigosSel: [], agenciaSel: '', limiteCodigos: 5 });
     this.cargar();
   }
 

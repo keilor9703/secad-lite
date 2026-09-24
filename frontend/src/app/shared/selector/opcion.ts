@@ -11,9 +11,12 @@ export interface SelectorHost {
   readonly valorActivo: () => unknown;
   readonly indiceActivo: () => number;
   readonly busqueda: () => string;
+  readonly multiple: () => boolean;
   opciones(): readonly OpcionComponent[];
   optionId(i: number): string;
   elegir(valor: unknown): void;
+  /** Sola esta comparación cambia entre modo simple (=== ) y múltiple (pertenece al arreglo). */
+  estaSeleccionado(valor: unknown): boolean;
 }
 export const SELECTOR_HOST = new InjectionToken<SelectorHost>('selector-host');
 
@@ -40,6 +43,7 @@ function normalizar(t: string): string {
     '[class.resaltada]': 'resaltada()',
     '[class.deshabilitada]': 'deshabilitada()',
     '[class.oculta]': 'oculta()',
+    '[class.multi]': 'selector.multiple()',
     '[id]': 'idOpcion()',
     '[attr.aria-selected]': 'activa()',
     '[attr.aria-disabled]': 'deshabilitada() || null',
@@ -52,9 +56,9 @@ export class OpcionComponent {
   readonly deshabilitada = input(false);
 
   readonly elementRef = inject(ElementRef<HTMLElement>);
-  private readonly selector = inject(SELECTOR_HOST);
+  readonly selector = inject(SELECTOR_HOST);
 
-  readonly activa = computed(() => !this.deshabilitada() && this.selector.valorActivo() === this.valor());
+  readonly activa = computed(() => !this.deshabilitada() && this.selector.estaSeleccionado(this.valor()));
   private readonly indice = computed(() => this.selector.opciones().indexOf(this));
   readonly resaltada = computed(() => this.selector.indiceActivo() === this.indice());
   readonly idOpcion = computed(() => this.selector.optionId(this.indice()));
