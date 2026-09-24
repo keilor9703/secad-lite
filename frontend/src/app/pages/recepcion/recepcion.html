@@ -190,30 +190,21 @@
               <div class="field span2 direccion-est">
                 <span class="lbl-direccion">Dirección del caso</span>
                 <div class="direccion-campos">
-                  <app-selector formControlName="viaTipo" [ariaLabel]="'Vía principal'" title="Vía principal" class="via">
-                    <app-opcion [valor]="''">Vía…</app-opcion>
-                    @for (t of tiposVia; track t) {
-                      <app-opcion [valor]="t.nombre">{{ t.nombre }} ({{ t.abrev }})</app-opcion>
-                    }
-                  </app-selector>
-                  <input formControlName="viaNumero" placeholder="N°" aria-label="Número de vía" />
-                  <app-selector formControlName="viaLetra" [ariaLabel]="'Letra o prefijo'" title="Letra / prefijo (opcional)">
-                    <app-opcion [valor]="''">—</app-opcion>
-                    @for (l of letrasVia; track l) { <app-opcion [valor]="l">{{ l }}</app-opcion> }
-                    @for (o of orientaciones; track o) { <app-opcion [valor]="o">{{ o }}</app-opcion> }
-                  </app-selector>
-                  <span class="numeral">#</span>
-                  <input formControlName="numeroGenerador" placeholder="N° generador" aria-label="Número generador" />
-                  <input formControlName="placa" placeholder="N° (placa)" aria-label="Segundo número (placa)" title="Segundo número — distancia al cruce (opcional)" />
                   <app-selector formControlName="municipioCodigo" [ariaLabel]="'Municipio del caso'" title="Municipio del caso" class="municipio">
                     <app-opcion [valor]="''">Municipio…</app-opcion>
                     @for (m of municipiosTenant(); track m.codigoDane) {
                       <app-opcion [valor]="m.codigoDane">{{ m.nombre }}</app-opcion>
                     }
                   </app-selector>
+                  <!-- Buscador estilo Google Maps: escribe, elige una sugerencia, el punto
+                  queda preciso solo. Se muestra en cuanto el SDK termina de cargar —
+                  el div vive siempre en el DOM para que el componente pueda montarlo ahí. -->
+                  <div id="gmpHost" class="gmp-host" [class.oculto]="!googleDisponible()"></div>
                 </div>
                 <div class="con-boton">
-                  <input formControlName="direccion" readonly placeholder="Se arma sola con los campos de arriba" title="Dirección completa — la buscada en el mapa y guardada en el caso" />
+                  <input formControlName="direccion"
+                    [placeholder]="googleDisponible() ? 'Se completa al elegir una sugerencia; puede ajustarla' : 'Escriba la dirección del caso'"
+                    title="Dirección que queda guardada en el caso — editable" />
                   <button type="button" class="btn btn--ghost" (click)="buscarDireccion()" [disabled]="buscandoDireccion()">
                     {{ buscandoDireccion() ? 'Buscando…' : 'Buscar en el mapa' }}
                   </button>

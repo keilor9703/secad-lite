@@ -9,6 +9,7 @@ import { CatalogosService } from '../../core/catalogos.service';
 import { AuthService } from '../../core/auth.service';
 import { AdminService } from '../../core/admin.service';
 import { GeografiaService, Municipio } from '../../core/geografia.service';
+import { GoogleMapsLoaderService } from '../../core/google-maps-loader.service';
 import { ToastService } from '../../shared/toast/toast.service';
 import { AutocompletarComponent, OpcionAutocompletar } from '../../shared/autocompletar/autocompletar';
 import { SelectorComponent } from '../../shared/selector/selector';
@@ -32,6 +33,7 @@ export class RecepcionComponent implements OnInit {
   private auth = inject(AuthService);
   private admin = inject(AdminService);
   private geografia = inject(GeografiaService);
+  private googleMaps = inject(GoogleMapsLoaderService);
   private pbx = inject(PbxService);
   private toast = inject(ToastService);
 
@@ -167,17 +169,12 @@ export class RecepcionComponent implements OnInit {
     descripcion: new FormControl('', { nonNullable: true }),
     ciudad: new FormControl('', { nonNullable: true }),
     barrio: new FormControl('', { nonNullable: true }),
-    /** Dirección completa — la arman sola los campos de abajo (vía/número/letra/generador/segundo número); no se digita directo. */
+    /**
+     * Dirección completa — la llena el buscador de Google al elegir una
+     * sugerencia (queda en su forma estandarizada, la de Google), pero sigue
+     * editable: el operador puede afinarla (apto, referencia) a mano.
+     */
     direccion: new FormControl('', { nonNullable: true }),
-    // Dirección estructurada (convención DIAN/catastral): se combinan en `direccion`
-    // a medida que se digitan, para no depender de que cada operador escriba el
-    // mismo formato a mano.
-    viaTipo: new FormControl('', { nonNullable: true }),
-    viaNumero: new FormControl('', { nonNullable: true }),
-    viaLetra: new FormControl('', { nonNullable: true }),
-    numeroGenerador: new FormControl('', { nonNullable: true }),
-    /** Segundo número (p. ej. "26 45"): distancia/placa, siempre numérica — no es una letra ni una orientación. */
-    placa: new FormControl('', { nonNullable: true }),
     /** Municipio del caso (código DANE) — por defecto el del tenant; el operador puede elegir otro de la lista. */
     municipioCodigo: new FormControl('', { nonNullable: true }),
     lat: new FormControl<number | null>(null),
@@ -188,28 +185,19 @@ export class RecepcionComponent implements OnInit {
   /** Municipios del departamento del tenant, para el select de municipio del caso. */
   readonly municipiosTenant = signal<Municipio[]>([]);
 
-  /** Tipos de vía (convención DIAN/catastral) para el campo "Vía principal". */
-  readonly tiposVia: Array<{ nombre: string; abrev: string }> = [
-    { nombre: 'Calle', abrev: 'CL' },
-    { nombre: 'Carrera', abrev: 'KR' },
-    { nombre: 'Avenida', abrev: 'AV' },
-    { nombre: 'Avenida Calle', abrev: 'AC' },
-    { nombre: 'Avenida Carrera', abrev: 'AK' },
-    { nombre: 'Transversal', abrev: 'TV' },
-    { nombre: 'Diagonal', abrev: 'DG' },
-    { nombre: 'Circular', abrev: 'CQ' },
-    { nombre: 'Circunvalar', abrev: 'CV' },
-    { nombre: 'Autopista', abrev: 'AU' },
-    { nombre: 'Variante', abrev: 'VT' },
-    { nombre: 'Kilómetro', abrev: 'KM' },
-    { nombre: 'Manzana', abrev: 'MZ' },
-  ];
-  /** Letra/prefijo y placa/detalle comparten opciones (letras de vía + orientación cardinal). */
-  readonly letrasVia = ['A', 'B', 'C', 'D', 'E', 'F', 'BIS'];
-  readonly orientaciones = ['Norte', 'Sur', 'Este', 'Oeste'];
   /** Hora de apertura del formulario, como referencia visible del registro. */
   readonly abiertoEn = signal(new Date());
   readonly buscandoDireccion = signal(false);
+
+  /**
+   * Si el buscador de Google (Places) quedó montado. `false` mientras carga o
+   * si el backend no tiene la clave configurada — en ese caso el formulario
+   * cae a un campo de dirección manual, con el mismo botón "Buscar en el
+   * mapa" resolviendo contra OpenStreetMap, como antes.
+   */
+  readonly googleDisponible = signal(false);
+  private gmpElement?: google.maps.places.PlaceAutocompleteElement;
+  private geocoder?: google.maps.Geocoder;
 
   private mapa?: import('leaflet').Map;
   private marcador?: import('leaflet').Marker;
@@ -226,24 +214,15 @@ export class RecepcionComponent implements OnInit {
     // El asistente de tipificación reacciona a lo que se va escribiendo en el relato.
     this.form.controls.descripcion.valueChanges.subscribe((v) => this.relato.set(v));
 
-    // Dirección estructurada: a medida que se digita cada casilla (vía, número,
-    // letra, generador, segundo número), se arma sola la dirección completa —
-    // es la misma que se busca en el mapa y la que queda guardada en el caso.
-    const { viaTipo, viaNumero, viaLetra, numeroGenerador, placa, direccion } = this.form.controls;
-    [viaTipo, viaNumero, viaLetra, numeroGenerador, placa].forEach((c) =>
-      c.valueChanges.subscribe(() => direccion.setValue(this.componerDireccion(), { emitEvent: false })),
-    );
-
     // Municipio del caso: al elegir uno de la lista, se refleja también en el
     // campo "ciudad" que es el que de verdad queda guardado en el caso — la
     // geocodificación por clic en el mapa lo sigue pudiendo sobrescribir. Y se
-    // recompone la dirección para que arrastre el municipio nuevo (ver
-    // `componerDireccion`): sin eso, cambiar de municipio dejaba la casilla y
-    // la búsqueda en el mapa apuntando todavía al anterior.
+    // reacota el buscador de Google al municipio nuevo: sin esto, cambiar de
+    // municipio dejaba las sugerencias apuntando todavía al anterior.
     this.form.controls.municipioCodigo.valueChanges.subscribe((codigo) => {
       const m = this.municipiosTenant().find((x) => x.codigoDane === codigo);
       if (m) this.form.controls.ciudad.setValue(m.nombre);
-      direccion.setValue(this.componerDireccion(), { emitEvent: false });
+      this.biasBuscador();
     });
   }
 
@@ -281,26 +260,6 @@ export class RecepcionComponent implements OnInit {
   }
 
   /**
-   * Concatena sin espacio los sufijos cortos (letras de vía: "49A") y con
-   * espacio los largos (orientación cardinal: "52 Norte") — así se lee cada
-   * uno como se escribe una dirección en Colombia.
-   */
-  private segmentoDireccion(valor: string): string {
-    if (!valor) return '';
-    return valor.length <= 2 ? valor : ` ${valor}`;
-  }
-
-  private componerDireccion(): string {
-    const { viaTipo, viaNumero, viaLetra, numeroGenerador, placa } = this.form.getRawValue();
-    if (!viaTipo || !viaNumero.trim() || !numeroGenerador.trim()) return '';
-    const numero = `${viaNumero.trim()}${this.segmentoDireccion(viaLetra)}`;
-    // El segundo número (antes "placa") es siempre numérico — va con espacio,
-    // nunca pegado, a diferencia de una letra de vía.
-    const generador = `${numeroGenerador.trim()}${placa.trim() ? ` ${placa.trim()}` : ''}`;
-    return this.conMunicipio(`${viaTipo} ${numero} # ${generador}`);
-  }
-
-  /**
    * Nombre del municipio elegido en el formulario, o vacío si no hay ninguno.
    */
   private municipioActual(): string {
@@ -309,10 +268,11 @@ export class RecepcionComponent implements OnInit {
   }
 
   /**
-   * Pega el municipio elegido al final de una dirección. La misma casilla que
-   * el operador ve es la que se manda a buscar en el mapa — sin el municipio,
-   * Nominatim suele resolver a una calle homónima de otro municipio en vez de
-   * la del caso.
+   * Pega el municipio elegido al final de una dirección. Solo hace falta en
+   * el modo de respaldo (sin clave de Google): Nominatim, sin el municipio,
+   * suele resolver a una calle homónima de otro municipio en vez de la del
+   * caso. El buscador de Google no lo necesita — ya devuelve la dirección
+   * completa con ciudad incluida.
    */
   private conMunicipio(base: string): string {
     if (!base) return base;
@@ -338,8 +298,10 @@ export class RecepcionComponent implements OnInit {
   // --- Formulario -------------------------------------------------------------
 
   ngOnInit(): void {
-    // El mapa se prepara una vez pintado el formulario, que ya está a la vista.
+    // El mapa y el buscador de direcciones se preparan una vez pintado el
+    // formulario, que ya está a la vista.
     setTimeout(() => this.prepararMapa(), 0);
+    setTimeout(() => this.prepararBuscadorDireccion(), 0);
   }
 
   /**
@@ -359,6 +321,9 @@ export class RecepcionComponent implements OnInit {
     this.sugeridaPorCodigo.set(null);
     this.abiertoEn.set(new Date());
     this.error.set('');
+    // El buscador guarda su propio texto (no es un <input> del formulario):
+    // sin esto, quedaba mostrando la última dirección buscada.
+    if (this.gmpElement) this.gmpElement.value = '';
   }
 
   /** Catálogo de códigos para el buscador con lista propia: código como etiqueta, descripción como detalle. */
@@ -528,7 +493,7 @@ export class RecepcionComponent implements OnInit {
     });
   }
 
-  // --- Mapa y geocodificación (OpenStreetMap / Nominatim) ---------------------
+  // --- Mapa (Leaflet/OpenStreetMap, solo de visualización) --------------------
 
   /**
    * Carga Leaflet solo cuando hace falta (import dinámico): así el mapa no entra
@@ -563,10 +528,7 @@ export class RecepcionComponent implements OnInit {
       maxZoom: 19,
       attribution: '© OpenStreetMap',
     }).addTo(this.mapa);
-    this.mapa.on('click', (e: import('leaflet').LeafletMouseEvent) => {
-      this.fijarPunto(e.latlng.lat, e.latlng.lng);
-      this.geocodificarInverso(e.latlng.lat, e.latlng.lng, true);
-    });
+    this.mapa.on('click', (e: import('leaflet').LeafletMouseEvent) => this.alPulsarMapa(e.latlng.lat, e.latlng.lng));
     setTimeout(() => this.mapa?.invalidateSize(), 100);
   }
 
@@ -589,34 +551,164 @@ export class RecepcionComponent implements OnInit {
     if (centrar) this.mapa.setView([lat, lng], 16);
   }
 
+  /** Clic en el mapa: fija el punto y resuelve su dirección (Google si está disponible, OSM si no). */
+  private alPulsarMapa(lat: number, lng: number): void {
+    this.fijarPunto(lat, lng);
+    this.geocodificarInverso(lat, lng);
+  }
+
+  // --- Buscador de direcciones (Google Places + Geocoding) ---------------------
+
   /**
-   * Del punto a la dirección: rellena ciudad y barrio siempre. La dirección
-   * solo se sobrescribe cuando el punto vino de un clic en el mapa
-   * (`sobrescribirDireccion`); si vino de una búsqueda por dirección, se
-   * respeta lo que el operador ya escribió.
+   * Monta el buscador estilo Google Maps (escribir → sugerencias → elegir →
+   * punto preciso) en el contenedor `#gmpHost` del formulario. Si el backend
+   * no tiene la clave configurada, `googleDisponible` queda en `false` y el
+   * formulario muestra en su lugar el campo de dirección manual de siempre,
+   * con el botón "Buscar en el mapa" resolviendo contra OpenStreetMap.
    */
-  private geocodificarInverso(lat: number, lng: number, sobrescribirDireccion: boolean): void {
+  private async prepararBuscadorDireccion(): Promise<void> {
+    const g = await this.googleMaps.cargar();
+    if (!g) { this.googleDisponible.set(false); return; }
+    const host = document.getElementById('gmpHost');
+    if (!host) return;
+
+    const { PlaceAutocompleteElement } = await g.maps.importLibrary('places');
+    this.gmpElement = new PlaceAutocompleteElement({ includedRegionCodes: ['co'] });
+    this.gmpElement.placeholder = 'Escriba la dirección del caso…';
+    host.appendChild(this.gmpElement);
+    this.biasBuscador();
+
+    this.gmpElement.addEventListener('gmp-select', async (ev: google.maps.places.PlacePredictionSelectEvent) => {
+      const place = ev.placePrediction.toPlace();
+      await place.fetchFields({ fields: ['formattedAddress', 'location', 'addressComponents'] });
+      this.alSeleccionarLugar(place);
+    });
+
+    // La geocodificación inversa (clic en el mapa) usa el mismo SDK.
+    const { Geocoder } = await g.maps.importLibrary('geocoding');
+    this.geocoder = new Geocoder();
+    this.googleDisponible.set(true);
+  }
+
+  /**
+   * Acota las sugerencias al municipio elegido en el formulario: sin esto,
+   * "Calle 53" sugiere resultados de cualquier ciudad de Colombia. Es un
+   * sesgo (`locationBias`), no una restricción dura — un caso cerca del
+   * límite municipal sigue apareciendo.
+   */
+  private biasBuscador(): void {
+    if (!this.gmpElement) return;
+    const codigo = this.form.controls.municipioCodigo.value;
+    if (!codigo) return;
+    this.geografia.centroide(codigo).subscribe({
+      next: (c) => {
+        if (c && this.gmpElement) this.gmpElement.locationBias = { center: { lat: c.lat, lng: c.lng }, radius: 30_000 };
+      },
+      error: () => {},
+    });
+  }
+
+  /** Al elegir una sugerencia del buscador: mueve el punto y llena dirección/barrio/municipio con la forma estandarizada de Google. */
+  private alSeleccionarLugar(place: google.maps.places.Place): void {
+    this.error.set('');
+    const lat = place.location?.lat();
+    const lng = place.location?.lng();
+    const comps = (place.addressComponents ?? []).map((c) => ({ texto: c.longText ?? '', types: c.types }));
+    if (lat != null && lng != null) {
+      this.aplicarResultado(place.formattedAddress ?? '', lat, lng, comps, true);
+    } else {
+      this.form.patchValue({ direccion: place.formattedAddress ?? '' });
+    }
+  }
+
+  /**
+   * Del punto a la dirección, al hacer clic en el mapa. Con Google
+   * disponible se usa su Geocoder (misma forma estandarizada que el
+   * buscador); sin clave configurada, cae al camino de siempre —
+   * OpenStreetMap por el backend más Nominatim para barrio/ciudad—.
+   */
+  private geocodificarInverso(lat: number, lng: number): void {
+    if (this.geocoder) {
+      this.geocoder.geocode({ location: { lat, lng } }).then(
+        ({ results }) => {
+          const r = results[0];
+          if (!r) return;
+          const comps = r.address_components.map((c) => ({ texto: c.long_name, types: c.types }));
+          this.aplicarResultado(r.formatted_address, lat, lng, comps, false);
+        },
+        () => { /* sin dirección: el punto ya quedó fijado, que es lo esencial */ },
+      );
+      return;
+    }
+    this.geocodificarInversoOsm(lat, lng);
+  }
+
+  /** Aplica una dirección resuelta (Google o el respaldo OSM) al formulario: dirección, barrio y, si calza con el catálogo, el municipio. */
+  private aplicarResultado(
+    direccion: string,
+    lat: number,
+    lng: number,
+    comps: Array<{ texto: string; types: string[] }>,
+    mover: boolean,
+  ): void {
+    if (mover) this.fijarPunto(lat, lng, true);
+    const de = (tipos: string[]) => comps.find((c) => tipos.some((t) => c.types.includes(t)))?.texto;
+    const barrio = de(['sublocality', 'sublocality_level_1', 'neighborhood']);
+    const municipio = de(['locality', 'administrative_area_level_2']);
+    const patch: { direccion: string; barrio?: string; ciudad?: string } = { direccion };
+    if (barrio) patch.barrio = barrio;
+    if (municipio) {
+      const m = this.municipiosTenant().find((x) => this.normalizar(x.nombre) === this.normalizar(municipio));
+      if (m) this.form.controls.municipioCodigo.setValue(m.codigoDane, { emitEvent: false });
+      else patch.ciudad = municipio;
+    }
+    this.form.patchValue(patch);
+  }
+
+  /**
+   * Búsqueda manual: solo hace falta cuando no hay buscador de Google (sin
+   * clave configurada) o si el operador escribió texto sin elegir ninguna
+   * sugerencia. Con Google disponible usa su Geocoder en modo texto libre;
+   * sin él, el camino de siempre contra OpenStreetMap.
+   */
+  buscarDireccion(): void {
+    const v = this.form.getRawValue();
+    const texto = v.direccion.trim();
+    if (!texto) { this.error.set('Escriba una dirección para buscarla.'); return; }
+    this.buscandoDireccion.set(true);
+    this.error.set('');
+
+    if (this.geocoder) {
+      this.geocoder.geocode({ address: texto, componentRestrictions: { country: 'co' } }).then(
+        ({ results }) => {
+          this.buscandoDireccion.set(false);
+          const r = results[0];
+          if (!r) { this.error.set('No se encontró esa dirección.'); return; }
+          const comps = r.address_components.map((c) => ({ texto: c.long_name, types: c.types }));
+          this.aplicarResultado(r.formatted_address, r.geometry.location.lat(), r.geometry.location.lng(), comps, true);
+        },
+        () => {
+          this.buscandoDireccion.set(false);
+          this.error.set('No se encontró esa dirección.');
+        },
+      );
+      return;
+    }
+    this.buscarDireccionOsm(texto);
+  }
+
+  // --- Respaldo (sin clave de Google): OpenStreetMap / Nominatim --------------
+
+  private geocodificarInversoOsm(lat: number, lng: number): void {
     // Dos consultas distintas y complementarias:
     //  · el backend arma la dirección CON numeración («Calle 53 # 52-35»),
     //    que es lo que necesita una unidad en camino. Nominatim devolvía solo
     //    el nombre de la vía, porque en Colombia OSM casi no trae portales.
     //  · Nominatim sigue sirviendo para barrio y ciudad, que sí resuelve bien.
-    if (sobrescribirDireccion) {
-      this.geografia.direccionDe(lat, lng).subscribe({
-        next: (d) => {
-          if (!d?.direccion) return;
-          // La dirección del mapa no tiene por qué calzar con el desglose que
-          // el operador hubiera escrito a mano: se limpia para no dejarlo
-          // mostrando partes que ya no corresponden.
-          this.form.patchValue(
-            { viaTipo: '', viaNumero: '', viaLetra: '', numeroGenerador: '', placa: '' },
-            { emitEvent: false },
-          );
-          this.form.patchValue({ direccion: this.conMunicipio(d.direccion) });
-        },
-        error: () => { /* sin dirección: quedan barrio y ciudad, que ya es algo */ },
-      });
-    }
+    this.geografia.direccionDe(lat, lng).subscribe({
+      next: (d) => { if (d?.direccion) this.form.patchValue({ direccion: this.conMunicipio(d.direccion) }); },
+      error: () => { /* sin dirección: quedan barrio y ciudad, que ya es algo */ },
+    });
 
     const url = `https://nominatim.openstreetmap.org/reverse?lat=${lat}&lon=${lng}&format=json&addressdetails=1`;
     fetch(url, { headers: { 'Accept-Language': 'es' } })
@@ -632,36 +724,19 @@ export class RecepcionComponent implements OnInit {
       .catch(() => { /* barrio y ciudad son ayuda, no requisito: no se alarma al operador */ });
   }
 
-  /**
-   * De la dirección al punto: centra el mapa en lo que se ve en la casilla de
-   * dirección — que ya trae el municipio elegido pegado al final (ver
-   * `componerDireccion`/`conMunicipio`) — más el barrio. Sin el municipio, el
-   * mapa solía resolver a una calle homónima de otro lado del país.
-   */
-  buscarDireccion(): void {
-    const v = this.form.getRawValue();
-    const base = v.direccion.trim() || this.municipioActual();
-    if (!base) { this.error.set('Escriba una dirección para buscarla.'); return; }
-    this.buscandoDireccion.set(true);
-    this.error.set('');
-
-    // El municipio va como código DANE y no pegado al texto: el backend lo usa
-    // para acotar la búsqueda, y la dirección le llega limpia para poder
-    // desarmarla en vía y cruce.
-    this.geografia.geocodificar(base, this.form.controls.municipioCodigo.value).subscribe({
+  /** De la dirección al punto, sin Google: acota la búsqueda al municipio elegido, igual que antes. */
+  private buscarDireccionOsm(texto: string): void {
+    this.geografia.geocodificar(this.conMunicipio(texto), this.form.controls.municipioCodigo.value).subscribe({
       next: (p) => {
         this.buscandoDireccion.set(false);
         if (!p) { this.error.set('No se encontró esa dirección.'); return; }
         this.fijarPunto(p.lat, p.lng, true);
-        // Cuando solo se pudo llegar a la esquina o a una coincidencia
-        // aproximada se dice, en vez de dejar creer que el punto es el portal:
-        // el operador puede corregirlo arrastrando en el mapa.
         if (p.precision === 'esquina') {
           this.error.set('Se ubicó la esquina; ajuste el punto si conoce el lugar exacto.');
         } else if (p.precision === 'aproximada') {
           this.error.set('Ubicación aproximada: no se pudo resolver la nomenclatura. Verifique el punto.');
         }
-        this.geocodificarInverso(p.lat, p.lng, false);
+        this.geocodificarInversoOsm(p.lat, p.lng);
       },
       error: () => {
         this.buscandoDireccion.set(false);
@@ -699,7 +774,6 @@ export class RecepcionComponent implements OnInit {
       canal: 'llamada' as Canal, ciudadano: '', telefono: '', direccionLlamante: '',
       codigoCaso: '', titulo: '', prioridad: 'media' as PrioridadCaso, descripcion: '',
       ciudad: municipioDefecto, barrio: '', direccion: '',
-      viaTipo: '', viaNumero: '', viaLetra: '', numeroGenerador: '', placa: '',
       municipioCodigo: codigoDefecto,
       lat: null, lng: null,
       agenciaResponsableId: null,

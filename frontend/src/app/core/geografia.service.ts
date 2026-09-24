@@ -75,4 +75,13 @@ export class GeografiaService {
     const params = new HttpParams().set('lat', String(lat)).set('lng', String(lng));
     return this.http.get<{ direccion: string; precision: string } | null>(`${this.base}/geografia/direccion`, { params });
   }
+
+  /** Clave de navegador de Google Maps (Places + Geocoding); `null` si el backend no la tiene configurada. */
+  private readonly mapasConfig$ = this.http
+    .get<{ googleMapsApiKey: string | null }>(`${this.base}/geografia/mapas-config`)
+    .pipe(shareReplay(1));
+
+  mapasConfig(): Observable<{ googleMapsApiKey: string | null }> {
+    return this.mapasConfig$;
+  }
 }

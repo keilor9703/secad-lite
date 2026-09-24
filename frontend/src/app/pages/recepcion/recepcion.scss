@@ -62,18 +62,19 @@
 .con-boton input { flex: 1; }
 .con-boton .btn { white-space: nowrap; }
 
-/* Dirección estructurada (vía/número/letra/generador/segundo número/municipio) que arma sola la dirección completa.
-   La vía (p. ej. "Avenida Carrera (AK)") no necesita mucho ancho cerrada —el
-   texto largo solo se ve al desplegar la lista— así que va angosta; los
-   demás campos, sobre todo el municipio (nombres largos como "San Vicente
-   Ferrer"), se dejan más anchos que antes. */
+/* Municipio + buscador de direcciones (Google Places): el municipio acota
+   las sugerencias (ver `biasBuscador`), y el buscador ocupa el resto del
+   ancho — nombres de municipio largos ("San Vicente Ferrer") siguen
+   necesitando más espacio que un tipo de vía, así que se deja angosto. */
 .direccion-est { display: flex; flex-direction: column; gap: 0.35rem; }
 .lbl-direccion { font-size: 0.8rem; font-weight: 600; color: var(--ink-soft); }
 .direccion-campos { display: flex; flex-wrap: wrap; gap: 0.4rem; align-items: center; }
-.direccion-campos app-selector.via { flex: 0 1 150px; min-width: 130px; }
-.direccion-campos input, .direccion-campos app-selector:not(.via):not(.municipio) { flex: 1 1 110px; min-width: 95px; }
-.direccion-campos app-selector.municipio { flex: 2 1 200px; min-width: 170px; }
-.direccion-campos .numeral { font-weight: 700; color: var(--muted); padding: 0 0.1rem; }
+.direccion-campos app-selector.municipio { flex: 1 1 200px; min-width: 170px; }
+.direccion-campos .gmp-host { flex: 2 1 260px; min-width: 220px; }
+/* El propio widget de Google trae su estilo (así se reconoce como "Google
+   Maps"); solo se le da el alto y el radio de los demás campos del formulario. */
+.gmp-host gmp-place-autocomplete { width: 100%; --gmpx-color-surface: var(--surface); }
+.oculto { display: none; }
 
 /* 14. Responsivo */
 .form-cols { display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; align-items: start; }

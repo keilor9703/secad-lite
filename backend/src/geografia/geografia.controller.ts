@@ -1,4 +1,5 @@
 import { BadRequestException, Controller, Get, Param, Query } from '@nestjs/common';
+import { ConfigService } from '@nestjs/config';
 import { GeografiaService } from './geografia.service';
 import { DireccionesService } from './direcciones.service';
 
@@ -13,11 +14,27 @@ export class GeografiaController {
   constructor(
     private readonly geografia: GeografiaService,
     private readonly direcciones: DireccionesService,
+    private readonly config: ConfigService,
   ) {}
 
   @Get('departamentos')
   departamentos() {
     return this.geografia.listarDepartamentos();
+  }
+
+  /**
+   * GET /api/geografia/mapas-config — la clave de navegador de Google Maps,
+   * para que Recepción cargue el buscador de direcciones (Places + Geocoding)
+   * sin tenerla escrita en el bundle del frontend. `null` si no está
+   * configurada: el formulario cae a dirección manual, sin romperse.
+   *
+   * No es un secreto de servidor (viaja al navegador de todas formas), así
+   * que basta la sesión normal para protegerla — pero DEBE estar restringida
+   * por referente HTTP y por API en Google Cloud Console (ver .env.example).
+   */
+  @Get('mapas-config')
+  mapasConfig() {
+    return { googleMapsApiKey: this.config.get<string>('GOOGLE_MAPS_API_KEY') || null };
   }
 
   @Get('municipios')
