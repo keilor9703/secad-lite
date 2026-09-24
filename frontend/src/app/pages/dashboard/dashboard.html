@@ -203,7 +203,9 @@
           </div>
           <div class="barras">
             @for (b of porEstadoLlamada(); track b) {
-              <div class="fila">
+              <div class="fila" [class.clicable]="llamadaConsultable(b.clave)"
+                [title]="llamadaConsultable(b.clave) ? 'Doble clic para ver el detalle' : ''"
+                (dblclick)="llamadaConsultable(b.clave) && abrirDetalleLlamadas($any(b.clave), b.etiqueta + ' — últimos 30 días')">
                 <span class="cap">{{ b.etiqueta }}</span>
                 <div class="track"><div class="fill ll" [style.width.%]="pct(b.valor, porEstadoLlamada())" [attr.data-clave]="b.clave"></div></div>
                 <span class="val">{{ b.valor }}</span>
@@ -283,6 +285,15 @@
       [error]="detalleError()"
       [casos]="detalleCasos()"
       (cerrar)="cerrarDetalle()"
+    />
+  }
+  @if (detalleLlamadasAbierto()) {
+    <app-detalle-llamadas
+      [titulo]="detalleLlamadasTitulo()"
+      [cargando]="detalleLlamadasCargando()"
+      [error]="detalleLlamadasError()"
+      [llamadas]="detalleLlamadas()"
+      (cerrar)="cerrarDetalleLlamadas()"
     />
   }
 </section>

@@ -100,6 +100,8 @@ export interface Llamada {
   destinatario?: string | null;
   estado: EstadoLlamada;
   casoId?: string | null;
+  /** El agente que contestó, tal como lo reporta la central — distinto de `atendidaPor` (quien la atendió desde FALCON). */
+  agentePbx?: string | null;
   atendidaPor?: string | null;
   atendidaEn?: string | null;
   creadoEn: string;

@@ -81,6 +81,7 @@ export class MapaComponent implements OnInit, OnDestroy {
     codigosSel: new FormControl<string[]>([], { nonNullable: true }),
     agenciaSel: new FormControl('', { nonNullable: true }),
     limiteCodigos: new FormControl(5, { nonNullable: true }),
+    limiteBarrios: new FormControl(5, { nonNullable: true }),
   });
 
   /** Sin `casos.ver` el popup no debe ofrecer un enlace que llevaría a un 403. */
@@ -107,6 +108,10 @@ export class MapaComponent implements OnInit, OnDestroy {
 
   readonly topCodigos = computed(() => this.analisis()?.topCodigos ?? []);
   readonly maxTopCodigo = computed(() => Math.max(1, ...this.topCodigos().map((c) => c.total)));
+
+  /** Barrios con más casos — para ubicar dónde se concentra la delincuencia/convivencia. */
+  readonly topBarrios = computed(() => this.analisis()?.topBarrios ?? []);
+  readonly maxTopBarrio = computed(() => Math.max(1, ...this.topBarrios().map((b) => b.total)));
 
   readonly diaPico = computed(() => this.pico(this.porDiaSemana()));
   readonly horaPico = computed(() => this.pico(this.porHora()));
@@ -165,10 +170,10 @@ export class MapaComponent implements OnInit, OnDestroy {
   cargar(): void {
     this.cargando.set(true);
     this.error.set('');
-    const { desde, hasta, codigosSel, agenciaSel, limiteCodigos } = this.filtroForm.getRawValue();
+    const { desde, hasta, codigosSel, agenciaSel, limiteCodigos, limiteBarrios } = this.filtroForm.getRawValue();
     const filtro = { desde: desde || undefined, hasta: hasta || undefined };
     this.metricasSvc
-      .mapa({ ...filtro, codigos: codigosSel, agencia: agenciaSel || undefined, limiteCodigos })
+      .mapa({ ...filtro, codigos: codigosSel, agencia: agenciaSel || undefined, limiteCodigos, limiteBarrios })
       .subscribe({
         next: (a) => { this.analisis.set(a); this.cargando.set(false); this.pintar(); },
         error: () => { this.error.set('No fue posible cargar el mapa.'); this.cargando.set(false); },
@@ -190,7 +195,7 @@ export class MapaComponent implements OnInit, OnDestroy {
   }
 
   limpiarFiltros(): void {
-    this.filtroForm.reset({ desde: '', hasta: '', codigosSel: [], agenciaSel: '', limiteCodigos: 5 });
+    this.filtroForm.reset({ desde: '', hasta: '', codigosSel: [], agenciaSel: '', limiteCodigos: 5, limiteBarrios: 5 });
     this.cargar();
   }
 

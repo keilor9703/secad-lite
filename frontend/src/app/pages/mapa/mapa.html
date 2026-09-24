@@ -128,6 +128,33 @@
     </div>
   </div>
 
+  <div class="panel card">
+    <div class="cabecera-top">
+      <h2>Top {{ filtroForm.controls.limiteBarrios.value }} barrios con más casos</h2>
+      <div class="mostrar" [formGroup]="filtroForm">
+        <label for="flimitebarrios">Mostrar</label>
+        <app-selector id="flimitebarrios" formControlName="limiteBarrios" (cambio)="cargar()" [ariaLabel]="'Cuántos barrios mostrar'" class="f-limite">
+          @for (n of opcionesLimite; track n) {
+            <app-opcion [valor]="n">{{ n }}</app-opcion>
+          }
+        </app-selector>
+      </div>
+    </div>
+    <p class="ayuda-top">Dónde se concentran los casos — la pista más directa de qué barrios necesitan más atención en delincuencia o convivencia ciudadana.</p>
+    <div class="barras">
+      @if (topBarrios().length === 0) {
+        <p class="vacio">Sin datos.</p>
+      }
+      @for (b of topBarrios(); track b) {
+        <div class="fila clicable" title="Doble clic para ver el detalle" (dblclick)="abrirDetalle({barrio: b.barrio}, 'Casos — ' + b.barrio)">
+          <span class="cap">{{ b.barrio }}</span>
+          <div class="track"><div class="fill ag" [style.width.%]="(b.total / maxTopBarrio()) * 100"></div></div>
+          <span class="val">{{ b.total }}</span>
+        </div>
+      }
+    </div>
+  </div>
+
   <div class="panel card horas">
     <h2>Horarios de mayor afectación</h2>
     @if (horaPico(); as h) {

@@ -1,8 +1,8 @@
 import { Injectable } from '@nestjs/common';
-import { EntityManager } from 'typeorm';
+import { EntityManager, MoreThanOrEqual } from 'typeorm';
 import { CasoEntity } from '../casos/caso.entity';
 import { CANALES, ESTADOS } from '../casos/caso.model';
-import { ESTADOS_LLAMADA, LlamadaEntity } from '../pbx/llamada.entity';
+import { EstadoLlamada, ESTADOS_LLAMADA, LlamadaEntity } from '../pbx/llamada.entity';
 import { TenantRlsService } from '../common/tenant-rls.service';
 
 /** Tiempos promedio (minutos) desde la recepción, últimos 30 días. */
@@ -125,6 +125,8 @@ export interface AnalisisMapa {
   /** Hora del día (0-23) en que se recibió el caso. */
   porHora: Array<{ hora: number; total: number }>;
   topCodigos: Array<{ codigo: string; descripcion: string | null; total: number }>;
+  /** Barrios con más casos — para ubicar dónde se concentra la delincuencia/convivencia. */
+  topBarrios: Array<{ barrio: string; total: number }>;
 }
 
 /**
@@ -484,6 +486,22 @@ export class MetricasService {
   }
 
   /**
+   * Las llamadas exactas detrás de un valor del reporte "Llamadas" — el
+   * doble clic sobre "Atendidas" o "Perdidas". Mismo alcance que
+   * `llamadas()` (todo el tenant, últimos 30 días, sin acotar por agencia):
+   * el detalle no puede descuadrar con el número que el usuario vio.
+   */
+  async detalleLlamadas(tenant: string, estado: EstadoLlamada): Promise<LlamadaEntity[]> {
+    return this.rls.conTenant(tenant, (manager) =>
+      manager.getRepository(LlamadaEntity).find({
+        where: { tenant, estado, creadoEn: MoreThanOrEqual(new Date(Date.now() - 30 * 864e5)) },
+        order: { creadoEn: 'DESC' },
+        take: 200,
+      }),
+    );
+  }
+
+  /**
    * Tiempos de respuesta del período, desde la bitácora: cuánto tarda un
    * caso en ser tomado (primer paso a 'en_gestion'), en recibir su primer
    * recurso (primer evento de despacho) y en cerrarse. Es la medida real de
@@ -557,7 +575,10 @@ export class MetricasService {
    */
   async mapa(
     tenant: string,
-    opts?: { desde?: string; hasta?: string; codigos?: string[]; agencia?: string; limiteCodigos?: number },
+    opts?: {
+      desde?: string; hasta?: string; codigos?: string[]; agencia?: string;
+      limiteCodigos?: number; limiteBarrios?: number;
+    },
     agenciaId?: string | null,
   ): Promise<AnalisisMapa> {
     const desde = this.fechaValida(opts?.desde);
@@ -566,16 +587,17 @@ export class MetricasService {
     const codigos = [...new Set((opts?.codigos ?? []).map((c) => c.trim().toUpperCase()).filter(Boolean))];
     const agencia = opts?.agencia?.trim() || null;
     // Entre 5 y 20: el pedido del panel ("mostrar 10, 15, 20") tiene un techo
-    // — sin él, un tenant con cientos de códigos distintos convertiría el
-    // "top" en la lista completa.
+    // — sin él, un tenant con cientos de códigos o barrios distintos
+    // convertiría el "top" en la lista completa.
     const limiteCodigos = Math.min(20, Math.max(5, Math.trunc(opts?.limiteCodigos ?? 5) || 5));
+    const limiteBarrios = Math.min(20, Math.max(5, Math.trunc(opts?.limiteBarrios ?? 5) || 5));
 
     if (agenciaId === null) {
       return {
         puntos: [], totalConUbicacion: 0, totalSinUbicacion: 0,
         porDiaSemana: Array.from({ length: 7 }, (_, dia) => ({ dia, total: 0 })),
         porHora: Array.from({ length: 24 }, (_, hora) => ({ hora, total: 0 })),
-        topCodigos: [],
+        topCodigos: [], topBarrios: [],
       };
     }
 
@@ -592,7 +614,7 @@ export class MetricasService {
     // (el manager de conTenant) — Promise.all() lanzaría varias sentencias a
     // la vez sobre un solo cliente de PostgreSQL (ver el comentario igual en
     // resumen()).
-    const [puntos, porDia, porHora, topCodigos, sinUbicacion] = await this.rls.conTenant(tenant, async (manager) => {
+    const [puntos, porDia, porHora, topCodigos, topBarrios, sinUbicacion] = await this.rls.conTenant(tenant, async (manager) => {
       const puntos = await manager.query(
         `SELECT c.id, c.lat, c.lng, c."codigoCaso" AS "codigoCaso", c.prioridad, c.titulo, c."creadoEn" AS "creadoEn"
            FROM casos c WHERE ${where} AND c.lat IS NOT NULL AND c.lng IS NOT NULL
@@ -620,11 +642,21 @@ export class MetricasService {
           ORDER BY total DESC LIMIT $${params.length + 1}`,
         [...params, limiteCodigos],
       );
+      // TRIM: mismo barrio escrito con espacios de más ("Centro " vs "Centro")
+      // no debe partirse en dos filas del top.
+      const topBarrios = await manager.query(
+        `SELECT TRIM(c.barrio) AS barrio, COUNT(*)::int AS total
+           FROM casos c
+          WHERE ${where} AND c.barrio IS NOT NULL AND TRIM(c.barrio) <> ''
+          GROUP BY TRIM(c.barrio)
+          ORDER BY total DESC LIMIT $${params.length + 1}`,
+        [...params, limiteBarrios],
+      );
       const sinUbicacion = await manager.query(
         `SELECT COUNT(*)::int AS total FROM casos c WHERE ${where} AND (c.lat IS NULL OR c.lng IS NULL)`,
         params,
       );
-      return [puntos, porDia, porHora, topCodigos, sinUbicacion];
+      return [puntos, porDia, porHora, topCodigos, topBarrios, sinUbicacion];
     });
 
     const diasPorNumero = new Map<number, number>(porDia.map((f: Record<string, unknown>) => [Number(f['dia']), Number(f['total'])]));
@@ -647,6 +679,10 @@ export class MetricasService {
       topCodigos: topCodigos.map((f: Record<string, unknown>) => ({
         codigo: String(f['codigo']),
         descripcion: (f['descripcion'] as string | null) ?? null,
+        total: Number(f['total']),
+      })),
+      topBarrios: topBarrios.map((f: Record<string, unknown>) => ({
+        barrio: String(f['barrio']),
         total: Number(f['total']),
       })),
     };
@@ -759,7 +795,7 @@ export class MetricasService {
   async detalle(
     tenant: string,
     opts: {
-      desde?: string; hasta?: string; agencia?: string; canal?: string; estado?: string; codigo?: string;
+      desde?: string; hasta?: string; agencia?: string; canal?: string; estado?: string; codigo?: string; barrio?: string;
       prioridad?: string; dentroMeta?: boolean; hito?: 'tomado' | 'despacho' | 'cierre';
     },
     agenciaId?: string | null,
@@ -805,6 +841,8 @@ export class MetricasService {
       if (opts.estado) qb.andWhere('c.estado = :estado', { estado: opts.estado });
       if (opts.prioridad) qb.andWhere('c.prioridad = :prioridad', { prioridad: opts.prioridad });
       if (opts.codigo) qb.andWhere('c."codigoCaso" = :codigo', { codigo: opts.codigo });
+      // TRIM: mismo criterio que agrupa el top de barrios en mapa().
+      if (opts.barrio) qb.andWhere('TRIM(c.barrio) = :barrio', { barrio: opts.barrio });
       return qb.orderBy('c."creadoEn"', 'DESC').limit(200).getMany();
     });
   }

@@ -1,4 +1,4 @@
-import { Controller, Get, Query, Res } from '@nestjs/common';
+import { BadRequestException, Controller, Get, Query, Res } from '@nestjs/common';
 import { Response } from 'express';
 import { MetricasService } from './metricas.service';
 import { InformePdfService } from './informe-pdf.service';
@@ -8,6 +8,7 @@ import { PermisosVigentes } from '../common/permisos-vigentes.decorator';
 import { JwtPayload } from '../auth/auth.service';
 import { Permisos } from '../auth/permisos.decorator';
 import { UsuariosService } from '../usuarios/usuarios.service';
+import { EstadoLlamada, ESTADOS_LLAMADA } from '../pbx/llamada.entity';
 
 // Métricas de gestión: requiere el permiso metricas.ver.
 @Permisos('metricas.ver')
@@ -93,11 +94,16 @@ export class MetricasController {
     @Query('codigos') codigos?: string | string[],
     @Query('agencia') agencia?: string,
     @Query('limiteCodigos') limiteCodigos?: string,
+    @Query('limiteBarrios') limiteBarrios?: string,
   ) {
     const listaCodigos = codigos === undefined ? [] : Array.isArray(codigos) ? codigos : [codigos];
     return this.metricas.mapa(
       tenant,
-      { desde, hasta, codigos: listaCodigos, agencia, limiteCodigos: limiteCodigos ? Number(limiteCodigos) : undefined },
+      {
+        desde, hasta, codigos: listaCodigos, agencia,
+        limiteCodigos: limiteCodigos ? Number(limiteCodigos) : undefined,
+        limiteBarrios: limiteBarrios ? Number(limiteBarrios) : undefined,
+      },
       await this.alcanceAgencia(usuario, permisos),
     );
   }
@@ -106,6 +112,15 @@ export class MetricasController {
   @Get('llamadas')
   llamadas(@Tenant() tenant: string) {
     return this.metricas.llamadas(tenant);
+  }
+
+  /** GET /api/metricas/llamadas/detalle — las llamadas exactas detrás de un valor del reporte anterior (doble clic). */
+  @Get('llamadas/detalle')
+  detalleLlamadas(@Tenant() tenant: string, @Query('estado') estado?: string) {
+    if (!ESTADOS_LLAMADA.includes(estado as EstadoLlamada)) {
+      throw new BadRequestException(`estado debe ser uno de: ${ESTADOS_LLAMADA.join(', ')}.`);
+    }
+    return this.metricas.detalleLlamadas(tenant, estado as EstadoLlamada);
   }
 
   /** GET /api/metricas/informe.pdf — el mismo resumen del Panel, en un PDF para imprimir o adjuntar. */
@@ -138,13 +153,13 @@ export class MetricasController {
     @Tenant() tenant: string, @Usuario() usuario: JwtPayload, @PermisosVigentes() permisos: string[],
     @Query('desde') desde?: string, @Query('hasta') hasta?: string,
     @Query('agencia') agencia?: string, @Query('canal') canal?: string, @Query('estado') estado?: string,
-    @Query('codigo') codigo?: string,
+    @Query('codigo') codigo?: string, @Query('barrio') barrio?: string,
     @Query('prioridad') prioridad?: string, @Query('dentroMeta') dentroMeta?: string,
     @Query('hito') hito?: 'tomado' | 'despacho' | 'cierre',
   ) {
     return this.metricas.detalle(
       tenant,
-      { desde, hasta, agencia, canal, estado, codigo, prioridad, dentroMeta: dentroMeta === undefined ? undefined : dentroMeta === 'true', hito },
+      { desde, hasta, agencia, canal, estado, codigo, barrio, prioridad, dentroMeta: dentroMeta === undefined ? undefined : dentroMeta === 'true', hito },
       await this.alcanceAgencia(usuario, permisos),
     );
   }

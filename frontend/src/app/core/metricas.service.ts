@@ -2,7 +2,7 @@ import { Injectable, inject } from '@angular/core';
 import { HttpClient, HttpParams } from '@angular/common/http';
 import { Observable } from 'rxjs';
 import { environment } from '../../environments/environment';
-import { Caso } from './models';
+import { Caso, EstadoLlamada, Llamada } from './models';
 
 /** Tiempos promedio (minutos) desde la recepción, últimos 30 días. */
 export interface TiemposPrioridad {
@@ -105,6 +105,8 @@ export interface AnalisisMapa {
   /** Hora del día (0-23). */
   porHora: Array<{ hora: number; total: number }>;
   topCodigos: Array<{ codigo: string; descripcion: string | null; total: number }>;
+  /** Barrios con más casos — para ubicar dónde se concentra la delincuencia/convivencia. */
+  topBarrios: Array<{ barrio: string; total: number }>;
 }
 
 export interface FiltroMapa {
@@ -115,6 +117,8 @@ export interface FiltroMapa {
   agencia?: string;
   /** Cuántas filas trae el top de códigos (5-20; el backend lo acota igual). */
   limiteCodigos?: number;
+  /** Cuántas filas trae el top de barrios (5-20; el backend lo acota igual). */
+  limiteBarrios?: number;
 }
 
 /** Reporte de la planta telefónica (PBX), últimos 30 días. */
@@ -136,6 +140,7 @@ export interface FiltroDetalle {
   canal?: string;
   estado?: string;
   codigo?: string;
+  barrio?: string;
   prioridad?: string;
   /** Con `prioridad`: true = dentro de la meta, false = fuera; implica `hito: 'despacho'`. */
   dentroMeta?: boolean;
@@ -190,11 +195,17 @@ export class MetricasService {
     for (const c of filtro?.codigos ?? []) params = params.append('codigos', c);
     if (filtro?.agencia) params = params.set('agencia', filtro.agencia);
     if (filtro?.limiteCodigos) params = params.set('limiteCodigos', String(filtro.limiteCodigos));
+    if (filtro?.limiteBarrios) params = params.set('limiteBarrios', String(filtro.limiteBarrios));
     return this.http.get<AnalisisMapa>(`${this.base}/mapa`, { params });
   }
 
   llamadas(): Observable<ResumenLlamadas> {
     return this.http.get<ResumenLlamadas>(`${this.base}/llamadas`);
+  }
+
+  /** Las llamadas exactas detrás de un valor del reporte anterior (doble clic sobre "Atendidas"/"Perdidas"). */
+  detalleLlamadas(estado: EstadoLlamada): Observable<Llamada[]> {
+    return this.http.get<Llamada[]>(`${this.base}/llamadas/detalle`, { params: { estado } });
   }
 
   /** Los casos exactos detrás de UN valor de un reporte (doble clic sobre una barra). */
@@ -206,6 +217,7 @@ export class MetricasService {
     if (filtro.canal) params = params.set('canal', filtro.canal);
     if (filtro.estado) params = params.set('estado', filtro.estado);
     if (filtro.codigo) params = params.set('codigo', filtro.codigo);
+    if (filtro.barrio) params = params.set('barrio', filtro.barrio);
     if (filtro.prioridad) params = params.set('prioridad', filtro.prioridad);
     if (filtro.dentroMeta !== undefined) params = params.set('dentroMeta', String(filtro.dentroMeta));
     if (filtro.hito) params = params.set('hito', filtro.hito);

@@ -1,0 +1,92 @@
+// Modal de detalle de llamadas: mismo patrón visual que detalle-reporte.scss
+// (que no se filtra hasta aquí por view encapsulation), con su propio
+// prefijo de clases para no chocar si ambas modales llegaran a convivir.
+
+.dl-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.45);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 1.2rem;
+  // Por encima del mapa Leaflet y de app-selector — ver el mismo comentario
+  // en detalle-reporte.scss.
+  z-index: 2500;
+}
+
+.dl-card {
+  background: var(--surface);
+  border: 1px solid var(--border-2);
+  border-radius: var(--radius);
+  box-shadow: 0 12px 40px rgba(0, 0, 0, 0.25);
+  width: min(820px, 100%);
+  max-height: min(80vh, 640px);
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.dl-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 1rem 1.2rem;
+  border-bottom: 1px solid var(--border-2);
+}
+.dl-head h2 { margin: 0; font-size: 1rem; font-weight: 600; }
+
+.dl-x {
+  border: none;
+  background: transparent;
+  color: var(--muted);
+  font-size: 1rem;
+  cursor: pointer;
+  padding: 0.2rem 0.5rem;
+  border-radius: var(--radius-sm);
+}
+.dl-x:hover { background: var(--surface-2); color: var(--ink); }
+
+.dl-msg { padding: 2rem; text-align: center; color: var(--muted); margin: 0; }
+.dl-error { color: var(--danger); }
+
+.dl-cuenta { margin: 0.9rem 1.2rem 0.4rem; font-size: 0.8rem; color: var(--muted); }
+
+.dl-tabla-wrap { overflow: auto; padding: 0 1.2rem 1.2rem; }
+
+.dl-tabla { width: 100%; border-collapse: collapse; font-size: 0.82rem; }
+.dl-tabla th {
+  text-align: left;
+  font-size: 0.68rem;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--muted);
+  padding: 0.4rem 0.6rem;
+  border-bottom: 1px solid var(--border-2);
+  white-space: nowrap;
+}
+.dl-tabla td {
+  padding: 0.5rem 0.6rem;
+  border-bottom: 1px solid var(--border-2);
+  vertical-align: middle;
+  white-space: nowrap;
+}
+.dl-tabla tbody tr:hover { background: var(--surface-2); }
+.mono { font-family: var(--mono); }
+.dl-sin-caso { color: var(--muted); }
+.dl-tabla a { color: var(--accent); text-decoration: none; }
+.dl-tabla a:hover { text-decoration: underline; }
+
+/* Mismos colores que el semáforo de barras del reporte de llamadas. */
+.badge {
+  display: inline-flex; align-items: center;
+  font-size: 0.68rem; font-weight: 600;
+  padding: 0.12rem 0.55rem; border-radius: 999px;
+  text-transform: uppercase; letter-spacing: 0.04em;
+  white-space: nowrap;
+  background: var(--surface-2); color: var(--muted);
+}
+.badge[data-estado='sonando']   { background: var(--tag-warn-bg); color: var(--tag-warn-fg); }
+.badge[data-estado='atendida']  { background: var(--tag-ok-bg); color: var(--tag-ok-fg); }
+.badge[data-estado='perdida']   { background: var(--tag-danger-bg); color: var(--tag-danger-fg); }
+.badge[data-estado='finalizada']{ background: var(--tag-teal-bg, var(--surface-2)); color: var(--accent); }

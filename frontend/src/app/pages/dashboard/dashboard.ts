@@ -7,10 +7,11 @@ import { TemaService } from '../../core/tema.service';
 import {
   Cumplimiento, FiltroDetalle, Hallazgos, MetricasService, Ranking, Resumen, ResumenLlamadas, Tendencia,
 } from '../../core/metricas.service';
-import { Caso } from '../../core/models';
+import { Caso, EstadoLlamada, Llamada } from '../../core/models';
 import { ExportarService } from '../../core/exportar.service';
 import { FechaComponent } from '../../shared/fecha/fecha';
 import { DetalleReporteModalComponent } from '../../shared/detalle-reporte/detalle-reporte';
+import { DetalleLlamadasModalComponent } from '../../shared/detalle-llamadas/detalle-llamadas';
 import { AyudaComponent } from '../../shared/ayuda/ayuda';
 
 interface Barra { etiqueta: string; valor: number; clave: string; }
@@ -21,7 +22,7 @@ interface Variacion { pct: number; direccion: 'sube' | 'baja' | 'igual'; bueno: 
 @Component({
   selector: 'app-dashboard',
   standalone: true,
-  imports: [ReactiveFormsModule, FechaComponent, DetalleReporteModalComponent, AyudaComponent],
+  imports: [ReactiveFormsModule, FechaComponent, DetalleReporteModalComponent, DetalleLlamadasModalComponent, AyudaComponent],
   templateUrl: './dashboard.html',
   styleUrl: './dashboard.scss',
   changeDetection: ChangeDetectionStrategy.OnPush,
@@ -69,6 +70,39 @@ export class DashboardComponent implements OnDestroy {
 
   cerrarDetalle(): void {
     this.detalleAbierto.set(false);
+  }
+
+  // --- Modal de detalle de llamadas: doble clic sobre "Atendidas"/"Perdidas" ----
+  readonly detalleLlamadasAbierto = signal(false);
+  readonly detalleLlamadasTitulo = signal('');
+  readonly detalleLlamadas = signal<Llamada[]>([]);
+  readonly detalleLlamadasCargando = signal(false);
+  readonly detalleLlamadasError = signal('');
+
+  abrirDetalleLlamadas(estado: EstadoLlamada, titulo: string): void {
+    this.detalleLlamadasTitulo.set(titulo);
+    this.detalleLlamadasAbierto.set(true);
+    this.detalleLlamadasCargando.set(true);
+    this.detalleLlamadasError.set('');
+    this.detalleLlamadas.set([]);
+    this.metricas.detalleLlamadas(estado).subscribe({
+      next: (llamadas) => { this.detalleLlamadas.set(llamadas); this.detalleLlamadasCargando.set(false); },
+      error: () => { this.detalleLlamadasError.set('No fue posible cargar el detalle.'); this.detalleLlamadasCargando.set(false); },
+    });
+  }
+
+  cerrarDetalleLlamadas(): void {
+    this.detalleLlamadasAbierto.set(false);
+  }
+
+  /**
+   * Solo "atendida" y "perdida" tienen detalle: "sonando" es una llamada en
+   * curso ahora mismo (no una lista para revisar en calma) y "finalizada"
+   * ya no es un estado propio, sino el fin de una atendida — repetiría la
+   * misma lista.
+   */
+  llamadaConsultable(clave: string): boolean {
+    return clave === 'atendida' || clave === 'perdida';
   }
 
   exportarCsv(): void {
