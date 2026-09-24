@@ -745,9 +745,10 @@ export class MetricasService {
    * "cumplimiento por prioridad" y "tiempos de respuesta" en vez de cinco —
    * el filtro que llega decide cuál de las preguntas se está respondiendo.
    *
-   * `agencia`/`canal`/`estado`/`prioridad` (solos) filtran por esa columna
-   * exacta (la MISMA que agrupa `agrupar()`/`tiempos()`, para que el detalle
-   * nunca descuadre con el número que el usuario vio). `hito` (o
+   * `agencia`/`canal`/`estado`/`prioridad`/`codigo` (solos) filtran por esa
+   * columna exacta (la MISMA que agrupa `agrupar()`/`tiempos()`/`mapa()`,
+   * para que el detalle nunca descuadre con el número que el usuario vio).
+   * `hito` (o
    * `dentroMeta`, que implica `hito: 'despacho'`) cambian de pregunta: en
    * vez de "qué casos son de tal prioridad", preguntan "de esos, cuáles ya
    * llegaron a ese hito" (`tomado`/`despacho`/`cierre`) — exige el JOIN con
@@ -758,7 +759,7 @@ export class MetricasService {
   async detalle(
     tenant: string,
     opts: {
-      desde?: string; hasta?: string; agencia?: string; canal?: string; estado?: string;
+      desde?: string; hasta?: string; agencia?: string; canal?: string; estado?: string; codigo?: string;
       prioridad?: string; dentroMeta?: boolean; hito?: 'tomado' | 'despacho' | 'cierre';
     },
     agenciaId?: string | null,
@@ -803,6 +804,7 @@ export class MetricasService {
       if (opts.canal) qb.andWhere('c.canal = :canal', { canal: opts.canal });
       if (opts.estado) qb.andWhere('c.estado = :estado', { estado: opts.estado });
       if (opts.prioridad) qb.andWhere('c.prioridad = :prioridad', { prioridad: opts.prioridad });
+      if (opts.codigo) qb.andWhere('c."codigoCaso" = :codigo', { codigo: opts.codigo });
       return qb.orderBy('c."creadoEn"', 'DESC').limit(200).getMany();
     });
   }

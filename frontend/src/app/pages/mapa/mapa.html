@@ -100,7 +100,7 @@
           <p class="vacio">Sin datos.</p>
         }
         @for (c of topCodigos(); track c) {
-          <div class="fila fila-codigo">
+          <div class="fila fila-codigo clicable" title="Doble clic para ver el detalle" (dblclick)="abrirDetalle({codigo: c.codigo}, 'Casos — ' + c.codigo)">
             <span class="cap" [title]="c.descripcion ?? ''">{{ c.codigo }}@if (c.descripcion) {
               <small> — {{ c.descripcion }}</small>
             }</span>

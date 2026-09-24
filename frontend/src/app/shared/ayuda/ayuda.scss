@@ -64,3 +64,22 @@
   opacity: 1;
   transform: translateX(-50%) translateY(0);
 }
+
+/* Variante hacia abajo: para un ícono dentro de un contenedor con scroll
+   propio (ver comentario en ayuda.ts) — arriba quedaría recortado por su
+   `overflow`, así que se abre hacia el lado donde sí hay espacio. */
+.ayuda.abajo .ayuda-globo {
+  bottom: auto;
+  top: calc(100% + 0.4rem);
+  transform: translateX(-50%) translateY(-2px);
+}
+.ayuda.abajo .ayuda-globo::after {
+  top: auto;
+  bottom: 100%;
+  border-top-color: transparent;
+  border-bottom-color: var(--ink);
+}
+.ayuda.abajo:hover .ayuda-globo,
+.ayuda.abajo:focus-visible .ayuda-globo {
+  transform: translateX(-50%) translateY(0);
+}

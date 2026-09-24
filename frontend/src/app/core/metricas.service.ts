@@ -135,6 +135,7 @@ export interface FiltroDetalle {
   agencia?: string;
   canal?: string;
   estado?: string;
+  codigo?: string;
   prioridad?: string;
   /** Con `prioridad`: true = dentro de la meta, false = fuera; implica `hito: 'despacho'`. */
   dentroMeta?: boolean;
@@ -204,6 +205,7 @@ export class MetricasService {
     if (filtro.agencia) params = params.set('agencia', filtro.agencia);
     if (filtro.canal) params = params.set('canal', filtro.canal);
     if (filtro.estado) params = params.set('estado', filtro.estado);
+    if (filtro.codigo) params = params.set('codigo', filtro.codigo);
     if (filtro.prioridad) params = params.set('prioridad', filtro.prioridad);
     if (filtro.dentroMeta !== undefined) params = params.set('dentroMeta', String(filtro.dentroMeta));
     if (filtro.hito) params = params.set('hito', filtro.hito);

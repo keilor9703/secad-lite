@@ -12,7 +12,10 @@
   align-items: center;
   justify-content: center;
   padding: 1.2rem;
-  z-index: 200;
+  // Por encima del mapa Leaflet (sus paneles y controles llegan hasta
+  // z-index 1000 — ver el mismo comentario en selector.scss) y de
+  // app-selector (2000), que puede quedar abierto detrás.
+  z-index: 2500;
 }
 
 .dr-card {

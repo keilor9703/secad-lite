@@ -37,14 +37,15 @@ import { Caso, Canal, EstadoCaso, PrioridadCaso } from '../../core/models';
             <table class="dr-tabla">
               <thead>
                 <tr>
-                  <th>Código</th><th>Título</th><th>Ciudadano</th><th>Agencia</th>
+                  <th>Id</th><th>Código</th><th>Título</th><th>Ciudadano</th><th>Agencia</th>
                   <th>Canal</th><th>Estado</th><th>Prioridad</th><th>Recepción</th>
                 </tr>
               </thead>
               <tbody>
                 @for (c of casos(); track c.id) {
                   <tr [routerLink]="['/caso', c.id]" (click)="cerrar.emit()">
-                    <td class="mono">{{ c.codigoCaso || c.id.slice(0, 8) }}</td>
+                    <td class="mono" [title]="c.id">{{ c.id.slice(0, 8) }}</td>
+                    <td class="mono">{{ c.codigoCaso || '—' }}</td>
                     <td class="dr-titulo">{{ c.titulo }}</td>
                     <td>{{ c.ciudadano }}</td>
                     <td>{{ c.agencia }}</td>

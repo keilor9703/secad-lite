@@ -138,12 +138,13 @@ export class MetricasController {
     @Tenant() tenant: string, @Usuario() usuario: JwtPayload, @PermisosVigentes() permisos: string[],
     @Query('desde') desde?: string, @Query('hasta') hasta?: string,
     @Query('agencia') agencia?: string, @Query('canal') canal?: string, @Query('estado') estado?: string,
+    @Query('codigo') codigo?: string,
     @Query('prioridad') prioridad?: string, @Query('dentroMeta') dentroMeta?: string,
     @Query('hito') hito?: 'tomado' | 'despacho' | 'cierre',
   ) {
     return this.metricas.detalle(
       tenant,
-      { desde, hasta, agencia, canal, estado, prioridad, dentroMeta: dentroMeta === undefined ? undefined : dentroMeta === 'true', hito },
+      { desde, hasta, agencia, canal, estado, codigo, prioridad, dentroMeta: dentroMeta === undefined ? undefined : dentroMeta === 'true', hito },
       await this.alcanceAgencia(usuario, permisos),
     );
   }
