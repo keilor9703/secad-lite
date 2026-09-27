@@ -36,6 +36,14 @@ tbody tr:last-child td { border-bottom: none; }
 .badge[data-estado="derivado"]   { background: var(--tag-info-bg);   color: var(--tag-info-fg); }
 .badge[data-estado="cerrado"]    { background: var(--surface-2);     color: var(--muted); }
 
+/* Columna "Canales": una fila por entidad a la que se envió el caso, con su
+   propio estado — para que el supervisor vea, sin abrir el detalle, cuál ya
+   cerró su parte y cuál sigue trabajando. */
+.canales-cel { display: flex; flex-direction: column; gap: 0.3rem; min-width: 190px; }
+.canal-chip { display: flex; align-items: center; gap: 0.4rem; flex-wrap: wrap; }
+.canal-nombre { font-size: 0.78rem; color: var(--ink-soft); }
+.sin-canales { color: var(--muted); }
+
 /* Rango de fechas dentro de la barra de filtros. */
 .filtros { flex-wrap: wrap; }
 .rango { display: inline-flex; align-items: center; gap: 0.4rem; flex-wrap: wrap; }

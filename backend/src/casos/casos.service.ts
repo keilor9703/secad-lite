@@ -86,7 +86,7 @@ export class CasosService implements OnModuleInit {
     if (opts?.porCanal) {
       return this.listarPorCanal(tenant, actor, opts);
     }
-    return this.rls.conTenant(tenant, async (manager) => {
+    const casos = await this.rls.conTenant(tenant, async (manager) => {
       const repo = manager.getRepository(CasoEntity);
       const limite = Math.min(Math.max(Math.trunc(opts?.limite ?? 200) || 200, 1), 500);
       const where: FindOptionsWhere<CasoEntity> = { tenant };
@@ -136,6 +136,11 @@ export class CasosService implements OnModuleInit {
       const casos = await repo.find({ where, order: { creadoEn: 'DESC' }, take: limite });
       return casos.filter((c) => this.alcanza(c, actor));
     });
+    // Consulta necesita, de un vistazo, a qué entidades llegó cada caso y en
+    // qué va cada una — sin esto un supervisor tenía que abrir el detalle de
+    // caso por caso para saber si, por ejemplo, policía ya cerró pero salud
+    // sigue en sitio. Un solo lote para toda la tanda, no una consulta por caso.
+    return this.conCanalesEstadoBatch(tenant, casos);
   }
 
   /**
@@ -184,6 +189,32 @@ export class CasosService implements OnModuleInit {
   async obtenerConEstados(tenant: string, id: string, actor?: Actor): Promise<CasoEnVivo> {
     const caso = await this.obtener(tenant, id, actor);
     return this.conEstadosDeCanal(tenant, caso);
+  }
+
+  /**
+   * Lo mismo que `conEstadosDeCanal`, pero para toda una tanda de casos en UN
+   * solo viaje a la base — es lo que usa `listar()` (la bandeja de Consulta):
+   * una consulta por caso ahí sí se notaría, con hasta 500 filas por página.
+   * Si falla, se devuelven los casos tal cual: un problema leyendo
+   * `casos_canales` no debe tumbar la bandeja completa.
+   */
+  private async conCanalesEstadoBatch(tenant: string, casos: CasoEntity[]): Promise<CasoEnVivo[]> {
+    if (!casos.length) return casos;
+    try {
+      const ids = casos.map((c) => c.id);
+      const filas = await this.rls.conTenant(tenant, (m) =>
+        m.getRepository(CasoCanalEntity).find({ where: { tenant, casoId: In(ids) } }),
+      );
+      const porCaso = new Map<string, CasoEnVivo['canalesEstado']>();
+      for (const f of filas) {
+        const lista = porCaso.get(f.casoId) ?? [];
+        lista!.push({ canalId: f.canalId, agenciaId: f.agenciaId, estado: f.estado });
+        porCaso.set(f.casoId, lista);
+      }
+      return casos.map((c) => Object.assign(c, { canalesEstado: porCaso.get(c.id) ?? [] }));
+    } catch {
+      return casos;
+    }
   }
 
   /**

@@ -1,5 +1,5 @@
 import { Injectable } from '@nestjs/common';
-import { EntityManager } from 'typeorm';
+import { EntityManager, In } from 'typeorm';
 import { CasoCanalEntity } from './caso-canal.entity';
 import { CasoEntity } from './caso.entity';
 import { EstadoCaso } from './caso.model';
@@ -64,6 +64,12 @@ export class CasoCanalService {
 
   filas(manager: EntityManager, tenant: string, casoId: string): Promise<CasoCanalEntity[]> {
     return manager.getRepository(CasoCanalEntity).find({ where: { tenant, casoId } });
+  }
+
+  /** Lo mismo que `filas`, para varios casos a la vez (un solo viaje a la base). */
+  filasDeCasos(manager: EntityManager, tenant: string, casoIds: string[]): Promise<CasoCanalEntity[]> {
+    if (!casoIds.length) return Promise.resolve([]);
+    return manager.getRepository(CasoCanalEntity).find({ where: { tenant, casoId: In(casoIds) } });
   }
 
   /**

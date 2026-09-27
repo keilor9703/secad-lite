@@ -34,6 +34,12 @@ tbody tr:last-child td { border-bottom: none; }
 .vacio-inline { color: var(--muted); font-size: 0.85rem; }
 .hint { margin: 0.5rem 0 0; color: var(--muted); font-size: 0.82rem; }
 
+/* Canal(es) de la agencia que el recurso está atendiendo, cuando está en
+   atención (asignado/en ruta/en sitio) — para que el supervisor lo vea sin
+   entrar al caso. white-space: normal porque el nombre del canal puede ser
+   más largo que el de la celda. */
+.canal-activo { white-space: normal; font-size: 0.78rem; color: var(--muted); margin-top: 0.15rem; }
+
 /* Quien no administra el secad ve su agencia fija, no un selector. */
 .agencia-fija {
   padding: 0.45rem 0.7rem; border-radius: var(--radius-sm); background: var(--surface-2);

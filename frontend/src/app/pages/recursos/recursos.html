@@ -63,7 +63,14 @@
                 <td class="mono">{{ r.codigo }}</td>
                 <td>{{ r.nombre }}</td>
                 <td class="cap">{{ r.tipo }}</td>
-                <td>{{ r.agencia }}</td>
+                <td>
+                  {{ r.agencia }}
+                  @if (nombresCanalesActivos(r)) {
+                    <div class="canal-activo" [title]="'Atendiendo por: ' + nombresCanalesActivos(r)">
+                      🔗 {{ nombresCanalesActivos(r) }}
+                    </div>
+                  }
+                </td>
                 <td><span class="rbadge" [attr.data-estado]="r.estado">{{ estadoLabel(r.estado) }}</span></td>
                 @if (gestiona()) {
                   <td class="acciones-col">

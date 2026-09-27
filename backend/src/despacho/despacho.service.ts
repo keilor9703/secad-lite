@@ -161,6 +161,49 @@ export class DespachoService {
   }
 
   /**
+   * La asignación activa de cada recurso, de varios a la vez (un solo viaje a
+   * la base) — la usa Recursos para mostrar a qué caso está atendiendo cada
+   * unidad en atención. Un recurso no tiene más de una activa a la vez, así
+   * que el mapa es 1 a 1.
+   */
+  async activasDeRecursos(tenant: string, recursoIds: string[]): Promise<Map<string, AsignacionEntity>> {
+    if (!recursoIds.length) return new Map();
+    const filas = await this.rls.conTenant(tenant, (em) =>
+      em.find(AsignacionEntity, { where: { tenant, recursoId: In(recursoIds), estado: In(ESTADOS_ASIGNACION_ACTIVOS) } }),
+    );
+    return new Map(filas.map((a) => [a.recursoId, a]));
+  }
+
+  /**
+   * Para cada recurso en atención, el caso que atiende y los canales — de SU
+   * PROPIA agencia — que ese caso tiene abiertos: es lo que Recursos necesita
+   * para mostrar "a qué canal y agencia está respondiendo" cada unidad, sin
+   * que RecursosService tenga que conocer `casos_canales` directamente (esa
+   * tabla es de CasosService/CasoCanalService). Un recurso puede coincidir con
+   * más de un canal si su agencia tiene varias colas abiertas en el mismo
+   * caso; de ahí que sea una lista.
+   */
+  async canalesActivosDeRecursos(
+    tenant: string,
+    recursos: Array<{ id: string; agenciaId: string | null }>,
+  ): Promise<Map<string, { casoId: string; canalesId: string[] }>> {
+    const activas = await this.activasDeRecursos(tenant, recursos.map((r) => r.id));
+    const resultado = new Map<string, { casoId: string; canalesId: string[] }>();
+    if (!activas.size) return resultado;
+    const casoIds = [...new Set([...activas.values()].map((a) => a.casoId))];
+    const filas = await this.rls.conTenant(tenant, (em) => this.casoCanal.filasDeCasos(em, tenant, casoIds));
+    for (const r of recursos) {
+      const activa = activas.get(r.id);
+      if (!activa) continue;
+      const canalesId = filas
+        .filter((f) => f.casoId === activa.casoId && f.agenciaId === r.agenciaId)
+        .map((f) => f.canalId);
+      resultado.set(r.id, { casoId: activa.casoId, canalesId });
+    }
+    return resultado;
+  }
+
+  /**
    * Libera automáticamente los recursos aún comprometidos con un caso: finaliza
    * sus asignaciones activas y devuelve cada recurso a 'disponible'. Se invoca al
    * cerrar el caso, dejando traza por cada recurso liberado.

@@ -4,7 +4,8 @@ import { FormControl, FormGroup, ReactiveFormsModule } from '@angular/forms';
 import { RouterLink } from '@angular/router';
 import { CasosService } from '../../core/casos.service';
 import { AuthService } from '../../core/auth.service';
-import { Canal, Caso, EstadoCaso, PrioridadCaso } from '../../core/models';
+import { CatalogosService } from '../../core/catalogos.service';
+import { Agencia, Canal, CanalAtencion, Caso, EstadoCaso, PrioridadCaso } from '../../core/models';
 import { SelectorComponent } from '../../shared/selector/selector';
 import { OpcionComponent } from '../../shared/selector/opcion';
 import { FechaComponent } from '../../shared/fecha/fecha';
@@ -25,8 +26,12 @@ import { FechaComponent } from '../../shared/fecha/fecha';
 export class CasosComponent {
   private casosSvc = inject(CasosService);
   private auth = inject(AuthService);
+  private catalogos = inject(CatalogosService);
 
   readonly casos = signal<Caso[]>([]);
+  /** Para resolver nombre de canal/agencia en la columna "Canales" (ver canalesEstado). */
+  readonly agencias = signal<Agencia[]>([]);
+  readonly canalesAtencion = signal<CanalAtencion[]>([]);
   readonly cargando = signal(false);
   readonly error = signal('');
   readonly veTodo = computed(() => this.auth.tienePermiso('casos.ver_todos'));
@@ -62,6 +67,8 @@ export class CasosComponent {
     effect(() => {
       this.auth.tenantActivo();
       this.cargar();
+      this.catalogos.agencias().subscribe({ next: (a) => this.agencias.set(a), error: () => {} });
+      this.catalogos.canales().subscribe({ next: (c) => this.canalesAtencion.set(c), error: () => {} });
     });
     this.filtroForm.controls.texto.valueChanges.subscribe((v) => this.busqueda.set(v));
     this.filtroForm.controls.estadoSel.valueChanges.subscribe((v) => this.estadoFiltro.set(v));
@@ -100,16 +107,20 @@ export class CasosComponent {
    */
   exportarCsv(): void {
     const cols = ['ID Caso', 'Código', 'Motivo', 'Canal', 'Ciudadano', 'Teléfono', 'Dirección', 'Barrio', 'Ciudad',
-                  'Agencia', 'Prioridad', 'Estado', 'Llamada', 'Recepcionado por', 'Recepcionado en'];
+                  'Agencia', 'Prioridad', 'Estado', 'Canales', 'Llamada', 'Recepcionado por', 'Recepcionado en'];
     const celda = (v: unknown) => {
       let s = String(v ?? '');
       // Un valor que empieza por = + - @ lo interpretaría Excel como fórmula.
       if (/^[=+\-@]/.test(s)) s = `'` + s;
       return `"${s.replace(/"/g, '""')}"`;
     };
+    const canalesTexto = (c: Caso) =>
+      (c.canalesEstado ?? [])
+        .map((ce) => `${this.nombreAgenciaAtencion(ce.agenciaId)} · ${this.nombreCanalAtencion(ce.canalId)}: ${this.estadoLabel(ce.estado)}`)
+        .join(' | ');
     const filas = this.filtrados().map((c) => [
       c.id, c.codigoCaso, c.titulo, c.canal, c.ciudadano, c.telefono, c.direccion, c.barrio, c.ciudad,
-      c.agencia, c.prioridad, this.estadoLabel(c.estado), c.llamadaId, c.creadoPor,
+      c.agencia, c.prioridad, this.estadoLabel(c.estado), canalesTexto(c), c.llamadaId, c.creadoPor,
       new Date(c.creadoEn).toLocaleString('es-CO'),
     ].map(celda).join(';'));
     const csv = [cols.map(celda).join(';'), ...filas].join('\r\n');
@@ -127,5 +138,14 @@ export class CasosComponent {
   }
   estadoLabel(e: EstadoCaso): string {
     return { nuevo: 'Nuevo', en_gestion: 'En gestión', despachado: 'Despachado', derivado: 'Derivado', cerrado: 'Cerrado' }[e];
+  }
+
+  /** Nombre de la agencia de atención (catálogo), para la columna "Canales". */
+  nombreAgenciaAtencion(id: string): string {
+    return this.agencias().find((a) => a.id === id)?.nombre ?? '—';
+  }
+  /** Nombre del canal (cola) de atención dentro de esa agencia. */
+  nombreCanalAtencion(id: string): string {
+    return this.canalesAtencion().find((c) => c.id === id)?.nombre ?? '—';
   }
 }

@@ -4,8 +4,9 @@ import { FormControl, FormGroup, ReactiveFormsModule, Validators } from '@angula
 import { CrearRecurso, DespachoService } from '../../core/despacho.service';
 import { AuthService } from '../../core/auth.service';
 import { CatalogosService } from '../../core/catalogos.service';
-import { Agencia, EstadoRecurso, Recurso, TipoRecurso } from '../../core/models';
+import { Agencia, CanalAtencion, EstadoRecurso, Recurso, TipoRecurso } from '../../core/models';
 import { ToastService } from '../../shared/toast/toast.service';
+import { ConfirmService } from '../../shared/confirm/confirm.service';
 import { SelectorComponent } from '../../shared/selector/selector';
 import { OpcionComponent } from '../../shared/selector/opcion';
 
@@ -27,6 +28,7 @@ export class RecursosComponent {
   private auth = inject(AuthService);
   private catalogos = inject(CatalogosService);
   private toast = inject(ToastService);
+  private confirmar = inject(ConfirmService);
 
   /** Supervisor/admin pueden gestionar la flota. */
   readonly gestiona = this.auth.privilegiado;
@@ -44,6 +46,8 @@ export class RecursosComponent {
 
   readonly recursos = signal<Recurso[]>([]);
   readonly agencias = signal<Agencia[]>([]);
+  /** Para resolver el nombre del canal cuando un recurso está en atención (ver r.canalesActivos). */
+  readonly canalesAtencion = signal<CanalAtencion[]>([]);
   readonly error = signal('');
   readonly tipos: TipoRecurso[] = ['patrulla', 'ambulancia', 'maquina', 'moto', 'otro'];
 
@@ -69,7 +73,16 @@ export class RecursosComponent {
       this.auth.tenantActivo();
       this.cargar();
       this.catalogos.agencias(true).subscribe({ next: (a) => this.agencias.set(a), error: () => {} });
+      this.catalogos.canales().subscribe({ next: (c) => this.canalesAtencion.set(c), error: () => {} });
     });
+  }
+
+  /** Nombre de cada canal activo del recurso, para mostrarlo junto a su agencia. */
+  nombresCanalesActivos(r: Recurso): string {
+    if (!r.canalesActivos?.length) return '';
+    return r.canalesActivos
+      .map((id) => this.canalesAtencion().find((c) => c.id === id)?.nombre ?? id)
+      .join(', ');
   }
 
   private cargar(): void {
@@ -126,9 +139,13 @@ export class RecursosComponent {
    * Borrado definitivo. El backend lo rechaza si el recurso ya fue despachado
    * alguna vez, y en ese caso el mensaje sugiere sacarlo de servicio.
    */
-  eliminar(r: Recurso): void {
+  async eliminar(r: Recurso): Promise<void> {
     this.error.set('');
-    if (!confirm(`¿Eliminar el recurso ${r.codigo} — ${r.nombre}? Esta acción no se puede deshacer.`)) return;
+    const ok = await this.confirmar.preguntar(
+      `¿Eliminar el recurso ${r.codigo} — ${r.nombre}? Esta acción no se puede deshacer.`,
+      { titulo: 'Eliminar recurso', textoAceptar: 'Eliminar', peligro: true },
+    );
+    if (!ok) return;
     this.despacho.eliminarRecurso(r.id).subscribe({
       next: () => { this.recursos.update((rs) => rs.filter((x) => x.id !== r.id)); this.toast.exito('Recurso eliminado.'); },
       error: (e) => this.error.set(e?.error?.message ?? 'No fue posible eliminar el recurso.'),
@@ -143,13 +160,14 @@ export class RecursosComponent {
    * en cambio, solo tiene sentido desde "Fuera de servicio" (un recurso en
    * atención nunca llega aquí con ese botón, por el label de abajo).
    */
-  toggleServicio(r: Recurso): void {
+  async toggleServicio(r: Recurso): Promise<void> {
     const fuera = r.estado !== 'fuera_servicio';
     const enAtencion = r.estado === 'asignado' || r.estado === 'en_ruta' || r.estado === 'en_sitio';
     if (fuera && enAtencion) {
-      const ok = confirm(
+      const ok = await this.confirmar.preguntar(
         `${r.codigo} está en atención (${this.estadoLabel(r.estado)}). ` +
           'Ponerlo fuera de servicio cancela su despacho activo en el caso. ¿Continuar?',
+        { titulo: 'Poner fuera de servicio', textoAceptar: 'Continuar', peligro: true },
       );
       if (!ok) return;
     }

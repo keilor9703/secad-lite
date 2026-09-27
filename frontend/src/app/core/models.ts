@@ -37,8 +37,10 @@ export interface Caso {
   /** Cuándo entró a la bandeja del canal que se está mirando (solo con `porCanal`). */
   enColaDesde?: string;
   /**
-   * El avance de cada entidad que atiende el caso. Llega por el socket para que
-   * cada tablero se quede con el canal que está mirando, sin pedir nada más.
+   * El avance de cada entidad que atiende el caso: a qué canales llegó y en
+   * qué va cada uno. Llega tanto por el socket (para que cada tablero se
+   * quede con el que está mirando) como en la bandeja de Consulta (`listar`),
+   * para ver de un vistazo cuál entidad ya cerró su parte y cuál sigue.
    */
   canalesEstado?: Array<{ canalId: string; agenciaId: string; estado: EstadoCaso }>;
   /** Solicitud de reapertura pendiente de que un supervisor la resuelva. */
@@ -153,6 +155,10 @@ export interface Recurso {
   agencia: string;
   estado: EstadoRecurso;
   activo: boolean;
+  /** Si está en atención: canal(es) de su agencia abiertos en el caso que atiende. */
+  canalesActivos?: string[];
+  /** El caso que atiende, cuando está en atención. */
+  casoActivoId?: string;
 }
 
 export type EstadoAsignacion = 'asignado' | 'en_ruta' | 'en_sitio' | 'finalizada' | 'cancelada';

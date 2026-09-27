@@ -37,6 +37,11 @@ export interface AlcanceRecursos {
   agenciaId: string | null;
 }
 
+/** Recurso con, si está en atención, el/los canal(es) de su agencia abiertos en el caso que atiende. */
+export type RecursoConCanales = RecursoEntity & { canalesActivos?: string[]; casoActivoId?: string };
+
+const ESTADOS_EN_ATENCION: EstadoRecurso[] = ['asignado', 'en_ruta', 'en_sitio'];
+
 /** Gestión de la flota de recursos (unidades). Acotada por tenant. */
 @Injectable()
 export class RecursosService implements OnModuleInit {
@@ -66,13 +71,37 @@ export class RecursosService implements OnModuleInit {
     return alcance.agenciaId ? { agenciaId: alcance.agenciaId } : { agenciaId: IsNull() };
   }
 
-  listar(tenant: string, alcance: AlcanceRecursos): Promise<RecursoEntity[]> {
-    return this.rls.conTenant(tenant, (manager) =>
+  async listar(tenant: string, alcance: AlcanceRecursos): Promise<RecursoConCanales[]> {
+    const recursos = await this.rls.conTenant(tenant, (manager) =>
       manager.getRepository(RecursoEntity).find({
         where: { tenant, ...this.agenciaWhere(alcance) },
         order: { codigo: 'ASC' },
       }),
     );
+    return this.conCanalesActivos(tenant, recursos);
+  }
+
+  /**
+   * Adjunta a cada recurso en atención el canal y la agencia del caso que
+   * está atendiendo — el supervisor lo necesita de un vistazo, sin entrar al
+   * detalle del caso. Si falla, se devuelven los recursos tal cual: un
+   * problema leyendo el despacho no debe tumbar la flota completa.
+   */
+  private async conCanalesActivos(tenant: string, recursos: RecursoEntity[]): Promise<RecursoConCanales[]> {
+    const enAtencion = recursos.filter((r) => ESTADOS_EN_ATENCION.includes(r.estado));
+    if (!enAtencion.length) return recursos;
+    try {
+      const mapa = await this.despacho.canalesActivosDeRecursos(
+        tenant,
+        enAtencion.map((r) => ({ id: r.id, agenciaId: r.agenciaId ?? null })),
+      );
+      return recursos.map((r) => {
+        const info = mapa.get(r.id);
+        return info ? Object.assign(r, { canalesActivos: info.canalesId, casoActivoId: info.casoId }) : r;
+      });
+    } catch {
+      return recursos;
+    }
   }
 
   /** Recursos libres para despachar. */
