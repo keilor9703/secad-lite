@@ -12,13 +12,14 @@ import { TemaToggleComponent } from '../../shared/tema-toggle/tema-toggle';
 import { IconoComponent } from '../../shared/icono/icono';
 import { LogoComponent } from '../../shared/logo/logo';
 import { ToastComponent } from '../../shared/toast/toast';
+import { ConfirmComponent } from '../../shared/confirm/confirm';
 import { SelectorComponent } from '../../shared/selector/selector';
 import { OpcionComponent } from '../../shared/selector/opcion';
 
 @Component({
   selector: 'app-shell',
   standalone: true,
-  imports: [ReactiveFormsModule, RouterOutlet, RouterLink, RouterLinkActive, TemaToggleComponent, LogoComponent, IconoComponent, ToastComponent, SelectorComponent, OpcionComponent],
+  imports: [ReactiveFormsModule, RouterOutlet, RouterLink, RouterLinkActive, TemaToggleComponent, LogoComponent, IconoComponent, ToastComponent, ConfirmComponent, SelectorComponent, OpcionComponent],
   templateUrl: './shell.html',
   styleUrl: './shell.scss',
   changeDetection: ChangeDetectionStrategy.OnPush,

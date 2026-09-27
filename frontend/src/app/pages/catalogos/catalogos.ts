@@ -5,6 +5,7 @@ import { CatalogosService, ResultadoImportacion } from '../../core/catalogos.ser
 import { AuthService } from '../../core/auth.service';
 import { Agencia, CanalAtencion, CodigoCaso, CodigoCierre, PrioridadCaso, TipoAgencia } from '../../core/models';
 import { ToastService } from '../../shared/toast/toast.service';
+import { ConfirmService } from '../../shared/confirm/confirm.service';
 import { SelectorComponent } from '../../shared/selector/selector';
 import { OpcionComponent } from '../../shared/selector/opcion';
 
@@ -36,6 +37,7 @@ export class CatalogosComponent {
   private catalogos = inject(CatalogosService);
   private auth = inject(AuthService);
   private toast = inject(ToastService);
+  private confirmar = inject(ConfirmService);
 
   readonly error = signal('');
   readonly aviso = signal('');
@@ -252,9 +254,13 @@ export class CatalogosComponent {
     });
   }
 
-  eliminarAgencia(a: Agencia): void {
+  async eliminarAgencia(a: Agencia): Promise<void> {
     this.limpiarMensajes();
-    if (!confirm(`¿Eliminar la agencia «${a.nombre}»? Esta acción no se puede deshacer.`)) return;
+    const ok = await this.confirmar.preguntar(
+      `¿Eliminar la agencia «${a.nombre}»? Esta acción no se puede deshacer.`,
+      { titulo: 'Eliminar agencia', textoAceptar: 'Eliminar', peligro: true },
+    );
+    if (!ok) return;
     this.catalogos.eliminarAgencia(a.id).subscribe({
       next: () => {
         this.agencias.update((as) => as.filter((x) => x.id !== a.id));
@@ -307,9 +313,13 @@ export class CatalogosComponent {
     });
   }
 
-  eliminarCanal(c: CanalAtencion): void {
+  async eliminarCanal(c: CanalAtencion): Promise<void> {
     this.limpiarMensajes();
-    if (!confirm(`¿Eliminar el canal «${c.nombre}»? Esta acción no se puede deshacer.`)) return;
+    const ok = await this.confirmar.preguntar(
+      `¿Eliminar el canal «${c.nombre}»? Esta acción no se puede deshacer.`,
+      { titulo: 'Eliminar canal', textoAceptar: 'Eliminar', peligro: true },
+    );
+    if (!ok) return;
     this.catalogos.eliminarCanal(c.id).subscribe({
       next: () => { this.canales.update((cs) => cs.filter((x) => x.id !== c.id)); this.toast.exito('Canal eliminado.'); },
       error: (e) => this.fallo(e, 'No fue posible eliminar el canal.'),
@@ -364,9 +374,13 @@ export class CatalogosComponent {
     });
   }
 
-  eliminarCodigo(c: CodigoCaso): void {
+  async eliminarCodigo(c: CodigoCaso): Promise<void> {
     this.limpiarMensajes();
-    if (!confirm(`¿Eliminar el código «${c.codigo}»? Esta acción no se puede deshacer.`)) return;
+    const ok = await this.confirmar.preguntar(
+      `¿Eliminar el código «${c.codigo}»? Esta acción no se puede deshacer.`,
+      { titulo: 'Eliminar código', textoAceptar: 'Eliminar', peligro: true },
+    );
+    if (!ok) return;
     this.catalogos.eliminarCodigo(c.id).subscribe({
       next: () => { this.codigos.update((cs) => cs.filter((x) => x.id !== c.id)); this.toast.exito('Código eliminado.'); },
       error: (e) => this.fallo(e, 'No fue posible eliminar el código.'),
@@ -414,9 +428,13 @@ export class CatalogosComponent {
     });
   }
 
-  eliminarCierre(c: CodigoCierre): void {
+  async eliminarCierre(c: CodigoCierre): Promise<void> {
     this.limpiarMensajes();
-    if (!confirm(`¿Eliminar el cierre «${c.etiqueta}»? Esta acción no se puede deshacer.`)) return;
+    const ok = await this.confirmar.preguntar(
+      `¿Eliminar el cierre «${c.etiqueta}»? Esta acción no se puede deshacer.`,
+      { titulo: 'Eliminar código de cierre', textoAceptar: 'Eliminar', peligro: true },
+    );
+    if (!ok) return;
     this.catalogos.eliminarCierre(c.id).subscribe({
       next: () => { this.cierres.update((cs) => cs.filter((x) => x.id !== c.id)); this.toast.exito('Cierre eliminado.'); },
       error: (e) => this.fallo(e, 'No fue posible eliminar el código de cierre.'),

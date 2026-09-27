@@ -10,6 +10,7 @@ import { CatalogosService } from '../../core/catalogos.service';
 import { DespachoService } from '../../core/despacho.service';
 import { WhatsappService } from '../../core/whatsapp.service';
 import { ToastService } from '../../shared/toast/toast.service';
+import { ConfirmService } from '../../shared/confirm/confirm.service';
 import { SelectorComponent } from '../../shared/selector/selector';
 import { OpcionComponent } from '../../shared/selector/opcion';
 import { DictadoComponent } from '../../shared/dictado/dictado';
@@ -35,6 +36,7 @@ export class DetalleComponent implements OnInit, OnDestroy {
   private catalogos = inject(CatalogosService);
   private whatsappSvc = inject(WhatsappService);
   private toast = inject(ToastService);
+  private confirmar = inject(ConfirmService);
 
   /** Supervisor/admin: habilita cerrar y reabrir. */
   readonly privilegiado = this.auth.privilegiado;
@@ -260,15 +262,18 @@ export class DetalleComponent implements OnInit, OnDestroy {
     this.remisionCanales.update((cs) => (cs.includes(id) ? cs.filter((c) => c !== id) : [...cs, id]));
   }
 
-  remitir(): void {
+  async remitir(): Promise<void> {
     const v = this.remisionForm.getRawValue();
     if (!v.agenciaId || !this.remisionCanales().length) {
       this.error.set('Elija la agencia destino y al menos un canal.');
       return;
     }
-    if (v.exclusivo &&
-        !window.confirm('El caso saldrá de la cola de la agencia actual y quedará solo en la nueva. ¿Continuar?')) {
-      return;
+    if (v.exclusivo) {
+      const ok = await this.confirmar.preguntar(
+        'El caso saldrá de la cola de la agencia actual y quedará solo en la nueva. ¿Continuar?',
+        { titulo: 'Remitir caso', textoAceptar: 'Continuar' },
+      );
+      if (!ok) return;
     }
     this.remitiendo.set(true);
     this.casosSvc.remitir(this.id, {
@@ -314,7 +319,7 @@ export class DetalleComponent implements OnInit, OnDestroy {
     }
   }
 
-  remitirTenant(): void {
+  async remitirTenant(): Promise<void> {
     const v = this.remisionTenantForm.getRawValue();
     if (!v.tenantDestino) {
       this.error.set('Elija la instancia destino.');
@@ -325,11 +330,11 @@ export class DetalleComponent implements OnInit, OnDestroy {
       return;
     }
     const destino = this.tenantsDestino().find((t) => t.codigo === v.tenantDestino);
-    if (!window.confirm(
+    const ok = await this.confirmar.preguntar(
       `El caso quedará derivado en esta instancia y se creará uno nuevo en ${destino?.nombre ?? v.tenantDestino}. ¿Continuar?`,
-    )) {
-      return;
-    }
+      { titulo: 'Remitir a otra instancia', textoAceptar: 'Continuar' },
+    );
+    if (!ok) return;
     this.remitiendoTenant.set(true);
     this.casosSvc.remitirTenant(this.id, {
       tenantDestino: v.tenantDestino,
@@ -386,13 +391,16 @@ export class DetalleComponent implements OnInit, OnDestroy {
   }
 
   /** Cierra el caso con su clasificación; el resto de estados van solos. */
-  confirmarCierre(): void {
+  async confirmarCierre(): Promise<void> {
     const v = this.cierreForm.getRawValue();
     if (!v.codigo) { this.error.set('Elija el código de cierre.'); return; }
     if (!v.comentario.trim()) { this.error.set('Escriba el comentario de cierre.'); return; }
-    if (this.asignaciones().some((a) => this.activa(a))
-        && !window.confirm('El caso tiene recursos en atención. Al cerrar se liberarán automáticamente. ¿Continuar?')) {
-      return;
+    if (this.asignaciones().some((a) => this.activa(a))) {
+      const ok = await this.confirmar.preguntar(
+        'El caso tiene recursos en atención. Al cerrar se liberarán automáticamente. ¿Continuar?',
+        { titulo: 'Cerrar caso', textoAceptar: 'Continuar', peligro: true },
+      );
+      if (!ok) return;
     }
     const codigoCasoFinal = v.codigoCasoFinal.split(' — ')[0].trim() || undefined;
     this.cerrando.set(true);
@@ -489,14 +497,17 @@ export class DetalleComponent implements OnInit, OnDestroy {
     });
   }
 
-  cambiarEstado(estado: EstadoCaso): void {
+  async cambiarEstado(estado: EstadoCaso): Promise<void> {
     // Derivar deja de ser un texto libre: se hace con el panel de remisión, que
     // elige agencia y canales reales del catálogo.
     if (estado === 'derivado') { this.abrirRemitir(); return; }
     const agencia: string | undefined = undefined;
-    if (estado === 'cerrado' && this.asignaciones().some((a) => this.activa(a))
-        && !window.confirm('El caso tiene recursos en atención. Al cerrar se liberarán automáticamente. ¿Continuar?')) {
-      return;
+    if (estado === 'cerrado' && this.asignaciones().some((a) => this.activa(a))) {
+      const ok = await this.confirmar.preguntar(
+        'El caso tiene recursos en atención. Al cerrar se liberarán automáticamente. ¿Continuar?',
+        { titulo: 'Cerrar caso', textoAceptar: 'Continuar', peligro: true },
+      );
+      if (!ok) return;
     }
     this.casosSvc.cambiarEstado(this.id, estado, agencia, this.canalId()).subscribe({
       next: (c) => {

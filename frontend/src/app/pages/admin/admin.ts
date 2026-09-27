@@ -12,6 +12,7 @@ import { EntidadesService } from '../../core/entidades.service';
 import { CatalogosService } from '../../core/catalogos.service';
 import { CasosService } from '../../core/casos.service';
 import { ToastService } from '../../shared/toast/toast.service';
+import { ConfirmService } from '../../shared/confirm/confirm.service';
 import { SelectorComponent } from '../../shared/selector/selector';
 import { OpcionComponent } from '../../shared/selector/opcion';
 import {
@@ -53,6 +54,7 @@ export class AdminComponent implements OnInit {
   private catalogosSvc = inject(CatalogosService);
   private casosSvc = inject(CasosService);
   private toast = inject(ToastService);
+  private confirmar = inject(ConfirmService);
 
   readonly esSuperadmin = this.auth.esSuperadmin;
   readonly gestionaRoles = this.auth.gestionaRoles;
@@ -397,8 +399,12 @@ export class AdminComponent implements OnInit {
     });
   }
 
-  eliminarRol(rol: RolTenant): void {
-    if (!window.confirm(`¿Eliminar el rol "${rol.nombre}"?`)) return;
+  async eliminarRol(rol: RolTenant): Promise<void> {
+    const ok = await this.confirmar.preguntar(
+      `¿Eliminar el rol "${rol.nombre}"?`,
+      { titulo: 'Eliminar rol', textoAceptar: 'Eliminar', peligro: true },
+    );
+    if (!ok) return;
     this.error.set('');
     this.rolesSvc.eliminar(rol.id).subscribe({
       next: () => { this.roles.update((rs) => rs.filter((r) => r.id !== rol.id)); this.toast.exito('Rol eliminado.'); },
@@ -495,8 +501,12 @@ export class AdminComponent implements OnInit {
     });
   }
 
-  rotarEntidad(e: EntidadExterna): void {
-    if (!window.confirm(`Al rotar la clave, "${e.nombre}" dejará de poder radicar casos hasta actualizarla. ¿Continuar?`)) return;
+  async rotarEntidad(e: EntidadExterna): Promise<void> {
+    const ok = await this.confirmar.preguntar(
+      `Al rotar la clave, "${e.nombre}" dejará de poder radicar casos hasta actualizarla. ¿Continuar?`,
+      { titulo: 'Rotar clave', textoAceptar: 'Continuar', peligro: true },
+    );
+    if (!ok) return;
     this.entidadesSvc.rotar(e.id).subscribe({
       next: (act) => {
         this.entidades.update((es) => es.map((x) => (x.id === act.id ? act : x)));
@@ -645,8 +655,12 @@ export class AdminComponent implements OnInit {
     return JSON.stringify({ evento: 'colgada', callId: 'id-que-use-su-central', agente: 'Nombre del agente (opcional)' }, null, 2);
   }
 
-  rotarPbx(): void {
-    if (!window.confirm('Al rotar la clave, la PBX dejará de funcionar hasta actualizarla. ¿Continuar?')) return;
+  async rotarPbx(): Promise<void> {
+    const ok = await this.confirmar.preguntar(
+      'Al rotar la clave, la PBX dejará de funcionar hasta actualizarla. ¿Continuar?',
+      { titulo: 'Rotar clave', textoAceptar: 'Continuar', peligro: true },
+    );
+    if (!ok) return;
     this.pbx.rotarKey().subscribe({
       next: (c) => { this.pbxConfig.set(c); this.toast.exito('Clave nueva emitida. Cópiela ahora: no se vuelve a mostrar.'); },
       error: (e) => this.error.set(e?.error?.message ?? 'No fue posible rotar la clave.'),

@@ -1,0 +1,49 @@
+:host { display: contents; }
+
+.confirm-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.45);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 1.2rem;
+  // Por encima de cualquier otro modal del sistema (detalle-reporte y
+  // detalle-llamadas usan 2500): una confirmación puede dispararse desde
+  // dentro de uno de ellos y tiene que quedar arriba.
+  z-index: 3000;
+  animation: confirm-fondo 0.15s ease-out;
+}
+
+.confirm-caja {
+  background: var(--surface);
+  border: 1px solid var(--border-2);
+  border-radius: var(--radius);
+  box-shadow: 0 12px 40px rgba(0, 0, 0, 0.25);
+  width: min(420px, 100%);
+  padding: 1.3rem 1.4rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.7rem;
+  animation: confirm-entra 0.18s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.confirm-titulo { margin: 0; font-size: 1.05rem; font-weight: 600; }
+.confirm-mensaje { margin: 0; font-size: 0.9rem; line-height: 1.5; color: var(--ink-soft); white-space: pre-line; }
+
+.confirm-acciones {
+  display: flex;
+  justify-content: flex-end;
+  gap: 0.5rem;
+  margin-top: 0.3rem;
+}
+
+@keyframes confirm-fondo { from { opacity: 0; } to { opacity: 1; } }
+@keyframes confirm-entra {
+  from { opacity: 0; transform: translateY(6px) scale(0.98); }
+  to { opacity: 1; transform: translateY(0) scale(1); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .confirm-overlay, .confirm-caja { animation: none; }
+}

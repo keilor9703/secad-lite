@@ -1,0 +1,14 @@
+@if (peticion(); as p) {
+  <div class="confirm-overlay" (click)="cancelar()">
+    <div class="confirm-caja" role="alertdialog" aria-modal="true"
+      [attr.aria-label]="p.titulo" (click)="$event.stopPropagation()">
+      <h2 class="confirm-titulo">{{ p.titulo }}</h2>
+      <p class="confirm-mensaje">{{ p.mensaje }}</p>
+      <div class="confirm-acciones">
+        <button type="button" class="btn btn--ghost" (click)="cancelar()">{{ p.textoCancelar }}</button>
+        <button type="button" class="btn" [class.btn--primary]="!p.peligro" [class.btn--danger]="p.peligro"
+          (click)="aceptar()" #botonAceptar>{{ p.textoAceptar }}</button>
+      </div>
+    </div>
+  </div>
+}
