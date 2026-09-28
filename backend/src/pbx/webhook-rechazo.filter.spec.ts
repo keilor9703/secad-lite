@@ -26,12 +26,14 @@ describe('PbxWebhookRechazoFilter', () => {
     expect(res.json).toHaveBeenCalledWith(exc.getResponse());
   });
 
-  it('registra motivo, estado, ip y el body recibido', () => {
+  it('registra motivo, estado, evento, ip y el body recibido, marcado como no exitoso', () => {
     const exc = new UnauthorizedException('API key inválida.');
     filter.catch(exc, host({ evento: 'entrante', numero: '300' }));
     expect(repo.save).toHaveBeenCalledWith(
       expect.objectContaining({
+        exitoso: false,
         estadoHttp: 401,
+        evento: 'entrante',
         motivo: 'API key inválida.',
         ip: '203.0.113.7',
         cuerpo: JSON.stringify({ evento: 'entrante', numero: '300' }),

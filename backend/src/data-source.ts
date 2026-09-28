@@ -10,7 +10,7 @@ import { TenantEntity } from './tenants/tenant.entity';
 import { RecursoEntity } from './despacho/recurso.entity';
 import { AsignacionEntity } from './despacho/asignacion.entity';
 import { LlamadaEntity } from './pbx/llamada.entity';
-import { PbxWebhookRechazadoEntity } from './pbx/webhook-rechazado.entity';
+import { PbxWebhookLogEntity } from './pbx/webhook-log.entity';
 import { RolEntity } from './roles/rol.entity';
 import { EntidadEntity } from './integracion/entidad.entity';
 import { AgenciaEntity } from './catalogos/agencia.entity';
@@ -30,6 +30,6 @@ export default new DataSource({
   url: process.env.DATABASE_URL,
   // Igual que la app: las bases gestionadas exigen TLS (ver app.module.ts).
   ssl: process.env.DB_SSL === 'true' ? { rejectUnauthorized: false } : undefined,
-  entities: [CasoEntity, EventoCasoEntity, UsuarioEntity, MensajeChatEntity, MensajeChatInternoEntity, TenantEntity, RecursoEntity, AsignacionEntity, LlamadaEntity, PbxWebhookRechazadoEntity, RolEntity, EntidadEntity, AgenciaEntity, CanalEntity, CodigoCasoEntity, CodigoCierreEntity],
+  entities: [CasoEntity, EventoCasoEntity, UsuarioEntity, MensajeChatEntity, MensajeChatInternoEntity, TenantEntity, RecursoEntity, AsignacionEntity, LlamadaEntity, PbxWebhookLogEntity, RolEntity, EntidadEntity, AgenciaEntity, CanalEntity, CodigoCasoEntity, CodigoCierreEntity],
   migrations: ['src/migrations/*.ts'],
 });

@@ -2,7 +2,7 @@ import { ArgumentsHost, Catch, ExceptionFilter, HttpException, Injectable, Logge
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { Request, Response } from 'express';
-import { PbxWebhookRechazadoEntity } from './webhook-rechazado.entity';
+import { PbxWebhookLogEntity } from './webhook-log.entity';
 import { resolverIpCliente } from '../common/ip-cliente.decorator';
 
 /** Nada de lo que se guarde acá debe crecer sin límite ante un body enorme o repetido. */
@@ -15,6 +15,8 @@ const TOPE_CUERPO = 2000;
  * `colgada` que no ubica la llamada. Responde EXACTAMENTE lo mismo que ya
  * respondía sin este filtro (mismo formato que el manejador por defecto de
  * Nest): es logging puro, no cambia el contrato del webhook para la central.
+ * Contraparte de `PbxWebhookExitoInterceptor`, que hace lo mismo para las
+ * que sí se aceptan — juntos cubren TODA petición al webhook en `pbx_webhook_log`.
  *
  * Solo se aplica a la ruta del webhook (`@UseFilters` en ese método, no en
  * todo el controlador): los errores de las rutas autenticadas (cola,
@@ -26,8 +28,8 @@ export class PbxWebhookRechazoFilter implements ExceptionFilter {
   private readonly log = new Logger(PbxWebhookRechazoFilter.name);
 
   constructor(
-    @InjectRepository(PbxWebhookRechazadoEntity)
-    private readonly repo: Repository<PbxWebhookRechazadoEntity>,
+    @InjectRepository(PbxWebhookLogEntity)
+    private readonly repo: Repository<PbxWebhookLogEntity>,
   ) {}
 
   catch(exception: HttpException, host: ArgumentsHost): void {
@@ -48,7 +50,9 @@ export class PbxWebhookRechazoFilter implements ExceptionFilter {
       // alcanzó a identificarlo antes de rechazar (una API key inválida
       // nunca llega a resolver ninguno).
       tenant: (exception as HttpException & { tenantPbx?: string }).tenantPbx ?? null,
+      exitoso: false,
       estadoHttp: estado,
+      evento: (req.body as { evento?: string })?.evento ?? null,
       motivo,
       ip: resolverIpCliente(req),
       cuerpo: req.body ? JSON.stringify(req.body).slice(0, TOPE_CUERPO) : null,

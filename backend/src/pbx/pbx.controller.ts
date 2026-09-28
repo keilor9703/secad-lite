@@ -1,7 +1,8 @@
-import { Body, Controller, Get, Headers, Param, Post, UseFilters } from '@nestjs/common';
+import { Body, Controller, Get, Headers, Param, Post, UseFilters, UseInterceptors } from '@nestjs/common';
 import { ActorPbx, PbxService, WebhookLlamadaDto } from './pbx.service';
 import { TenantsService } from '../tenants/tenants.service';
 import { PbxWebhookRechazoFilter } from './webhook-rechazo.filter';
+import { PbxWebhookExitoInterceptor } from './webhook-exito.interceptor';
 import { Public } from '../auth/public.decorator';
 import { Permisos } from '../auth/permisos.decorator';
 import { AuditoriaAdminService } from '../auditoria/auditoria-admin.service';
@@ -26,6 +27,7 @@ export class PbxController {
    */
   @Public()
   @UseFilters(PbxWebhookRechazoFilter)
+  @UseInterceptors(PbxWebhookExitoInterceptor)
   @Post('webhook')
   webhook(@Headers('x-api-key') apiKey: string, @Body() dto: WebhookLlamadaDto) {
     return this.pbx.webhook(apiKey, dto);
