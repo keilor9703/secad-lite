@@ -374,6 +374,18 @@ export class DetalleComponent implements OnInit, OnDestroy {
   }
 
   /**
+   * Descripción del código de tipificación del caso (ej. «Hurto en curso»
+   * para «102»), para que el despachador vea qué significa el código sin
+   * tener que ir a buscarlo al catálogo. `null` si el código no está (o ya
+   * no está) en el catálogo del tenant.
+   */
+  descripcionCodigoCaso(codigo?: string | null): string | null {
+    const buscado = codigo?.trim().toUpperCase();
+    if (!buscado) return null;
+    return this.codigosCaso().find((c) => c.codigo.toUpperCase() === buscado)?.descripcion ?? null;
+  }
+
+  /**
    * «102 — Hurto en curso» si el código existe en el catálogo; si no,
    * lo que se haya escrito tal cual (código suelto o vacío).
    */

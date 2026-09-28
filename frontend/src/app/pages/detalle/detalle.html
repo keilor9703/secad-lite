@@ -22,7 +22,15 @@
         <p class="mono id">{{ c.id }}</p>
         <dl class="datos">
           @if (c.codigoCaso) {
-            <div><dt>Código de caso</dt><dd class="mono">{{ c.codigoCaso }}</dd></div>
+            <div>
+              <dt>Código de caso</dt>
+              <dd>
+                <span class="mono">{{ c.codigoCaso }}</span>
+                @if (descripcionCodigoCaso(c.codigoCaso); as d) {
+                  <span> — {{ d }}</span>
+                }
+              </dd>
+            </div>
           }
           <div><dt>Prioridad</dt><dd><span class="prio" [attr.data-prio]="c.prioridad">{{ c.prioridad || 'media' }}</span></dd></div>
           <div><dt>Quien reporta</dt><dd>{{ c.ciudadano }}</dd></div>
