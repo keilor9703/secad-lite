@@ -2,10 +2,12 @@ import { Module } from '@nestjs/common';
 import { AuditoriaModule } from '../auditoria/auditoria.module';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { LlamadaEntity } from './llamada.entity';
+import { PbxWebhookRechazadoEntity } from './webhook-rechazado.entity';
 import { CasoEntity } from '../casos/caso.entity';
 import { PbxService } from './pbx.service';
 import { PbxController } from './pbx.controller';
 import { PbxGateway } from './pbx.gateway';
+import { PbxWebhookRechazoFilter } from './webhook-rechazo.filter';
 import { CasosModule } from '../casos/casos.module';
 import { TenantsModule } from '../tenants/tenants.module';
 import { AuthModule } from '../auth/auth.module';
@@ -19,7 +21,7 @@ import { UsuariosModule } from '../usuarios/usuarios.module';
 @Module({
   imports: [
     AuditoriaModule,
-    TypeOrmModule.forFeature([LlamadaEntity, CasoEntity]),
+    TypeOrmModule.forFeature([LlamadaEntity, CasoEntity, PbxWebhookRechazadoEntity]),
     CasosModule,
     TenantsModule,
     AuthModule,
@@ -27,7 +29,7 @@ import { UsuariosModule } from '../usuarios/usuarios.module';
     UsuariosModule,
   ],
   controllers: [PbxController],
-  providers: [PbxService, PbxGateway],
+  providers: [PbxService, PbxGateway, PbxWebhookRechazoFilter],
   exports: [PbxService],
 })
 export class PbxModule {}

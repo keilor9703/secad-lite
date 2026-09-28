@@ -130,10 +130,30 @@ describe('PbxService.webhook()', () => {
       .rejects.toThrow(UnauthorizedException);
   });
 
+  it('una API key inválida no alcanza a etiquetar ningún tenant en la excepción (nunca se resolvió ninguno)', async () => {
+    tenants.porApiKey.mockResolvedValue(null);
+    try {
+      await service.webhook('clave-invalida', { evento: 'entrante', numero: '300' } as WebhookLlamadaDto);
+      fail('debía lanzar');
+    } catch (e) {
+      expect((e as { tenantPbx?: string }).tenantPbx).toBeUndefined();
+    }
+  });
+
   it('lanza ForbiddenException si el tenant no tiene la integración pbx vigente', async () => {
     tenants.asegurarVigente.mockImplementation(() => { throw new ForbiddenException('El módulo de pbx no está habilitado para esta instancia.'); });
     await expect(service.webhook('clave-ok', { evento: 'entrante', numero: '300' } as WebhookLlamadaDto))
       .rejects.toThrow(ForbiddenException);
+  });
+
+  it('etiqueta la excepción con el tenant ya resuelto (para el registro de rechazos del webhook)', async () => {
+    tenants.asegurarVigente.mockImplementation(() => { throw new ForbiddenException('El módulo de pbx no está habilitado para esta instancia.'); });
+    try {
+      await service.webhook('clave-ok', { evento: 'entrante', numero: '300' } as WebhookLlamadaDto);
+      fail('debía lanzar');
+    } catch (e) {
+      expect((e as { tenantPbx?: string }).tenantPbx).toBe('demo');
+    }
   });
 
   it('lanza BadRequestException si el evento no es entrante ni colgada (defensa adicional, además del DTO)', async () => {

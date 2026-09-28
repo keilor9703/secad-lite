@@ -1,4 +1,4 @@
-import { BadRequestException, ForbiddenException, Injectable, NotFoundException, UnauthorizedException } from '@nestjs/common';
+import { BadRequestException, ForbiddenException, HttpException, Injectable, NotFoundException, UnauthorizedException } from '@nestjs/common';
 import { IsIn, IsISO8601, IsOptional, IsString, MaxLength, ValidateIf } from 'class-validator';
 import { EntityManager, Not } from 'typeorm';
 import { Subject } from 'rxjs';
@@ -144,8 +144,23 @@ export class PbxService {
 
   /** Procesa un evento de la PBX autenticado por API key. */
   async webhook(apiKey: string, dto: WebhookLlamadaDto): Promise<LlamadaEntity> {
+    let tenantCodigo: string | undefined;
+    try {
+      return await this.procesarWebhook(apiKey, dto, (t) => { tenantCodigo = t; });
+    } catch (e) {
+      // El filtro de rechazos (webhook-rechazo.filter.ts) registra el
+      // intento; le deja saber qué tenant alcanzó a resolverse antes del
+      // error, cuando lo hubo (una API key inválida nunca llega a resolver
+      // ninguno).
+      if (e instanceof HttpException && tenantCodigo) (e as HttpException & { tenantPbx?: string }).tenantPbx = tenantCodigo;
+      throw e;
+    }
+  }
+
+  private async procesarWebhook(apiKey: string, dto: WebhookLlamadaDto, onTenant: (codigo: string) => void): Promise<LlamadaEntity> {
     const tenant = await this.tenants.porApiKey(apiKey);
     if (!tenant) throw new UnauthorizedException('API key inválida.');
+    onTenant(tenant.codigo);
     // Bloqueado, suscripción suspendida/vencida, o sin la integración pbx
     // contratada: nada de esto lo revisa el guard global porque esta ruta es
     // pública (la llama la central, sin sesión de usuario).

@@ -1,0 +1,59 @@
+import { ArgumentsHost, Catch, ExceptionFilter, HttpException, Injectable, Logger } from '@nestjs/common';
+import { InjectRepository } from '@nestjs/typeorm';
+import { Repository } from 'typeorm';
+import { Request, Response } from 'express';
+import { PbxWebhookRechazadoEntity } from './webhook-rechazado.entity';
+import { resolverIpCliente } from '../common/ip-cliente.decorator';
+
+/** Nada de lo que se guarde acá debe crecer sin límite ante un body enorme o repetido. */
+const TOPE_CUERPO = 2000;
+
+/**
+ * Deja constancia de cada intento AL WEBHOOK DE PBX que termina en error —
+ * API key inválida, tenant no vigente, body mal formado (incluye lo que
+ * rechaza el ValidationPipe, no solo lo que lanza PbxService), o un
+ * `colgada` que no ubica la llamada. Responde EXACTAMENTE lo mismo que ya
+ * respondía sin este filtro (mismo formato que el manejador por defecto de
+ * Nest): es logging puro, no cambia el contrato del webhook para la central.
+ *
+ * Solo se aplica a la ruta del webhook (`@UseFilters` en ese método, no en
+ * todo el controlador): los errores de las rutas autenticadas (cola,
+ * atender, config…) no son "intentos de la central" y no pertenecen aquí.
+ */
+@Injectable()
+@Catch(HttpException)
+export class PbxWebhookRechazoFilter implements ExceptionFilter {
+  private readonly log = new Logger(PbxWebhookRechazoFilter.name);
+
+  constructor(
+    @InjectRepository(PbxWebhookRechazadoEntity)
+    private readonly repo: Repository<PbxWebhookRechazadoEntity>,
+  ) {}
+
+  catch(exception: HttpException, host: ArgumentsHost): void {
+    const ctx = host.switchToHttp();
+    const req = ctx.getRequest<Request>();
+    const res = ctx.getResponse<Response>();
+    const estado = exception.getStatus();
+    const cuerpoRespuesta = exception.getResponse();
+    const mensaje = typeof cuerpoRespuesta === 'string' ? cuerpoRespuesta : (cuerpoRespuesta as { message?: unknown })?.message;
+    // El ValidationPipe manda un array de mensajes (uno por campo inválido);
+    // el resto de las excepciones, un solo string.
+    const motivo = Array.isArray(mensaje) ? mensaje.join(' | ') : typeof mensaje === 'string' ? mensaje : JSON.stringify(cuerpoRespuesta);
+
+    // Nunca debe tumbar la respuesta real al webhook: si falla el guardado,
+    // solo se registra en el log del proceso y sigue.
+    this.repo.save(this.repo.create({
+      // PbxService.webhook ya deja el tenant resuelto en la excepción cuando
+      // alcanzó a identificarlo antes de rechazar (una API key inválida
+      // nunca llega a resolver ninguno).
+      tenant: (exception as HttpException & { tenantPbx?: string }).tenantPbx ?? null,
+      estadoHttp: estado,
+      motivo,
+      ip: resolverIpCliente(req),
+      cuerpo: req.body ? JSON.stringify(req.body).slice(0, TOPE_CUERPO) : null,
+    })).catch((e) => this.log.warn(`No se pudo registrar el rechazo del webhook: ${(e as Error).message}`));
+
+    res.status(estado).json(cuerpoRespuesta);
+  }
+}
