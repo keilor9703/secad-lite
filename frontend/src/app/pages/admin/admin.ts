@@ -649,6 +649,7 @@ export class AdminComponent implements OnInit {
     return JSON.stringify({
       evento: 'entrante', numero: '3001234567', numeroDestino: '6011234567',
       callId: 'id-que-use-su-central', extension: '105', agente: 'Nombre del agente (opcional)',
+      fechaHora: '2026-09-28T14:36:26-05:00',
     }, null, 2);
   }
   get ejemploPbxColgada(): string {

@@ -57,6 +57,16 @@ export class LlamadaEntity {
   @Column({ type: 'varchar', length: 120, nullable: true })
   agentePbx?: string | null;
 
+  /**
+   * Fecha y hora del evento, TAL COMO la reporta la propia central — se
+   * guarda sin usarse para nada más (ni orden, ni reportes: para eso siguen
+   * sirviendo `creadoEn`/`atendidaEn`, que pone FALCON al recibir el
+   * webhook). Es solo el dato de referencia de la central, por si hace
+   * falta cruzarlo con sus propios registros.
+   */
+  @Column({ type: 'timestamptz', nullable: true })
+  fechaHoraPbx?: Date | null;
+
   @Column({ type: 'varchar', length: 20, default: 'sonando' })
   estado!: EstadoLlamada;
 

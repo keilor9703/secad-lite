@@ -64,7 +64,8 @@ x-api-key: <API key del tenant>
   "numero": "3001234567",
   "callId": "abc-123",
   "numeroDestino": "123",
-  "extension": "105"
+  "extension": "105",
+  "fechaHora": "2026-09-28T14:36:26-05:00"
 }
 ```
 
@@ -75,8 +76,10 @@ x-api-key: <API key del tenant>
 | `callId` | string | no | ID de la llamada en la central; permite correlacionar el evento `colgada` posterior. Si no se manda, se correlaciona por `numero` + estado `sonando`. |
 | `numeroDestino` | string | no | Número marcado (línea 123, etc.), informativo. |
 | `extension` | string | no | Extensión a la que el ACD **de la central** ya decidió dirigir la llamada. Si coincide con la extensión de un funcionario activo del tenant (asignada en Administración → Usuarios), el aviso llega solo a esa sesión y la llamada desaparece de la cola de los demás operadores. Si se omite, o no hay match, se anuncia a todo el que esté atendiendo el tenant — el comportamiento por defecto, sin ACD. |
+| `agente` | string | no | El agente/usuario que contestó, tal como lo identifica la central — se guarda tal cual, sin resolverse contra un usuario de FALCON. También se puede mandar en `colgada`; si llega en los dos, gana el último. |
+| `fechaHora` | string (ISO 8601) | no | Fecha/hora del evento reportada por la central — ej. `"2026-09-28T14:36:26-05:00"`. **Se guarda tal cual, sin usarse para nada más**: FALCON ya sella su propio instante de recepción (`creadoEn`/`atendidaEn`), que es el que usan el orden de la cola y los reportes. Inclúyale la zona horaria; sin ella, la fecha queda ambigua (a qué instante real corresponde). Un valor que no sea una fecha ISO 8601 válida se rechaza con `400`. |
 
-**Respuesta** `200 OK` — la llamada creada:
+**Respuesta** `201 Created` — la llamada creada:
 
 ```json
 {
@@ -87,9 +90,12 @@ x-api-key: <API key del tenant>
   "numeroDestino": "123",
   "extension": "105",
   "destinatario": "operador1",
+  "agentePbx": null,
+  "fechaHoraPbx": "2026-09-28T19:36:26.000Z",
   "estado": "sonando",
   "casoId": null,
   "atendidaPor": null,
+  "atendidaEn": null,
   "creadoEn": "2026-08-07T20:50:00.000Z",
   "actualizadoEn": "2026-08-07T20:50:00.000Z"
 }
@@ -107,7 +113,7 @@ no se mandó extensión o no hubo match — cola compartida).
 Sin `callId`, se ubica por `numero` + estado `sonando`. Si la llamada estaba
 `sonando`, pasa a `perdida`; si estaba `atendida`, pasa a `finalizada`.
 
-**Respuesta** `200 OK` — la llamada actualizada (mismo esquema de arriba, con
+**Respuesta** `201 Created` — la llamada actualizada (mismo esquema de arriba, con
 `estado` en `"perdida"` o `"finalizada"`).
 
 **Errores**:

@@ -142,6 +142,10 @@
             <code>agente</code>: el agente/usuario que contestó, tal como lo identifica su central — se guarda
             tal cual, sin necesidad de que calce con un usuario de FALCON. Puede mandarse en <code>entrante</code>
             o en <code>colgada</code> (lo que reporte primero la central); si llega en los dos, gana el último.
+            <code>fechaHora</code>: fecha y hora del evento reportadas por su central, en <strong>ISO 8601 con
+            zona horaria</strong> (ej. <code>2026-09-28T14:36:26-05:00</code>). Se guarda tal cual, solo como
+            referencia — FALCON ya sella su propio instante de recepción, así que este campo es opcional y no
+            afecta reportes ni el orden de la cola.
           </p>
           <div class="pbx-field">
             <label>URL del webhook</label>

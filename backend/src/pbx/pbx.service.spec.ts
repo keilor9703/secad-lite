@@ -51,6 +51,20 @@ describe('WebhookLlamadaDto — validación', () => {
     });
     expect(errores).toHaveLength(0);
   });
+
+  it('acepta "fechaHora" en ISO 8601 con zona horaria', async () => {
+    const errores = await validar({
+      evento: 'entrante', numero: '3001234567', fechaHora: '2026-09-28T14:36:26-05:00',
+    });
+    expect(errores).toHaveLength(0);
+  });
+
+  it('rechaza "fechaHora" cuando no es una fecha ISO 8601 válida (p. ej. "MMDDAA" + hora aparte)', async () => {
+    const errores = await validar({
+      evento: 'entrante', numero: '3001234567', fechaHora: '092826',
+    });
+    expect(errores.some((e) => e.property === 'fechaHora')).toBe(true);
+  });
 });
 
 describe('PbxService.webhook()', () => {
@@ -122,6 +136,23 @@ describe('PbxService.webhook()', () => {
       expect.objectContaining({ numero: '3001234567', agentePbx: 'Ana Torres', estado: 'sonando' }),
     );
     expect(llamada).toMatchObject({ agentePbx: 'Ana Torres' });
+  });
+
+  it('guarda fechaHoraPbx tal cual la reporta la central, sin usarla para nada más', async () => {
+    const dto: WebhookLlamadaDto = {
+      evento: 'entrante', numero: '3001234567', callId: 'call-1', fechaHora: '2026-09-28T14:36:26-05:00',
+    } as WebhookLlamadaDto;
+    const llamada = await service.webhook('clave-ok', dto);
+    expect(llamadasRepo.save).toHaveBeenCalledWith(
+      expect.objectContaining({ fechaHoraPbx: new Date('2026-09-28T14:36:26-05:00') }),
+    );
+    expect((llamada as LlamadaEntity).fechaHoraPbx).toEqual(new Date('2026-09-28T14:36:26-05:00'));
+  });
+
+  it('deja fechaHoraPbx en null si la central no la manda', async () => {
+    const dto: WebhookLlamadaDto = { evento: 'entrante', numero: '3001234567' } as WebhookLlamadaDto;
+    const llamada = await service.webhook('clave-ok', dto);
+    expect((llamada as LlamadaEntity).fechaHoraPbx).toBeNull();
   });
 
   it('no duplica una llamada entrante repetida con el mismo callId todavía sonando (idempotencia)', async () => {

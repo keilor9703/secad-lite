@@ -1,5 +1,5 @@
 import { BadRequestException, ForbiddenException, Injectable, NotFoundException, UnauthorizedException } from '@nestjs/common';
-import { IsIn, IsOptional, IsString, MaxLength, ValidateIf } from 'class-validator';
+import { IsIn, IsISO8601, IsOptional, IsString, MaxLength, ValidateIf } from 'class-validator';
 import { EntityManager, Not } from 'typeorm';
 import { Subject } from 'rxjs';
 import { LlamadaEntity } from './llamada.entity';
@@ -59,6 +59,21 @@ export class WebhookLlamadaDto {
    */
   @IsOptional() @IsString() @MaxLength(120)
   agente?: string;
+
+  /**
+   * Fecha y hora del evento, reportadas por la central en ISO 8601 —
+   * idealmente CON zona horaria (ej. "2026-09-28T14:36:26-05:00"; también
+   * vale terminar en "Z" para UTC). Se guarda tal cual, sin usarse para nada
+   * más — FALCON ya sella su propio instante de recepción; esto es solo el
+   * dato de la central, por si hace falta cruzarlo con sus propios
+   * registros. Un formato que no sea una fecha ISO válida en absoluto (por
+   * ejemplo "MMDDAA" + hora aparte) se rechaza con 400; el validador SÍ
+   * acepta una fecha sin zona horaria, pero en ese caso queda ambiguo a qué
+   * instante real corresponde — pídale a la central que siempre la incluya.
+   */
+  @IsOptional()
+  @IsISO8601({ strict: false }, { message: 'fechaHora debe venir en formato ISO 8601, ej. "2026-09-28T14:36:26-05:00".' })
+  fechaHora?: string;
 }
 
 /** Quién actúa: lo que necesita este servicio para decidir alcance y permisos. */
@@ -143,6 +158,7 @@ export class PbxService {
             extension,
             destinatario,
             agentePbx: dto.agente?.trim() || null,
+            fechaHoraPbx: dto.fechaHora ? new Date(dto.fechaHora) : null,
             estado: 'sonando',
           }),
         );

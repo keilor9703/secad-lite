@@ -104,6 +104,8 @@ export interface Llamada {
   casoId?: string | null;
   /** El agente que contestó, tal como lo reporta la central — distinto de `atendidaPor` (quien la atendió desde FALCON). */
   agentePbx?: string | null;
+  /** Fecha/hora del evento reportada por la central (ISO 8601), guardada tal cual — solo referencia, no se usa para nada más. */
+  fechaHoraPbx?: string | null;
   atendidaPor?: string | null;
   atendidaEn?: string | null;
   creadoEn: string;
