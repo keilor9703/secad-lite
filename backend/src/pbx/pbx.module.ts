@@ -7,6 +7,7 @@ import { CasoEntity } from '../casos/caso.entity';
 import { PbxService } from './pbx.service';
 import { PbxController } from './pbx.controller';
 import { PbxGateway } from './pbx.gateway';
+import { PbxApiKeyGuard } from './pbx-api-key.guard';
 import { PbxWebhookRechazoFilter } from './webhook-rechazo.filter';
 import { PbxWebhookExitoInterceptor } from './webhook-exito.interceptor';
 import { CasosModule } from '../casos/casos.module';
@@ -30,7 +31,7 @@ import { UsuariosModule } from '../usuarios/usuarios.module';
     UsuariosModule,
   ],
   controllers: [PbxController],
-  providers: [PbxService, PbxGateway, PbxWebhookRechazoFilter, PbxWebhookExitoInterceptor],
+  providers: [PbxService, PbxGateway, PbxApiKeyGuard, PbxWebhookRechazoFilter, PbxWebhookExitoInterceptor],
   exports: [PbxService],
 })
 export class PbxModule {}

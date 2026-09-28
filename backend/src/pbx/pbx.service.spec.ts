@@ -1,11 +1,10 @@
 import { Test, TestingModule } from '@nestjs/testing';
 import { plainToInstance } from 'class-transformer';
 import { validate } from 'class-validator';
-import { BadRequestException, ForbiddenException, UnauthorizedException } from '@nestjs/common';
+import { BadRequestException } from '@nestjs/common';
 import { PbxService, WebhookLlamadaDto } from './pbx.service';
 import { LlamadaEntity } from './llamada.entity';
 import { CasosService } from '../casos/casos.service';
-import { TenantsService } from '../tenants/tenants.service';
 import { UsuariosService } from '../usuarios/usuarios.service';
 import { TenantRlsService } from '../common/tenant-rls.service';
 
@@ -83,12 +82,13 @@ describe('WebhookLlamadaDto — validación', () => {
 
 describe('PbxService.webhook()', () => {
   let service: PbxService;
-  let tenants: { porApiKey: jest.Mock; asegurarVigente: jest.Mock };
   let usuarios: { buscarPorExtension: jest.Mock };
   let llamadasRepo: {
     findOne: jest.Mock; save: jest.Mock; create: jest.Mock; find: jest.Mock;
   };
 
+  // La API key/tenant ya no las resuelve el servicio — las resuelve
+  // `PbxApiKeyGuard` antes de llegar aquí (ver pbx-api-key.guard.spec.ts).
   const tenantDemo = { codigo: 'demo', integraciones: ['pbx'] } as any;
 
   beforeEach(async () => {
@@ -98,17 +98,12 @@ describe('PbxService.webhook()', () => {
       create: jest.fn((v) => v),
       find: jest.fn(),
     };
-    tenants = {
-      porApiKey: jest.fn().mockResolvedValue(tenantDemo),
-      asegurarVigente: jest.fn(),
-    };
     usuarios = { buscarPorExtension: jest.fn().mockResolvedValue(null) };
 
     const module: TestingModule = await Test.createTestingModule({
       providers: [
         PbxService,
         { provide: CasosService, useValue: {} },
-        { provide: TenantsService, useValue: tenants },
         { provide: UsuariosService, useValue: usuarios },
         {
           provide: TenantRlsService,
@@ -124,40 +119,8 @@ describe('PbxService.webhook()', () => {
     service = module.get<PbxService>(PbxService);
   });
 
-  it('lanza UnauthorizedException si la API key no resuelve a ningún tenant', async () => {
-    tenants.porApiKey.mockResolvedValue(null);
-    await expect(service.webhook('clave-invalida', { evento: 'entrante', numero: '300' } as WebhookLlamadaDto))
-      .rejects.toThrow(UnauthorizedException);
-  });
-
-  it('una API key inválida no alcanza a etiquetar ningún tenant en la excepción (nunca se resolvió ninguno)', async () => {
-    tenants.porApiKey.mockResolvedValue(null);
-    try {
-      await service.webhook('clave-invalida', { evento: 'entrante', numero: '300' } as WebhookLlamadaDto);
-      fail('debía lanzar');
-    } catch (e) {
-      expect((e as { tenantPbx?: string }).tenantPbx).toBeUndefined();
-    }
-  });
-
-  it('lanza ForbiddenException si el tenant no tiene la integración pbx vigente', async () => {
-    tenants.asegurarVigente.mockImplementation(() => { throw new ForbiddenException('El módulo de pbx no está habilitado para esta instancia.'); });
-    await expect(service.webhook('clave-ok', { evento: 'entrante', numero: '300' } as WebhookLlamadaDto))
-      .rejects.toThrow(ForbiddenException);
-  });
-
-  it('etiqueta la excepción con el tenant ya resuelto (para el registro de rechazos del webhook)', async () => {
-    tenants.asegurarVigente.mockImplementation(() => { throw new ForbiddenException('El módulo de pbx no está habilitado para esta instancia.'); });
-    try {
-      await service.webhook('clave-ok', { evento: 'entrante', numero: '300' } as WebhookLlamadaDto);
-      fail('debía lanzar');
-    } catch (e) {
-      expect((e as { tenantPbx?: string }).tenantPbx).toBe('demo');
-    }
-  });
-
   it('lanza BadRequestException si el evento no es entrante ni colgada (defensa adicional, además del DTO)', async () => {
-    await expect(service.webhook('clave-ok', { evento: 'otro' } as unknown as WebhookLlamadaDto))
+    await expect(service.webhook(tenantDemo, { evento: 'otro' } as unknown as WebhookLlamadaDto))
       .rejects.toThrow(BadRequestException);
   });
 
@@ -165,7 +128,7 @@ describe('PbxService.webhook()', () => {
     const dto: WebhookLlamadaDto = {
       evento: 'entrante', numero: '3001234567', callId: 'call-1', agente: 'Ana Torres',
     } as WebhookLlamadaDto;
-    const llamada = await service.webhook('clave-ok', dto);
+    const llamada = await service.webhook(tenantDemo, dto);
     expect(llamadasRepo.save).toHaveBeenCalledWith(
       expect.objectContaining({ numero: '3001234567', agentePbx: 'Ana Torres', estado: 'sonando' }),
     );
@@ -176,7 +139,7 @@ describe('PbxService.webhook()', () => {
     const dto: WebhookLlamadaDto = {
       evento: 'entrante', numero: '3001234567', callId: 'call-1', fechaHora: '2026-09-28T14:36:26-05:00',
     } as WebhookLlamadaDto;
-    const llamada = await service.webhook('clave-ok', dto);
+    const llamada = await service.webhook(tenantDemo, dto);
     expect(llamadasRepo.save).toHaveBeenCalledWith(
       expect.objectContaining({ fechaHoraPbx: new Date('2026-09-28T14:36:26-05:00') }),
     );
@@ -185,13 +148,13 @@ describe('PbxService.webhook()', () => {
 
   it('deja fechaHoraPbx en null si la central no la manda', async () => {
     const dto: WebhookLlamadaDto = { evento: 'entrante', numero: '3001234567' } as WebhookLlamadaDto;
-    const llamada = await service.webhook('clave-ok', dto);
+    const llamada = await service.webhook(tenantDemo, dto);
     expect((llamada as LlamadaEntity).fechaHoraPbx).toBeNull();
   });
 
   it('asume origen "telefono" cuando la central no lo manda (retrocompatible)', async () => {
     const dto: WebhookLlamadaDto = { evento: 'entrante', numero: '3001234567' } as WebhookLlamadaDto;
-    const llamada = await service.webhook('clave-ok', dto);
+    const llamada = await service.webhook(tenantDemo, dto);
     expect((llamada as LlamadaEntity).origen).toBe('telefono');
   });
 
@@ -199,14 +162,14 @@ describe('PbxService.webhook()', () => {
     const dto: WebhookLlamadaDto = {
       evento: 'entrante', numero: '3001234567', origen: 'whatsapp_llamada',
     } as WebhookLlamadaDto;
-    const llamada = await service.webhook('clave-ok', dto);
+    const llamada = await service.webhook(tenantDemo, dto);
     expect((llamada as LlamadaEntity).origen).toBe('whatsapp_llamada');
   });
 
   it('no duplica una llamada entrante repetida con el mismo callId todavía sonando (idempotencia)', async () => {
     const existente = { id: 'ya-existe', callId: 'call-1', estado: 'sonando' } as LlamadaEntity;
     llamadasRepo.findOne.mockResolvedValue(existente);
-    const resultado = await service.webhook('clave-ok', { evento: 'entrante', numero: '300', callId: 'call-1' } as WebhookLlamadaDto);
+    const resultado = await service.webhook(tenantDemo, { evento: 'entrante', numero: '300', callId: 'call-1' } as WebhookLlamadaDto);
     expect(resultado).toBe(existente);
     expect(llamadasRepo.save).not.toHaveBeenCalled();
   });
@@ -214,7 +177,7 @@ describe('PbxService.webhook()', () => {
   it('en "colgada", actualiza agentePbx si la central lo reporta solo al final de la llamada', async () => {
     const enCurso = { id: 'llamada-1', callId: 'call-2', estado: 'sonando', agentePbx: null } as LlamadaEntity;
     llamadasRepo.findOne.mockResolvedValue(enCurso);
-    await service.webhook('clave-ok', { evento: 'colgada', callId: 'call-2', agente: 'Carlos Ruiz' } as WebhookLlamadaDto);
+    await service.webhook(tenantDemo, { evento: 'colgada', callId: 'call-2', agente: 'Carlos Ruiz' } as WebhookLlamadaDto);
     expect(llamadasRepo.save).toHaveBeenCalledWith(
       expect.objectContaining({ agentePbx: 'Carlos Ruiz', estado: 'perdida' }),
     );
@@ -252,7 +215,6 @@ describe('PbxService.atender() — canal según el origen', () => {
       providers: [
         PbxService,
         { provide: CasosService, useValue: casos },
-        { provide: TenantsService, useValue: {} },
         { provide: UsuariosService, useValue: {} },
         {
           provide: TenantRlsService,

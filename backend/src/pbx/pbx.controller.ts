@@ -1,6 +1,9 @@
-import { Body, Controller, Get, Headers, Param, Post, UseFilters, UseInterceptors } from '@nestjs/common';
+import { Body, Controller, Get, Param, Post, UseFilters, UseGuards, UseInterceptors } from '@nestjs/common';
 import { ActorPbx, PbxService, WebhookLlamadaDto } from './pbx.service';
 import { TenantsService } from '../tenants/tenants.service';
+import { TenantEntity } from '../tenants/tenant.entity';
+import { PbxApiKeyGuard } from './pbx-api-key.guard';
+import { PbxTenant } from './pbx-tenant.decorator';
 import { PbxWebhookRechazoFilter } from './webhook-rechazo.filter';
 import { PbxWebhookExitoInterceptor } from './webhook-exito.interceptor';
 import { Public } from '../auth/public.decorator';
@@ -23,14 +26,18 @@ export class PbxController {
 
   /**
    * POST /api/pbx/webhook — la planta telefónica notifica timbre/colgada.
-   * Público: se autentica con la API key del tenant en el header `x-api-key`.
+   * Público: se autentica con la API key del tenant en el header `x-api-key`,
+   * verificada por `PbxApiKeyGuard` ANTES de que el `ValidationPipe` valide
+   * el body (por eso el guard va primero en la lista de decoradores: así es
+   * también el orden real en que Nest los ejecuta).
    */
   @Public()
+  @UseGuards(PbxApiKeyGuard)
   @UseFilters(PbxWebhookRechazoFilter)
   @UseInterceptors(PbxWebhookExitoInterceptor)
   @Post('webhook')
-  webhook(@Headers('x-api-key') apiKey: string, @Body() dto: WebhookLlamadaDto) {
-    return this.pbx.webhook(apiKey, dto);
+  webhook(@PbxTenant() tenant: TenantEntity, @Body() dto: WebhookLlamadaDto) {
+    return this.pbx.webhook(tenant, dto);
   }
 
   /**

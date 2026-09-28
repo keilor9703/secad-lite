@@ -1,4 +1,4 @@
-import { BadRequestException, ForbiddenException, HttpException, Injectable, NotFoundException, UnauthorizedException } from '@nestjs/common';
+import { BadRequestException, ForbiddenException, Injectable, NotFoundException } from '@nestjs/common';
 import { IsIn, IsISO8601, IsOptional, IsString, MaxLength, ValidateIf } from 'class-validator';
 import { EntityManager, Not } from 'typeorm';
 import { Subject } from 'rxjs';
@@ -6,7 +6,7 @@ import { LlamadaEntity, ORIGENES_LLAMADA, OrigenLlamada } from './llamada.entity
 import { Canal } from '../casos/caso.model';
 import { CasoEntity } from '../casos/caso.entity';
 import { CasosService } from '../casos/casos.service';
-import { TenantsService } from '../tenants/tenants.service';
+import { TenantEntity } from '../tenants/tenant.entity';
 import { UsuariosService } from '../usuarios/usuarios.service';
 import { TenantRlsService } from '../common/tenant-rls.service';
 
@@ -137,37 +137,19 @@ export class PbxService {
 
   constructor(
     private readonly casosSvc: CasosService,
-    private readonly tenants: TenantsService,
     private readonly usuarios: UsuariosService,
     private readonly rls: TenantRlsService,
   ) {}
 
-  /** Procesa un evento de la PBX autenticado por API key. */
-  async webhook(apiKey: string, dto: WebhookLlamadaDto): Promise<LlamadaEntity> {
-    let tenantCodigo: string | undefined;
-    try {
-      return await this.procesarWebhook(apiKey, dto, (t) => { tenantCodigo = t; });
-    } catch (e) {
-      // El filtro de rechazos (webhook-rechazo.filter.ts) registra el
-      // intento; le deja saber qué tenant alcanzó a resolverse antes del
-      // error, cuando lo hubo (una API key inválida nunca llega a resolver
-      // ninguno).
-      if (e instanceof HttpException && tenantCodigo) (e as HttpException & { tenantPbx?: string }).tenantPbx = tenantCodigo;
-      throw e;
-    }
-  }
-
-  private async procesarWebhook(apiKey: string, dto: WebhookLlamadaDto, onTenant: (codigo: string) => void): Promise<LlamadaEntity> {
-    const tenant = await this.tenants.porApiKey(apiKey);
-    if (!tenant) throw new UnauthorizedException('API key inválida.');
-    onTenant(tenant.codigo);
-    // Bloqueado, suscripción suspendida/vencida, o sin la integración pbx
-    // contratada: nada de esto lo revisa el guard global porque esta ruta es
-    // pública (la llama la central, sin sesión de usuario).
-    this.tenants.asegurarVigente(tenant, 'pbx');
-
-    // La central no manda X-Tenant-Id ni sesión: recién aquí se supo el
-    // tenant (por la API key), así que `app.tenant` (RLS) se fija DENTRO de
+  /**
+   * Procesa un evento de la PBX. `PbxApiKeyGuard` ya autenticó la API key,
+   * resolvió el tenant y confirmó que está vigente — ANTES de que el
+   * `ValidationPipe` tocara el body (ver el guard para el porqué de este
+   * orden). Aquí solo queda tramitar el evento.
+   */
+  async webhook(tenant: TenantEntity, dto: WebhookLlamadaDto): Promise<LlamadaEntity> {
+    // La central no manda X-Tenant-Id ni sesión: el tenant lo trae ya
+    // resuelto el guard, así que `app.tenant` (RLS) se fija DENTRO de
     // esta transacción, no antes.
     return this.rls.conTenant(tenant.codigo, async (manager) => {
       const llamadas = manager.getRepository(LlamadaEntity);
