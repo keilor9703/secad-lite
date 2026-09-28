@@ -2,7 +2,8 @@ import { BadRequestException, ForbiddenException, Injectable, NotFoundException,
 import { IsIn, IsISO8601, IsOptional, IsString, MaxLength, ValidateIf } from 'class-validator';
 import { EntityManager, Not } from 'typeorm';
 import { Subject } from 'rxjs';
-import { LlamadaEntity } from './llamada.entity';
+import { LlamadaEntity, ORIGENES_LLAMADA, OrigenLlamada } from './llamada.entity';
+import { Canal } from '../casos/caso.model';
 import { CasoEntity } from '../casos/caso.entity';
 import { CasosService } from '../casos/casos.service';
 import { TenantsService } from '../tenants/tenants.service';
@@ -74,6 +75,17 @@ export class WebhookLlamadaDto {
   @IsOptional()
   @IsISO8601({ strict: false }, { message: 'fechaHora debe venir en formato ISO 8601, ej. "2026-09-28T14:36:26-05:00".' })
   fechaHora?: string;
+
+  /**
+   * Por dónde entra este contacto — la PBX es la misma central para los
+   * tres, así que este campo (no un webhook distinto) es lo que le dice a
+   * FALCON de cuál se trata. Sin mandarlo, se asume `"telefono"` (el
+   * comportamiento de siempre, retrocompatible con centrales que todavía no
+   * mandan este campo). Fija automáticamente el "Medio de comunicación" del
+   * caso — el operador no tiene que elegirlo a mano.
+   */
+  @IsOptional() @IsIn(ORIGENES_LLAMADA, { message: `origen debe ser uno de: ${ORIGENES_LLAMADA.join(', ')}.` })
+  origen?: OrigenLlamada;
 }
 
 /** Quién actúa: lo que necesita este servicio para decidir alcance y permisos. */
@@ -104,6 +116,24 @@ export interface LlamadaEvento {
 export class PbxService {
   /** Flujo de cambios de la cola; el gateway lo reenvía por WebSocket. */
   readonly eventos$ = new Subject<LlamadaEvento>();
+
+  /**
+   * A qué `canal` de caso corresponde cada origen — es lo que fija solo el
+   * "Medio de comunicación" al crear el caso desde `atender()`, sin que el
+   * operador tenga que elegirlo a mano.
+   */
+  private static readonly CANAL_DE_ORIGEN: Record<OrigenLlamada, Canal> = {
+    telefono: 'llamada',
+    whatsapp_chat: 'whatsapp',
+    whatsapp_llamada: 'whatsapp_llamada',
+  };
+
+  /** Texto del caso que se crea al atender, según el origen. */
+  private static readonly ETIQUETA_ORIGEN: Record<OrigenLlamada, { titulo: string; ciudadano: string; nota: string }> = {
+    telefono: { titulo: 'Llamada entrante', ciudadano: 'Llamante', nota: 'Llamada telefónica atendida' },
+    whatsapp_chat: { titulo: 'Chat de WhatsApp', ciudadano: 'Contacto WhatsApp', nota: 'Chat de WhatsApp atendido' },
+    whatsapp_llamada: { titulo: 'Llamada de WhatsApp', ciudadano: 'Llamante WhatsApp', nota: 'Llamada de WhatsApp atendida' },
+  };
 
   constructor(
     private readonly casosSvc: CasosService,
@@ -159,6 +189,7 @@ export class PbxService {
             destinatario,
             agentePbx: dto.agente?.trim() || null,
             fechaHoraPbx: dto.fechaHora ? new Date(dto.fechaHora) : null,
+            origen: dto.origen ?? 'telefono',
             estado: 'sonando',
           }),
         );
@@ -201,8 +232,10 @@ export class PbxService {
   }
 
   /**
-   * El operador atiende una llamada: crea un caso (canal 'llamada') o lo enlaza
-   * a un caso abierto del mismo número, y marca la llamada como atendida.
+   * El operador atiende una llamada: crea un caso (con el `canal` que le
+   * corresponde a `llamada.origen`: teléfono, chat de WhatsApp o llamada de
+   * WhatsApp) o lo enlaza a un caso abierto del mismo número, y marca la
+   * llamada como atendida.
    */
   async atender(tenant: string, llamadaId: string, actor: ActorPbx): Promise<{ llamada: LlamadaEntity; casoId: string }> {
     const { llamada: llamadaLeida, abiertoId } = await this.rls.conTenant(tenant, async (manager) => {
@@ -229,17 +262,18 @@ export class PbxService {
       throw new ForbiddenException('Esta llamada fue dirigida a otro operador por la central.');
     }
 
+    const etiqueta = PbxService.ETIQUETA_ORIGEN[llamada.origen ?? 'telefono'];
     let casoId: string;
     if (abiertoId) {
       casoId = abiertoId;
-      await this.casosSvc.agregarNota(tenant, casoId, `Llamada telefónica atendida (${llamada.numero}).`, actor.username);
+      await this.casosSvc.agregarNota(tenant, casoId, `${etiqueta.nota} (${llamada.numero}).`, actor.username);
     } else {
       const caso = await this.casosSvc.crear(
         tenant,
         {
-          canal: 'llamada',
-          titulo: `Llamada entrante ${llamada.numero}`,
-          ciudadano: `Llamante ${llamada.numero}`,
+          canal: PbxService.CANAL_DE_ORIGEN[llamada.origen ?? 'telefono'],
+          titulo: `${etiqueta.titulo} ${llamada.numero}`,
+          ciudadano: `${etiqueta.ciudadano} ${llamada.numero}`,
           telefono: llamada.numero,
         },
         actor.username,

@@ -16,7 +16,7 @@ import { SelectorComponent } from '../../shared/selector/selector';
 import { OpcionComponent } from '../../shared/selector/opcion';
 import { DictadoComponent } from '../../shared/dictado/dictado';
 import {
-  Agencia, Canal, CanalAtencion, Caso, CodigoCaso, CrearCaso, EstadoCaso, Llamada, PrioridadCaso,
+  Agencia, Canal, CanalAtencion, Caso, CodigoCaso, CrearCaso, EstadoCaso, Llamada, OrigenLlamada, PrioridadCaso,
 } from '../../core/models';
 
 @Component({
@@ -87,6 +87,9 @@ export class RecepcionComponent implements OnInit {
     this.pbx.reclamar(l.id).subscribe({
       next: (llamada) => {
         this.form.controls.telefono.setValue(llamada.numero);
+        // El "Medio de comunicación" se llena solo según de dónde vino —
+        // el operador no tiene que acordarse de cambiarlo a mano.
+        this.form.controls.canal.setValue(this.canalDeOrigen(llamada.origen));
         this.llamadaEnCurso.set(llamada);
       },
       error: (e) => this.error.set(e?.error?.message ?? 'No fue posible tomar la llamada.'),
@@ -96,7 +99,7 @@ export class RecepcionComponent implements OnInit {
   readonly error = signal('');
   readonly guardando = signal(false);
 
-  readonly canales: Canal[] = ['llamada', 'chat', 'whatsapp', 'integracion'];
+  readonly canales: Canal[] = ['llamada', 'chat', 'whatsapp', 'whatsapp_llamada', 'integracion'];
   readonly prioridades: PrioridadCaso[] = ['alta', 'media', 'baja'];
 
   // Catálogos del secad
@@ -818,10 +821,22 @@ export class RecepcionComponent implements OnInit {
   // --- Etiquetas --------------------------------------------------------------
 
   canalLabel(c: Canal): string {
-    return { llamada: 'Llamada', chat: 'Chat', whatsapp: 'WhatsApp', integracion: 'Integración' }[c];
+    return { llamada: 'Llamada', chat: 'Chat', whatsapp: 'WhatsApp', whatsapp_llamada: 'Llamada WhatsApp', integracion: 'Integración' }[c];
   }
   canalIcon(c: Canal): string {
-    return { llamada: '📞', chat: '💬', whatsapp: '🟢', integracion: '🔌' }[c];
+    return { llamada: '📞', chat: '💬', whatsapp: '🟢', whatsapp_llamada: '🟢📞', integracion: '🔌' }[c];
+  }
+  /** Ícono para una llamada EN COLA (todavía sin caso), según su `origen` — mismo criterio que `canalIcon`. */
+  origenIcon(o: OrigenLlamada): string {
+    return { telefono: '📞', whatsapp_chat: '🟢', whatsapp_llamada: '🟢📞' }[o];
+  }
+  origenLabel(o: OrigenLlamada): string {
+    return { telefono: 'Llamada telefónica', whatsapp_chat: 'Chat de WhatsApp', whatsapp_llamada: 'Llamada de WhatsApp' }[o];
+  }
+  /** A qué "Medio de comunicación" corresponde cada origen — mismo mapeo que ya usa el backend al crear el caso. */
+  private canalDeOrigen(o: OrigenLlamada): Canal {
+    const mapa: Record<OrigenLlamada, Canal> = { telefono: 'llamada', whatsapp_chat: 'whatsapp', whatsapp_llamada: 'whatsapp_llamada' };
+    return mapa[o];
   }
 
   private formVacio() {

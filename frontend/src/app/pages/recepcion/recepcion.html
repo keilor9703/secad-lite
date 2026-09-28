@@ -27,6 +27,7 @@
         </h2>
         @for (l of sonando(); track l) {
           <div class="llam">
+            <span role="img" [attr.aria-label]="origenLabel(l.origen)">{{ origenIcon(l.origen) }}</span>
             <span class="num mono">{{ l.numero }}</span>
             <!-- La central ya la dirigió a alguien: se ve solo si usted la supervisa,
             no si es la suya (esa ya llegó sin necesidad de esta pista). -->

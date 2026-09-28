@@ -591,10 +591,10 @@ export class DetalleComponent implements OnInit, OnDestroy {
     return ({ nuevo: 'Nuevo', en_gestion: 'En gestión', despachado: 'Despachado', derivado: 'Derivado', cerrado: 'Cerrado' } as Record<string, string>)[e] ?? e;
   }
   canalLabel(c: Canal): string {
-    return { llamada: 'Llamada', chat: 'Chat', whatsapp: 'WhatsApp', integracion: 'Integración' }[c];
+    return { llamada: 'Llamada', chat: 'Chat', whatsapp: 'WhatsApp', whatsapp_llamada: 'Llamada WhatsApp', integracion: 'Integración' }[c];
   }
   canalIcon(c: Canal): string {
-    return { llamada: '📞', chat: '💬', whatsapp: '🟢', integracion: '🔌' }[c];
+    return { llamada: '📞', chat: '💬', whatsapp: '🟢', whatsapp_llamada: '🟢📞', integracion: '🔌' }[c];
   }
   eventoIcon(t: TipoEvento): string {
     return { creacion: '🟢', estado: '🔁', derivacion: '➡️', nota: '📝', despacho: '🚓' }[t];

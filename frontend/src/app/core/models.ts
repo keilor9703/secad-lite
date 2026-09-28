@@ -1,4 +1,5 @@
-export type Canal = 'llamada' | 'chat' | 'whatsapp' | 'integracion';
+/** `whatsapp` es el chat; `whatsapp_llamada` es la llamada de voz por WhatsApp. */
+export type Canal = 'llamada' | 'chat' | 'whatsapp' | 'whatsapp_llamada' | 'integracion';
 export type EstadoCaso = 'nuevo' | 'en_gestion' | 'despachado' | 'derivado' | 'cerrado';
 
 export interface Caso {
@@ -90,6 +91,9 @@ export interface CrearCaso {
 // --- PBX / planta telefónica ---
 export type EstadoLlamada = 'sonando' | 'atendida' | 'perdida' | 'finalizada';
 
+/** Por dónde entró el contacto: la PBX gestiona los tres y avisa por el mismo webhook. */
+export type OrigenLlamada = 'telefono' | 'whatsapp_chat' | 'whatsapp_llamada';
+
 export interface Llamada {
   id: string;
   tenant: string;
@@ -98,6 +102,8 @@ export interface Llamada {
   numeroDestino?: string | null;
   /** Extensión que reportó la central, si ya la enrutó por ACD. */
   extension?: string | null;
+  /** Fija automáticamente el "Medio de comunicación" del caso al atender. */
+  origen: OrigenLlamada;
   /** Username del funcionario al que el ACD dirigió la llamada; null si es de la cola general. */
   destinatario?: string | null;
   estado: EstadoLlamada;

@@ -82,7 +82,7 @@ export class DetalleReporteModalComponent {
   }
 
   canalLabel(c: Canal): string {
-    return { llamada: 'Llamada', chat: 'Chat', whatsapp: 'WhatsApp', integracion: 'Integración' }[c] ?? c;
+    return { llamada: 'Llamada', chat: 'Chat', whatsapp: 'WhatsApp', whatsapp_llamada: 'Llamada WhatsApp', integracion: 'Integración' }[c] ?? c;
   }
   estadoLabel(e: EstadoCaso | string): string {
     return ({ nuevo: 'Nuevo', en_gestion: 'En gestión', despachado: 'Despachado', derivado: 'Derivado', cerrado: 'Cerrado' } as Record<string, string>)[e] ?? e;

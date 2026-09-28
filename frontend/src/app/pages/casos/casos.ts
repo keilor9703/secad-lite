@@ -134,7 +134,7 @@ export class CasosComponent {
   }
 
   canalIcon(c: Canal): string {
-    return { llamada: '📞', chat: '💬', whatsapp: '🟢', integracion: '🔌' }[c] ?? '•';
+    return { llamada: '📞', chat: '💬', whatsapp: '🟢', whatsapp_llamada: '🟢📞', integracion: '🔌' }[c] ?? '•';
   }
   estadoLabel(e: EstadoCaso): string {
     return { nuevo: 'Nuevo', en_gestion: 'En gestión', despachado: 'Despachado', derivado: 'Derivado', cerrado: 'Cerrado' }[e];

@@ -146,6 +146,11 @@
             zona horaria</strong> (ej. <code>2026-09-28T14:36:26-05:00</code>). Se guarda tal cual, solo como
             referencia — FALCON ya sella su propio instante de recepción, así que este campo es opcional y no
             afecta reportes ni el orden de la cola.
+            <code>origen</code>: por dónde entró el contacto —
+            <code>"telefono"</code> (el valor por defecto si no lo manda), <code>"whatsapp_chat"</code> o
+            <code>"whatsapp_llamada"</code>. Fija solo el "Medio de comunicación" del caso al atenderlo, sin que
+            el operador tenga que elegirlo a mano — útil si su central también gestiona WhatsApp y notifica a
+            FALCON por este mismo webhook.
           </p>
           <div class="pbx-field">
             <label>URL del webhook</label>

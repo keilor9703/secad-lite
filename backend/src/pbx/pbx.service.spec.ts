@@ -65,6 +65,20 @@ describe('WebhookLlamadaDto — validación', () => {
     });
     expect(errores.some((e) => e.property === 'fechaHora')).toBe(true);
   });
+
+  it('acepta "origen" con uno de los valores válidos', async () => {
+    const errores = await validar({
+      evento: 'entrante', numero: '3001234567', origen: 'whatsapp_chat',
+    });
+    expect(errores).toHaveLength(0);
+  });
+
+  it('rechaza "origen" con un valor que no sea telefono/whatsapp_chat/whatsapp_llamada', async () => {
+    const errores = await validar({
+      evento: 'entrante', numero: '3001234567', origen: 'telegram',
+    });
+    expect(errores.some((e) => e.property === 'origen')).toBe(true);
+  });
 });
 
 describe('PbxService.webhook()', () => {
@@ -155,6 +169,20 @@ describe('PbxService.webhook()', () => {
     expect((llamada as LlamadaEntity).fechaHoraPbx).toBeNull();
   });
 
+  it('asume origen "telefono" cuando la central no lo manda (retrocompatible)', async () => {
+    const dto: WebhookLlamadaDto = { evento: 'entrante', numero: '3001234567' } as WebhookLlamadaDto;
+    const llamada = await service.webhook('clave-ok', dto);
+    expect((llamada as LlamadaEntity).origen).toBe('telefono');
+  });
+
+  it('guarda el origen que reporta la central (whatsapp_chat / whatsapp_llamada)', async () => {
+    const dto: WebhookLlamadaDto = {
+      evento: 'entrante', numero: '3001234567', origen: 'whatsapp_llamada',
+    } as WebhookLlamadaDto;
+    const llamada = await service.webhook('clave-ok', dto);
+    expect((llamada as LlamadaEntity).origen).toBe('whatsapp_llamada');
+  });
+
   it('no duplica una llamada entrante repetida con el mismo callId todavía sonando (idempotencia)', async () => {
     const existente = { id: 'ya-existe', callId: 'call-1', estado: 'sonando' } as LlamadaEntity;
     llamadasRepo.findOne.mockResolvedValue(existente);
@@ -170,5 +198,71 @@ describe('PbxService.webhook()', () => {
     expect(llamadasRepo.save).toHaveBeenCalledWith(
       expect.objectContaining({ agentePbx: 'Carlos Ruiz', estado: 'perdida' }),
     );
+  });
+});
+
+/**
+ * El origen de la llamada (teléfono / chat de WhatsApp / llamada de
+ * WhatsApp) fija automáticamente el `canal` del caso que se crea al
+ * atender — es lo que hace que el operador no tenga que elegirlo a mano en
+ * "Medio de comunicación".
+ */
+describe('PbxService.atender() — canal según el origen', () => {
+  let service: PbxService;
+  let casos: { crear: jest.Mock; agregarNota: jest.Mock };
+  let llamadasRepo: { findOne: jest.Mock; save: jest.Mock };
+  let casosRepo: { findOne: jest.Mock };
+
+  async function atenderConOrigen(origen: string) {
+    const llamada = { id: 'llamada-1', numero: '3001234567', estado: 'sonando', destinatario: null, origen } as any;
+    llamadasRepo.findOne.mockResolvedValueOnce(llamada); // la propia llamada
+    casosRepo.findOne.mockResolvedValueOnce(null); // sin caso abierto del mismo número: crea uno nuevo
+    return service.atender('demo', 'llamada-1', { username: 'operador1', supervisor: false });
+  }
+
+  beforeEach(async () => {
+    casos = {
+      crear: jest.fn().mockResolvedValue({ id: 'caso-1' }),
+      agregarNota: jest.fn(),
+    };
+    llamadasRepo = { findOne: jest.fn(), save: jest.fn((v) => Promise.resolve(v)) };
+    casosRepo = { findOne: jest.fn() };
+
+    const module: TestingModule = await Test.createTestingModule({
+      providers: [
+        PbxService,
+        { provide: CasosService, useValue: casos },
+        { provide: TenantsService, useValue: {} },
+        { provide: UsuariosService, useValue: {} },
+        {
+          provide: TenantRlsService,
+          useValue: {
+            conTenant: jest.fn((_tenant: string, fn: (m: any) => unknown) =>
+              fn({
+                getRepository: (entity: any) => (entity?.name === 'CasoEntity' ? casosRepo : llamadasRepo),
+                query: jest.fn(),
+              }),
+            ),
+          },
+        },
+      ],
+    }).compile();
+
+    service = module.get<PbxService>(PbxService);
+  });
+
+  it('telefono → canal "llamada" (el comportamiento de siempre)', async () => {
+    await atenderConOrigen('telefono');
+    expect(casos.crear).toHaveBeenCalledWith('demo', expect.objectContaining({ canal: 'llamada' }), 'operador1');
+  });
+
+  it('whatsapp_chat → canal "whatsapp"', async () => {
+    await atenderConOrigen('whatsapp_chat');
+    expect(casos.crear).toHaveBeenCalledWith('demo', expect.objectContaining({ canal: 'whatsapp' }), 'operador1');
+  });
+
+  it('whatsapp_llamada → canal "whatsapp_llamada"', async () => {
+    await atenderConOrigen('whatsapp_llamada');
+    expect(casos.crear).toHaveBeenCalledWith('demo', expect.objectContaining({ canal: 'whatsapp_llamada' }), 'operador1');
   });
 });

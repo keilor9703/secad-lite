@@ -119,10 +119,10 @@ export class DashboardComponent implements OnDestroy {
     nuevo: 'Nuevo', en_gestion: 'En gestión', despachado: 'Despachado', derivado: 'Derivado', cerrado: 'Cerrado',
   };
   private readonly canalLabels: Record<string, string> = {
-    llamada: 'Llamada', chat: 'Chat', whatsapp: 'WhatsApp', integracion: 'Integración',
+    llamada: 'Llamada', chat: 'Chat', whatsapp: 'WhatsApp', whatsapp_llamada: 'Llamada WhatsApp', integracion: 'Integración',
   };
   /** Mismo orden fijo en el que se pintan los canales — el color identifica el canal, nunca su puesto. */
-  private readonly canalOrden: string[] = ['llamada', 'chat', 'whatsapp', 'integracion'];
+  private readonly canalOrden: string[] = ['llamada', 'chat', 'whatsapp', 'whatsapp_llamada', 'integracion'];
   private readonly estadoLlamadaLabels: Record<string, string> = {
     sonando: 'Timbrando', atendida: 'Atendidas', perdida: 'Perdidas', finalizada: 'Finalizadas',
   };

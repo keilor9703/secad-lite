@@ -6,6 +6,16 @@ export type EstadoLlamada = 'sonando' | 'atendida' | 'perdida' | 'finalizada';
 export const ESTADOS_LLAMADA: EstadoLlamada[] = ['sonando', 'atendida', 'perdida', 'finalizada'];
 
 /**
+ * Por dónde entró este contacto — todos llegan por el mismo webhook de la
+ * PBX (ella también gestiona WhatsApp), esto es solo lo que distingue uno de
+ * otro. `telefono` es el valor por defecto: la central ya la usaba antes de
+ * que existiera este campo, y no tiene por qué mandarlo si nunca cambia.
+ */
+export type OrigenLlamada = 'telefono' | 'whatsapp_chat' | 'whatsapp_llamada';
+
+export const ORIGENES_LLAMADA: OrigenLlamada[] = ['telefono', 'whatsapp_chat', 'whatsapp_llamada'];
+
+/**
  * Llamada entrante recibida por webhook desde la planta telefónica (PBX) del
  * tenant. Alimenta la cola en vivo del operador (screen-pop): al atenderla se
  * crea o enlaza un caso. Aislada por tenant.
@@ -66,6 +76,14 @@ export class LlamadaEntity {
    */
   @Column({ type: 'timestamptz', nullable: true })
   fechaHoraPbx?: Date | null;
+
+  /**
+   * Por dónde entró: teléfono normal, chat de WhatsApp o llamada de voz por
+   * WhatsApp. Fija automáticamente el `canal` del caso al atender/vincular
+   * (ver `PbxService.canalDe`) y el ícono que se ve en la cola.
+   */
+  @Column({ type: 'varchar', length: 20, default: 'telefono' })
+  origen!: OrigenLlamada;
 
   @Column({ type: 'varchar', length: 20, default: 'sonando' })
   estado!: EstadoLlamada;

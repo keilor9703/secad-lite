@@ -453,6 +453,7 @@ export class DespachoComponent {
       llamada: { emoji: '📞', label: 'Llamada telefónica' },
       chat: { emoji: '💬', label: 'Chat en línea' },
       whatsapp: { emoji: '🟢', label: 'WhatsApp' },
+      whatsapp_llamada: { emoji: '🟢📞', label: 'Llamada de WhatsApp' },
       integracion: { emoji: '🔌', label: 'Integración externa' },
     };
     return map[c.canal] ?? { emoji: '•', label: c.canal };

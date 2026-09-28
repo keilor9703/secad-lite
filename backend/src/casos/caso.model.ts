@@ -1,5 +1,10 @@
-/** Canal por el que entra un caso (multicanal). */
-export type Canal = 'llamada' | 'chat' | 'whatsapp' | 'integracion';
+/**
+ * Canal por el que entra un caso (multicanal). `whatsapp` es específicamente
+ * el chat; `whatsapp_llamada` es la llamada de voz por WhatsApp — se
+ * distinguen porque operativamente no son lo mismo (una hay que contestarla
+ * en vivo, la otra es asíncrona).
+ */
+export type Canal = 'llamada' | 'chat' | 'whatsapp' | 'whatsapp_llamada' | 'integracion';
 
 /** Ciclo de vida del caso. `despachado` = con recursos en atención. */
 export type EstadoCaso = 'nuevo' | 'en_gestion' | 'despachado' | 'derivado' | 'cerrado';
@@ -7,7 +12,7 @@ export type EstadoCaso = 'nuevo' | 'en_gestion' | 'despachado' | 'derivado' | 'c
 /** Prioridad del caso; la sugiere el código y el operador puede cambiarla. */
 export type PrioridadCaso = 'alta' | 'media' | 'baja';
 
-export const CANALES: Canal[] = ['llamada', 'chat', 'whatsapp', 'integracion'];
+export const CANALES: Canal[] = ['llamada', 'chat', 'whatsapp', 'whatsapp_llamada', 'integracion'];
 export const ESTADOS: EstadoCaso[] = ['nuevo', 'en_gestion', 'despachado', 'derivado', 'cerrado'];
 export const PRIORIDADES: PrioridadCaso[] = ['alta', 'media', 'baja'];
 

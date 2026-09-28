@@ -41,6 +41,13 @@ FALCON CAD no gestiona colas ni lógica ACD — eso vive enteramente en la
 central; FALCON CAD solo recibe el evento y, si la central ya decidió a qué
 extensión dirigir la llamada, enruta el aviso en vivo a esa sola sesión.
 
+Si la misma central también gestiona WhatsApp (chat y/o llamadas de voz),
+notifica ambos por este mismo webhook — con `origen` distinguiendo de cuál
+se trata (ver 1.1). No hace falta un webhook aparte: FALCON no gestiona la
+conversación en sí (eso vive enteramente en la plataforma de la central,
+igual que el ACD); solo recibe "hay un contacto nuevo" al iniciar y "se
+cerró" al terminar — nada intermedio.
+
 ### 1.1 `POST /api/pbx/webhook`
 
 **Quién lo llama**: la central telefónica (o el middleware/dialplan que la
@@ -65,7 +72,8 @@ x-api-key: <API key del tenant>
   "callId": "abc-123",
   "numeroDestino": "123",
   "extension": "105",
-  "fechaHora": "2026-09-28T14:36:26-05:00"
+  "fechaHora": "2026-09-28T14:36:26-05:00",
+  "origen": "telefono"
 }
 ```
 
@@ -75,9 +83,10 @@ x-api-key: <API key del tenant>
 | `numero` | string | sí | Número del llamante. |
 | `callId` | string | no | ID de la llamada en la central; permite correlacionar el evento `colgada` posterior. Si no se manda, se correlaciona por `numero` + estado `sonando`. |
 | `numeroDestino` | string | no | Número marcado (línea 123, etc.), informativo. |
-| `extension` | string | no | Extensión a la que el ACD **de la central** ya decidió dirigir la llamada. Si coincide con la extensión de un funcionario activo del tenant (asignada en Administración → Usuarios), el aviso llega solo a esa sesión y la llamada desaparece de la cola de los demás operadores. Si se omite, o no hay match, se anuncia a todo el que esté atendiendo el tenant — el comportamiento por defecto, sin ACD. |
+| `extension` | string | no | Extensión a la que el ACD **de la central** ya decidió dirigir la llamada (o el agente/cola que ya asignó, si `origen` es de WhatsApp). Si coincide con la extensión de un funcionario activo del tenant (asignada en Administración → Usuarios), el aviso llega solo a esa sesión y la llamada desaparece de la cola de los demás operadores. Si se omite, o no hay match, se anuncia a todo el que esté atendiendo el tenant — el comportamiento por defecto, sin ACD. |
 | `agente` | string | no | El agente/usuario que contestó, tal como lo identifica la central — se guarda tal cual, sin resolverse contra un usuario de FALCON. También se puede mandar en `colgada`; si llega en los dos, gana el último. |
 | `fechaHora` | string (ISO 8601) | no | Fecha/hora del evento reportada por la central — ej. `"2026-09-28T14:36:26-05:00"`. **Se guarda tal cual, sin usarse para nada más**: FALCON ya sella su propio instante de recepción (`creadoEn`/`atendidaEn`), que es el que usan el orden de la cola y los reportes. Inclúyale la zona horaria; sin ella, la fecha queda ambigua (a qué instante real corresponde). Un valor que no sea una fecha ISO 8601 válida se rechaza con `400`. |
+| `origen` | `"telefono"` \| `"whatsapp_chat"` \| `"whatsapp_llamada"` | no | Por dónde entró el contacto. Sin mandarlo se asume `"telefono"` (retrocompatible). Fija automáticamente el "Medio de comunicación" del caso que se crea al atender — el operador no lo elige a mano. Un valor fuera de esta lista se rechaza con `400`. |
 
 **Respuesta** `201 Created` — la llamada creada:
 
@@ -92,6 +101,7 @@ x-api-key: <API key del tenant>
   "destinatario": "operador1",
   "agentePbx": null,
   "fechaHoraPbx": "2026-09-28T19:36:26.000Z",
+  "origen": "telefono",
   "estado": "sonando",
   "casoId": null,
   "atendidaPor": null,
