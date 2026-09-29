@@ -23,6 +23,7 @@ import { TenantsModule } from './tenants/tenants.module';
 import { DespachoModule } from './despacho/despacho.module';
 import { ArchivosModule } from './archivos/archivos.module';
 import { SmsModule } from './sms/sms.module';
+import { VideollamadaModule } from './videollamada/videollamada.module';
 import { PbxModule } from './pbx/pbx.module';
 import { WhatsappModule } from './whatsapp/whatsapp.module';
 import { IntegracionModule } from './integracion/integracion.module';
@@ -109,6 +110,7 @@ import { PlataformaModule } from './plataforma/plataforma.module';
     DespachoModule,
     ArchivosModule,
     SmsModule,
+    VideollamadaModule,
     PbxModule,
     WhatsappModule,
     CtiModule,
