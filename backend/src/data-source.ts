@@ -18,6 +18,7 @@ import { CanalEntity } from './catalogos/canal.entity';
 import { CodigoCasoEntity } from './catalogos/codigo-caso.entity';
 import { ArchivoEntity } from './archivos/archivo.entity';
 import { ArchivoChunkEntity } from './archivos/archivo-chunk.entity';
+import { ConfigSmsEntity } from './sms/config-sms.entity';
 import { CodigoCierreEntity } from './catalogos/codigo-cierre.entity';
 
 config();
@@ -32,6 +33,6 @@ export default new DataSource({
   url: process.env.DATABASE_URL,
   // Igual que la app: las bases gestionadas exigen TLS (ver app.module.ts).
   ssl: process.env.DB_SSL === 'true' ? { rejectUnauthorized: false } : undefined,
-  entities: [CasoEntity, EventoCasoEntity, UsuarioEntity, MensajeChatEntity, MensajeChatInternoEntity, TenantEntity, RecursoEntity, AsignacionEntity, LlamadaEntity, PbxWebhookLogEntity, RolEntity, EntidadEntity, AgenciaEntity, CanalEntity, CodigoCasoEntity, CodigoCierreEntity, ArchivoEntity, ArchivoChunkEntity],
+  entities: [CasoEntity, EventoCasoEntity, UsuarioEntity, MensajeChatEntity, MensajeChatInternoEntity, TenantEntity, RecursoEntity, AsignacionEntity, LlamadaEntity, PbxWebhookLogEntity, RolEntity, EntidadEntity, AgenciaEntity, CanalEntity, CodigoCasoEntity, CodigoCierreEntity, ArchivoEntity, ArchivoChunkEntity, ConfigSmsEntity],
   migrations: ['src/migrations/*.ts'],
 });
