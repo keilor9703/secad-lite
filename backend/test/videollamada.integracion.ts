@@ -19,6 +19,7 @@ import { TypeOrmModule } from '@nestjs/typeorm';
 import { ScheduleModule } from '@nestjs/schedule';
 import { ThrottlerModule } from '@nestjs/throttler';
 import { INestApplication } from '@nestjs/common';
+import { APP_GUARD } from '@nestjs/core';
 import { io, Socket } from 'socket.io-client';
 import { VideollamadaModule } from '../src/videollamada/videollamada.module';
 import { VideollamadaService } from '../src/videollamada/videollamada.service';
@@ -31,6 +32,10 @@ import { ConfigSmsEntity } from '../src/sms/config-sms.entity';
 import { TenantEntity } from '../src/tenants/tenant.entity';
 import { CasoEntity } from '../src/casos/caso.entity';
 import { CommonModule } from '../src/common/common.module';
+import { UsuariosModule } from '../src/usuarios/usuarios.module';
+import { RolesModule } from '../src/roles/roles.module';
+import { JwtAuthGuard } from '../src/auth/jwt-auth.guard';
+import { PermisosGuard } from '../src/auth/permisos.guard';
 import { TenantRlsService } from '../src/common/tenant-rls.service';
 
 const PUERTO = 5645;
@@ -79,6 +84,11 @@ async function main(): Promise<number> {
     imports: [
       ConfigModule.forRoot({
         isGlobal: true,
+        // Sin esto, un `.env` del entorno de desarrollo pisa estos valores
+        // —incluido JWT_SECRET— y el gateway rechaza los tokens que firma la
+        // propia prueba con un «No autenticado.» que no tiene nada que ver
+        // con el código bajo prueba.
+        ignoreEnvFile: true,
         load: [() => ({
           JWT_SECRET: SECRETO,
           FRONTEND_URL: 'https://falcon.example',
@@ -105,7 +115,18 @@ async function main(): Promise<number> {
       // throttling; en la app lo configura app.module.
       ThrottlerModule.forRoot([{ ttl: 60_000, limit: 1000 }]),
       CommonModule,
+      // Los guardias globales necesitan resolver usuario y rol contra la base.
+      UsuariosModule,
+      RolesModule,
       VideollamadaModule,
+    ],
+    // Los MISMOS guardias globales que registra app.module. Sin ellos, las
+    // rutas se probarían desnudas: la del ciudadano parecía abierta cuando en
+    // la aplicación real respondía 403, porque PermisosGuard resuelve permisos
+    // contra la base y no mira `@Public()`.
+    providers: [
+      { provide: APP_GUARD, useClass: JwtAuthGuard },
+      { provide: APP_GUARD, useClass: PermisosGuard },
     ],
   }).compile();
 
@@ -247,6 +268,21 @@ async function main(): Promise<number> {
   const trasColgar = await video.obtener('tunja', creada.sesionId);
   afirmar(trasColgar?.estado === 'FINALIZADA', `quedó ${trasColgar?.estado}`);
   afirmar((await video.activaDe('tunja', casoId)) === null, 'y el caso ya no ofrece reconectarse');
+
+  console.log('\n12) La superficie HTTP, con los guardias globales puestos');
+  const abierta = await video.crear('tunja', casoId, '3001234567', 'despachador1');
+  const publica = await fetch(`http://127.0.0.1:${PUERTO}/videollamada/publico/${abierta.token}`);
+  const cuerpo = (await publica.json()) as { valido?: boolean };
+  afirmar(publica.status === 200 && cuerpo.valido === true,
+    `el ciudadano valida su enlace SIN sesión (${publica.status})`);
+
+  const caducado = await fetch(`http://127.0.0.1:${PUERTO}/videollamada/publico/token-inventado`);
+  afirmar(caducado.status === 200 && ((await caducado.json()) as { valido?: boolean }).valido === false,
+    'un enlace inventado responde que no vale, sin filtrarse por la puerta');
+
+  const sinSesion = await fetch(`http://127.0.0.1:${PUERTO}/casos/${casoId}/videollamada/activa`);
+  afirmar(sinSesion.status === 401,
+    `lo demás del controlador SIGUE cerrado sin sesión (${sinSesion.status})`);
 
   sDesp.disconnect();
   sIntruso.disconnect();

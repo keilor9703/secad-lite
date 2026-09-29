@@ -13,8 +13,13 @@ import { JwtPayload } from '../auth/auth.service';
  * ciudadano solo recibe un enlace y nunca llama a nada autenticado de aquí
  * —su único endpoint es el público, que valida el enlace antes de pedirle
  * permiso de cámara—.
+ *
+ * El permiso se declara MÉTODO A MÉTODO, como en el resto de los
+ * controladores. A nivel de clase, `PermisosGuard` lo exigiría también en la
+ * ruta del ciudadano: ese guardia resuelve los permisos contra la base y no
+ * mira `@Public()`, así que la clase entera se volvía inalcanzable sin sesión
+ * y el enlace respondía 403.
  */
-@Permisos('despacho.ver')
 @Controller()
 export class VideollamadaController {
   constructor(
@@ -24,6 +29,7 @@ export class VideollamadaController {
   ) {}
 
   /** POST /api/casos/:id/videollamada — abrir la llamada y mandar el enlace. */
+  @Permisos('despacho.ver')
   @Post('casos/:id/videollamada')
   crear(
     @Tenant() tenant: string,
@@ -42,6 +48,7 @@ export class VideollamadaController {
    * generar otro enlace. Es lo que permite recuperar la llamada tras un F5, un
    * cambio de pestaña, una caída de red o un relevo de turno.
    */
+  @Permisos('despacho.ver')
   @Get('casos/:id/videollamada/activa')
   async activa(
     @Tenant() tenant: string,
@@ -68,12 +75,14 @@ export class VideollamadaController {
    * cerró: quién atendió, cuándo, cuánto duró, dónde estaba el ciudadano y si
    * quedó grabación.
    */
+  @Permisos('despacho.ver')
   @Get('casos/:id/videollamadas')
   listar(@Tenant() tenant: string, @Param('id') casoId: string) {
     return this.video.listarPorCaso(tenant, casoId);
   }
 
   /** GET /api/videollamadas/:id/chat — la transcripción del chat. */
+  @Permisos('despacho.ver')
   @Get('videollamadas/:id/chat')
   chat(@Tenant() tenant: string, @Param('id') sesionId: string) {
     return this.video.listarChat(tenant, sesionId);
@@ -88,6 +97,7 @@ export class VideollamadaController {
    * queda guardado aunque el puesto del despachador muera a mitad de la
    * llamada. Los trozos van por la capa de archivos (POST /archivos/:id/chunk).
    */
+  @Permisos('despacho.ver')
   @Post('videollamadas/:id/grabacion')
   async iniciarGrabacion(
     @Tenant() tenant: string,
