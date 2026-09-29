@@ -19,7 +19,7 @@
  */
 
 //const ORIGEN_API = 'https://secad-lite.onrender.com';
-const ORIGEN_API = 'https://falcon-test.appjeylor.com'; 
+const ORIGEN_API = 'https://falconcad.com.co';
 export const environment = {
   production: true,
   apiBaseUrl: ORIGEN_API ? `${ORIGEN_API}/api` : '/api',
