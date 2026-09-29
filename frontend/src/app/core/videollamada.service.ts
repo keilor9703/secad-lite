@@ -102,8 +102,9 @@ export class VideollamadaService {
   // ── API del caso ──────────────────────────────────────────────────────────
 
   crear(casoId: string, numeroTelefono: string): Promise<VideollamadaCreada> {
+    const baseUrl = window.location.origin;
     return firstValueFrom(this.http.post<VideollamadaCreada>(
-      `${environment.apiBaseUrl}/casos/${casoId}/videollamada`, { numeroTelefono }));
+      `${environment.apiBaseUrl}/casos/${casoId}/videollamada`, { numeroTelefono, baseUrl }));
   }
 
   /**
@@ -112,8 +113,9 @@ export class VideollamadaService {
    * un cambio de pestaña, una caída de red o un relevo de turno.
    */
   activa(casoId: string): Promise<VideollamadaActiva> {
+    const baseUrl = encodeURIComponent(window.location.origin);
     return firstValueFrom(this.http.get<VideollamadaActiva>(
-      `${environment.apiBaseUrl}/casos/${casoId}/videollamada/activa`));
+      `${environment.apiBaseUrl}/casos/${casoId}/videollamada/activa?baseUrl=${baseUrl}`));
   }
 
   // ── Señalización ──────────────────────────────────────────────────────────
@@ -209,7 +211,11 @@ export class VideollamadaService {
     this.pc = new RTCPeerConnection({ iceServers: this.iceServers() });
 
     this.pc.ontrack = (ev) => {
-      this.remotoSubject.next(ev.streams[0] ?? null);
+      let stream = ev.streams && ev.streams[0] ? ev.streams[0] : null;
+      if (!stream && ev.track) {
+        stream = new MediaStream([ev.track]);
+      }
+      this.remotoSubject.next(stream);
       this.estadoSubject.next('conectada');
     };
 

@@ -49,3 +49,21 @@
 .chip input { width: auto; }
 
 .t-acciones { display: flex; justify-content: flex-end; gap: 0.5rem; }
+
+.sms-global {
+  margin-bottom: 1.2rem;
+}
+.sms-probar {
+  display: flex;
+  gap: 0.6rem;
+  align-items: center;
+  margin-top: 0.8rem;
+}
+.sms-probar input[type="tel"] {
+  max-width: 260px;
+}
+.exito {
+  color: var(--ok);
+  font-size: 0.85rem;
+  margin: 0.3rem 0;
+}

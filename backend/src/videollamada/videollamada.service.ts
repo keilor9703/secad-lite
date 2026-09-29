@@ -35,6 +35,7 @@ export class VideollamadaService {
     casoId: string,
     numeroTelefono: string,
     despachador: string,
+    baseUrl?: string,
   ): Promise<{
     sesionId: string; token: string; enlace: string; expiraEn: Date;
     smsEnviado: boolean; mensaje: string; reutilizada: boolean;
@@ -50,7 +51,7 @@ export class VideollamadaService {
       const token = this.tokens.crear(
         { sesionId: vigente.id, casoId, tenant, despachador }, vigente.expiraEn);
       return {
-        sesionId: vigente.id, token, enlace: this.enlace(token), expiraEn: vigente.expiraEn,
+        sesionId: vigente.id, token, enlace: this.enlace(token, baseUrl), expiraEn: vigente.expiraEn,
         smsEnviado: false, reutilizada: true,
         mensaje: 'Ya había una videollamada en curso para este caso — se reutiliza el mismo enlace.',
       };
@@ -68,7 +69,7 @@ export class VideollamadaService {
       ));
 
     const token = this.tokens.crear({ sesionId: sesion.id, casoId, tenant, despachador }, expiraEn);
-    const enlace = this.enlace(token);
+    const enlace = this.enlace(token, baseUrl);
 
     // El SMS puede fallar y la llamada tiene que quedar abierta igual: el
     // despachador ya tiene el enlace y puede dictarlo por teléfono.
@@ -123,8 +124,8 @@ export class VideollamadaService {
       sesion.expiraEn);
   }
 
-  enlace(token: string): string {
-    const base = (this.config.get<string>('FRONTEND_URL') ?? '').replace(/\/+$/, '');
+  enlace(token: string, baseUrlFrontend?: string): string {
+    const base = (this.config.get<string>('FRONTEND_URL') ?? baseUrlFrontend ?? '').replace(/\/+$/, '');
     return `${base}/video/${token}`;
   }
 

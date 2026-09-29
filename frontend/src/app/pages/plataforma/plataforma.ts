@@ -1,7 +1,7 @@
 import { ChangeDetectionStrategy, Component, OnInit, computed, inject, signal } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormControl, FormGroup, FormsModule, ReactiveFormsModule, Validators } from '@angular/forms';
-import { AdminService } from '../../core/admin.service';
+import { AdminService, ConfigSmsGuardar, ConfigSmsVisible } from '../../core/admin.service';
 import { EstadoSuscripcion, PlanTenant, Tenant } from '../../core/models';
 import { SelectorMunicipioComponent } from '../../shared/selector-municipio/selector-municipio';
 import { SelectorComponent } from '../../shared/selector/selector';
@@ -87,6 +87,7 @@ export class PlataformaComponent implements OnInit {
     { clave: 'whatsapp', nombre: 'WhatsApp' },
     { clave: 'api', nombre: 'API entrante' },
     { clave: 'cti', nombre: 'CTI / YACO (barra embebida)' },
+    { clave: 'videollamada', nombre: 'Videollamada con ciudadano' },
   ];
 
   readonly nuevoTenantForm = new FormGroup({
@@ -102,6 +103,52 @@ export class PlataformaComponent implements OnInit {
 
   ngOnInit(): void {
     this.cargar();
+    this.cargarSms();
+  }
+
+  // --- SMS Global ---
+  readonly smsConfig = signal<ConfigSmsVisible | null>(null);
+  readonly smsError = signal('');
+  readonly smsExito = signal('');
+  readonly smsProbandoNumero = signal('');
+  readonly smsProbando = signal(false);
+
+  cargarSms(): void {
+    this.admin.verConfigSms().subscribe({
+      next: (cfg) => this.smsConfig.set(cfg),
+      error: () => this.smsError.set('No fue posible cargar la configuración de SMS.'),
+    });
+  }
+
+  guardarSms(datos: Partial<ConfigSmsGuardar>): void {
+    this.smsError.set('');
+    this.smsExito.set('');
+    this.admin.guardarConfigSms(datos).subscribe({
+      next: (cfg) => {
+        this.smsConfig.set(cfg);
+        this.smsExito.set('Configuración de SMS guardada.');
+      },
+      error: () => this.smsError.set('No fue posible guardar la configuración de SMS.'),
+    });
+  }
+
+  probarSms(): void {
+    const num = this.smsProbandoNumero().trim();
+    if (!num) return;
+    this.smsProbando.set(true);
+    this.smsError.set('');
+    this.smsExito.set('');
+    this.admin.probarSms(num).subscribe({
+      next: (res) => {
+        this.smsProbando.set(false);
+        if (res.ok) this.smsExito.set(res.mensaje);
+        else this.smsError.set(res.mensaje);
+      },
+      error: () => {
+        this.smsProbando.set(false);
+        this.smsError.set('No fue posible enviar el SMS de prueba.');
+      },
+    });
   }
 
   private cargar(): void {

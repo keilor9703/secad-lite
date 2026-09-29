@@ -189,7 +189,13 @@ export class VideoCiudadanoComponent implements OnInit, OnDestroy {
     // El audio del despachador se reproduce; su video no se envía.
     this.pc.ontrack = (ev) => {
       const audio = document.getElementById('audio-operador') as HTMLAudioElement | null;
-      if (audio && ev.streams[0]) audio.srcObject = ev.streams[0];
+      if (audio) {
+        if (ev.streams && ev.streams[0]) {
+          audio.srcObject = ev.streams[0];
+        } else if (ev.track) {
+          audio.srcObject = new MediaStream([ev.track]);
+        }
+      }
     };
 
     this.local?.getTracks().forEach((t) => this.pc!.addTrack(t, this.local!));

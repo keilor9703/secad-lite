@@ -49,6 +49,72 @@
       <button type="button" class="btn btn--ghost mini" (click)="limpiarFiltros()">Quitar filtros</button>
     }
   </div>
+
+  <!-- Configuración global de SMS — una sola para toda la plataforma -->
+  <div class="panel card sms-global">
+    <h2>📱 Mensajería SMS</h2>
+    <p class="hint">Proveedor de SMS para el envío de enlaces de videollamada. Esta configuración
+      aplica para todas las instancias que tengan la integración de videollamada habilitada.</p>
+
+    @if (smsError()) {
+      <p class="error">{{ smsError() }}</p>
+    }
+    @if (smsExito()) {
+      <p class="exito">{{ smsExito() }}</p>
+    }
+
+    @if (smsConfig(); as cfg) {
+      <div class="t-grid">
+        <label class="campo">
+          <span>Proveedor</span>
+          <app-selector [valorActual]="cfg.proveedor" (cambio)="guardarSms({ proveedor: $any($event) })">
+            <app-opcion valor="INFOBIP">Infobip</app-opcion>
+            <app-opcion valor="INALAMBRIA_EXPRESS">Inalambria Express</app-opcion>
+          </app-selector>
+        </label>
+        <label class="campo">
+          <span>Host / Base URL</span>
+          <input type="text" [value]="cfg.baseUrl ?? ''" placeholder="xxxxx.api.infobip.com"
+                 (change)="guardarSms({ baseUrl: $any($event.target).value })" />
+        </label>
+        <label class="campo">
+          <span>Sender (remitente)</span>
+          <input type="text" [value]="cfg.sender ?? ''" placeholder="FALCON"
+                 (change)="guardarSms({ sender: $any($event.target).value })" />
+        </label>
+      </div>
+      <div class="t-grid">
+        <label class="campo">
+          <span>API Key {{ cfg.tieneApiKey ? '(configurada ✓)' : '(sin configurar)' }}</span>
+          <input type="password" placeholder="Pegue la nueva API key aquí"
+                 (change)="guardarSms({ apiKey: $any($event.target).value }); $any($event.target).value = ''" />
+        </label>
+        <label class="campo">
+          <span>Estado</span>
+          <app-selector [valorActual]="cfg.activo" (cambio)="guardarSms({ activo: $any($event) })">
+            <app-opcion [valor]="true">Activo</app-opcion>
+            <app-opcion [valor]="false">Desactivado</app-opcion>
+          </app-selector>
+        </label>
+      </div>
+      @if (cfg.actualizadoPor) {
+        <p class="hint">Última actualización por {{ cfg.actualizadoPor }}
+          @if (cfg.actualizadoEn) { el {{ cfg.actualizadoEn | date: 'dd/MM/yyyy HH:mm' }} }
+        </p>
+      }
+      <div class="sms-probar">
+        <input type="tel" inputmode="tel" placeholder="Número para probar (ej. 3001234567)"
+               [ngModel]="smsProbandoNumero()" (ngModelChange)="smsProbandoNumero.set($event)" />
+        <button type="button" class="btn btn--ghost" [disabled]="smsProbando() || !smsProbandoNumero().trim()"
+                (click)="probarSms()">
+          {{ smsProbando() ? 'Enviando…' : 'Enviar SMS de prueba' }}
+        </button>
+      </div>
+    } @else {
+      <p class="hint">Cargando configuración…</p>
+    }
+  </div>
+
   @if (tenants().length && !tenantsFiltrados().length) {
     <p class="vacio-inline">Ninguna instancia coincide con la búsqueda.</p>
   }

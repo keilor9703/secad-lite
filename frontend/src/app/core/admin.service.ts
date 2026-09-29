@@ -88,4 +88,32 @@ export class AdminService {
   cambiarContrasena(id: string, contrasena: string): Observable<UsuarioAdmin> {
     return this.http.patch<UsuarioAdmin>(`${this.base}/usuarios/${id}`, { contrasena });
   }
+
+  // --- Config SMS global (solo superadmin desde Plataforma) ---
+  verConfigSms(): Observable<ConfigSmsVisible> {
+    return this.http.get<ConfigSmsVisible>(`${this.base}/plataforma/sms`);
+  }
+  guardarConfigSms(datos: Partial<ConfigSmsGuardar>): Observable<ConfigSmsVisible> {
+    return this.http.post<ConfigSmsVisible>(`${this.base}/plataforma/sms`, datos);
+  }
+  probarSms(numero: string): Observable<{ ok: boolean; mensaje: string }> {
+    return this.http.post<{ ok: boolean; mensaje: string }>(`${this.base}/plataforma/sms/probar`, { numero });
+  }
+}
+
+export interface ConfigSmsVisible {
+  proveedor: 'INFOBIP' | 'INALAMBRIA_EXPRESS';
+  baseUrl: string | null;
+  sender: string | null;
+  activo: boolean;
+  tieneApiKey: boolean;
+  actualizadoPor: string | null;
+  actualizadoEn: string | null;
+}
+export interface ConfigSmsGuardar {
+  proveedor?: 'INFOBIP' | 'INALAMBRIA_EXPRESS';
+  apiKey?: string;
+  baseUrl?: string | null;
+  sender?: string | null;
+  activo?: boolean;
 }

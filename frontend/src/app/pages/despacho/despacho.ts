@@ -66,6 +66,7 @@ export class DespachoComponent {
   private readonly ahora = signal(Date.now());
 
   readonly veTodo = computed(() => this.auth.tienePermiso('casos.ver_todos'));
+  readonly tieneVideollamada = computed(() => this.auth.tieneIntegracion('videollamada'));
   /** Administrador o superadmin: puede mirar la bandeja de CUALQUIER agencia/canal, no solo la suya. */
   readonly puedeElegirAgenciaCanal = computed(() => this.auth.esAdmin() || this.auth.esSuperadmin());
 

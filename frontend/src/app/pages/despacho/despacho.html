@@ -187,7 +187,9 @@
       <!-- El video encabeza el panel: llamar al ciudadano para VER la escena
            es una decisión de los primeros segundos, no algo que se busque al
            final de la ficha. -->
-      <app-videollamada [casoId]="id" [telefono]="casoAbierto()?.telefono ?? null" />
+      @if (tieneVideollamada()) {
+        <app-videollamada [casoId]="id" [telefono]="casoAbierto()?.telefono ?? null" />
+      }
       <app-detalle [casoId]="id" [incrustado]="true" [canalId]="canalActivo()" (cambiado)="cargar(true)" />
     </aside>
   }

@@ -2,7 +2,7 @@ import { Module } from '@nestjs/common';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { ConfigSmsEntity } from './config-sms.entity';
 import { SmsService } from './sms.service';
-import { ConfigSmsController } from './sms.controller';
+import { SmsGlobalController } from './sms-global.controller';
 import { InfobipRemitente } from './infobip.remitente';
 import { InalambriaRemitente } from './inalambria.remitente';
 
@@ -13,7 +13,7 @@ import { InalambriaRemitente } from './inalambria.remitente';
  */
 @Module({
   imports: [TypeOrmModule.forFeature([ConfigSmsEntity])],
-  controllers: [ConfigSmsController],
+  controllers: [SmsGlobalController],
   providers: [SmsService, InfobipRemitente, InalambriaRemitente],
   exports: [SmsService],
 })

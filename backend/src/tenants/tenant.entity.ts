@@ -9,7 +9,7 @@ export type EstadoSuscripcion = 'prueba' | 'activa' | 'suspendida';
 export const ESTADOS_SUSCRIPCION: EstadoSuscripcion[] = ['prueba', 'activa', 'suspendida'];
 
 /** Integraciones que se pueden habilitar por tenant. */
-export const INTEGRACIONES = ['pbx', 'whatsapp', 'api', 'cti'] as const;
+export const INTEGRACIONES = ['pbx', 'whatsapp', 'api', 'cti', 'videollamada'] as const;
 export type Integracion = (typeof INTEGRACIONES)[number];
 
 /**

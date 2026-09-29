@@ -1,4 +1,4 @@
-import { Body, Controller, Get, Param, Post } from '@nestjs/common';
+import { Body, Controller, Get, Param, Post, Query } from '@nestjs/common';
 import { VideollamadaService } from './videollamada.service';
 import { VideoTokenService } from './video-token.service';
 import { ArchivosService } from '../archivos/archivos.service';
@@ -7,6 +7,7 @@ import { Usuario } from '../common/usuario.decorator';
 import { Permisos } from '../auth/permisos.decorator';
 import { Public } from '../auth/public.decorator';
 import { JwtPayload } from '../auth/auth.service';
+import { TenantsService } from '../tenants/tenants.service';
 
 /**
  * Videollamada con el ciudadano. La abre el despachador desde el caso; el
@@ -26,19 +27,23 @@ export class VideollamadaController {
     private readonly video: VideollamadaService,
     private readonly tokens: VideoTokenService,
     private readonly archivos: ArchivosService,
+    private readonly tenants: TenantsService,
   ) {}
 
   /** POST /api/casos/:id/videollamada — abrir la llamada y mandar el enlace. */
   @Permisos('despacho.ver')
   @Post('casos/:id/videollamada')
-  crear(
+  async crear(
     @Tenant() tenant: string,
     @Usuario() actor: JwtPayload,
     @Param('id') casoId: string,
-    @Body() dto: { numeroTelefono?: string },
+    @Body() dto: { numeroTelefono?: string; baseUrl?: string },
   ) {
+    const t = await this.tenants.porCodigo(tenant);
+    if (t) this.tenants.asegurarVigente(t, 'videollamada');
+
     return this.video.crear(
-      tenant, casoId, dto?.numeroTelefono ?? '', actor?.sub ?? 'desconocido');
+      tenant, casoId, dto?.numeroTelefono ?? '', actor?.sub ?? 'desconocido', dto?.baseUrl);
   }
 
   /**
@@ -54,6 +59,7 @@ export class VideollamadaController {
     @Tenant() tenant: string,
     @Usuario() actor: JwtPayload,
     @Param('id') casoId: string,
+    @Query('baseUrl') baseUrl?: string,
   ) {
     const sesion = await this.video.activaDe(tenant, casoId);
     if (!sesion) return { hay: false };
@@ -64,7 +70,7 @@ export class VideollamadaController {
       sesionId: sesion.id,
       estado: sesion.estado,
       token,
-      enlace: this.video.enlace(token),
+      enlace: this.video.enlace(token, baseUrl),
       expiraEn: sesion.expiraEn,
       grabando: !!sesion.archivoGrabacionId,
     };

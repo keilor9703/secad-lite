@@ -42,7 +42,7 @@ export class SmsService {
   ) {}
 
   async enviar(tenant: string, numero: string, mensaje: string): Promise<boolean> {
-    const cfg = await this.configs.findOne({ where: { tenant } });
+    const cfg = await this.configs.findOne({ where: { tenant: '__global__' } });
 
     if (!cfg || !cfg.activo || !cfg.apiKey) {
       this.logger.warn(
