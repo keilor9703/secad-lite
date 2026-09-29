@@ -1,0 +1,105 @@
+<!-- Página del ciudadano: se ve en un celular, con una mano, posiblemente de
+     noche y con prisa. Todo grande, poco texto, un solo botón importante. -->
+<div class="vc">
+
+  @switch (estado()) {
+
+    @case ('validando') {
+      <div class="vc__aviso">
+        <div class="vc__spinner" aria-hidden="true"></div>
+        <p>Verificando el enlace…</p>
+      </div>
+    }
+
+    @case ('invalido') {
+      <div class="vc__aviso vc__aviso--malo">
+        <h1>No pudimos abrir la videollamada</h1>
+        <p>{{ mensajeError() }}</p>
+        <p class="vc__nota">Si sigue necesitando ayuda, llame de nuevo a la línea 123.</p>
+      </div>
+    }
+
+    @case ('pidiendo-permiso') {
+      <div class="vc__aviso">
+        <div class="vc__spinner" aria-hidden="true"></div>
+        <h1>Permita el acceso a su cámara</h1>
+        <p>Su teléfono le va a preguntar si autoriza la cámara y el micrófono. Toque «Permitir».</p>
+      </div>
+    }
+
+    @case ('permiso-denegado') {
+      <div class="vc__aviso vc__aviso--malo">
+        <h1>Necesitamos su cámara</h1>
+        <p>{{ mensajeError() }}</p>
+      </div>
+    }
+
+    @default {
+      <!-- El video propio ocupa la pantalla: el ciudadano necesita ver qué está
+           mostrando, no verse a sí mismo en un recuadro. -->
+      <video id="video-local" class="vc__video" autoplay playsinline muted></video>
+      <audio id="audio-operador" autoplay></audio>
+
+      @if (estado() === 'esperando') {
+        <div class="vc__capa">
+          <div class="vc__spinner" aria-hidden="true"></div>
+          <p>Conectando con el operador…</p>
+        </div>
+      }
+
+      @if (mensajeEspera()) {
+        <p class="vc__banda" role="status">{{ mensajeEspera() }}</p>
+      }
+
+      @if (estado() === 'finalizada') {
+        <div class="vc__capa">
+          <h1>La videollamada terminó</h1>
+          <p>Gracias. Ya puede cerrar esta página.</p>
+        </div>
+      }
+
+      <div class="vc__barra">
+        <button type="button" class="vc__btn" (click)="cambiarCamara()"
+                [attr.aria-label]="camaraFrontal() ? 'Usar la cámara trasera' : 'Usar la cámara frontal'">
+          ⟲ Cámara
+        </button>
+
+        <button type="button" class="vc__btn vc__btn--colgar" (click)="colgar()"
+                aria-label="Terminar la videollamada">
+          Colgar
+        </button>
+
+        <button type="button" class="vc__btn" (click)="chatAbierto.set(!chatAbierto())"
+                aria-label="Abrir el chat">
+          Chat
+          @if (chatMensajes().length) { <span class="vc__punto"></span> }
+        </button>
+      </div>
+
+      @if (ubicacionActiva()) {
+        <p class="vc__ubic" role="status">Compartiendo su ubicación con el operador</p>
+      }
+
+      @if (chatAbierto()) {
+        <section class="vc__chat" aria-label="Chat con el operador">
+          <div class="vc__chat-lista">
+            @for (m of chatMensajes(); track $index) {
+              <p class="vc__msg" [class.vc__msg--propio]="m.propio">
+                {{ m.texto }} <span class="vc__hora">{{ m.hora }}</span>
+              </p>
+            }
+            @if (!chatMensajes().length) {
+              <p class="vc__nota">Si no puede hablar, escriba aquí.</p>
+            }
+          </div>
+          <form class="vc__chat-envio" (ngSubmit)="enviarChat()">
+            <input [ngModel]="chatTexto()" (ngModelChange)="chatTexto.set($event)"
+                   name="chatTexto" placeholder="Escriba su mensaje" autocomplete="off"
+                   aria-label="Mensaje para el operador">
+            <button type="submit">Enviar</button>
+          </form>
+        </section>
+      }
+    }
+  }
+</div>

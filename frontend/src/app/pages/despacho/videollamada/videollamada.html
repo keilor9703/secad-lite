@@ -1,0 +1,144 @@
+<!-- Videollamada con el ciudadano, dentro del panel del caso.
+     Dos caras: el LANZADOR (no hay llamada) y la CONSOLA (hay llamada). -->
+<section class="vll card">
+
+  <header class="vll-cab">
+    <h2 class="vll-tit">📹 Videollamada con el ciudadano</h2>
+
+    @switch (estado()) {
+      @case ('esperando')  { <span class="badge badge--warn">Esperando al ciudadano</span> }
+      @case ('conectando') { <span class="badge badge--warn">Conectando…</span> }
+      @case ('conectada')  { <span class="badge badge--ok">Conectada</span> }
+      @case ('error')      { <span class="badge badge--danger">Error de conexión</span> }
+    }
+    @if (grabando()) {
+      <span class="badge badge--danger vll-rec">● Grabando</span>
+    }
+  </header>
+
+  @if (error()) {
+    <p class="vll-error" role="status">{{ error() }}</p>
+  }
+
+  @if (enCurso()) {
+    <!-- ── Consola de la llamada ─────────────────────────────────────── -->
+
+    @if (enlace()) {
+      <div class="vll-enlace">
+        <input type="text" readonly [value]="enlace()"
+               aria-label="Enlace de la videollamada"
+               (focus)="$any($event.target).select()" />
+        <button type="button" class="btn mini" (click)="copiarEnlace()">Copiar</button>
+      </div>
+      <p class="vll-pista">
+        Si el ciudadano no recibió el mensaje, díctele este enlace por teléfono.
+      </p>
+    }
+
+    <!-- El marco se mantiene montado toda la llamada: así el video no se
+         pierde por llegar antes de que el elemento exista. -->
+    <div class="vll-marco" [class.vll-marco--vacio]="estado() !== 'conectada'">
+      <video #remoto autoplay playsinline></video>
+      @if (estado() !== 'conectada') {
+        <p class="vll-espera">
+          @if (estado() === 'esperando') {
+            Esperando a que el ciudadano abra el enlace…
+          } @else if (estado() === 'conectando') {
+            Estableciendo la conexión…
+          } @else {
+            Sin video.
+          }
+        </p>
+      }
+    </div>
+
+    @if (ubicacion(); as u) {
+      <p class="vll-ubic">
+        📍 Ubicación reportada:
+        <a [href]="urlMapa(u)" target="_blank" rel="noopener">
+          {{ u.lat | number:'1.5-5' }}, {{ u.lng | number:'1.5-5' }}
+        </a>
+        @if (u.precision) { <small>(precisión ~{{ u.precision | number:'1.0-0' }} m)</small> }
+      </p>
+    }
+
+    <div class="vll-ctrl">
+      <button type="button" class="btn mini"
+              [class.btn--danger]="!microfono()"
+              (click)="alternarMicrofono()">
+        {{ microfono() ? '🎙 Silenciar mi micrófono' : '🔇 Micrófono silenciado' }}
+      </button>
+      <button type="button" class="btn mini"
+              [class.btn--danger]="grabando()"
+              [disabled]="estado() !== 'conectada' && !grabando()"
+              (click)="grabar()">
+        {{ grabando() ? '⏹ Detener grabación' : '⏺ Grabar' }}
+      </button>
+      <button type="button" class="btn mini btn--danger" (click)="colgar()">
+        Colgar
+      </button>
+    </div>
+
+    <!-- El chat depende solo de la señalización: sirve aunque el video no
+         llegue a establecerse, y queda guardado en el caso. -->
+    <div class="vll-chat">
+      <p class="vll-chat-cab">
+        Chat
+        <span class="badge" [class.badge--ok]="chatDisponible()" [class.badge--muted]="!chatDisponible()">
+          {{ chatDisponible() ? 'Disponible' : 'Conectando…' }}
+        </span>
+      </p>
+
+      <div class="vll-hilo">
+        @if (!chat().length) {
+          <p class="vll-pista">Sin mensajes. Escríbale si no puede hablar en voz alta.</p>
+        }
+        @for (m of chat(); track $index) {
+          <span class="vll-burbuja" [class.vll-burbuja--propia]="m.propio">
+            <span>{{ m.texto }}</span>
+            <small>{{ m.hora }}</small>
+          </span>
+        }
+      </div>
+
+      <form class="vll-chat-form" (submit)="enviarChat(); $event.preventDefault()">
+        <input type="text" name="chatTexto" placeholder="Escriba un mensaje…"
+               aria-label="Mensaje para el ciudadano"
+               [ngModel]="chatTexto()" (ngModelChange)="chatTexto.set($event)" />
+        <button type="submit" class="btn mini btn--primary" [disabled]="!chatTexto().trim()">
+          Enviar
+        </button>
+      </form>
+    </div>
+
+  } @else if (reconectable(); as activa) {
+    <!-- ── Ya hay una llamada abierta para este caso ──────────────────── -->
+    <div class="vll-retomar">
+      <p class="vll-pista">
+        Hay una videollamada en curso para este caso
+        @if (activa.grabando) { <strong>· con grabación abierta</strong> }
+        — retómela en vez de enviar otro enlace.
+      </p>
+      <button type="button" class="btn mini btn--primary"
+              [disabled]="reconectando()" (click)="reconectar()">
+        {{ reconectando() ? 'Retomando…' : 'Retomar la videollamada' }}
+      </button>
+    </div>
+
+  } @else {
+    <!-- ── Lanzador ──────────────────────────────────────────────────── -->
+    <p class="vll-pista">
+      Se le envía al ciudadano un enlace por SMS para que muestre la escena
+      desde su celular. No necesita instalar nada.
+    </p>
+    <form class="vll-lanzar" (submit)="llamar(); $event.preventDefault()">
+      <input type="tel" inputmode="tel" name="numero"
+             placeholder="Celular del ciudadano"
+             aria-label="Celular del ciudadano"
+             [ngModel]="numero()" (ngModelChange)="numero.set($event)" />
+      <button type="submit" class="btn mini btn--primary" [disabled]="abriendo()">
+        {{ abriendo() ? 'Abriendo…' : 'Llamar por video' }}
+      </button>
+    </form>
+  }
+</section>

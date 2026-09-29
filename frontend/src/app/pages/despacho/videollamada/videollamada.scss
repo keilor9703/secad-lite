@@ -1,0 +1,215 @@
+// ==========================================================================
+// VIDEOLLAMADA — panel del caso en Despacho
+//
+// Vive en una columna angosta, al lado del detalle del caso: todo se apila y
+// nada compite con la información del incidente. El único elemento que puede
+// crecer es el marco del video, y aun así está topado para que los controles
+// (colgar, grabar, micrófono) nunca queden fuera de pantalla — son acciones
+// que se toman en segundos.
+// ==========================================================================
+
+.vll {
+  display: flex;
+  flex-direction: column;
+  gap: 0.6rem;
+  padding: 0.8rem;
+}
+
+// 1. Cabecera -------------------------------------------------------------
+
+.vll-cab {
+  display: flex;
+  align-items: center;
+  gap: 0.45rem;
+  flex-wrap: wrap;
+  // Quien aloja este panel puede tener algo flotando en su esquina superior
+  // derecha (en Despacho, el botón de cerrar el caso) y lo reserva aquí.
+  padding-right: var(--vll-espacio-cierre, 0);
+}
+
+.vll-tit {
+  margin: 0;
+  flex: 1 1 auto;
+  min-width: 0;
+  font-size: 0.92rem;
+  font-weight: 600;
+  letter-spacing: -0.01em;
+}
+
+// Que se note desde el otro lado del puesto que hay material grabándose.
+.vll-rec { animation: vll-latido 1.6s ease-in-out infinite; }
+
+@keyframes vll-latido {
+  0%, 100% { opacity: 1; }
+  50%      { opacity: 0.45; }
+}
+
+// 2. Avisos ---------------------------------------------------------------
+
+.vll-error {
+  margin: 0;
+  padding: 0.45rem 0.6rem;
+  border-radius: var(--radius-sm);
+  background: var(--tag-danger-bg);
+  color: var(--tag-danger-fg);
+  font-size: 0.8rem;
+}
+
+.vll-pista {
+  margin: 0;
+  font-size: 0.78rem;
+  line-height: 1.35;
+  color: var(--muted);
+}
+
+// 3. Enlace del ciudadano -------------------------------------------------
+
+.vll-enlace {
+  display: flex;
+  gap: 0.4rem;
+  align-items: center;
+
+  input {
+    font-family: var(--mono);
+    font-size: 0.74rem;
+    padding: 0.4rem 0.5rem;
+    min-width: 0;
+  }
+
+  .btn { flex: 0 0 auto; }
+}
+
+// 4. Marco del video ------------------------------------------------------
+
+.vll-marco {
+  position: relative;
+  display: grid;
+  place-items: center;
+  aspect-ratio: 9 / 16;      // el ciudadano graba con el celular en vertical
+  max-height: 46vh;
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--border);
+  background: #000;
+  overflow: hidden;
+
+  video {
+    width: 100%;
+    height: 100%;
+    object-fit: contain;
+    display: block;
+  }
+}
+
+// Mientras no hay imagen el marco no ocupa media pantalla en negro.
+.vll-marco--vacio {
+  aspect-ratio: auto;
+  min-height: 5.5rem;
+  background: var(--surface-2);
+
+  video { display: none; }
+}
+
+.vll-espera {
+  margin: 0;
+  padding: 0 0.8rem;
+  text-align: center;
+  font-size: 0.78rem;
+  color: var(--muted);
+}
+
+// 5. Ubicación ------------------------------------------------------------
+
+.vll-ubic {
+  margin: 0;
+  font-size: 0.78rem;
+  color: var(--ink-soft);
+
+  a { color: var(--accent); }
+  small { color: var(--muted); }
+}
+
+// 6. Controles ------------------------------------------------------------
+
+.vll-ctrl {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.35rem;
+}
+
+// 7. Chat -----------------------------------------------------------------
+
+.vll-chat {
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+  border-top: 1px solid var(--border);
+  padding-top: 0.6rem;
+}
+
+.vll-chat-cab {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  margin: 0;
+  font-size: 0.8rem;
+  font-weight: 600;
+}
+
+.vll-hilo {
+  display: flex;
+  flex-direction: column;
+  gap: 0.3rem;
+  // Tope bajo a propósito: el chat acompaña la llamada, no la desplaza.
+  max-height: 11rem;
+  overflow-y: auto;
+}
+
+.vll-burbuja {
+  align-self: flex-start;
+  max-width: 85%;
+  display: flex;
+  flex-direction: column;
+  gap: 0.1rem;
+  padding: 0.35rem 0.55rem;
+  border-radius: var(--radius-sm);
+  background: var(--surface-2);
+  font-size: 0.8rem;
+  line-height: 1.3;
+  word-break: break-word;
+
+  small {
+    align-self: flex-end;
+    font-size: 0.66rem;
+    color: var(--muted);
+  }
+}
+
+.vll-burbuja--propia {
+  align-self: flex-end;
+  background: var(--accent-soft);
+  color: var(--ink);
+}
+
+.vll-chat-form,
+.vll-lanzar {
+  display: flex;
+  gap: 0.4rem;
+  align-items: center;
+
+  input { min-width: 0; }
+  .btn { flex: 0 0 auto; }
+}
+
+// 8. Retomar --------------------------------------------------------------
+
+.vll-retomar {
+  display: flex;
+  flex-direction: column;
+  gap: 0.45rem;
+  align-items: flex-start;
+  padding: 0.55rem 0.6rem;
+  border-radius: var(--radius-sm);
+  background: var(--tag-warn-bg);
+
+  .vll-pista { color: var(--tag-warn-fg); }
+}

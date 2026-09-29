@@ -628,3 +628,13 @@
   }
   .panel-caso { height: auto; }
 }
+
+// 11. Videollamada del caso -----------------------------------------------
+// Encabeza el panel; su cabecera deja libre la esquina donde flota el botón
+// de cerrar, que va posicionado sobre todo el panel.
+
+.panel-caso app-videollamada {
+  display: block;
+  margin-bottom: 0.9rem;
+  --vll-espacio-cierre: 2rem;
+}

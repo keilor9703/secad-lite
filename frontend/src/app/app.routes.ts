@@ -8,6 +8,14 @@ import { permisoGuard, superadminGuard } from './core/permiso.guard';
 // dejaba entrar por URL a la interfaz del módulo.
 export const routes: Routes = [
   { path: 'login', loadComponent: () => import('./pages/login/login').then((m) => m.LoginComponent) },
+  // La página del ciudadano va aquí, fuera del layout autenticado: quien la
+  // abre no tiene sesión ni cuenta —está llamando al 123 desde la calle— y lo
+  // único que la autoriza es el token del enlace que le llegó por SMS.
+  {
+    path: 'video/:token',
+    loadComponent: () =>
+      import('./pages/video-ciudadano/video-ciudadano').then((m) => m.VideoCiudadanoComponent),
+  },
   {
     path: '',
     loadComponent: () => import('./layout/shell/shell').then((m) => m.ShellComponent),
