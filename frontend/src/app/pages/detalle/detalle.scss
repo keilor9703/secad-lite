@@ -11,6 +11,33 @@
 .grid { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1.1fr); gap: 1rem; align-items: start; }
 @container det (max-width: 720px) { .grid { grid-template-columns: 1fr; } }
 
+// Incrustado en Despacho, con ancho de sobra para ficha y gestión lado a
+// lado (>720px, arriba): cada columna pasa a tener SU PROPIO scroll, del
+// alto completo que tenga ahí el componente — así nunca hay que bajar toda
+// la ficha (remitir, cerrar) para llegar a la bitácora, ni perderlas de
+// vista mientras se escribe una anotación. Fuera de Despacho (la ruta
+// /caso/:id de toda la vida) esto no aplica: ahí se lee como una página
+// normal, con su único scroll de siempre.
+@container det (min-width: 721px) {
+  .det--incrustado {
+    height: 100%;
+    min-height: 0;
+  }
+  .det--incrustado .grid {
+    height: 100%;
+    min-height: 0;
+    align-items: stretch;
+  }
+  .det--incrustado .ficha,
+  .det--incrustado .col-der {
+    height: 100%;
+    min-height: 0;
+    overflow-y: auto;
+    scrollbar-width: thin;
+    scrollbar-color: var(--border-2) transparent;
+  }
+}
+
 .ficha { padding: 1.2rem 1.3rem; display: flex; flex-direction: column; gap: 0.7rem; }
 // Quien aloja esta ficha puede tener algo flotando en su esquina superior
 // derecha (en Despacho con videollamada, el botón de cerrar el caso) y lo

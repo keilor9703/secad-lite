@@ -528,10 +528,16 @@
 }
 
 // 8. Panel del caso -------------------------------------------------------
+//
+// La cola es una lista de referencia mientras se gestiona un caso, no el foco
+// — por eso va en un riel ANGOSTO Y FIJO (no un porcentaje: un porcentaje
+// crece con la pantalla y en un monitor grande le robaba ancho al panel que
+// sí lo necesita). Su propio @container (más abajo) sigue compactando las
+// filas si aun así queda corto.
 
 .desp.con-panel {
   display: grid;
-  grid-template-columns: minmax(340px, 30%) 1fr;
+  grid-template-columns: minmax(280px, 320px) 1fr;
   gap: 1rem;
   align-items: start;
   height: calc(100vh - 6rem);
@@ -564,7 +570,17 @@
   padding: 1rem 1.2rem 1.2rem;
   box-shadow: var(--shadow);
   height: calc(100vh - 6rem);
-  overflow-y: auto;
+  // Ya no es ESTE nivel el que hace scroll: cada sección de adentro (la
+  // videollamada, la ficha, la gestión del caso) tiene el suyo propio, del
+  // alto exacto que le toca — ver el punto 11 más abajo.
+  overflow: hidden;
+}
+
+// Sin videollamada, la ficha es la única sección: ocupa el panel completo,
+// con su propio scroll interno (ver detalle.scss, `.det--incrustado`).
+.panel-caso > app-detalle {
+  display: block;
+  height: 100%;
 }
 
 .panel-caso .cerrar {
@@ -629,15 +645,18 @@
   .panel-caso { height: auto; }
 }
 
-// 11. Panel del caso con videollamada: video/mapa y ficha EN PARALELO ------
+// 11. Panel del caso con videollamada: paneles independientes, cada uno con
+//     su propio alto Y su propio scroll ---------------------------------
 //
-// Antes el video se apilaba encima de toda la ficha: cerrar el caso, la
-// bitácora, remitir quedaban varias pantallas más abajo mientras la llamada
-// seguía viva. Ahora, con la integración activa, el panel se parte en dos
-// columnas que arrancan a la misma altura — video+mapa a la izquierda, ficha
-// completa a la derecha — así ninguna le quita alto a la otra. Por debajo del
-// ancho donde ya no caben decentes, vuelve a apilarse (el @container de
-// abajo), con el video primero.
+// Antes el video se apilaba encima de toda la ficha, todo dentro de UN solo
+// scroll: cerrar el caso, la bitácora, remitir quedaban varias pantallas más
+// abajo mientras la llamada seguía viva. Ahora video+mapa y la ficha son dos
+// columnas de la MISMA altura fija (el alto completo del panel), cada una con
+// su propio scroll interno — la ficha nunca depende de cuánto ocupe el video,
+// y llegar a la bitácora es un scroll corto DENTRO de su propia columna, no
+// uno largo por todo el panel. Por debajo del ancho donde ya no caben
+// decentes, se apila (el @container de abajo) y ahí sí comparten un único
+// scroll, como una página normal.
 
 // Un contenedor de tamaño no puede consultarse a sí mismo — por eso quien
 // MIDE (`.panel-caso`, con `container-type`) y quien CAMBIA de disposición
@@ -652,18 +671,39 @@
 
 .panel-video-detalle {
   display: grid;
-  grid-template-columns: minmax(360px, 44%) minmax(400px, 1fr);
-  align-items: start;
+  // Los dos pisos que hay que superar para que nada se apile de más:
+  // el video necesita 620px para que el mapa quepa a su lado (@container vll,
+  // en videollamada.scss), y la ficha necesita 721px para que ficha y gestión
+  // (Despacho, chats, bitácora) se separen en dos paneles propios en vez de
+  // uno solo (@container det, en detalle.scss). Los pisos de abajo dejan
+  // margen de sobra sobre esos dos números, no el mínimo justo.
+  grid-template-columns: minmax(660px, 1fr) minmax(760px, 1.05fr);
   gap: 1.1rem;
+  height: 100%;
+  min-height: 0;
 }
 
 .panel-video,
 .panel-detalle {
   min-width: 0;
+  height: 100%;
+  min-height: 0;
+  overflow-y: auto;
+  scrollbar-width: thin;
+  scrollbar-color: var(--border-2) transparent;
 }
 
 .panel-video app-videollamada {
   display: block;
+}
+
+// La ficha hereda el alto completo de su columna: así, si el ancho también
+// le alcanza para partirse en ficha/gestión (@container det, en
+// detalle.scss), cada una queda con SU PROPIO scroll — no solo separada del
+// video, sino de la bitácora también.
+.panel-detalle app-detalle {
+  display: block;
+  height: 100%;
 }
 
 // El botón de cerrar flota sobre la esquina superior derecha de TODO el
@@ -672,12 +712,24 @@
 .panel-detalle { --det-espacio-cierre: 2.1rem; }
 .panel-video app-videollamada { --vll-espacio-cierre: 0; }
 
-@container panelcaso (max-width: 859px) {
+@container panelcaso (max-width: 1500px) {
+  // Apiladas, ya nadie adentro maneja su propio alto/scroll — el panel
+  // completo vuelve a compartir un único scroll normal, como una página.
+  .panel-caso.panel-caso--con-video { overflow-y: auto; }
   .panel-video-detalle {
-    grid-template-columns: 1fr;
+    display: block;
+    height: auto;
+    overflow: visible;
   }
-  // Apiladas, el video vuelve a ser lo primero bajo el botón de cerrar, y la
-  // ficha —ya más abajo— no lo necesita.
-  .panel-detalle { --det-espacio-cierre: 0; margin-top: 0.9rem; }
+  .panel-video,
+  .panel-detalle {
+    height: auto;
+    overflow: visible;
+  }
+  .panel-detalle app-detalle { height: auto; }
+  .panel-video { margin-bottom: 0.9rem; }
+  // El video vuelve a ser lo primero bajo el botón de cerrar, y la ficha
+  // —ya más abajo— no lo necesita.
+  .panel-detalle { --det-espacio-cierre: 0; }
   .panel-video app-videollamada { --vll-espacio-cierre: 2rem; }
 }
