@@ -56,6 +56,8 @@ export class VideollamadaService {
     casoId: string,
     numeroTelefono: string,
     despachador: string,
+    /** Origen por el que llegó la petición, deducido del proxy. Ver baseWeb(). */
+    origenSolicitud?: string | null,
   ): Promise<{
     sesionId: string; token: string; enlace: string; expiraEn: Date;
     smsEnviado: boolean; mensaje: string; reutilizada: boolean;
@@ -71,7 +73,7 @@ export class VideollamadaService {
       const token = this.tokens.crear(
         { sesionId: vigente.id, casoId, tenant, despachador }, vigente.expiraEn);
       return {
-        sesionId: vigente.id, token, enlace: this.enlace(await this.claveDe(vigente)), expiraEn: vigente.expiraEn,
+        sesionId: vigente.id, token, enlace: this.enlace(await this.claveDe(vigente), origenSolicitud), expiraEn: vigente.expiraEn,
         smsEnviado: false, reutilizada: true,
         mensaje: 'Ya había una videollamada en curso para este caso — se reutiliza el mismo enlace.',
       };
@@ -103,19 +105,19 @@ export class VideollamadaService {
     if (!sesion) throw new BadRequestException('No fue posible abrir la videollamada.');
 
     const token = this.tokens.crear({ sesionId: sesion.id, casoId, tenant, despachador }, expiraEn);
-    const enlace = this.enlace(await this.claveDe(sesion));
+    const enlace = this.enlace(await this.claveDe(sesion), origenSolicitud);
 
     // Sin dominio configurado el enlace sale sin él: no se manda. Un SMS con
     // «/v/itagui-k7m2x9qr4t8v» le hace creer al ciudadano que ya puede
     // conectarse y lo deja tocando un enlace muerto en plena emergencia.
-    if (!this.baseWeb()) {
+    if (!this.baseWeb(origenSolicitud)) {
       this.logger.error(
-        'FRONTEND_URL no está configurada: el enlace de la videollamada sale sin dominio ' +
-        'y el SMS no se envía. Defínala con el dominio público de FALCON y reinicie.');
+        'No se pudo determinar el dominio público: ni FRONTEND_URL está definida ni el ' +
+        'proxy declaró el host de la petición. El enlace sale sin dominio y el SMS no se envía.');
       return {
         sesionId: sesion.id, token, enlace, expiraEn, smsEnviado: false, reutilizada: false,
-        mensaje: 'Falta configurar el dominio público de FALCON (FRONTEND_URL): ' +
-          'el enlace sale incompleto y no se envió el SMS. Avise al administrador.',
+        mensaje: 'No se pudo armar el enlace: el servidor no sabe con qué dominio público ' +
+          'se le alcanza. Avise al administrador (FRONTEND_URL).',
       };
     }
 
@@ -173,23 +175,30 @@ export class VideollamadaService {
   }
 
   /**
-   * Dominio público de FALCON, o null si nadie lo configuró.
+   * Dominio público de FALCON, con dos fuentes y en este orden:
    *
-   * Sale SOLO de la configuración del servidor, nunca de lo que mande el
-   * navegador: este dominio termina dentro de un SMS firmado «FALCON CAD -
-   * Linea 123», y aceptarlo del cliente permitiría que cualquiera con acceso
-   * al endpoint le mande al ciudadano un enlace a un dominio ajeno —con un
-   * token válido dentro— y le pida cámara y micrófono en nombre de la línea.
+   *   1. `FRONTEND_URL`, si el administrador la configuró. Manda siempre.
+   *   2. El origen por el que llegó la petición, que el reverse proxy declara
+   *      en `X-Forwarded-Host` (ver common/origen-publico.ts). Así un
+   *      despliegue detrás de nginx funciona sin configurar nada.
    *
-   * Se usa `||` y no `??` a propósito: `FRONTEND_URL=` (definida pero vacía,
-   * un tropiezo fácil en un .env) también cuenta como no configurada.
+   * Lo que NUNCA es fuente es el cuerpo de la petición: este dominio termina
+   * dentro de un SMS firmado «FALCON CAD - Linea 123», y aceptarlo de ahí
+   * dejaría que cualquier funcionario con sesión le mandara al ciudadano un
+   * enlace a un dominio ajeno —con un token válido dentro— pidiéndole cámara y
+   * micrófono en nombre de la línea.
+   *
+   * Se usa `||` y no `??` a propósito: `FRONTEND_URL=` (definida pero vacía, un
+   * tropiezo fácil en un .env) también cuenta como no configurada.
    */
-  private baseWeb(): string | null {
-    return (this.config.get<string>('FRONTEND_URL') || '').trim().replace(/\/+$/, '') || null;
+  private baseWeb(origenSolicitud?: string | null): string | null {
+    const configurado = (this.config.get<string>('FRONTEND_URL') || '').trim().replace(/\/+$/, '');
+    if (configurado) return configurado;
+    return (origenSolicitud || '').trim().replace(/\/+$/, '') || null;
   }
 
-  enlace(clave: string): string {
-    return `${this.baseWeb() ?? ''}${RUTA_PUBLICA}/${clave}`;
+  enlace(clave: string, origenSolicitud?: string | null): string {
+    return `${this.baseWeb(origenSolicitud) ?? ''}${RUTA_PUBLICA}/${clave}`;
   }
 
   private sortearCodigo(): string {

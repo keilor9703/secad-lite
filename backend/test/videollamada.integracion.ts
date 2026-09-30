@@ -32,6 +32,7 @@ import { ConfigSmsEntity } from '../src/sms/config-sms.entity';
 import { TenantEntity } from '../src/tenants/tenant.entity';
 import { CasoEntity } from '../src/casos/caso.entity';
 import { CommonModule } from '../src/common/common.module';
+import { origenPublico } from '../src/common/origen-publico';
 import { UsuariosModule } from '../src/usuarios/usuarios.module';
 import { RolesModule } from '../src/roles/roles.module';
 import { JwtAuthGuard } from '../src/auth/jwt-auth.guard';
@@ -306,6 +307,41 @@ async function main(): Promise<number> {
   afirmar(viejaForma.status === 200
     && ((await viejaForma.json()) as { valido?: boolean }).valido === true,
     'un enlace de los de antes (con el token en la URL) sigue funcionando');
+
+  console.log('\n13) De dónde sale el dominio del enlace');
+  const pedir = (cabeceras: Record<string, string>, protocolo = 'https') =>
+    origenPublico({ headers: cabeceras, protocol: protocolo } as never);
+
+  afirmar(pedir({ 'x-forwarded-host': 'falcon.example' }) === 'https://falcon.example',
+    'el proxy declara el host y de ahí sale el dominio: no hay que configurar nada');
+  afirmar(pedir({ 'x-forwarded-host': 'falcon.example, interno' }) === 'https://falcon.example',
+    'con varios saltos manda el primero, que es el que vio el ciudadano');
+  afirmar(pedir({ host: 'falcon.example' }) === 'https://falcon.example',
+    'sin cabecera de proxy sirve la de Host');
+  afirmar(pedir({ 'x-forwarded-host': 'falcon.example' }, 'http') === 'https://falcon.example',
+    'aunque el proxy diga http: un enlace http no da cámara en ningún navegador');
+  afirmar(pedir({ 'x-forwarded-host': 'localhost:4200' }, 'http') === 'http://localhost:4200',
+    'en local sí se respeta http, y el puerto no se pierde');
+  afirmar(pedir({ 'x-forwarded-host': 'evil.example/algo?x=1' }) === null,
+    'un host con ruta o consulta se rechaza entero');
+  afirmar(pedir({ 'x-forwarded-host': 'a b' }) === null, 'y uno con espacios también');
+  afirmar(pedir({}) === null, 'sin nada de dónde deducirlo, null y no un invento');
+
+  // La precedencia: lo configurado manda sobre lo deducido. Si no, bastaría
+  // con forjar una cabecera para cambiar el dominio del SMS.
+  const cfg = app.get(ConfigService);
+  afirmar(video.enlace('tunja-abcdefghijkl', 'https://ajeno.example')
+    === 'https://falcon.example/v/tunja-abcdefghijkl',
+    'con FRONTEND_URL definida, lo que diga el proxy se ignora');
+
+  const dominioConfig = cfg.get<string>('FRONTEND_URL');
+  cfg.set('FRONTEND_URL', '');
+  afirmar(video.enlace('tunja-abcdefghijkl', 'https://deducido.example')
+    === 'https://deducido.example/v/tunja-abcdefghijkl',
+    'sin ella, el enlace se arma con el origen de la petición');
+  afirmar(video.enlace('tunja-abcdefghijkl', null) === '/v/tunja-abcdefghijkl',
+    'y sin ninguna de las dos queda incompleto — por eso ahí no se manda el SMS');
+  cfg.set('FRONTEND_URL', dominioConfig);
 
   sDesp.disconnect();
   sIntruso.disconnect();

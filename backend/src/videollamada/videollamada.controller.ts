@@ -1,4 +1,5 @@
-import { Body, Controller, Get, Param, Post } from '@nestjs/common';
+import { Body, Controller, Get, Param, Post, Req } from '@nestjs/common';
+import { Request } from 'express';
 import { VideollamadaService } from './videollamada.service';
 import { VideoTokenService } from './video-token.service';
 import { ArchivosService } from '../archivos/archivos.service';
@@ -8,6 +9,7 @@ import { Permisos } from '../auth/permisos.decorator';
 import { Public } from '../auth/public.decorator';
 import { JwtPayload } from '../auth/auth.service';
 import { RequiereIntegracion } from '../tenants/integracion.decorator';
+import { origenPublico } from '../common/origen-publico';
 
 /**
  * Videollamada con el ciudadano. La abre el despachador desde el caso; el
@@ -43,9 +45,11 @@ export class VideollamadaController {
     @Usuario() actor: JwtPayload,
     @Param('id') casoId: string,
     @Body() dto: { numeroTelefono?: string },
+    @Req() req: Request,
   ) {
     return this.video.crear(
-      tenant, casoId, dto?.numeroTelefono ?? '', actor?.sub ?? 'desconocido');
+      tenant, casoId, dto?.numeroTelefono ?? '', actor?.sub ?? 'desconocido',
+      origenPublico(req));
   }
 
   /**
@@ -61,6 +65,7 @@ export class VideollamadaController {
     @Tenant() tenant: string,
     @Usuario() actor: JwtPayload,
     @Param('id') casoId: string,
+    @Req() req: Request,
   ) {
     const sesion = await this.video.activaDe(tenant, casoId);
     if (!sesion) return { hay: false };
@@ -71,7 +76,7 @@ export class VideollamadaController {
       sesionId: sesion.id,
       estado: sesion.estado,
       token,
-      enlace: this.video.enlace(await this.video.claveDe(sesion)),
+      enlace: this.video.enlace(await this.video.claveDe(sesion), origenPublico(req)),
       expiraEn: sesion.expiraEn,
       grabando: !!sesion.archivoGrabacionId,
     };
