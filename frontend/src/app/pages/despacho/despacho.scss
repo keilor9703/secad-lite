@@ -581,11 +581,13 @@
   overflow-y: auto;
 }
 
-// Sin videollamada, la ficha es la única sección: ocupa el panel completo,
-// con su propio scroll interno (ver detalle.scss, `.det--incrustado`).
+// Sin videollamada, las pestañas son lo único que hay: ocupan el panel
+// completo, y su barra sí queda justo bajo el botón de cerrar — a
+// diferencia de cuando hay video (más abajo), aquí sí necesitan el espacio.
 .panel-caso > app-detalle {
   display: block;
   height: 100%;
+  --det-espacio-cierre: 2.1rem;
 }
 
 .panel-caso .cerrar {
@@ -650,87 +652,31 @@
   .panel-caso { height: auto; }
 }
 
-// 11. Panel del caso con videollamada: paneles independientes, cada uno con
-//     su propio alto Y su propio scroll ---------------------------------
+// 11. Panel del caso con videollamada: video+mapa arriba, pestañas debajo --
 //
-// Antes el video se apilaba encima de toda la ficha, todo dentro de UN solo
-// scroll: cerrar el caso, la bitácora, remitir quedaban varias pantallas más
-// abajo mientras la llamada seguía viva. Ahora video+mapa y la ficha son dos
-// columnas de la MISMA altura fija (el alto completo del panel), cada una con
-// su propio scroll interno — la ficha nunca depende de cuánto ocupe el video,
-// y llegar a la bitácora es un scroll corto DENTRO de su propia columna, no
-// uno largo por todo el panel. Por debajo del ancho donde ya no caben
-// decentes, se apila (el @container de abajo) y ahí sí comparten un único
-// scroll, como una página normal.
-
-// Un contenedor de tamaño no puede consultarse a sí mismo — por eso quien
-// MIDE (`.panel-caso`, con `container-type`) y quien CAMBIA de disposición
-// según esa medida (`.panel-video-detalle`, su hijo directo) son dos
-// elementos distintos.
-.panel-caso.panel-caso--con-video {
-  // Se mide el ancho REAL de este panel, no el de la ventana: es lo que
-  // decide cuándo el video y la ficha ya no caben lado a lado.
-  container-type: inline-size;
-  container-name: panelcaso;
-}
-
+// Antes video+mapa y las pestañas eran dos COLUMNAS lado a lado, cada una
+// peleando por ancho — con las pestañas ya reducidas a una tarjeta a la vez
+// (ver detalle.html/scss), esa pelea no tenía sentido: la videollamada
+// necesita todo el ancho para que el mapa quepa a su lado, y las pestañas
+// necesitan todo el ancho para leerse cómodas. Así que van APILADAS, cada
+// una a su turno con el ancho completo del panel — no columnas.
 .panel-video-detalle {
-  display: grid;
-  // El video pide prioridad: necesita 620px para que el mapa quepa a su lado
-  // (@container vll, en videollamada.scss) — la ficha/gestión, ahora que son
-  // pestañas (una tarjeta a la vez, no ficha y gestión lado a lado), le
-  // alcanza con el ancho cómodo de una sola tarjeta.
-  grid-template-columns: minmax(620px, 1.3fr) minmax(380px, 1fr);
+  display: flex;
+  flex-direction: column;
   gap: 1.1rem;
-  height: 100%;
-  min-height: 0;
 }
 
 .panel-video,
 .panel-detalle {
   min-width: 0;
-  height: 100%;
-  min-height: 0;
-  overflow-y: auto;
-  scrollbar-width: thin;
-  scrollbar-color: var(--border-2) transparent;
 }
 
 .panel-video app-videollamada {
   display: block;
 }
 
-.panel-detalle app-detalle {
-  display: block;
-  height: 100%;
-}
-
 // El botón de cerrar flota sobre la esquina superior derecha de TODO el
-// panel. Cuál de las dos columnas queda bajo él depende de cómo están
-// dispuestas: aquí son las pestañas (columna derecha).
-.panel-detalle { --det-espacio-cierre: 2.1rem; }
-.panel-video app-videollamada { --vll-espacio-cierre: 0; }
-
-@container panelcaso (max-width: 1060px) {
-  // Apiladas, ya nadie adentro maneja su propio alto/scroll — el panel
-  // completo vuelve a compartir un único scroll normal, como una página
-  // (`.panel-caso` ya es `overflow-y: auto` siempre, arriba — no hay que
-  // repetirlo aquí, y de hecho NO SE PUEDE: un contenedor de tamaño no puede
-  // cambiarse a sí mismo según su propia medida, solo a sus descendientes).
-  .panel-video-detalle {
-    display: block;
-    height: auto;
-    overflow: visible;
-  }
-  .panel-video,
-  .panel-detalle {
-    height: auto;
-    overflow: visible;
-  }
-  .panel-detalle app-detalle { height: auto; }
-  .panel-video { margin-bottom: 0.9rem; }
-  // El video vuelve a ser lo primero bajo el botón de cerrar, y la ficha
-  // —ya más abajo— no lo necesita.
-  .panel-detalle { --det-espacio-cierre: 0; }
-  .panel-video app-videollamada { --vll-espacio-cierre: 2rem; }
-}
+// panel. Video siempre va primero (ver el comentario de arriba), así que es
+// su cabecera la que necesita ceder el paso; las pestañas, ya más abajo, no.
+.panel-video app-videollamada { --vll-espacio-cierre: 2rem; }
+.panel-detalle { --det-espacio-cierre: 0; }
