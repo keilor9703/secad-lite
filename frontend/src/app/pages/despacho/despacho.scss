@@ -570,10 +570,15 @@
   padding: 1rem 1.2rem 1.2rem;
   box-shadow: var(--shadow);
   height: calc(100vh - 6rem);
-  // Ya no es ESTE nivel el que hace scroll: cada sección de adentro (la
-  // videollamada, la ficha, la gestión del caso) tiene el suyo propio, del
-  // alto exacto que le toca — ver el punto 11 más abajo.
-  overflow: hidden;
+  // Siempre `auto`, nunca `hidden`: normalmente no hace falta —cada sección
+  // de adentro tiene su propio alto y su propio scroll, ver el punto 11— pero
+  // es la red de seguridad para cualquier caso donde ese cálculo no alcance
+  // (una ficha con mucho contenido en una ventana angosta, por ejemplo). Sin
+  // esto, ese contenido no quedaría "con menos espacio": quedaría CORTADO,
+  // sin ninguna forma de llegar a él. Cuando las secciones de adentro sí
+  // llenan exactamente el alto disponible (el caso normal), este scroll
+  // quedaría dormido — nunca aparece porque nunca hay nada que desbordar.
+  overflow-y: auto;
 }
 
 // Sin videollamada, la ficha es la única sección: ocupa el panel completo,
@@ -714,8 +719,10 @@
 
 @container panelcaso (max-width: 1500px) {
   // Apiladas, ya nadie adentro maneja su propio alto/scroll — el panel
-  // completo vuelve a compartir un único scroll normal, como una página.
-  .panel-caso.panel-caso--con-video { overflow-y: auto; }
+  // completo vuelve a compartir un único scroll normal, como una página
+  // (`.panel-caso` ya es `overflow-y: auto` siempre, arriba — no hay que
+  // repetirlo aquí, y de hecho NO SE PUEDE: un contenedor de tamaño no puede
+  // cambiarse a sí mismo según su propia medida, solo a sus descendientes).
   .panel-video-detalle {
     display: block;
     height: auto;
