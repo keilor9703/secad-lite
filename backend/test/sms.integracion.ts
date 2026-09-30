@@ -38,6 +38,8 @@ interface Recibido { ruta: string; cabeceras: Record<string, string | string[] |
 async function main(): Promise<number> {
   const recibidas: Recibido[] = [];
   let responderCon = 200;
+  /** Cuerpo con el que responde el banco de pruebas; lo cambia cada sección. */
+  let cuerpoRespuesta = '{"ok":true}';
 
   const manejar = (req: IncomingMessage, res: ServerResponse): void => {
     let cuerpo = '';
@@ -45,7 +47,7 @@ async function main(): Promise<number> {
     req.on('end', () => {
       recibidas.push({ ruta: req.url ?? '', cabeceras: req.headers, cuerpo });
       res.writeHead(responderCon, { 'Content-Type': 'application/json' });
-      res.end('{"ok":true}');
+      res.end(cuerpoRespuesta);
     });
   };
 
@@ -117,7 +119,27 @@ async function main(): Promise<number> {
   const cuerpoI = JSON.parse(i?.cuerpo ?? '{}');
   afirmar(cuerpoI.messages?.[0]?.destinations?.[0]?.to === '+573001234567',
     'el destino va normalizado a E.164');
-  afirmar(cuerpoI.messages?.[0]?.from === 'FALCON', 'y el remitente configurado');
+  // El campo es `sender`. Esta prueba decía `from` —repitiendo el error del
+  // código que debía verificar—, así que daba en verde mientras el remitente
+  // configurado se ignoraba en silencio.
+  afirmar(cuerpoI.messages?.[0]?.sender === 'FALCON', 'y el remitente configurado, en el campo que Infobip lee');
+  afirmar(cuerpoI.messages?.[0]?.from === undefined, 'sin el campo de la API vieja');
+
+  console.log('\n4b) Un 200 con el mensaje RECHAZADO no es un envío');
+  // Infobip responde 200 = «recibido para procesar». El veredicto real viene
+  // en el estado de cada mensaje: sin mirarlo, FALCON decía «enviado por SMS»
+  // mientras al ciudadano no le llegaba nada.
+  responderCon = 200;
+  cuerpoRespuesta = JSON.stringify({
+    messages: [{
+      messageId: 'abc-123',
+      status: { groupName: 'REJECTED', name: 'REJECTED_NOT_ENOUGH_CREDITS', description: 'Not enough credits' },
+    }],
+  });
+  const rechazadoPorEstado = await svc.enviar('3001234567', 'Su enlace: https://x/v/y');
+  afirmar(rechazadoPorEstado === false,
+    'un mensaje REJECTED se reporta como NO enviado, aunque la petición diera 200');
+  cuerpoRespuesta = '{"ok":true}';
 
   console.log('\n5) Cambiar de proveedor sin volver a escribir la clave');
   await svc.guardar(TENANT_CONFIG_SMS, { proveedor: 'INALAMBRIA_EXPRESS', baseUrl: 'http://127.0.0.1:5640' }, 'admin');
