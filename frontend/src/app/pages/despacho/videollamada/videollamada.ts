@@ -45,15 +45,6 @@ export class VideollamadaComponent implements OnDestroy {
   readonly grabando = signal(false);
   private readonly remoto = signal<MediaStream | null>(null);
 
-  /**
-   * Proporción real de lo que manda el ciudadano (ancho/alto).
-   *
-   * El celular graba en vertical y el panel es apaisado: con una proporción
-   * fija, el video quedaba entre dos franjas negras enormes que no aportan
-   * nada. El marco se ajusta a lo que de verdad está llegando.
-   */
-  readonly proporcion = signal(0);
-
   readonly numero = signal('');
   readonly enlace = signal('');
   readonly chatTexto = signal('');
@@ -234,12 +225,6 @@ export class VideollamadaComponent implements OnDestroy {
     if (!texto) return;
     this.video.enviarChat(texto);
     this.chatTexto.set('');
-  }
-
-  /** El <video> ya sabe qué tamaño trae: el marco se adapta a él. */
-  medirVideo(): void {
-    const el = this.videoRemoto()?.nativeElement;
-    if (el?.videoWidth && el?.videoHeight) this.proporcion.set(el.videoWidth / el.videoHeight);
   }
 
   alternarMicrofono(): void { this.video.alternarMicrofono(); }

@@ -33,10 +33,8 @@
 
     <!-- El escenario se mantiene montado toda la llamada: así el video no se
          pierde por llegar antes de que el elemento exista. -->
-    <div class="vll-escena" [class.vll-escena--vacia]="estado() !== 'conectada'"
-         [style.--vll-proporcion]="proporcion() || null">
-      <video #remoto autoplay playsinline (loadedmetadata)="medirVideo()"
-             (resize)="medirVideo()"></video>
+    <div class="vll-escena" [class.vll-escena--vacia]="estado() !== 'conectada'">
+      <video #remoto autoplay playsinline></video>
 
       @if (estado() !== 'conectada') {
         <div class="vll-espera">
