@@ -20,6 +20,9 @@ import {
   EventoCaso, MensajeChat, MensajeChatInterno, Recurso, TenantDirectorio, TipoEvento,
 } from '../../core/models';
 
+/** Las secciones del caso, navegadas como pestañas — solo una visible a la vez. */
+export type TabDetalle = 'ficha' | 'despacho' | 'whatsapp' | 'chat' | 'videollamadas' | 'bitacora';
+
 @Component({
   selector: 'app-detalle',
   standalone: true,
@@ -94,6 +97,9 @@ export class DetalleComponent implements OnInit, OnDestroy {
 
   readonly estados: EstadoCaso[] = ['nuevo', 'en_gestion', 'derivado', 'cerrado'];
 
+  /** Qué sección del caso se está mirando — solo una a la vez, como pestañas. */
+  readonly tab = signal<TabDetalle>('ficha');
+
   readonly notaForm = new FormGroup({ texto: new FormControl('', { nonNullable: true }) });
   readonly guardandoNota = signal(false);
   /**
@@ -141,6 +147,7 @@ export class DetalleComponent implements OnInit, OnDestroy {
     if (nuevo && nuevo !== this.id) {
       this.id = nuevo;
       this.caso.set(null);
+      this.tab.set('ficha');
       this.cargar();
       this.cargarAuditoria();
       this.cargarDespacho();

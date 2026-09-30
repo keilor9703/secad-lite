@@ -676,13 +676,11 @@
 
 .panel-video-detalle {
   display: grid;
-  // Los dos pisos que hay que superar para que nada se apile de más:
-  // el video necesita 620px para que el mapa quepa a su lado (@container vll,
-  // en videollamada.scss), y la ficha necesita 721px para que ficha y gestión
-  // (Despacho, chats, bitácora) se separen en dos paneles propios en vez de
-  // uno solo (@container det, en detalle.scss). Los pisos de abajo dejan
-  // margen de sobra sobre esos dos números, no el mínimo justo.
-  grid-template-columns: minmax(660px, 1fr) minmax(760px, 1.05fr);
+  // El video pide prioridad: necesita 620px para que el mapa quepa a su lado
+  // (@container vll, en videollamada.scss) — la ficha/gestión, ahora que son
+  // pestañas (una tarjeta a la vez, no ficha y gestión lado a lado), le
+  // alcanza con el ancho cómodo de una sola tarjeta.
+  grid-template-columns: minmax(620px, 1.3fr) minmax(380px, 1fr);
   gap: 1.1rem;
   height: 100%;
   min-height: 0;
@@ -702,10 +700,6 @@
   display: block;
 }
 
-// La ficha hereda el alto completo de su columna: así, si el ancho también
-// le alcanza para partirse en ficha/gestión (@container det, en
-// detalle.scss), cada una queda con SU PROPIO scroll — no solo separada del
-// video, sino de la bitácora también.
 .panel-detalle app-detalle {
   display: block;
   height: 100%;
@@ -713,11 +707,11 @@
 
 // El botón de cerrar flota sobre la esquina superior derecha de TODO el
 // panel. Cuál de las dos columnas queda bajo él depende de cómo están
-// dispuestas: aquí es la ficha (columna derecha).
+// dispuestas: aquí son las pestañas (columna derecha).
 .panel-detalle { --det-espacio-cierre: 2.1rem; }
 .panel-video app-videollamada { --vll-espacio-cierre: 0; }
 
-@container panelcaso (max-width: 1500px) {
+@container panelcaso (max-width: 1060px) {
   // Apiladas, ya nadie adentro maneja su propio alto/scroll — el panel
   // completo vuelve a compartir un único scroll normal, como una página
   // (`.panel-caso` ya es `overflow-y: auto` siempre, arriba — no hay que
