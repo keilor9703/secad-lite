@@ -113,16 +113,34 @@
   color: var(--muted);
 }
 
-// 3. Escenario del video --------------------------------------------------
+// 3. Escena y mapa, en la misma fila --------------------------------------
+//
+// Mitad y mitad: la imagen dice QUÉ pasa y el mapa DÓNDE, y el despachador
+// necesita las dos a la vez para describirle el sitio a la unidad que manda.
+// En el riel angosto del panel del caso no caben lado a lado, y ahí se apilan.
+
+.vll-fila {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 0.5rem;
+}
+
+@container vll (min-width: 620px) {
+  .vll-fila { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); }
+}
+
+// 4. Escenario del video --------------------------------------------------
 
 .vll-escena {
   position: relative;
   display: grid;
   place-items: center;
-  // El ciudadano puede grabar en vertical o en horizontal: no se impone una
-  // proporción, se acota el alto y el video se adapta dentro.
+  // La proporción la fija el propio video cuando llega: el celular graba en
+  // vertical y forzar una apaisada dejaba dos franjas negras enormes. Mientras
+  // no se sabe, el marco vive de su alto mínimo.
+  aspect-ratio: var(--vll-proporcion, auto);
   min-height: 9rem;
-  max-height: 48vh;
+  max-height: 52vh;
   border-radius: var(--radius-sm);
   border: 1px solid var(--border);
   background: #05080b;
@@ -131,7 +149,8 @@
   video {
     display: block;
     width: 100%;
-    max-height: 48vh;
+    height: 100%;
+    max-height: 52vh;
     object-fit: contain;
     background: #05080b;
   }
@@ -204,7 +223,7 @@
   }
 }
 
-// 4. Mandos sobre el video ------------------------------------------------
+// 5. Mandos sobre el video ------------------------------------------------
 
 .vll-mandos {
   position: absolute;
@@ -262,30 +281,7 @@
   .vll-mando { padding: 0.4rem 0.5rem; }
 }
 
-// 5. Ubicación ------------------------------------------------------------
-
-.vll-ubic {
-  display: flex;
-  align-items: center;
-  gap: 0.4rem;
-  padding: 0.4rem 0.55rem;
-  border-radius: var(--radius-sm);
-  background: var(--surface-2);
-  font-size: 0.78rem;
-  color: var(--ink-soft);
-  text-decoration: none;
-
-  &:hover { background: var(--accent-soft); }
-
-  small { color: var(--muted); }
-}
-
-.vll-coord {
-  margin-left: auto;
-  font-family: var(--mono);
-  font-size: 0.7rem;
-  white-space: nowrap;
-}
+// (la ubicación vive ahora en el mapa)
 
 // 6. Enlace del ciudadano -------------------------------------------------
 

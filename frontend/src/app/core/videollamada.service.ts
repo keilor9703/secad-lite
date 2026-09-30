@@ -18,7 +18,21 @@ export interface UbicacionCiudadano {
   lat: number;
   lng: number;
   precision?: number;
+  /** Momento en que se recibió, para poder leer el recorrido en el tiempo. */
+  en?: number;
 }
+
+/**
+ * Metros mínimos entre dos puntos para considerarlos posiciones distintas.
+ *
+ * `watchPosition` reporta cada pocos segundos aunque el ciudadano esté quieto,
+ * y el GPS de un celular oscila unos metros por su cuenta. Sin este filtro el
+ * recorrido sería una maraña sobre un mismo punto.
+ */
+const METROS_MINIMOS = 8;
+
+/** Tope de puntos guardados: una llamada larga no puede crecer sin límite. */
+const MAX_PUNTOS = 600;
 
 export interface VideollamadaCreada {
   sesionId: string;
@@ -102,6 +116,10 @@ export class VideollamadaService {
   private readonly ubicacionSubject = new BehaviorSubject<UbicacionCiudadano | null>(null);
   readonly ubicacion$: Observable<UbicacionCiudadano | null> = this.ubicacionSubject.asObservable();
 
+  /** Por dónde ha pasado el ciudadano durante ESTA llamada, en orden. */
+  private readonly recorridoSubject = new BehaviorSubject<UbicacionCiudadano[]>([]);
+  readonly recorrido$: Observable<UbicacionCiudadano[]> = this.recorridoSubject.asObservable();
+
   private readonly microfonoSubject = new BehaviorSubject<boolean>(true);
   readonly microfono$: Observable<boolean> = this.microfonoSubject.asObservable();
 
@@ -155,6 +173,7 @@ export class VideollamadaService {
     this.sesionId = sesionId;
     this.estadoSubject.next('esperando');
     this.errorSubject.next('');
+    this.recorridoSubject.next([]);
 
     const base = environment.apiBaseUrl.replace('/api', '');
     this.socket = io(`${base}/video`, {
@@ -197,7 +216,11 @@ export class VideollamadaService {
     });
 
     this.socket.on('video:ubicacion', (c: { lat: number; lng: number; precision: number | null }) => {
-      this.ubicacionSubject.next({ lat: c.lat, lng: c.lng, precision: c.precision ?? undefined });
+      const punto: UbicacionCiudadano = {
+        lat: c.lat, lng: c.lng, precision: c.precision ?? undefined, en: Date.now(),
+      };
+      this.ubicacionSubject.next(punto);
+      this.acumularRecorrido(punto);
     });
 
     // El chat llega YA GUARDADO y el servidor lo reenvía a toda la sala, emisor
@@ -531,8 +554,37 @@ export class VideollamadaService {
     this.chatDisponibleSubject.next(false);
     this.microfonoSubject.next(true);
     this.ubicacionSubject.next(null);
+    this.recorridoSubject.next([]);
     this.grabandoSubject.next(false);
     this.estadoSubject.next('finalizada');
+  }
+
+  /**
+   * Suma el punto al recorrido si de verdad se movió.
+   *
+   * Si el ciudadano camina, la línea muestra por dónde pasó —y hacia dónde va,
+   * que es lo que el despachador necesita para mandar la unidad al sitio
+   * correcto y no al que reportó hace cinco minutos—.
+   */
+  private acumularRecorrido(punto: UbicacionCiudadano): void {
+    const previos = this.recorridoSubject.value;
+    const ultimo = previos[previos.length - 1];
+    if (ultimo && this.metrosEntre(ultimo, punto) < METROS_MINIMOS) return;
+
+    const siguiente = [...previos, punto];
+    this.recorridoSubject.next(
+      siguiente.length > MAX_PUNTOS ? siguiente.slice(-MAX_PUNTOS) : siguiente);
+  }
+
+  /** Distancia aproximada en metros (fórmula del haversine). */
+  private metrosEntre(a: UbicacionCiudadano, b: UbicacionCiudadano): number {
+    const R = 6371000;
+    const rad = (g: number) => (g * Math.PI) / 180;
+    const dLat = rad(b.lat - a.lat);
+    const dLng = rad(b.lng - a.lng);
+    const h = Math.sin(dLat / 2) ** 2
+      + Math.cos(rad(a.lat)) * Math.cos(rad(b.lat)) * Math.sin(dLng / 2) ** 2;
+    return 2 * R * Math.asin(Math.min(1, Math.sqrt(h)));
   }
 
   private horaDe(fecha: string | undefined): string {

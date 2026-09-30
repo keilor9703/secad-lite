@@ -27,10 +27,16 @@
   @if (enCurso()) {
     <!-- ── Consola de la llamada ─────────────────────────────────────── -->
 
+    <!-- Escena y mapa, lado a lado: el video dice QUÉ pasa y el mapa DÓNDE.
+         En un riel angosto se apilan solos (ver el @container del .scss). -->
+    <div class="vll-fila">
+
     <!-- El escenario se mantiene montado toda la llamada: así el video no se
          pierde por llegar antes de que el elemento exista. -->
-    <div class="vll-escena" [class.vll-escena--vacia]="estado() !== 'conectada'">
-      <video #remoto autoplay playsinline></video>
+    <div class="vll-escena" [class.vll-escena--vacia]="estado() !== 'conectada'"
+         [style.--vll-proporcion]="proporcion() || null">
+      <video #remoto autoplay playsinline (loadedmetadata)="medirVideo()"
+             (resize)="medirVideo()"></video>
 
       @if (estado() !== 'conectada') {
         <div class="vll-espera">
@@ -88,16 +94,8 @@
       </div>
     </div>
 
-    @if (ubicacion(); as u) {
-      <a class="vll-ubic" [href]="urlMapa(u)" target="_blank" rel="noopener">
-        <span aria-hidden="true">📍</span>
-        <span>
-          Ubicación del ciudadano
-          @if (u.precision) { <small>· ~{{ u.precision | number:'1.0-0' }} m</small> }
-        </span>
-        <small class="vll-coord">{{ u.lat | number:'1.4-4' }}, {{ u.lng | number:'1.4-4' }}</small>
-      </a>
-    }
+      <app-mapa-recorrido [puntos]="recorrido()" />
+    </div>
 
     @if (enlace()) {
       <div class="vll-enlace">

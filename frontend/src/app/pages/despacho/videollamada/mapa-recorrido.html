@@ -1,0 +1,28 @@
+<div class="mrec">
+  <div class="mrec-lienzo" #lienzo></div>
+
+  @if (!puntos().length) {
+    <p class="mrec-vacio">
+      Cuando el ciudadano acepte compartir su ubicación, aquí aparece dónde
+      está y por dónde se mueve.
+    </p>
+  }
+
+  @if (ultimo(); as u) {
+    <div class="mrec-pie">
+      <span class="mrec-dato">
+        {{ u.lat | number:'1.4-4' }}, {{ u.lng | number:'1.4-4' }}
+        @if (u.precision) { <small>· ~{{ u.precision | number:'1.0-0' }} m</small> }
+      </span>
+
+      @if (metros() > 0) {
+        <span class="mrec-dato">Recorrido {{ metros() }} m</span>
+      }
+
+      @if (!seguir()) {
+        <button type="button" class="btn mini" (click)="centrar()">Volver a seguirlo</button>
+      }
+      <a class="btn mini btn--ghost" [href]="urlExterna()" target="_blank" rel="noopener">Abrir</a>
+    </div>
+  }
+</div>

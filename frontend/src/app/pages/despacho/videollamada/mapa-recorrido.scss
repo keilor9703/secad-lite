@@ -1,0 +1,68 @@
+// ==========================================================================
+// MAPA DEL RECORRIDO — al lado del video del ciudadano
+//
+// Ocupa todo el alto de su panel para que el lienzo sea lo más grande
+// posible; los datos (coordenadas, distancia) van sobre el mapa, no debajo,
+// porque restarle alto al mapa es restarle contexto al despachador.
+// ==========================================================================
+
+.mrec {
+  position: relative;
+  height: 100%;
+  min-height: 12rem;
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--border);
+  background: var(--surface-2);
+  overflow: hidden;
+}
+
+.mrec-lienzo {
+  width: 100%;
+  height: 100%;
+  // Leaflet pinta sus controles con z-index alto; el pie va por encima.
+  z-index: 0;
+}
+
+.mrec-vacio {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-content: center;
+  margin: 0;
+  padding: 1rem;
+  text-align: center;
+  font-size: 0.78rem;
+  line-height: 1.4;
+  color: var(--muted);
+  background: var(--surface-2);
+  z-index: 500;
+}
+
+.mrec-pie {
+  position: absolute;
+  left: 0.4rem;
+  right: 0.4rem;
+  bottom: 0.4rem;
+  z-index: 500;
+  display: flex;
+  align-items: center;
+  gap: 0.35rem;
+  flex-wrap: wrap;
+  padding: 0.3rem 0.45rem;
+  border-radius: var(--radius-sm);
+  background: color-mix(in srgb, var(--surface) 88%, transparent);
+  backdrop-filter: blur(6px);
+  border: 1px solid var(--border);
+}
+
+.mrec-dato {
+  font-family: var(--mono);
+  font-size: 0.7rem;
+  color: var(--ink-soft);
+  white-space: nowrap;
+
+  small { color: var(--muted); }
+}
+
+.mrec-pie .btn { margin-left: auto; }
+.mrec-pie .btn + .btn { margin-left: 0; }

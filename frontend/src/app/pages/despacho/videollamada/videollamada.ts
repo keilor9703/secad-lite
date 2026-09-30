@@ -2,13 +2,13 @@ import {
   ChangeDetectionStrategy, Component, ElementRef, OnDestroy,
   computed, effect, inject, input, signal, untracked, viewChild,
 } from '@angular/core';
-import { DecimalPipe } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import {
   ChatMensaje, EstadoLlamada, UbicacionCiudadano, VideollamadaActiva, VideollamadaService,
 } from '../../../core/videollamada.service';
 import { ToastService } from '../../../shared/toast/toast.service';
+import { MapaRecorridoComponent } from './mapa-recorrido';
 
 /**
  * Videollamada con el ciudadano, dentro del panel del caso en Despacho.
@@ -19,7 +19,7 @@ import { ToastService } from '../../../shared/toast/toast.service';
 @Component({
   selector: 'app-videollamada',
   standalone: true,
-  imports: [FormsModule, DecimalPipe],
+  imports: [FormsModule, MapaRecorridoComponent],
   changeDetection: ChangeDetectionStrategy.OnPush,
   templateUrl: './videollamada.html',
   styleUrl: './videollamada.scss',
@@ -39,9 +39,20 @@ export class VideollamadaComponent implements OnDestroy {
   readonly chat = signal<ChatMensaje[]>([]);
   readonly chatDisponible = signal(false);
   readonly ubicacion = signal<UbicacionCiudadano | null>(null);
+  /** Por dónde ha pasado el ciudadano en esta llamada; alimenta el mapa. */
+  readonly recorrido = signal<UbicacionCiudadano[]>([]);
   readonly microfono = signal(true);
   readonly grabando = signal(false);
   private readonly remoto = signal<MediaStream | null>(null);
+
+  /**
+   * Proporción real de lo que manda el ciudadano (ancho/alto).
+   *
+   * El celular graba en vertical y el panel es apaisado: con una proporción
+   * fija, el video quedaba entre dos franjas negras enormes que no aportan
+   * nada. El marco se ajusta a lo que de verdad está llegando.
+   */
+  readonly proporcion = signal(0);
 
   readonly numero = signal('');
   readonly enlace = signal('');
@@ -83,6 +94,7 @@ export class VideollamadaComponent implements OnDestroy {
     });
     this.video.chatDisponible$.pipe(takeUntilDestroyed()).subscribe((d) => this.chatDisponible.set(d));
     this.video.ubicacion$.pipe(takeUntilDestroyed()).subscribe((u) => this.ubicacion.set(u));
+    this.video.recorrido$.pipe(takeUntilDestroyed()).subscribe((r) => this.recorrido.set(r));
     this.video.microfono$.pipe(takeUntilDestroyed()).subscribe((m) => this.microfono.set(m));
     this.video.grabando$.pipe(takeUntilDestroyed()).subscribe((g) => this.grabando.set(g));
     this.video.remoto$.pipe(takeUntilDestroyed()).subscribe((s) => this.remoto.set(s));
@@ -224,6 +236,12 @@ export class VideollamadaComponent implements OnDestroy {
     this.chatTexto.set('');
   }
 
+  /** El <video> ya sabe qué tamaño trae: el marco se adapta a él. */
+  medirVideo(): void {
+    const el = this.videoRemoto()?.nativeElement;
+    if (el?.videoWidth && el?.videoHeight) this.proporcion.set(el.videoWidth / el.videoHeight);
+  }
+
   alternarMicrofono(): void { this.video.alternarMicrofono(); }
 
   async grabar(): Promise<void> {
@@ -245,10 +263,6 @@ export class VideollamadaComponent implements OnDestroy {
     this.sinLeer.set(0);
   }
 
-  /** Para el enlace al mapa con la posición que reportó el ciudadano. */
-  urlMapa(u: UbicacionCiudadano): string {
-    return `https://www.google.com/maps?q=${u.lat},${u.lng}`;
-  }
 
   pantallaCompleta(): void {
     const el = this.videoRemoto()?.nativeElement;
