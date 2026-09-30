@@ -10,6 +10,7 @@ import { Public } from '../auth/public.decorator';
 import { JwtPayload } from '../auth/auth.service';
 import { RequiereIntegracion } from '../tenants/integracion.decorator';
 import { origenPublico } from '../common/origen-publico';
+import { VideollamadaGateway } from './videollamada.gateway';
 
 /**
  * Videollamada con el ciudadano. La abre el despachador desde el caso; el
@@ -35,6 +36,7 @@ export class VideollamadaController {
     private readonly video: VideollamadaService,
     private readonly tokens: VideoTokenService,
     private readonly archivos: ArchivosService,
+    private readonly gateway: VideollamadaGateway,
   ) {}
 
   /** POST /api/casos/:id/videollamada — abrir la llamada y mandar el enlace. */
@@ -131,6 +133,30 @@ export class VideollamadaController {
 
     await this.video.asociarGrabacion(tenant, sesionId, archivo.id);
     return { ok: true, archivoId: archivo.id };
+  }
+
+  /**
+   * POST /api/videollamadas/:id/finalizar — colgar.
+   *
+   * Colgar NO puede depender del socket. Si la señalización nunca llegó a
+   * establecerse —un proxy sin el upgrade a WebSocket, una red que la corta—,
+   * el despachador veía «Esperando al ciudadano», colgaba, y la sesión se
+   * quedaba viva: el caso seguía ofreciendo retomar y pedir un enlace nuevo
+   * devolvía el viejo, hasta que expiraba sola quince minutos después.
+   *
+   * Por HTTP el colgado llega siempre. Es idempotente: finalizar algo ya
+   * finalizado no es un error, es el resultado que se pedía.
+   */
+  @Permisos('despacho.ver')
+  @Post('videollamadas/:id/finalizar')
+  async finalizar(@Tenant() tenant: string, @Param('id') sesionId: string) {
+    const sesion = await this.video.obtener(tenant, sesionId);
+    if (!sesion) return { ok: false, mensaje: 'Videollamada no encontrada.' };
+
+    await this.video.marcarFinalizada(tenant, sesionId);
+    // Y si el ciudadano sí tenía socket, que se entere de que terminó.
+    this.gateway.avisarFinalizada(sesionId);
+    return { ok: true };
   }
 
   // ── Lo único que toca el ciudadano ────────────────────────────────────────

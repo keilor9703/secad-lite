@@ -222,6 +222,19 @@ export class VideollamadaGateway implements OnGatewayConnection {
     const { tenant, sesionId } = this.datos(socket);
     if (!tenant || !sesionId) return;
     await this.video.marcarFinalizada(tenant, sesionId);
+    this.avisarFinalizada(sesionId);
+  }
+
+  /**
+   * Avisa a la sala que la llamada terminó.
+   *
+   * Es público porque el colgado del despachador ya no viaja SOLO por el
+   * socket: va por HTTP, que llega aunque el socket esté muerto —o nunca haya
+   * llegado a establecerse, que es lo que pasa si el proxy no deja pasar el
+   * upgrade a WebSocket—. El controlador termina la sesión y llama aquí para
+   * que el ciudadano, si sí está conectado, se entere igual.
+   */
+  avisarFinalizada(sesionId: string): void {
     this.server.to(this.sala(sesionId)).emit('video:finalizada');
   }
 

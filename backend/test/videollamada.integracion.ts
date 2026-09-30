@@ -343,6 +343,40 @@ async function main(): Promise<number> {
     'y sin ninguna de las dos queda incompleto — por eso ahí no se manda el SMS');
   cfg.set('FRONTEND_URL', dominioConfig);
 
+  console.log('\n14) Colgar no puede depender del socket');
+  // El caso real: la señalización nunca se estableció (un proxy sin el upgrade
+  // a WebSocket). El despachador ve «Esperando al ciudadano», cuelga, y antes
+  // la sesión se quedaba viva: el caso seguía ofreciendo retomar y pedir otro
+  // enlace devolvía el mismo, hasta que vencía sola.
+  const casoSolo = await rls.conTenant('tunja', async (m) => {
+    const caso = await m.getRepository(CasoEntity).save(
+      m.getRepository(CasoEntity).create({
+        tenant: 'tunja', estado: 'nuevo', canal: 'llamada', titulo: 'Colgar sin socket',
+        ciudadano: 'Ciudadano de prueba', telefono: '3001234567', descripcion: '', creadoPor: 'operador1',
+      } as Partial<CasoEntity>));
+    return caso.id;
+  });
+
+  const sinSocket = await video.crear('tunja', casoSolo, '3001234567', 'despachador1');
+  await video.marcarFinalizada('tunja', sinSocket.sesionId);
+  afirmar((await video.activaDe('tunja', casoSolo)) === null,
+    'colgada por fuera del socket, la sesión deja de estar viva');
+
+  const reemplazo = await video.crear('tunja', casoSolo, '3001234567', 'despachador1');
+  afirmar(reemplazo.sesionId !== sinSocket.sesionId && !reemplazo.reutilizada,
+    'y pedir el enlace otra vez abre una sesión NUEVA, no devuelve la colgada');
+  afirmar(reemplazo.enlace !== sinSocket.enlace, `con un código distinto: ${reemplazo.enlace}`);
+
+  const viejoNoVale = await fetch(
+    `http://127.0.0.1:${PUERTO}/videollamada/publico/${sinSocket.enlace.split('/').pop()}`);
+  afirmar(((await viejoNoVale.json()) as { valido?: boolean }).valido === false,
+    'y el enlace colgado deja de abrir: al ciudadano ya no lo atiende nadie por ahí');
+
+  const colgarSinSesion = await fetch(
+    `http://127.0.0.1:${PUERTO}/videollamadas/${reemplazo.sesionId}/finalizar`, { method: 'POST' });
+  afirmar(colgarSinSesion.status === 401,
+    `colgar por HTTP exige sesión de funcionario (${colgarSinSesion.status})`);
+
   sDesp.disconnect();
   sIntruso.disconnect();
   await app.close();

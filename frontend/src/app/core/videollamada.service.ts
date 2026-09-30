@@ -441,7 +441,25 @@ export class VideollamadaService {
   async colgar(): Promise<void> {
     await this.finalizarGrabacion();
     this.socket?.emit('video:finalizar');
+    // Y por HTTP, que llega aunque el socket esté muerto o nunca se haya
+    // establecido. Sin esto, colgar desde «Esperando al ciudadano» con la
+    // señalización caída dejaba la sesión viva: el caso seguía ofreciendo
+    // retomar, y pedir un enlace nuevo devolvía el viejo.
+    await this.finalizarEnServidor();
     this.desmontar();
+  }
+
+  /**
+   * Termina la sesión en el servidor por HTTP. Idempotente y silenciosa: si
+   * falla, queda el aviso por socket y, en último término, el vencimiento.
+   */
+  private async finalizarEnServidor(): Promise<void> {
+    const sesionId = this.sesionId;
+    if (!sesionId) return;
+    try {
+      await firstValueFrom(this.http.post(
+        `${environment.apiBaseUrl}/videollamadas/${sesionId}/finalizar`, {}));
+    } catch { /* el socket y el vencimiento son el respaldo */ }
   }
 
   /** El ciudadano colgó: guardar la grabación y desmontar. */
@@ -458,6 +476,22 @@ export class VideollamadaService {
   abandonar(): void {
     if (this.grabacionActiva) void this.finalizarGrabacion();
     this.socket?.emit('video:finalizar');
+
+    // Aquí puede estar cerrándose la pestaña: una petición normal se cancela
+    // al descargar la página, `keepalive` la deja salir igual. Por eso este
+    // camino usa fetch y no HttpClient —que no lo admite— y pone el token a
+    // mano, que es lo que haría el interceptor.
+    const sesionId = this.sesionId;
+    const token = this.auth.sesion()?.token;
+    if (sesionId && token) {
+      void fetch(`${environment.apiBaseUrl}/videollamadas/${sesionId}/finalizar`, {
+        method: 'POST',
+        keepalive: true,
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+        body: '{}',
+      }).catch(() => { /* cerrando: no hay a quién avisarle */ });
+    }
+
     this.desmontar();
   }
 
