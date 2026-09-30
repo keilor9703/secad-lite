@@ -7,6 +7,14 @@ import { InfobipRemitente } from './infobip.remitente';
 import { InalambriaRemitente } from './inalambria.remitente';
 import { cifrar, descifrar } from '../common/secretos';
 
+/**
+ * La fila que guarda la configuración. Es UNA para toda la plataforma: la
+ * cuenta del proveedor la tiene el operador del SaaS, no cada municipio. La
+ * columna `tenant` de esta tabla sigue existiendo porque es la llave única de
+ * la fila, no porque haya una configuración por instancia.
+ */
+export const TENANT_CONFIG_SMS = '__global__';
+
 /** Lo que se le puede mostrar al administrador: todo menos la credencial. */
 export interface ConfigSmsVisible {
   proveedor: ProveedorSms;
@@ -20,9 +28,13 @@ export interface ConfigSmsVisible {
 }
 
 /**
- * Envío de SMS saliente, con el proveedor que cada instancia tenga configurado.
+ * Envío de SMS saliente con el proveedor configurado para la plataforma.
  *
- * Cambiar de proveedor es editar una fila desde Administración, sin redespliegue:
+ * Es UNA configuración para todas las instancias, no una por municipio: la
+ * cuenta del proveedor —y la factura— es del operador del SaaS. Por eso
+ * `enviar()` no recibe instancia: no habría nada que hacer con ella.
+ *
+ * Cambiar de proveedor es editar esa fila desde Plataforma, sin redespliegue:
  * por eso el proveedor se resuelve en cada envío y no al arrancar.
  *
  * Si no hay credencial configurada, o el proveedor falla, devuelve false SIN
@@ -41,12 +53,13 @@ export class SmsService {
     private readonly config: ConfigService,
   ) {}
 
-  async enviar(tenant: string, numero: string, mensaje: string): Promise<boolean> {
-    const cfg = await this.configs.findOne({ where: { tenant: '__global__' } });
+  async enviar(numero: string, mensaje: string): Promise<boolean> {
+    const cfg = await this.configs.findOne({ where: { tenant: TENANT_CONFIG_SMS } });
 
     if (!cfg || !cfg.activo || !cfg.apiKey) {
       this.logger.warn(
-        `La instancia ${tenant} no tiene SMS configurado — no se envió a ${numero}.`,
+        `La plataforma no tiene SMS configurado (o está desactivado) — no se envió a ${numero}. ` +
+        'Se configura en Plataforma → Mensajería SMS.',
       );
       return false;
     }
@@ -58,7 +71,8 @@ export class SmsService {
       // La llave de cifrado cambió: la credencial guardada ya no se puede leer.
       // Hay que volver a guardarla desde Administración.
       this.logger.error(
-        `No se pudo descifrar la credencial de SMS de ${tenant}: vuelva a guardarla.`,
+        'No se pudo descifrar la credencial de SMS: la llave de cifrado cambió. ' +
+        'Vuelva a guardarla en Plataforma → Mensajería SMS.',
       );
       return false;
     }
@@ -69,7 +83,7 @@ export class SmsService {
       case 'INFOBIP':            return this.infobip.enviar(datos, numero, mensaje);
       case 'INALAMBRIA_EXPRESS': return this.inalambria.enviar(datos, numero, mensaje);
       default:
-        this.logger.warn(`Proveedor de SMS desconocido en ${tenant}: ${cfg.proveedor}`);
+        this.logger.warn(`Proveedor de SMS desconocido: ${cfg.proveedor}`);
         return false;
     }
   }

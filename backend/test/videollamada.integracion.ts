@@ -167,7 +167,10 @@ async function main(): Promise<number> {
   console.log('\n1) Crear la llamada');
   const creada = await video.crear('tunja', casoId, '3001234567', 'despachador1');
   afirmar(!!creada.sesionId, 'se creó la sesión');
-  afirmar(creada.enlace.includes('/video/'), `el enlace es ${creada.enlace.slice(0, 48)}…`);
+  afirmar(/\/v\/tunja-[23456789abcdefghjkmnpqrstuvwxyz]{12}$/.test(creada.enlace),
+    `el enlace es corto y dictable: ${creada.enlace}`);
+  afirmar(creada.enlace.length <= 70,
+    `y cabe en un SMS sin parecer un fraude (${creada.enlace.length} caracteres)`);
   afirmar(creada.smsEnviado === false,
     'sin proveedor configurado el SMS no sale, pero la llamada queda abierta igual');
 
@@ -181,6 +184,15 @@ async function main(): Promise<number> {
   afirmar(tokens.validar('token-inventado') === null, 'un token inventado no vale');
   afirmar(tokens.validar(jwtDespachador) === null,
     'y un JWT de sesión de funcionario TAMPOCO sirve como enlace de video');
+
+  const claveCreada = creada.enlace.split('/').pop() ?? '';
+  afirmar((await video.porClave(claveCreada))?.id === creada.sesionId,
+    'la clave corta resuelve a SU sesión');
+  afirmar((await video.porClave('tunja-zzzzzzzzzzzz')) === null,
+    'un código inventado de la misma instancia no resuelve a nada');
+  afirmar((await video.porClave(`mebog-${claveCreada.split('-')[1]}`)) === null,
+    'y el mismo código bajo OTRA instancia tampoco: el aislamiento se mantiene');
+  afirmar((await video.porClave('sin-guiones-ni-nada')) === null, 'una clave mal formada se rechaza');
 
   console.log('\n4) El despachador entra a su sala');
   const sDesp = await conectar({ token: jwtDespachador });
@@ -283,6 +295,17 @@ async function main(): Promise<number> {
   const sinSesion = await fetch(`http://127.0.0.1:${PUERTO}/casos/${casoId}/videollamada/activa`);
   afirmar(sinSesion.status === 401,
     `lo demás del controlador SIGUE cerrado sin sesión (${sinSesion.status})`);
+
+  afirmar(typeof (cuerpo as { token?: string }).token === 'string'
+    && !!tokens.validar((cuerpo as { token?: string }).token as string),
+    'y con la clave corta el servidor entrega el token de sala, firmado y válido');
+
+  // Un SMS ya despachado no se puede retirar: el enlace con token de antes
+  // tiene que seguir abriendo la llamada.
+  const viejaForma = await fetch(`http://127.0.0.1:${PUERTO}/videollamada/publico/${abierta.token}`);
+  afirmar(viejaForma.status === 200
+    && ((await viejaForma.json()) as { valido?: boolean }).valido === true,
+    'un enlace de los de antes (con el token en la URL) sigue funcionando');
 
   sDesp.disconnect();
   sIntruso.disconnect();

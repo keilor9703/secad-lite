@@ -48,6 +48,15 @@ export class VideollamadaComponent implements OnDestroy {
   readonly chatTexto = signal('');
   readonly abriendo = signal(false);
 
+  /** Cuánto lleva la llamada. En una emergencia el tiempo es información. */
+  readonly duracion = signal('');
+  private reloj: ReturnType<typeof setInterval> | null = null;
+  private inicio = 0;
+
+  readonly chatAbierto = signal(false);
+  /** Mensajes llegados mientras el chat estaba plegado. */
+  readonly sinLeer = signal(0);
+
   /** Llamada ya abierta para este caso, a la que se puede volver. */
   readonly reconectable = signal<VideollamadaActiva | null>(null);
   readonly reconectando = signal(false);
@@ -59,9 +68,19 @@ export class VideollamadaComponent implements OnDestroy {
   private casoEnLlamada = '';
 
   constructor() {
-    this.video.estado$.pipe(takeUntilDestroyed()).subscribe((e) => this.estado.set(e));
+    this.video.estado$.pipe(takeUntilDestroyed()).subscribe((e) => {
+      this.estado.set(e);
+      this.vigilarDuracion();
+    });
     this.video.error$.pipe(takeUntilDestroyed()).subscribe((e) => this.error.set(e));
-    this.video.chat$.pipe(takeUntilDestroyed()).subscribe((c) => this.chat.set(c));
+    this.video.chat$.pipe(takeUntilDestroyed()).subscribe((c) => {
+      // Un mensaje nuevo con el chat plegado se anuncia en el botón: el
+      // despachador está mirando el video, no la lista.
+      if (c.length > this.chat().length && !this.chatAbierto()) {
+        this.sinLeer.update((n) => n + (c.length - this.chat().length));
+      }
+      this.chat.set(c);
+    });
     this.video.chatDisponible$.pipe(takeUntilDestroyed()).subscribe((d) => this.chatDisponible.set(d));
     this.video.ubicacion$.pipe(takeUntilDestroyed()).subscribe((u) => this.ubicacion.set(u));
     this.video.microfono$.pipe(takeUntilDestroyed()).subscribe((m) => this.microfono.set(m));
@@ -102,6 +121,33 @@ export class VideollamadaComponent implements OnDestroy {
   ngOnDestroy(): void {
     // Salir del caso no puede perder la grabación: se cierra en segundo plano.
     if (this.enCurso()) this.video.abandonar();
+    this.pararReloj();
+  }
+
+  /** Arranca o para el cronómetro según el estado de la llamada. */
+  private vigilarDuracion(): void {
+    if (this.estado() === 'conectada') {
+      if (this.reloj) return;
+      this.inicio = Date.now();
+      this.duracion.set('0:00');
+      this.reloj = setInterval(() => {
+        const s = Math.floor((Date.now() - this.inicio) / 1000);
+        this.duracion.set(`${Math.floor(s / 60)}:${String(s % 60).padStart(2, '0')}`);
+      }, 1000);
+    } else if (!this.enCurso()) {
+      this.pararReloj();
+      this.duracion.set('');
+    }
+  }
+
+  private pararReloj(): void {
+    if (this.reloj) clearInterval(this.reloj);
+    this.reloj = null;
+  }
+
+  alternarChat(): void {
+    this.chatAbierto.update((v) => !v);
+    if (this.chatAbierto()) this.sinLeer.set(0);
   }
 
   /**
@@ -195,6 +241,8 @@ export class VideollamadaComponent implements OnDestroy {
     await this.video.colgar();
     this.enlace.set('');
     this.casoEnLlamada = '';
+    this.chatAbierto.set(false);
+    this.sinLeer.set(0);
   }
 
   /** Para el enlace al mapa con la posición que reportó el ciudadano. */

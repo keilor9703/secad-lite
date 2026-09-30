@@ -1,26 +1,39 @@
 // ==========================================================================
-// VIDEOLLAMADA — panel del caso en Despacho
+// VIDEOLLAMADA — consola del despachador, dentro del panel del caso
 //
-// Vive en una columna angosta, al lado del detalle del caso: todo se apila y
-// nada compite con la información del incidente. El único elemento que puede
-// crecer es el marco del video, y aun así está topado para que los controles
-// (colgar, grabar, micrófono) nunca queden fuera de pantalla — son acciones
-// que se toman en segundos.
+// Vive en una columna angosta, al lado del detalle del incidente, así que todo
+// se apila. Dos decisiones gobiernan el diseño:
+//
+//   1. El video es el protagonista mientras la llamada está viva: fondo negro,
+//      mandos SOBRE la imagen (no en una fila aparte que le roba alto) y un
+//      tope de alto para que colgar nunca quede fuera de pantalla.
+//   2. Lo que no es el video se repliega. El chat es un desplegable con
+//      contador, no una sección permanente: el despachador está mirando la
+//      escena, y cuando llega un mensaje se le avisa en el botón.
 // ==========================================================================
 
 .vll {
   display: flex;
   flex-direction: column;
-  gap: 0.6rem;
+  gap: 0.55rem;
   padding: 0.8rem;
+  transition: border-color 0.2s ease;
+  // Los mandos se compactan según el ancho REAL de este panel, no el de la
+  // ventana: el mismo componente sirve en el riel angosto del caso y a lo
+  // ancho de la pantalla.
+  container-type: inline-size;
+  container-name: vll;
 }
+
+// Llamada viva: el panel se distingue del resto de la ficha de un vistazo.
+.vll--activa { border-color: color-mix(in srgb, var(--accent) 55%, var(--border)); }
 
 // 1. Cabecera -------------------------------------------------------------
 
 .vll-cab {
   display: flex;
   align-items: center;
-  gap: 0.45rem;
+  gap: 0.4rem;
   flex-wrap: wrap;
   // Quien aloja este panel puede tener algo flotando en su esquina superior
   // derecha (en Despacho, el botón de cerrar el caso) y lo reserva aquí.
@@ -31,17 +44,54 @@
   margin: 0;
   flex: 1 1 auto;
   min-width: 0;
-  font-size: 0.92rem;
+  font-size: 0.9rem;
   font-weight: 600;
   letter-spacing: -0.01em;
 }
 
-// Que se note desde el otro lado del puesto que hay material grabándose.
-.vll-rec { animation: vll-latido 1.6s ease-in-out infinite; }
+.vll-reloj {
+  font-family: var(--mono);
+  font-size: 0.8rem;
+  font-variant-numeric: tabular-nums;
+  color: var(--ink-soft);
+}
+
+// Estado de la llamada. Un punto y una palabra: se lee sin detenerse.
+.vll-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3rem;
+  font-size: 0.68rem;
+  font-weight: 600;
+  letter-spacing: 0.03em;
+  text-transform: uppercase;
+  white-space: nowrap;
+  padding: 0.14rem 0.5rem;
+  border-radius: 999px;
+
+  &::before {
+    content: '';
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
+    background: currentColor;
+  }
+}
+
+.vll-pill--espera { background: var(--tag-warn-bg);   color: var(--tag-warn-fg); }
+.vll-pill--viva   { background: var(--tag-ok-bg);     color: var(--tag-ok-fg); }
+.vll-pill--mal    { background: var(--tag-danger-bg); color: var(--tag-danger-fg); }
+
+.vll-pill--rec {
+  background: var(--tag-danger-bg);
+  color: var(--tag-danger-fg);
+
+  &::before { animation: vll-latido 1.4s ease-in-out infinite; }
+}
 
 @keyframes vll-latido {
   0%, 100% { opacity: 1; }
-  50%      { opacity: 0.45; }
+  50%      { opacity: 0.2; }
 }
 
 // 2. Avisos ---------------------------------------------------------------
@@ -52,7 +102,8 @@
   border-radius: var(--radius-sm);
   background: var(--tag-danger-bg);
   color: var(--tag-danger-fg);
-  font-size: 0.8rem;
+  font-size: 0.79rem;
+  line-height: 1.35;
 }
 
 .vll-pista {
@@ -62,7 +113,181 @@
   color: var(--muted);
 }
 
-// 3. Enlace del ciudadano -------------------------------------------------
+// 3. Escenario del video --------------------------------------------------
+
+.vll-escena {
+  position: relative;
+  display: grid;
+  place-items: center;
+  // El ciudadano puede grabar en vertical o en horizontal: no se impone una
+  // proporción, se acota el alto y el video se adapta dentro.
+  min-height: 9rem;
+  max-height: 48vh;
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--border);
+  background: #05080b;
+  overflow: hidden;
+
+  video {
+    display: block;
+    width: 100%;
+    max-height: 48vh;
+    object-fit: contain;
+    background: #05080b;
+  }
+}
+
+// Sin imagen todavía: el marco no ocupa media pantalla en negro.
+.vll-escena--vacia {
+  min-height: 7.5rem;
+  background: var(--surface-2);
+  border-style: dashed;
+
+  video { display: none; }
+}
+
+.vll-espera {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.9rem;
+  text-align: center;
+
+  p {
+    margin: 0;
+    font-size: 0.78rem;
+    color: var(--muted);
+    max-width: 22ch;
+  }
+}
+
+// Señal de que el sistema sigue esperando y no se quedó colgado.
+.vll-faro {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  background: var(--warn);
+  box-shadow: 0 0 0 0 color-mix(in srgb, var(--warn) 45%, transparent);
+  animation: vll-faro 1.8s ease-out infinite;
+}
+
+@keyframes vll-faro {
+  0%   { box-shadow: 0 0 0 0 color-mix(in srgb, var(--warn) 45%, transparent); }
+  70%  { box-shadow: 0 0 0 12px transparent; }
+  100% { box-shadow: 0 0 0 0 transparent; }
+}
+
+.vll-rec {
+  position: absolute;
+  top: 0.5rem;
+  left: 0.5rem;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3rem;
+  font-family: var(--mono);
+  font-size: 0.64rem;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  padding: 0.14rem 0.42rem;
+  border-radius: var(--radius-sm);
+  background: rgba(0, 0, 0, 0.55);
+  color: #ff6b5e;
+
+  &::before {
+    content: '';
+    width: 7px;
+    height: 7px;
+    border-radius: 50%;
+    background: currentColor;
+    animation: vll-latido 1.4s ease-in-out infinite;
+  }
+}
+
+// 4. Mandos sobre el video ------------------------------------------------
+
+.vll-mandos {
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  display: flex;
+  justify-content: center;
+  flex-wrap: wrap;
+  gap: 0.3rem;
+  padding: 0.75rem 0.5rem 0.5rem;
+  background: linear-gradient(to top, rgba(0, 0, 0, 0.72), transparent);
+}
+
+// Sobre el escenario vacío no hay imagen que oscurecer.
+.vll-escena--vacia .vll-mandos { background: none; }
+
+.vll-mando {
+  font: inherit;
+  font-size: 0.74rem;
+  line-height: 1;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3rem;
+  padding: 0.38rem 0.6rem;
+  border-radius: 999px;
+  border: 1px solid rgba(255, 255, 255, 0.22);
+  background: rgba(16, 32, 47, 0.72);
+  color: #eef5fa;
+  backdrop-filter: blur(6px);
+  transition: background 0.15s ease, border-color 0.15s ease, opacity 0.15s ease;
+
+  &:hover:not(:disabled) { background: rgba(16, 32, 47, 0.92); }
+  &:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+  &:disabled { opacity: 0.4; cursor: not-allowed; }
+}
+
+.vll-mando--mal,
+.vll-mando--rec {
+  background: rgba(150, 40, 32, 0.82);
+  border-color: rgba(255, 140, 130, 0.5);
+}
+
+.vll-mando--colgar {
+  background: rgba(150, 40, 32, 0.9);
+  border-color: rgba(255, 140, 130, 0.55);
+
+  &:hover:not(:disabled) { background: rgba(178, 46, 36, 0.96); }
+}
+
+// En el riel angosto del panel del caso solo caben los iconos.
+@container vll (max-width: 430px) {
+  .vll-mando-txt { display: none; }
+  .vll-mando { padding: 0.4rem 0.5rem; }
+}
+
+// 5. Ubicación ------------------------------------------------------------
+
+.vll-ubic {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  padding: 0.4rem 0.55rem;
+  border-radius: var(--radius-sm);
+  background: var(--surface-2);
+  font-size: 0.78rem;
+  color: var(--ink-soft);
+  text-decoration: none;
+
+  &:hover { background: var(--accent-soft); }
+
+  small { color: var(--muted); }
+}
+
+.vll-coord {
+  margin-left: auto;
+  font-family: var(--mono);
+  font-size: 0.7rem;
+  white-space: nowrap;
+}
+
+// 6. Enlace del ciudadano -------------------------------------------------
 
 .vll-enlace {
   display: flex;
@@ -71,88 +296,59 @@
 
   input {
     font-family: var(--mono);
-    font-size: 0.74rem;
+    font-size: 0.75rem;
     padding: 0.4rem 0.5rem;
     min-width: 0;
+    color: var(--ink-soft);
   }
 
   .btn { flex: 0 0 auto; }
 }
 
-// 4. Marco del video ------------------------------------------------------
-
-.vll-marco {
-  position: relative;
-  display: grid;
-  place-items: center;
-  aspect-ratio: auto;        // adaptativo
-  max-height: 46vh;
-  border-radius: var(--radius-sm);
-  border: 1px solid var(--border);
-  background: #000;
-  overflow: hidden;
-
-  video {
-    width: 100%;
-    height: 100%;
-    object-fit: contain;
-    display: block;
-  }
-}
-
-// Mientras no hay imagen el marco no ocupa media pantalla en negro.
-.vll-marco--vacio {
-  aspect-ratio: auto;
-  min-height: 5.5rem;
-  background: var(--surface-2);
-
-  video { display: none; }
-}
-
-.vll-espera {
-  margin: 0;
-  padding: 0 0.8rem;
-  text-align: center;
-  font-size: 0.78rem;
-  color: var(--muted);
-}
-
-// 5. Ubicación ------------------------------------------------------------
-
-.vll-ubic {
-  margin: 0;
-  font-size: 0.78rem;
-  color: var(--ink-soft);
-
-  a { color: var(--accent); }
-  small { color: var(--muted); }
-}
-
-// 6. Controles ------------------------------------------------------------
-
-.vll-ctrl {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 0.35rem;
-}
-
-// 7. Chat -----------------------------------------------------------------
+// 7. Chat plegable --------------------------------------------------------
 
 .vll-chat {
   display: flex;
   flex-direction: column;
   gap: 0.4rem;
   border-top: 1px solid var(--border);
-  padding-top: 0.6rem;
+  padding-top: 0.55rem;
 }
 
-.vll-chat-cab {
+.vll-chat-btn {
+  font: inherit;
+  font-size: 0.8rem;
+  font-weight: 600;
+  cursor: pointer;
   display: flex;
   align-items: center;
   gap: 0.4rem;
-  margin: 0;
-  font-size: 0.8rem;
-  font-weight: 600;
+  padding: 0;
+  border: 0;
+  background: none;
+  color: var(--ink);
+  text-align: left;
+
+  &:focus-visible { outline: 2px solid var(--accent); outline-offset: 3px; }
+}
+
+.vll-chevron { color: var(--muted); }
+
+.vll-cuenta {
+  font-size: 0.7rem;
+  font-weight: 500;
+  color: var(--muted);
+}
+
+.vll-sinleer {
+  min-width: 1.15rem;
+  text-align: center;
+  font-size: 0.68rem;
+  font-weight: 700;
+  padding: 0.05rem 0.3rem;
+  border-radius: 999px;
+  background: var(--accent);
+  color: var(--on-accent);
 }
 
 .vll-hilo {
@@ -211,5 +407,10 @@
   border-radius: var(--radius-sm);
   background: var(--tag-warn-bg);
 
-  .vll-pista { color: var(--tag-warn-fg); }
+  p {
+    margin: 0;
+    font-size: 0.78rem;
+    line-height: 1.35;
+    color: var(--tag-warn-fg);
+  }
 }

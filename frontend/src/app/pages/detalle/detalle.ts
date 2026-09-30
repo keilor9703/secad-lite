@@ -10,7 +10,6 @@ import { CatalogosService } from '../../core/catalogos.service';
 import { DespachoService } from '../../core/despacho.service';
 import { WhatsappService } from '../../core/whatsapp.service';
 import { VideollamadaService, VideoSesion, ChatMensaje } from '../../core/videollamada.service';
-import { environment } from '../../../environments/environment';
 import { ToastService } from '../../shared/toast/toast.service';
 import { ConfirmService } from '../../shared/confirm/confirm.service';
 import { SelectorComponent } from '../../shared/selector/selector';
@@ -40,7 +39,6 @@ export class DetalleComponent implements OnInit, OnDestroy {
   private videollamadaSvc = inject(VideollamadaService);
   private toast = inject(ToastService);
   private confirmar = inject(ConfirmService);
-  readonly envBaseUrl = environment.apiBaseUrl;
 
   /** Supervisor/admin: habilita cerrar y reabrir. */
   readonly privilegiado = this.auth.privilegiado;
@@ -67,6 +65,16 @@ export class DetalleComponent implements OnInit, OnDestroy {
 
   readonly videoSesiones = signal<VideoSesion[]>([]);
   readonly videoChats = signal<Record<string, ChatMensaje[]>>({});
+  /** `blob:` de cada grabación ya descargada, por id de archivo. */
+  readonly videoGrabaciones = signal<Record<string, string>>({});
+  readonly videoCargando = signal<Record<string, boolean>>({});
+
+  /**
+   * Ver una grabación es un permiso aparte de ver el caso: la descarga del
+   * servidor exige `casos.ver_grabaciones`, así que a quien no lo tenga se le
+   * dice en vez de ofrecerle un botón que va a fallar.
+   */
+  readonly puedeVerGrabaciones = computed(() => this.auth.tienePermiso('casos.ver_grabaciones'));
 
   // Chat interno entre operadores/despachadores, anclado al caso.
   readonly chatMensajes = signal<MensajeChatInterno[]>([]);
@@ -471,6 +479,9 @@ export class DetalleComponent implements OnInit, OnDestroy {
     if (this.waPoll) clearInterval(this.waPoll);
     if (this.chatCasoId) this.casosWs.salirDeChat(this.chatCasoId);
     this.chatSub?.unsubscribe();
+    // Cada blob de grabación retiene su contenido en memoria hasta que se
+    // suelta; sin esto, abrir varios casos con video deja megabytes colgados.
+    Object.values(this.videoGrabaciones()).forEach((u) => URL.revokeObjectURL(u));
   }
 
   // WhatsApp -----------------------------------------------------------------
@@ -508,6 +519,27 @@ export class DetalleComponent implements OnInit, OnDestroy {
       },
       error: () => { this.error.set('No fue posible cargar el caso.'); this.cargando.set(false); },
     });
+  }
+
+  /**
+   * Descarga la grabación y la deja lista para reproducir.
+   *
+   * No se hace al abrir el caso: son megabytes por minuto de llamada y casi
+   * nadie entra al detalle para ver el video. Se baja cuando alguien lo pide.
+   */
+  async verGrabacion(archivoId: string): Promise<void> {
+    if (this.videoGrabaciones()[archivoId] || this.videoCargando()[archivoId]) return;
+
+    this.videoCargando.update((r) => ({ ...r, [archivoId]: true }));
+    try {
+      const blob = await this.videollamadaSvc.grabacion(archivoId);
+      const url = URL.createObjectURL(blob);
+      this.videoGrabaciones.update((r) => ({ ...r, [archivoId]: url }));
+    } catch {
+      this.toast.error('No fue posible descargar la grabación.');
+    } finally {
+      this.videoCargando.update((r) => ({ ...r, [archivoId]: false }));
+    }
   }
 
   async cargarChatVideo(sesionId: string): Promise<void> {

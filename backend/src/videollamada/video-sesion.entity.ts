@@ -19,6 +19,7 @@ export type EstadoVideoSesion = 'PENDIENTE' | 'CONECTADA' | 'FINALIZADA' | 'EXPI
 @Entity({ name: 'video_sesiones' })
 @Index(['tenant', 'casoId', 'creadoEn'])
 @Index(['tenant', 'estado'])
+@Index(['tenant', 'codigo'], { unique: true })
 export class VideoSesionEntity {
   @PrimaryGeneratedColumn('uuid')
   id!: string;
@@ -31,6 +32,17 @@ export class VideoSesionEntity {
 
   @Column({ type: 'varchar', length: 12, default: 'PENDIENTE' })
   estado!: EstadoVideoSesion;
+
+  /**
+   * Código público de la llamada: lo que el ciudadano recibe en el SMS.
+   *
+   * Antes el enlace llevaba el JWT entero —más de 300 caracteres— y en un
+   * mensaje de texto eso parece cualquier cosa menos la línea de emergencias.
+   * Aquí va un código corto y dictable por teléfono; el token firmado lo
+   * entrega el servidor cuando el código resulta válido.
+   */
+  @Column({ type: 'varchar', length: 24, nullable: true })
+  codigo!: string | null;
 
   /** Quién la abrió (JwtPayload.sub). */
   @Column({ type: 'varchar', length: 120 })

@@ -15,6 +15,12 @@ interface RespuestaPublica {
   mensaje?: string;
   sesionId?: string;
   estado?: string;
+  /**
+   * Token firmado con el que se entra a la sala. Antes venía en la URL; ahora
+   * la URL lleva solo una clave corta y el token lo entrega el servidor cuando
+   * esa clave resulta válida — así el enlace del SMS es corto y creíble.
+   */
+  token?: string;
 }
 
 interface ChatMensaje { texto: string; propio: boolean; hora: string }
@@ -24,7 +30,8 @@ interface ChatMensaje { texto: string; propio: boolean; hora: string }
  *
  * No tiene sesión ni cuenta: está llamando al 123 desde la calle, con el
  * celular, posiblemente en una situación de emergencia. Todo lo que la
- * autentica es el token de la URL.
+ * autentica es la clave corta del enlace: el servidor la valida y, si sirve,
+ * le entrega el token firmado con el que entra a la sala.
  *
  * Por eso vive fuera del layout autenticado y no depende de nada del resto de
  * la aplicación: si algo del área interna se rompe, esta página sigue en pie.
@@ -50,7 +57,10 @@ export class VideoCiudadanoComponent implements OnInit, OnDestroy {
   readonly ubicacionActiva = signal(false);
   readonly camaraFrontal = signal(false);
 
-  private readonly token = this.route.snapshot.paramMap.get('token') ?? '';
+  /** Lo que venía en la URL: la clave corta, o el token de un enlace antiguo. */
+  private readonly clave = this.route.snapshot.paramMap.get('clave') ?? '';
+  /** Token de sala, que el servidor entrega al validar la clave. */
+  private token = '';
   private socket: Socket | null = null;
   private pc: RTCPeerConnection | null = null;
   private local: MediaStream | null = null;
@@ -58,19 +68,22 @@ export class VideoCiudadanoComponent implements OnInit, OnDestroy {
   private watchId: number | null = null;
 
   ngOnInit(): void {
-    if (!this.token) { this.estado.set('invalido'); return; }
+    if (!this.clave) { this.estado.set('invalido'); return; }
 
     // Se valida el enlace ANTES de pedir cámara y micrófono: pedirle acceso a
     // la cámara a alguien que está en una emergencia, para después decirle que
     // el enlace venció, es maltratarlo.
     this.http.get<RespuestaPublica>(
-      `${environment.apiBaseUrl}/videollamada/publico/${this.token}`).subscribe({
+      `${environment.apiBaseUrl}/videollamada/publico/${encodeURIComponent(this.clave)}`).subscribe({
       next: (r) => {
         if (!r.valido) {
           this.estado.set('invalido');
           this.mensajeError.set(r.mensaje || 'Este enlace ya no es válido.');
           return;
         }
+        // Un enlace antiguo trae el token en la URL y el servidor no manda
+        // otro; en ese caso la clave ES el token.
+        this.token = r.token ?? this.clave;
         void this.pedirPermisos();
       },
       error: () => {

@@ -1,4 +1,5 @@
 import { BadRequestException, Injectable, Logger, NotFoundException } from '@nestjs/common';
+import { randomInt } from 'crypto';
 import { ConfigService } from '@nestjs/config';
 import { EntityManager, In } from 'typeorm';
 import { VideoSesionEntity } from './video-sesion.entity';
@@ -10,6 +11,26 @@ import { CasoEntity } from '../casos/caso.entity';
 
 /** Estados en los que la llamada todavía se puede retomar. */
 const ESTADOS_VIVOS = ['PENDIENTE', 'CONECTADA'] as const;
+
+/** Prefijo de la ruta pública del ciudadano. Corto a propósito: va en un SMS. */
+const RUTA_PUBLICA = '/v';
+
+/**
+ * Alfabeto del código público. Sin 0/O ni 1/l/I: el despachador tiene que
+ * poder DICTARLO por teléfono cuando el SMS no llega, y esas parejas son las
+ * que se confunden al oído.
+ */
+const ALFABETO = '23456789abcdefghjkmnpqrstuvwxyz';
+
+/**
+ * Largo del código. 12 caracteres sobre 31 símbolos son ~59 bits: adivinarlo
+ * a ciegas no es viable en los minutos que vive una llamada, y el enlace
+ * completo cabe holgado en un mensaje de texto.
+ */
+const LARGO_CODIGO = 12;
+
+/** Cuántas veces reintentar si el código sorteado ya existía. */
+const INTENTOS_CODIGO = 5;
 
 @Injectable()
 export class VideollamadaService {
@@ -35,7 +56,6 @@ export class VideollamadaService {
     casoId: string,
     numeroTelefono: string,
     despachador: string,
-    baseUrl?: string,
   ): Promise<{
     sesionId: string; token: string; enlace: string; expiraEn: Date;
     smsEnviado: boolean; mensaje: string; reutilizada: boolean;
@@ -51,31 +71,59 @@ export class VideollamadaService {
       const token = this.tokens.crear(
         { sesionId: vigente.id, casoId, tenant, despachador }, vigente.expiraEn);
       return {
-        sesionId: vigente.id, token, enlace: this.enlace(token, baseUrl), expiraEn: vigente.expiraEn,
+        sesionId: vigente.id, token, enlace: this.enlace(await this.claveDe(vigente)), expiraEn: vigente.expiraEn,
         smsEnviado: false, reutilizada: true,
         mensaje: 'Ya había una videollamada en curso para este caso — se reutiliza el mismo enlace.',
       };
     }
 
     const expiraEn = new Date(Date.now() + this.tokens.minutosPorDefecto * 60_000);
-    const sesion = await this.rls.conTenant(tenant, (m) =>
-      m.getRepository(VideoSesionEntity).save(
-        m.getRepository(VideoSesionEntity).create({
-          tenant, casoId, estado: 'PENDIENTE',
-          usuarioDespachador: despachador,
-          numeroTelefono: numeroTelefono?.trim() || null,
-          expiraEn,
-        }),
-      ));
+
+    // El código es único por instancia. Si el sorteo choca se vuelve a sortear,
+    // en vez de reventarle la llamada al despachador. El reintento va POR FUERA
+    // de la transacción: en PostgreSQL un INSERT fallido la deja abortada y
+    // cualquier sentencia siguiente muere con «current transaction is aborted».
+    let sesion: VideoSesionEntity | null = null;
+    for (let intento = 1; intento <= INTENTOS_CODIGO && !sesion; intento++) {
+      try {
+        sesion = await this.rls.conTenant(tenant, (m) => {
+          const repo = m.getRepository(VideoSesionEntity);
+          return repo.save(repo.create({
+            tenant, casoId, estado: 'PENDIENTE',
+            usuarioDespachador: despachador,
+            numeroTelefono: numeroTelefono?.trim() || null,
+            codigo: this.sortearCodigo(),
+            expiraEn,
+          }));
+        });
+      } catch (e) {
+        if (intento >= INTENTOS_CODIGO) throw e;
+      }
+    }
+    if (!sesion) throw new BadRequestException('No fue posible abrir la videollamada.');
 
     const token = this.tokens.crear({ sesionId: sesion.id, casoId, tenant, despachador }, expiraEn);
-    const enlace = this.enlace(token, baseUrl);
+    const enlace = this.enlace(await this.claveDe(sesion));
+
+    // Sin dominio configurado el enlace sale sin él: no se manda. Un SMS con
+    // «/v/itagui-k7m2x9qr4t8v» le hace creer al ciudadano que ya puede
+    // conectarse y lo deja tocando un enlace muerto en plena emergencia.
+    if (!this.baseWeb()) {
+      this.logger.error(
+        'FRONTEND_URL no está configurada: el enlace de la videollamada sale sin dominio ' +
+        'y el SMS no se envía. Defínala con el dominio público de FALCON y reinicie.');
+      return {
+        sesionId: sesion.id, token, enlace, expiraEn, smsEnviado: false, reutilizada: false,
+        mensaje: 'Falta configurar el dominio público de FALCON (FRONTEND_URL): ' +
+          'el enlace sale incompleto y no se envió el SMS. Avise al administrador.',
+      };
+    }
 
     // El SMS puede fallar y la llamada tiene que quedar abierta igual: el
     // despachador ya tiene el enlace y puede dictarlo por teléfono.
     const smsEnviado = numeroTelefono?.trim()
       ? await this.sms.enviar(
-          tenant, numeroTelefono.trim(),
+          numeroTelefono.trim(),
           `FALCON CAD - Linea 123. Para atenderlo por video, abra este enlace: ${enlace}`)
       : false;
 
@@ -124,9 +172,71 @@ export class VideollamadaService {
       sesion.expiraEn);
   }
 
-  enlace(token: string, baseUrlFrontend?: string): string {
-    const base = (this.config.get<string>('FRONTEND_URL') ?? baseUrlFrontend ?? '').replace(/\/+$/, '');
-    return `${base}/video/${token}`;
+  /**
+   * Dominio público de FALCON, o null si nadie lo configuró.
+   *
+   * Sale SOLO de la configuración del servidor, nunca de lo que mande el
+   * navegador: este dominio termina dentro de un SMS firmado «FALCON CAD -
+   * Linea 123», y aceptarlo del cliente permitiría que cualquiera con acceso
+   * al endpoint le mande al ciudadano un enlace a un dominio ajeno —con un
+   * token válido dentro— y le pida cámara y micrófono en nombre de la línea.
+   *
+   * Se usa `||` y no `??` a propósito: `FRONTEND_URL=` (definida pero vacía,
+   * un tropiezo fácil en un .env) también cuenta como no configurada.
+   */
+  private baseWeb(): string | null {
+    return (this.config.get<string>('FRONTEND_URL') || '').trim().replace(/\/+$/, '') || null;
+  }
+
+  enlace(clave: string): string {
+    return `${this.baseWeb() ?? ''}${RUTA_PUBLICA}/${clave}`;
+  }
+
+  private sortearCodigo(): string {
+    let salida = '';
+    for (let i = 0; i < LARGO_CODIGO; i++) salida += ALFABETO[randomInt(ALFABETO.length)];
+    return salida;
+  }
+
+  /**
+   * La clave que viaja en la URL: `<instancia>-<codigo>`.
+   *
+   * La instancia va delante porque las tablas de la videollamada están bajo
+   * RLS: sin saber a qué instancia pertenece el código no hay forma de
+   * buscarlo sin abrir un hueco en el aislamiento. De paso el enlace dice a
+   * qué municipio pertenece, que para el ciudadano es una señal de que el
+   * mensaje es legítimo y no un fraude.
+   *
+   * A una sesión anterior a este cambio se le asigna el código al pedirle el
+   * enlace, en vez de dejarla sin uno: así no queda un segundo formato de
+   * enlace vivo indefinidamente.
+   */
+  async claveDe(sesion: VideoSesionEntity): Promise<string> {
+    if (!sesion.codigo) {
+      sesion.codigo = this.sortearCodigo();
+      await this.rls.conTenant(sesion.tenant, (m) =>
+        m.getRepository(VideoSesionEntity).update({ id: sesion.id }, { codigo: sesion.codigo }));
+    }
+    return `${sesion.tenant}-${sesion.codigo}`;
+  }
+
+  /**
+   * Del código de la URL a la sesión. Devuelve null ante cualquier duda: clave
+   * mal formada, instancia inexistente o código que no existe.
+   *
+   * El corte es por el ÚLTIMO guion: el alfabeto del código no lo incluye, así
+   * que un código de instancia con guiones sigue resolviéndose bien.
+   */
+  async porClave(clave: string): Promise<VideoSesionEntity | null> {
+    const corte = (clave ?? '').lastIndexOf('-');
+    if (corte <= 0) return null;
+
+    const tenant = clave.slice(0, corte);
+    const codigo = clave.slice(corte + 1);
+    if (!codigo || codigo.length !== LARGO_CODIGO) return null;
+
+    return this.rls.conTenant(tenant, (m) =>
+      m.getRepository(VideoSesionEntity).findOne({ where: { tenant, codigo } }));
   }
 
   /** Todas las videollamadas de un caso: la traza que queda cuando ya se cerró. */

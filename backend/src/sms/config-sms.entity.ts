@@ -4,16 +4,17 @@ import { Column, Entity, PrimaryGeneratedColumn, UpdateDateColumn } from 'typeor
 export type ProveedorSms = 'INFOBIP' | 'INALAMBRIA_EXPRESS';
 
 /**
- * Credenciales del proveedor de SMS de UNA instancia.
+ * Credenciales del proveedor de SMS de la plataforma.
  *
- * Es por tenant y no global: cada municipio contrata con quien quiera, y el
- * consumo se le factura a él. Una configuración compartida obligaría a que
- * todos usaran la misma cuenta.
+ * Hay UNA sola fila —la de `TENANT_CONFIG_SMS`—: la cuenta del proveedor y su
+ * factura son del operador del SaaS, no de cada municipio, y la gestiona el
+ * superadmin desde Plataforma. La columna `tenant` es la llave única de esa
+ * fila, no una configuración por instancia.
  *
  * La `apiKey` se guarda CIFRADA (AES-256-GCM, ver common/secretos.ts) y no como
  * digest: a diferencia de una llave que se compara, esta hay que poder usarla
  * para autenticar contra el proveedor, así que el sistema necesita recuperarla.
- * Nunca sale hacia el navegador — ver ConfigSmsController.
+ * Nunca sale hacia el navegador — ver SmsGlobalController.
  */
 @Entity({ name: 'config_sms' })
 export class ConfigSmsEntity {

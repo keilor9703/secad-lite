@@ -22,7 +22,7 @@ import { readFileSync } from 'fs';
 import { ConfigService } from '@nestjs/config';
 import { DataSource } from 'typeorm';
 import { ConfigSmsEntity } from '../src/sms/config-sms.entity';
-import { SmsService } from '../src/sms/sms.service';
+import { SmsService, TENANT_CONFIG_SMS } from '../src/sms/sms.service';
 import { InfobipRemitente } from '../src/sms/infobip.remitente';
 import { InalambriaRemitente } from '../src/sms/inalambria.remitente';
 import { aE164 } from '../src/sms/sms.types';
@@ -68,7 +68,9 @@ async function main(): Promise<number> {
     logging: false,
   });
   await ds.initialize();
-  await ds.query(`DELETE FROM config_sms WHERE tenant = 'tunja'`);
+  // La configuración es UNA para toda la plataforma. Se borra la suya y
+  // también una de instancia, para poder comprobar que esa última se ignora.
+  await ds.query(`DELETE FROM config_sms WHERE tenant IN ($1, 'tunja')`, [TENANT_CONFIG_SMS]);
 
   const config = { get: (k: string) => (k === 'JWT_SECRET' ? 'secreto-de-prueba' : undefined) } as unknown as ConfigService;
   const svc = new SmsService(
@@ -83,30 +85,30 @@ async function main(): Promise<number> {
   afirmar(aE164('123') === null, 'algo que no es un número se rechaza, no se manda al proveedor');
 
   console.log('\n2) Sin configuración NO se intenta enviar');
-  const sinConfig = await svc.enviar('tunja', '3001234567', 'hola');
+  const sinConfig = await svc.enviar('3001234567', 'hola');
   afirmar(sinConfig === false, 'devuelve false en vez de lanzar: la videollamada tiene que poder seguir');
   afirmar(recibidas.length === 0, 'y no salió ninguna petición a la red');
 
   console.log('\n3) La credencial se guarda CIFRADA');
-  await svc.guardar('tunja', {
+  await svc.guardar(TENANT_CONFIG_SMS, {
     proveedor: 'INFOBIP', apiKey: 'CLAVE-SECRETA-123',
     baseUrl: '127.0.0.1:5641', sender: 'FALCON', activo: true,
   }, 'admin');
 
   const crudo: Array<{ apiKey: string }> = await ds.query(
-    `SELECT "apiKey" FROM config_sms WHERE tenant = 'tunja'`);
+    `SELECT "apiKey" FROM config_sms WHERE tenant = $1`, [TENANT_CONFIG_SMS]);
   afirmar(!crudo[0].apiKey.includes('CLAVE-SECRETA-123'),
     'la clave NO está en claro en la base');
   afirmar(crudo[0].apiKey.startsWith('enc1:'), `está cifrada (${crudo[0].apiKey.slice(0, 12)}…)`);
 
-  const visible = await svc.ver('tunja');
+  const visible = await svc.ver(TENANT_CONFIG_SMS);
   afirmar(!JSON.stringify(visible).includes('CLAVE-SECRETA-123'),
     'y tampoco sale hacia el navegador');
   afirmar(visible.tieneApiKey === true, 'solo se informa que existe');
 
   console.log('\n4) Infobip recibe lo que espera');
   recibidas.length = 0;
-  const okInfobip = await svc.enviar('tunja', '3001234567', 'Su enlace: https://x/video/abc');
+  const okInfobip = await svc.enviar('3001234567', 'Su enlace: https://x/video/abc');
   afirmar(okInfobip === true, 'el envío se reporta exitoso');
   const i = recibidas[0];
   afirmar(i?.ruta === '/sms/3/messages', `ruta ${i?.ruta}`);
@@ -118,13 +120,13 @@ async function main(): Promise<number> {
   afirmar(cuerpoI.messages?.[0]?.from === 'FALCON', 'y el remitente configurado');
 
   console.log('\n5) Cambiar de proveedor sin volver a escribir la clave');
-  await svc.guardar('tunja', { proveedor: 'INALAMBRIA_EXPRESS', baseUrl: 'http://127.0.0.1:5640' }, 'admin');
-  const trasCambio = await svc.ver('tunja');
+  await svc.guardar(TENANT_CONFIG_SMS, { proveedor: 'INALAMBRIA_EXPRESS', baseUrl: 'http://127.0.0.1:5640' }, 'admin');
+  const trasCambio = await svc.ver(TENANT_CONFIG_SMS);
   afirmar(trasCambio.tieneApiKey === true,
     'editar el proveedor con la clave vacía NO borra la credencial guardada');
 
   recibidas.length = 0;
-  const okInal = await svc.enviar('tunja', '3009998877', 'prueba');
+  const okInal = await svc.enviar('3009998877', 'prueba');
   afirmar(okInal === true, 'ahora envía por Inalambria');
   const n = recibidas[0];
   afirmar(n?.ruta === '/messages/send', `ruta ${n?.ruta}`);
@@ -136,20 +138,31 @@ async function main(): Promise<number> {
 
   console.log('\n6) Si el proveedor rechaza, se reporta false (no se lanza)');
   responderCon = 401;
-  const rechazado = await svc.enviar('tunja', '3001234567', 'x');
+  const rechazado = await svc.enviar('3001234567', 'x');
   afirmar(rechazado === false, 'un 401 del proveedor devuelve false');
   responderCon = 200;
 
   console.log('\n7) Desactivar corta el envío sin borrar nada');
-  await svc.guardar('tunja', { activo: false }, 'admin');
+  await svc.guardar(TENANT_CONFIG_SMS, { activo: false }, 'admin');
   recibidas.length = 0;
-  const desactivado = await svc.enviar('tunja', '3001234567', 'x');
+  const desactivado = await svc.enviar('3001234567', 'x');
   afirmar(desactivado === false && recibidas.length === 0, 'no sale petición con la config desactivada');
-  afirmar((await svc.ver('tunja')).tieneApiKey === true, 'y la credencial sigue guardada');
+  afirmar((await svc.ver(TENANT_CONFIG_SMS)).tieneApiKey === true, 'y la credencial sigue guardada');
 
-  console.log('\n8) Aislamiento entre instancias');
-  const otra = await svc.enviar('mebog', '3001234567', 'x');
-  afirmar(otra === false, 'otra instancia sin configurar no hereda la de Tunja');
+  console.log('\n8) Una sola configuración para toda la plataforma');
+  // Se deja una fila de instancia ACTIVA y bien formada. Si el envío la usara,
+  // saldría una petición a la red aunque la de la plataforma esté desactivada —
+  // que es justo el regreso al modelo por instancia que hay que detectar.
+  await svc.guardar('tunja', {
+    proveedor: 'INALAMBRIA_EXPRESS', apiKey: 'llave-de-instancia',
+    baseUrl: 'http://127.0.0.1:5640', activo: true,
+  }, 'admin');
+  const antes = recibidas.length;
+  const conFilaDeInstancia = await svc.enviar('3001234567', 'x');
+  afirmar(conFilaDeInstancia === false && recibidas.length === antes,
+    'una fila por instancia se ignora: la configuración es la de la plataforma');
+  afirmar((await svc.ver('tunja')).tieneApiKey === true,
+    'la fila de instancia sigue ahí, simplemente no se usa para enviar');
 
   await ds.destroy();
   servidor.close();

@@ -113,9 +113,8 @@ export class VideollamadaService {
   // ── API del caso ──────────────────────────────────────────────────────────
 
   crear(casoId: string, numeroTelefono: string): Promise<VideollamadaCreada> {
-    const baseUrl = window.location.origin;
     return firstValueFrom(this.http.post<VideollamadaCreada>(
-      `${environment.apiBaseUrl}/casos/${casoId}/videollamada`, { numeroTelefono, baseUrl }));
+      `${environment.apiBaseUrl}/casos/${casoId}/videollamada`, { numeroTelefono }));
   }
 
   /**
@@ -124,13 +123,25 @@ export class VideollamadaService {
    * un cambio de pestaña, una caída de red o un relevo de turno.
    */
   activa(casoId: string): Promise<VideollamadaActiva> {
-    const baseUrl = encodeURIComponent(window.location.origin);
     return firstValueFrom(this.http.get<VideollamadaActiva>(
-      `${environment.apiBaseUrl}/casos/${casoId}/videollamada/activa?baseUrl=${baseUrl}`));
+      `${environment.apiBaseUrl}/casos/${casoId}/videollamada/activa`));
   }
 
   historial(casoId: string): Promise<VideoSesion[]> {
     return firstValueFrom(this.http.get<VideoSesion[]>(`${environment.apiBaseUrl}/casos/${casoId}/videollamadas`));
+  }
+
+  /**
+   * Contenido de una grabación, como Blob.
+   *
+   * No se puede poner la URL de la API directamente en `<video src>`: esa ruta
+   * exige sesión y un `<video>` no manda la cabecera `Authorization`. Así que
+   * el archivo se baja por HttpClient —que sí pasa por el interceptor— y se
+   * reproduce desde un `blob:` local.
+   */
+  grabacion(archivoId: string): Promise<Blob> {
+    return firstValueFrom(this.http.get(
+      `${environment.apiBaseUrl}/archivos/${archivoId}/contenido`, { responseType: 'blob' }));
   }
 
   historialChat(sesionId: string): Promise<ChatMensaje[]> {
@@ -229,12 +240,21 @@ export class VideollamadaService {
     this.pc?.close();
     this.pc = new RTCPeerConnection({ iceServers: this.iceServers() });
 
+    // Un MediaStream propio al que se le van sumando las pistas que llegan.
+    // Crear uno nuevo por pista —el respaldo evidente— hace que el segundo
+    // `ontrack` reemplace al primero: queda video sin audio, o al revés. Y la
+    // grabación, que toma el stream de aquí, se quedaría con el viejo.
+    const recibido = new MediaStream();
+
     this.pc.ontrack = (ev) => {
-      let stream = ev.streams && ev.streams[0] ? ev.streams[0] : null;
-      if (!stream && ev.track) {
-        stream = new MediaStream([ev.track]);
+      const original = ev.streams?.[0] ?? null;
+      if (original) {
+        this.remotoSubject.next(original);
+      } else if (ev.track) {
+        recibido.addTrack(ev.track);
+        // Se reemite para que el <video> y la grabación vean la pista nueva.
+        this.remotoSubject.next(recibido);
       }
-      this.remotoSubject.next(stream);
       this.estadoSubject.next('conectada');
     };
 

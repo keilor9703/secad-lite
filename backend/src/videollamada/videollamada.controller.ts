@@ -1,4 +1,4 @@
-import { Body, Controller, Get, Param, Post, Query } from '@nestjs/common';
+import { Body, Controller, Get, Param, Post } from '@nestjs/common';
 import { VideollamadaService } from './videollamada.service';
 import { VideoTokenService } from './video-token.service';
 import { ArchivosService } from '../archivos/archivos.service';
@@ -7,7 +7,7 @@ import { Usuario } from '../common/usuario.decorator';
 import { Permisos } from '../auth/permisos.decorator';
 import { Public } from '../auth/public.decorator';
 import { JwtPayload } from '../auth/auth.service';
-import { TenantsService } from '../tenants/tenants.service';
+import { RequiereIntegracion } from '../tenants/integracion.decorator';
 
 /**
  * Videollamada con el ciudadano. La abre el despachador desde el caso; el
@@ -21,13 +21,18 @@ import { TenantsService } from '../tenants/tenants.service';
  * mira `@Public()`, así que la clase entera se volvía inalcanzable sin sesión
  * y el enlace respondía 403.
  */
+// La palanca comercial del módulo, con el mecanismo de la casa: el
+// SuscripcionGuard global la comprueba en TODA ruta autenticada de aquí —no
+// solo al abrir la llamada— y memoriza el veredicto unos segundos. Hacerlo a
+// mano en un solo método dejaba a una instancia sin el módulo habilitado
+// retomando y grabando una llamada ya abierta.
+@RequiereIntegracion('videollamada')
 @Controller()
 export class VideollamadaController {
   constructor(
     private readonly video: VideollamadaService,
     private readonly tokens: VideoTokenService,
     private readonly archivos: ArchivosService,
-    private readonly tenants: TenantsService,
   ) {}
 
   /** POST /api/casos/:id/videollamada — abrir la llamada y mandar el enlace. */
@@ -37,13 +42,10 @@ export class VideollamadaController {
     @Tenant() tenant: string,
     @Usuario() actor: JwtPayload,
     @Param('id') casoId: string,
-    @Body() dto: { numeroTelefono?: string; baseUrl?: string },
+    @Body() dto: { numeroTelefono?: string },
   ) {
-    const t = await this.tenants.porCodigo(tenant);
-    if (t) this.tenants.asegurarVigente(t, 'videollamada');
-
     return this.video.crear(
-      tenant, casoId, dto?.numeroTelefono ?? '', actor?.sub ?? 'desconocido', dto?.baseUrl);
+      tenant, casoId, dto?.numeroTelefono ?? '', actor?.sub ?? 'desconocido');
   }
 
   /**
@@ -59,7 +61,6 @@ export class VideollamadaController {
     @Tenant() tenant: string,
     @Usuario() actor: JwtPayload,
     @Param('id') casoId: string,
-    @Query('baseUrl') baseUrl?: string,
   ) {
     const sesion = await this.video.activaDe(tenant, casoId);
     if (!sesion) return { hay: false };
@@ -70,7 +71,7 @@ export class VideollamadaController {
       sesionId: sesion.id,
       estado: sesion.estado,
       token,
-      enlace: this.video.enlace(token, baseUrl),
+      enlace: this.video.enlace(await this.video.claveDe(sesion)),
       expiraEn: sesion.expiraEn,
       grabando: !!sesion.archivoGrabacionId,
     };
@@ -137,15 +138,42 @@ export class VideollamadaController {
    * venció sería maltratar a alguien que está en una emergencia.
    */
   @Public()
-  @Get('videollamada/publico/:token')
-  async validar(@Param('token') token: string) {
-    const datos = this.tokens.validar(token);
-    if (!datos) return { valido: false, mensaje: 'Este enlace ya no es válido o expiró.' };
+  @Get('videollamada/publico/:clave')
+  async validar(@Param('clave') clave: string) {
+    const sesion = await this.sesionDeClave(clave);
+    if (!sesion) return { valido: false, mensaje: 'Este enlace ya no es válido o expiró.' };
 
-    const sesion = await this.video.obtener(datos.tenant, datos.sesionId);
-    if (!sesion || sesion.estado === 'FINALIZADA')
+    if (sesion.estado === 'FINALIZADA')
       return { valido: false, mensaje: 'Esta videollamada ya terminó.' };
+    if (sesion.expiraEn.getTime() <= Date.now())
+      return { valido: false, mensaje: 'Este enlace ya expiró. Llame de nuevo a la línea 123.' };
 
-    return { valido: true, sesionId: sesion.id, estado: sesion.estado };
+    // El token firmado se entrega AQUÍ, no en la URL: es lo que permitió que el
+    // enlace del SMS sea corto. Vale lo mismo que valía el de la URL —quien
+    // tiene el código entra a esta llamada y a ninguna otra— y caduca con la
+    // sesión.
+    return {
+      valido: true,
+      sesionId: sesion.id,
+      estado: sesion.estado,
+      token: this.video.tokenDe(sesion, sesion.usuarioDespachador),
+    };
+  }
+
+  /**
+   * De lo que venga en la URL a la sesión.
+   *
+   * Acepta las dos formas: el código corto de ahora, y el JWT que llevaban los
+   * enlaces enviados antes de este cambio —un mensaje ya despachado no se puede
+   * retirar, y dejarlo morir le cortaría la atención a un ciudadano que está
+   * esperando—. Un JWT se reconoce por sus dos puntos separadores, que el
+   * alfabeto del código no contiene.
+   */
+  private async sesionDeClave(clave: string) {
+    if ((clave ?? '').split('.').length === 3) {
+      const datos = this.tokens.validar(clave);
+      return datos ? this.video.obtener(datos.tenant, datos.sesionId) : null;
+    }
+    return this.video.porClave(clave ?? '');
   }
 }

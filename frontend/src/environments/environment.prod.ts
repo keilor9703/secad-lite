@@ -18,8 +18,16 @@
  * ────────────────────────────────────────────────────────────────────────────
  */
 
-//const ORIGEN_API = 'https://secad-lite.onrender.com';
-const ORIGEN_API = 'https://falconcad.com.co';
+// VACÍO = la API se llama en el MISMO origen que sirve la página, con rutas
+// relativas (`/api`). Es lo que corresponde cuando nginx publica el frontend y
+// hace de proxy a la API bajo el mismo dominio, y tiene tres consecuencias
+// buenas: no hay CORS que configurar, el mismo artefacto compilado sirve para
+// falcon-test y para producción, y no queda un dominio horneado en el bundle
+// que haya que recordar cambiar antes de cada despliegue.
+//
+// Poner aquí un origen SOLO si la API vive en otro dominio que el frontend; en
+// ese caso hay que declarar ese dominio en CORS_ORIGINS del backend.
+const ORIGEN_API = '';
 export const environment = {
   production: true,
   apiBaseUrl: ORIGEN_API ? `${ORIGEN_API}/api` : '/api',

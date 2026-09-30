@@ -10,9 +10,21 @@ export const routes: Routes = [
   { path: 'login', loadComponent: () => import('./pages/login/login').then((m) => m.LoginComponent) },
   // La página del ciudadano va aquí, fuera del layout autenticado: quien la
   // abre no tiene sesión ni cuenta —está llamando al 123 desde la calle— y lo
-  // único que la autoriza es el token del enlace que le llegó por SMS.
+  // único que la autoriza es la clave del enlace que le llegó por SMS.
+  //
+  // La ruta es `/v/<instancia>-<codigo>`, corta a propósito: un enlace de 300
+  // caracteres en un mensaje de texto parece un fraude, no la línea de
+  // emergencias.
   {
-    path: 'video/:token',
+    path: 'v/:clave',
+    loadComponent: () =>
+      import('./pages/video-ciudadano/video-ciudadano').then((m) => m.VideoCiudadanoComponent),
+  },
+  // Enlaces enviados antes del código corto. Un SMS ya despachado no se puede
+  // retirar, y dejarlo morir le cortaría la atención a alguien que está
+  // esperando: el mismo componente atiende las dos formas.
+  {
+    path: 'video/:clave',
     loadComponent: () =>
       import('./pages/video-ciudadano/video-ciudadano').then((m) => m.VideoCiudadanoComponent),
   },

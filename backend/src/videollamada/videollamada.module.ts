@@ -10,7 +10,6 @@ import { VideoTokenService } from './video-token.service';
 import { SmsModule } from '../sms/sms.module';
 import { ArchivosModule } from '../archivos/archivos.module';
 import { AuthModule } from '../auth/auth.module';
-import { TenantsModule } from '../tenants/tenants.module';
 
 /**
  * Videollamada con el ciudadano: señalización WebRTC, chat, ubicación y
@@ -25,7 +24,6 @@ import { TenantsModule } from '../tenants/tenants.module';
     // Por el JwtService que usa el gateway para identificar al despachador —
     // AuthModule exporta JwtModule, igual que lo toma CasosModule.
     AuthModule,
-    TenantsModule,
   ],
   controllers: [VideollamadaController],
   providers: [VideollamadaService, VideollamadaGateway, VideoTokenService],

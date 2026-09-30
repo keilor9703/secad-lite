@@ -1,5 +1,5 @@
 import { Body, Controller, Get, Post } from '@nestjs/common';
-import { SmsService } from './sms.service';
+import { SmsService, TENANT_CONFIG_SMS } from './sms.service';
 import { ProveedorSms } from './config-sms.entity';
 import { Roles } from '../auth/roles.decorator';
 import { Usuario } from '../common/usuario.decorator';
@@ -16,7 +16,7 @@ export class SmsGlobalController {
 
   @Get()
   ver() {
-    return this.sms.ver('__global__');
+    return this.sms.ver(TENANT_CONFIG_SMS);
   }
 
   @Post()
@@ -27,13 +27,13 @@ export class SmsGlobalController {
     sender?: string | null;
     activo?: boolean;
   }) {
-    return this.sms.guardar('__global__', dto ?? {}, actor?.sub ?? 'desconocido');
+    return this.sms.guardar(TENANT_CONFIG_SMS, dto ?? {}, actor?.sub ?? 'desconocido');
   }
 
   @Post('probar')
   async probar(@Body() dto: { numero?: string }): Promise<{ ok: boolean; mensaje: string }> {
     if (!dto?.numero?.trim()) return { ok: false, mensaje: 'Indique un número de destino.' };
-    const ok = await this.sms.enviar('__global__', dto.numero.trim(),
+    const ok = await this.sms.enviar(dto.numero.trim(),
       'FALCON CAD: mensaje de prueba. Si lo recibió, el envío de SMS está bien configurado.');
     return {
       ok,
