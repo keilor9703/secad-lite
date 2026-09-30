@@ -74,6 +74,12 @@
               (click)="grabar()">
         {{ grabando() ? '⏹ Detener grabación' : '⏺ Grabar' }}
       </button>
+      <button type="button" class="btn mini" (click)="pantallaCompleta()">
+        ⛶ Pantalla completa
+      </button>
+      <button type="button" class="btn mini" (click)="desacoplar()">
+        🗗 Desacoplar (PiP)
+      </button>
       <button type="button" class="btn mini btn--danger" (click)="colgar()">
         Colgar
       </button>

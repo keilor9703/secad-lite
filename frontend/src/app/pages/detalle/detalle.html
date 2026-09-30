@@ -356,6 +356,46 @@
             <p class="vacio">Caso cerrado: el chat quedó en solo lectura.</p>
           }
         </div>
+        <!-- Historial de Videollamadas -->
+        @if (videoSesiones().length > 0) {
+          <div class="videollamadas-panel card">
+            <h2>📹 Videollamadas asociadas</h2>
+            @for (s of videoSesiones(); track s.id) {
+              <div class="video-sesion" style="margin-bottom: 1rem;">
+                <p style="margin: 0 0 0.5rem; font-size: 0.85rem;">
+                  <strong>{{ s.creadoEn | date:'short' }}</strong> · Estado: {{ s.estado }}<br/>
+                  <span style="color: var(--muted);">Despachador: {{ s.usuarioDespachador }}</span>
+                </p>
+                
+                @if (s.archivoGrabacionId) {
+                  <video controls [src]="envBaseUrl + '/archivos/' + s.archivoGrabacionId" style="width: 100%; max-height: 250px; background: #000; border-radius: var(--radius-sm); margin-bottom: 0.5rem;"></video>
+                }
+                
+                @if (!videoChats()[s.id]) {
+                  <button type="button" class="btn mini btn--ghost" (click)="cargarChatVideo(s.id)">Ver chat</button>
+                }
+                
+                @if (videoChats()[s.id]) {
+                  <div class="vll-hilo" style="margin-top: 0.5rem; max-height: 15rem; overflow-y: auto; display: flex; flex-direction: column; gap: 0.3rem; border: 1px solid var(--border); padding: 0.5rem; border-radius: var(--radius-sm);">
+                    @for (m of videoChats()[s.id]; track $index) {
+                      <div style="padding: 0.35rem 0.55rem; border-radius: var(--radius-sm); font-size: 0.8rem; background: var(--surface-2); align-self: flex-start; max-width: 85%;" [style.align-self]="m.propio ? 'flex-end' : 'flex-start'" [style.background]="m.propio ? 'var(--accent-soft)' : 'var(--surface-2)'" [style.color]="m.propio ? 'var(--ink)' : 'inherit'">
+                        <span style="word-break: break-word;">{{ m.texto }}</span>
+                        <small style="display: block; font-size: 0.66rem; color: var(--muted); text-align: right;">{{ m.hora }}</small>
+                      </div>
+                    }
+                    @if (videoChats()[s.id].length === 0) {
+                      <p class="vacio" style="font-size: 0.8rem; margin: 0;">Sin mensajes en esta sesión.</p>
+                    }
+                  </div>
+                }
+              </div>
+              @if (!$last) {
+                <hr style="margin: 1rem 0; border: 0; border-top: 1px solid var(--border);" />
+              }
+            }
+          </div>
+        }
+
         <!-- Bitácora / línea de tiempo -->
         <div class="bitacora card">
           <h2>Bitácora</h2>

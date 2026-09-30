@@ -9,6 +9,8 @@ import { AuthService } from '../../core/auth.service';
 import { CatalogosService } from '../../core/catalogos.service';
 import { DespachoService } from '../../core/despacho.service';
 import { WhatsappService } from '../../core/whatsapp.service';
+import { VideollamadaService, VideoSesion, ChatMensaje } from '../../core/videollamada.service';
+import { environment } from '../../../environments/environment';
 import { ToastService } from '../../shared/toast/toast.service';
 import { ConfirmService } from '../../shared/confirm/confirm.service';
 import { SelectorComponent } from '../../shared/selector/selector';
@@ -35,8 +37,10 @@ export class DetalleComponent implements OnInit, OnDestroy {
   private despachoSvc = inject(DespachoService);
   private catalogos = inject(CatalogosService);
   private whatsappSvc = inject(WhatsappService);
+  private videollamadaSvc = inject(VideollamadaService);
   private toast = inject(ToastService);
   private confirmar = inject(ConfirmService);
+  readonly envBaseUrl = environment.apiBaseUrl;
 
   /** Supervisor/admin: habilita cerrar y reabrir. */
   readonly privilegiado = this.auth.privilegiado;
@@ -60,6 +64,9 @@ export class DetalleComponent implements OnInit, OnDestroy {
   readonly waEnviando = signal(false);
   readonly waError = signal('');
   private waPoll?: ReturnType<typeof setInterval>;
+
+  readonly videoSesiones = signal<VideoSesion[]>([]);
+  readonly videoChats = signal<Record<string, ChatMensaje[]>>({});
 
   // Chat interno entre operadores/despachadores, anclado al caso.
   readonly chatMensajes = signal<MensajeChatInterno[]>([]);
@@ -497,9 +504,19 @@ export class DetalleComponent implements OnInit, OnDestroy {
         this.cargarDespacho();
         this.tomarSiEsNuevo(c);
         if (c.canal === 'whatsapp' && !this.waPoll) this.iniciarWhatsapp();
+        this.videollamadaSvc.historial(this.id).then((v) => this.videoSesiones.set(v)).catch(() => {});
       },
       error: () => { this.error.set('No fue posible cargar el caso.'); this.cargando.set(false); },
     });
+  }
+
+  async cargarChatVideo(sesionId: string): Promise<void> {
+    try {
+      const msgs = await this.videollamadaSvc.historialChat(sesionId);
+      this.videoChats.update((rec) => ({ ...rec, [sesionId]: msgs }));
+    } catch {
+      this.toast.error('No fue posible cargar el chat de la videollamada.');
+    }
   }
 
   private cargarAuditoria(): void {

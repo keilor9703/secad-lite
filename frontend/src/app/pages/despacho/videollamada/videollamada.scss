@@ -85,7 +85,7 @@
   position: relative;
   display: grid;
   place-items: center;
-  aspect-ratio: 9 / 16;      // el ciudadano graba con el celular en vertical
+  aspect-ratio: auto;        // adaptativo
   max-height: 46vh;
   border-radius: var(--radius-sm);
   border: 1px solid var(--border);

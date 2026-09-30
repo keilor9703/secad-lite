@@ -40,6 +40,17 @@ export interface VideollamadaActiva {
   grabando?: boolean;
 }
 
+export interface VideoSesion {
+  id: string;
+  estado: string;
+  usuarioDespachador: string;
+  numeroTelefono?: string;
+  creadoEn: string;
+  conectadoEn?: string;
+  finalizadoEn?: string;
+  archivoGrabacionId?: string;
+}
+
 /** Lo que emite el gateway, ya guardado. */
 interface ChatDelServidor {
   id: string;
@@ -116,6 +127,14 @@ export class VideollamadaService {
     const baseUrl = encodeURIComponent(window.location.origin);
     return firstValueFrom(this.http.get<VideollamadaActiva>(
       `${environment.apiBaseUrl}/casos/${casoId}/videollamada/activa?baseUrl=${baseUrl}`));
+  }
+
+  historial(casoId: string): Promise<VideoSesion[]> {
+    return firstValueFrom(this.http.get<VideoSesion[]>(`${environment.apiBaseUrl}/casos/${casoId}/videollamadas`));
+  }
+
+  historialChat(sesionId: string): Promise<ChatMensaje[]> {
+    return firstValueFrom(this.http.get<ChatMensaje[]>(`${environment.apiBaseUrl}/videollamadas/${sesionId}/chat`));
   }
 
   // ── Señalización ──────────────────────────────────────────────────────────

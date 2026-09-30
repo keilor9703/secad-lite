@@ -201,4 +201,24 @@ export class VideollamadaComponent implements OnDestroy {
   urlMapa(u: UbicacionCiudadano): string {
     return `https://www.google.com/maps?q=${u.lat},${u.lng}`;
   }
+
+  pantallaCompleta(): void {
+    const el = this.videoRemoto()?.nativeElement;
+    if (el && el.requestFullscreen) {
+      el.requestFullscreen();
+    }
+  }
+
+  async desacoplar(): Promise<void> {
+    const el = this.videoRemoto()?.nativeElement;
+    if (el && document.pictureInPictureEnabled) {
+      if (document.pictureInPictureElement) {
+        await document.exitPictureInPicture();
+      } else {
+        await el.requestPictureInPicture();
+      }
+    } else {
+      this.toast.error('Su navegador no soporta desacoplar videos (Picture-in-Picture).');
+    }
+  }
 }
