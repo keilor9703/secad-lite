@@ -341,6 +341,8 @@ export class VideollamadaService {
   // ══════════════════════════════════════════════════════════════════════════
 
   private recorder: MediaRecorder | null = null;
+  /** Ya se avisó de un trozo perdido en esta grabación: no se repite el aviso. */
+  private avisoTrozoPerdido = false;
   /** Cola secuencial: los trozos deben llegar EN ORDEN o el .webm sale corrupto. */
   private cola: Promise<void> = Promise.resolve();
   private grabacionActiva = false;
@@ -363,6 +365,7 @@ export class VideollamadaService {
 
     this.archivoGrabacionId = r.archivoId;
     this.indiceTrozo = 0;
+    this.avisoTrozoPerdido = false;
     this.grabacionActiva = true;
     this.grabandoSubject.next(true);
 
@@ -385,17 +388,38 @@ export class VideollamadaService {
     form.append('file', trozo, `trozo-${indice}.webm`);
     form.append('indice', String(indice));
 
+    let ultimoEstado = 0;
     for (let intento = 1; intento <= INTENTOS_POR_TROZO; intento++) {
       try {
         await firstValueFrom(this.http.post(
           `${environment.apiBaseUrl}/archivos/${archivoId}/chunk`, form));
         return;
-      } catch {
+      } catch (e) {
+        ultimoEstado = (e as { status?: number })?.status ?? 0;
         // El índice hace idempotente el reintento: si el trozo sí había
         // llegado, el servidor no lo duplica.
         if (intento < INTENTOS_POR_TROZO) await new Promise((r) => setTimeout(r, 500 * intento));
       }
     }
+
+    // Se agotaron los reintentos. Se avisa UNA sola vez: durante una llamada
+    // que falla, esto se repetiría cada pocos segundos y taparía el video.
+    if (this.avisoTrozoPerdido) return;
+    this.avisoTrozoPerdido = true;
+
+    // El detalle técnico va a la consola, para quien tenga que arreglarlo; el
+    // despachador solo necesita saber si la grabación le sirve o no.
+    console.error(
+      `[videollamada] el servidor rechazó un trozo de la grabación (HTTP ${ultimoEstado || 'sin respuesta'}). ` +
+      (ultimoEstado === 413
+        ? 'Es un límite de tamaño del proxy: suba client_max_body_size en nginx.'
+        : 'Revise el registro del servidor.'));
+
+    this.errorSubject.next(ultimoEstado === 413
+      ? 'La grabación no se está guardando completa: el servidor rechaza los fragmentos por tamaño. ' +
+        'Avise al administrador; la llamada continúa normal.'
+      : 'La grabación no se está guardando completa: el servidor rechazó un fragmento. ' +
+        'Avise al administrador; la llamada continúa normal.');
   }
 
   /**

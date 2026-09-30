@@ -5,8 +5,17 @@ import { catchError, throwError } from 'rxjs';
 import { ToastService } from '../shared/toast/toast.service';
 import { AuthService } from './auth.service';
 
-/** El login ya muestra su propio error justo bajo el formulario; un toast ahí sería ruido duplicado. */
-const SILENCIOSAS = ['/auth/login'];
+/**
+ * Peticiones que NO deben disparar el toast genérico.
+ *
+ * - `/auth/login`: ya muestra su propio error bajo el formulario.
+ * - Los trozos de la grabación: salen cada pocos segundos EN SEGUNDO PLANO
+ *   mientras el despachador atiende una emergencia. Un fallo ahí se reintenta
+ *   solo, y si de verdad se pierde algo, la videollamada lo dice UNA vez con
+ *   un mensaje que se entiende. Sin esto, un servidor que rechaza los trozos
+ *   tapaba la pantalla de avisos idénticos encima del video del ciudadano.
+ */
+const SILENCIOSAS = ['/auth/login', '/chunk'];
 
 /**
  * Avisa con un toast cualquier petición que el backend rechace, además del
