@@ -418,11 +418,11 @@
           <form class="nota-form" [formGroup]="notaForm" (ngSubmit)="agregarNota()">
             <div class="con-dictado">
               <textarea formControlName="texto" rows="4"
-              placeholder="Agregar una nota al caso…" maxlength="1000"></textarea>
+              placeholder="Agregar una anotación al caso…" maxlength="1000"></textarea>
               <app-dictado [control]="notaForm.controls.texto" />
             </div>
             <button type="submit" class="btn btn--primary" [disabled]="guardandoNota() || !notaForm.controls.texto.value.trim()">
-              {{ guardandoNota() ? 'Guardando…' : 'Agregar nota' }}
+              {{ guardandoNota() ? 'Guardando…' : 'Agregar anotación' }}
             </button>
           </form>
           <ol class="timeline">

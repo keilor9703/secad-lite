@@ -1,4 +1,4 @@
-import { ChangeDetectionStrategy, Component, computed, effect, inject, signal, untracked } from '@angular/core';
+import { ChangeDetectionStrategy, Component, computed, effect, inject, OnDestroy, signal, untracked } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { ActivatedRoute, Router, RouterLink } from '@angular/router';
 import { DetalleComponent } from '../detalle/detalle';
@@ -47,7 +47,12 @@ const PASOS: ReadonlyArray<[EstadoCaso, string, string]> = [
   styleUrl: './despacho.scss',
   changeDetection: ChangeDetectionStrategy.OnPush,
 })
-export class DespachoComponent {
+export class DespachoComponent implements OnDestroy {
+  /** Solo Despacho, y solo con un caso abierto, se sale del ancho máximo
+   * general (ver shell.scss): es la única pantalla donde video, mapa y la
+   * ficha completa a la vez piden más ancho que cualquier otro módulo. */
+  private static readonly CLASE_ANCHO = 'desp-ancho';
+
   private casosSvc = inject(CasosService);
   private catalogos = inject(CatalogosService);
   private auth = inject(AuthService);
@@ -237,6 +242,12 @@ export class DespachoComponent {
     this.casosWs.eventos.subscribe(({ tipo, caso }) => this.aplicarEnVivo(tipo, caso));
     // La cola cambia sola: se refresca sin que el despachador tenga que recargar.
     setInterval(() => { this.ahora.set(Date.now()); if (!document.hidden) this.cargar(true); }, 60_000);
+    // Con un caso abierto es cuando de verdad hace falta el ancho completo —
+    // video, mapa y ficha a la vez. Cerrado el panel, se vuelve al límite
+    // general (`ngOnDestroy` lo quita también si se sale del módulo entero).
+    effect(() => {
+      document.body.classList.toggle(DespachoComponent.CLASE_ANCHO, !!this.seleccionado());
+    });
   }
 
   /**
@@ -469,5 +480,13 @@ export class DespachoComponent {
       integracion: { emoji: '🔌', label: 'Integración externa' },
     };
     return map[c.canal] ?? { emoji: '•', label: c.canal };
+  }
+
+  ngOnDestroy(): void {
+    // El toggle de arriba solo reacciona a `seleccionado()`: si el
+    // despachador sale del módulo (no cierra el panel, navega a otro sitio)
+    // nadie más se encarga de quitar la clase — sin esto, el resto de la app
+    // se quedaría sin el límite de ancho general.
+    document.body.classList.remove(DespachoComponent.CLASE_ANCHO);
   }
 }

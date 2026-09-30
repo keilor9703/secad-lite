@@ -629,12 +629,55 @@
   .panel-caso { height: auto; }
 }
 
-// 11. Videollamada del caso -----------------------------------------------
-// Encabeza el panel; su cabecera deja libre la esquina donde flota el botón
-// de cerrar, que va posicionado sobre todo el panel.
+// 11. Panel del caso con videollamada: video/mapa y ficha EN PARALELO ------
+//
+// Antes el video se apilaba encima de toda la ficha: cerrar el caso, la
+// bitácora, remitir quedaban varias pantallas más abajo mientras la llamada
+// seguía viva. Ahora, con la integración activa, el panel se parte en dos
+// columnas que arrancan a la misma altura — video+mapa a la izquierda, ficha
+// completa a la derecha — así ninguna le quita alto a la otra. Por debajo del
+// ancho donde ya no caben decentes, vuelve a apilarse (el @container de
+// abajo), con el video primero.
 
-.panel-caso app-videollamada {
+// Un contenedor de tamaño no puede consultarse a sí mismo — por eso quien
+// MIDE (`.panel-caso`, con `container-type`) y quien CAMBIA de disposición
+// según esa medida (`.panel-video-detalle`, su hijo directo) son dos
+// elementos distintos.
+.panel-caso.panel-caso--con-video {
+  // Se mide el ancho REAL de este panel, no el de la ventana: es lo que
+  // decide cuándo el video y la ficha ya no caben lado a lado.
+  container-type: inline-size;
+  container-name: panelcaso;
+}
+
+.panel-video-detalle {
+  display: grid;
+  grid-template-columns: minmax(360px, 44%) minmax(400px, 1fr);
+  align-items: start;
+  gap: 1.1rem;
+}
+
+.panel-video,
+.panel-detalle {
+  min-width: 0;
+}
+
+.panel-video app-videollamada {
   display: block;
-  margin-bottom: 0.9rem;
-  --vll-espacio-cierre: 2rem;
+}
+
+// El botón de cerrar flota sobre la esquina superior derecha de TODO el
+// panel. Cuál de las dos columnas queda bajo él depende de cómo están
+// dispuestas: aquí es la ficha (columna derecha).
+.panel-detalle { --det-espacio-cierre: 2.1rem; }
+.panel-video app-videollamada { --vll-espacio-cierre: 0; }
+
+@container panelcaso (max-width: 859px) {
+  .panel-video-detalle {
+    grid-template-columns: 1fr;
+  }
+  // Apiladas, el video vuelve a ser lo primero bajo el botón de cerrar, y la
+  // ficha —ya más abajo— no lo necesita.
+  .panel-detalle { --det-espacio-cierre: 0; margin-top: 0.9rem; }
+  .panel-video app-videollamada { --vll-espacio-cierre: 2rem; }
 }

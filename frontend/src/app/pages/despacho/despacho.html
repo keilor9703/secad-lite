@@ -180,17 +180,29 @@
     }
   </div>
 
-  <!-- Gestión del caso, sin salir del módulo: despacho de recursos, notas, remisión -->
+  <!-- Gestión del caso, sin salir del módulo: despacho de recursos, anotaciones, remisión -->
   @if (seleccionado(); as id) {
-    <aside class="panel-caso">
+    <aside class="panel-caso" [class.panel-caso--con-video]="tieneVideollamada()">
       <button type="button" class="cerrar" (click)="cerrarPanel()" aria-label="Cerrar el caso">✕</button>
-      <!-- El video encabeza el panel: llamar al ciudadano para VER la escena
-           es una decisión de los primeros segundos, no algo que se busque al
-           final de la ficha. -->
       @if (tieneVideollamada()) {
-        <app-videollamada [casoId]="id" [telefono]="casoAbierto()?.telefono ?? null" />
+        <!-- Video y ficha van EN PARALELO, no uno encima del otro: así la
+             videollamada nunca le tapa al despachador el resto del caso —
+             despacho de recursos, anotaciones, cierre, remisión— que arranca
+             a la misma altura que el video, sin depender de cuánto ocupe. En
+             una ventana angosta se apilan (ver el @container en el .scss),
+             con el video primero: llamar para VER la escena es una decisión
+             de los primeros segundos, no algo que se busque al final. -->
+        <div class="panel-video-detalle">
+          <div class="panel-video">
+            <app-videollamada [casoId]="id" [telefono]="casoAbierto()?.telefono ?? null" />
+          </div>
+          <div class="panel-detalle">
+            <app-detalle [casoId]="id" [incrustado]="true" [canalId]="canalActivo()" (cambiado)="cargar(true)" />
+          </div>
+        </div>
+      } @else {
+        <app-detalle [casoId]="id" [incrustado]="true" [canalId]="canalActivo()" (cambiado)="cargar(true)" />
       }
-      <app-detalle [casoId]="id" [incrustado]="true" [canalId]="canalActivo()" (cambiado)="cargar(true)" />
     </aside>
   }
 </section>
