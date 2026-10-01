@@ -33,8 +33,11 @@
 
     <!-- El escenario se mantiene montado toda la llamada: así el video no se
          pierde por llegar antes de que el elemento exista. -->
-    <div class="vll-escena" [class.vll-escena--vacia]="estado() !== 'conectada'">
-      <video #remoto autoplay playsinline></video>
+    <div class="vll-escena" #escena [class.vll-escena--vacia]="estado() !== 'conectada'">
+      <!-- `resize` además de `loadedmetadata`: el ciudadano puede girar el
+           teléfono o cambiar de cámara en mitad de la llamada. -->
+      <video #remoto autoplay playsinline
+             (loadedmetadata)="medirVideo()" (resize)="medirVideo()"></video>
 
       @if (estado() !== 'conectada') {
         <div class="vll-espera">

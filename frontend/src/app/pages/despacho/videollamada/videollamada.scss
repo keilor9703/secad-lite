@@ -161,10 +161,26 @@
 }
 
 // Con la llamada conectada, alto fijo: así el recuadro no "salta" de tamaño
-// según lo que mande el video en cada instante, y `object-fit: contain`
-// siempre tiene una caja estable donde encajar la imagen.
+// según lo que mande el video en cada instante.
+//
+// El ANCHO sale de la proporción real de lo que manda el celular, no de la
+// columna. A todo el ancho, un video vertical quedaba pequeño entre dos
+// franjas negras enormes; ceñido, la imagen llena su marco igual que al
+// desacoplarla.
+//
+// `justify-self: center` es lo que distingue esto del intento de f246e72,
+// que hubo que revertir: entonces la caja también se angostaba, pero seguía
+// pegada al principio de su columna, así que TODO el sobrante se acumulaba
+// justo antes del mapa y se leía como un hueco. Centrada, ese mismo espacio
+// se reparte a los dos lados y se lee como margen.
+//
+// El `min-width` evita el otro extremo: con un vertical en una pantalla baja
+// la caja se estrecharía tanto que los mandos que van encima no cabrían.
 .vll-escena:not(.vll-escena--vacia) {
   height: 52vh;
+  width: min(100%, calc(52vh * var(--vll-proporcion, 1.778)));
+  min-width: min(100%, 18rem);
+  justify-self: center;
 }
 
 // Sin imagen todavía: el marco no ocupa media pantalla en negro.

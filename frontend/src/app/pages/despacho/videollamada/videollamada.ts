@@ -33,6 +33,7 @@ export class VideollamadaComponent implements OnDestroy {
   private readonly toast = inject(ToastService);
 
   private readonly videoRemoto = viewChild<ElementRef<HTMLVideoElement>>('remoto');
+  private readonly escena = viewChild<ElementRef<HTMLElement>>('escena');
 
   readonly estado = signal<EstadoLlamada>('inactiva');
   readonly error = signal('');
@@ -225,6 +226,25 @@ export class VideollamadaComponent implements OnDestroy {
     if (!texto) return;
     this.video.enviarChat(texto);
     this.chatTexto.set('');
+  }
+
+  /**
+   * Ciñe el recuadro a la proporción de lo que está llegando.
+   *
+   * El celular graba en vertical y la columna es apaisada: con el recuadro a
+   * todo el ancho, la imagen queda pequeña entre dos franjas negras enormes.
+   * Ajustando la caja, el video ocupa su marco entero —como al desacoplarlo,
+   * que es donde el despachador dice que se ve bien—.
+   *
+   * Se escribe la variable CSS directamente sobre el elemento en vez de pasar
+   * por una señal: es una medida que viene del propio <video>, no un estado
+   * del que dependa nada más de la vista.
+   */
+  medirVideo(): void {
+    const el = this.videoRemoto()?.nativeElement;
+    const caja = this.escena()?.nativeElement;
+    if (!caja || !el?.videoWidth || !el.videoHeight) return;
+    caja.style.setProperty('--vll-proporcion', String(el.videoWidth / el.videoHeight));
   }
 
   alternarMicrofono(): void { this.video.alternarMicrofono(); }
