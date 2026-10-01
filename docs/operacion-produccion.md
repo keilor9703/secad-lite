@@ -65,6 +65,34 @@ Si viene del cuaderno del servidor viejo, esto ya **no** aplica igual:
 
 ```bash
 cd ~/falcon-deploy
+./deploy-falcon.sh
+```
+
+El script respalda la base, trae el código, reemplaza las réplicas **de una en
+una** (siempre queda alguien atendiendo), compila y publica el frontend de
+golpe, y comprueba al final. Se detiene ante el primer error en vez de dejar
+medio desplegado.
+
+| Opción | Para qué |
+|---|---|
+| *(sin opciones)* | Despliegue completo |
+| `--solo-frontend` | Solo cambió la interfaz: no toca backend ni base |
+| `--solo-backend` | Solo cambió la API |
+| `--sin-respaldo` | Se salta el respaldo previo — **no recomendado** |
+
+Instalarlo o actualizarlo (viene en el repositorio):
+
+```bash
+cd ~/falcon-deploy
+git -C secad-lite pull
+cp secad-lite/deploy/deploy-falcon.sh .
+chmod +x deploy-falcon.sh
+```
+
+### A mano, si hace falta entender qué hace
+
+```bash
+cd ~/falcon-deploy
 
 # 1. Traer el código
 git -C secad-lite pull
