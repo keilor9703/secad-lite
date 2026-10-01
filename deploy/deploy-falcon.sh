@@ -189,9 +189,14 @@ publicar_runtime() {
     echo "      Ver deploy/README.md para crearlo."
     return
   fi
-  if ! python3 -c 'import json,sys; json.load(open(sys.argv[1]))' "$origen" 2>/dev/null; then
-    echo "    ✖ $origen no es JSON válido. No se publica." >&2
-    exit 1
+  # Publicar un JSON roto deja el frontend sin TURN y sin pista de por qué.
+  # Si no hay python3, se publica igual: no tener validador no es motivo para
+  # no desplegar.
+  if command -v python3 >/dev/null 2>&1; then
+    if ! python3 -c 'import json,sys; json.load(open(sys.argv[1]))' "$origen" 2>/dev/null; then
+      echo "    ✖ $origen no es JSON válido. No se publica." >&2
+      exit 1
+    fi
   fi
   mkdir -p "$DIST_DIR/config"
   cp "$origen" "$DIST_DIR/config/runtime.json"
