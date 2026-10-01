@@ -158,11 +158,45 @@ actualizar_frontend() {
   # por igual y NO se copiaría —el despliegue diría «listo» sirviendo la
   # versión anterior—. Son unos pocos MB: leerlos cuesta milisegundos y quita
   # de encima toda esa clase de sorpresa.
+  #
+  # `--exclude=/config/` protege a runtime.json, que NO sale de la compilación
+  # sino del servidor (lleva la credencial del TURN). Sin esta exclusión,
+  # `--delete` lo borraría en cada despliegue y la videollamada se quedaría sin
+  # TURN —falla solo en datos móviles, que es donde nadie prueba—.
   mkdir -p "$DIST_DIR"
-  rsync -a --delete --checksum "$salida/" "$DIST_DIR/"
-  echo "    $(find "$DIST_DIR" -type f | wc -l) archivos publicados"
+  rsync -a --delete --checksum --exclude='/config/' "$salida/" "$DIST_DIR/"
+  echo "    $(find "$DIST_DIR" -path "$DIST_DIR/config" -prune -o -type f -print | wc -l) archivos publicados"
 
+  publicar_runtime
   verificar_montaje
+}
+
+# El runtime.json vive en el servidor, no en el repositorio, y se copia DENTRO
+# de la raíz que sirve nginx. Se copia en vez de montarse: un bind mount a
+# $DIST_DIR/config/runtime.json exigiría que ese directorio existiera en el
+# host, y el rsync de arriba lo borraría —dejando el montaje del contenedor
+# apuntando a algo que ya no existe, sin que nada falle a la vista—. Copiarlo en
+# cada despliegue también garantiza que lo servido y el archivo del servidor no
+# se separen nunca.
+#
+# La credencial del TURN no es un secreto frente al usuario: el navegador de
+# cada ciudadano la recibe para poder negociar. Está fuera del repositorio para
+# que no quede en el historial de git y para poder rotarla sin recompilar.
+publicar_runtime() {
+  local origen="$DEPLOY_DIR/runtime.json"
+  if [[ ! -f "$origen" ]]; then
+    echo "    ⚠ No existe $origen: la videollamada irá SIN TURN (falla en datos móviles)."
+    echo "      Ver deploy/README.md para crearlo."
+    return
+  fi
+  if ! python3 -c 'import json,sys; json.load(open(sys.argv[1]))' "$origen" 2>/dev/null; then
+    echo "    ✖ $origen no es JSON válido. No se publica." >&2
+    exit 1
+  fi
+  mkdir -p "$DIST_DIR/config"
+  cp "$origen" "$DIST_DIR/config/runtime.json"
+  chmod 644 "$DIST_DIR/config/runtime.json"
+  echo "    ✔ runtime.json publicado (configuración del TURN)"
 }
 
 # Publicar en el host no prueba nada: lo que importa es qué ve nginx. Si el
@@ -234,10 +268,10 @@ CONF=$(curl -sfk -H "Host: $DOMINIO" https://localhost/config/runtime.json 2>/de
 if ! grep -q turnUrls <<<"$CONF"; then
   echo "⚠ /config/runtime.json no trae la configuración del TURN."
   if grep -qi '<!doctype html' <<<"$CONF"; then
-    echo "  Está devolviendo el index.html: falta el 'location = /config/runtime.json'"
-    echo "  en nginx.conf, así que lo resuelve el try_files. Ver deploy/README.md."
+    echo "  Devuelve el index.html, así que el archivo no está: cree"
+    echo "  $DEPLOY_DIR/runtime.json y vuelva a desplegar. Ver deploy/README.md."
   else
-    echo "  Revise el montaje de runtime.json en docker-compose.yml. Ver deploy/README.md."
+    echo "  Revise $DIST_DIR/config/runtime.json. Ver deploy/README.md."
   fi
   echo "  Mientras falte, la videollamada falla en redes móviles."
 elif grep -q 'CAMBIE-ESTO' <<<"$CONF"; then

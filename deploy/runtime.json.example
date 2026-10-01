@@ -1,5 +1,5 @@
 {
-  "_comentario": "Copie este archivo como runtime.json junto al docker-compose.yml y móntelo en /etc/nginx/falcon-runtime.json (NO dentro de frontend-dist: el despliegue lo borra; ver deploy/README.md). NO se versiona: lleva la credencial del TURN.",
+  "_comentario": "Copie este archivo como runtime.json junto al docker-compose.yml y el despliegue lo publica solo en frontend-dist/config/ (no lo monte con un volumen: ver deploy/README.md). NO se versiona: lleva la credencial del TURN.",
   "turnUrls": [
     "turn:157.137.211.196:3478?transport=udp",
     "turn:157.137.211.196:3478?transport=tcp"

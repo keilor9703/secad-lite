@@ -19,47 +19,41 @@ y volver a desplegarlo.
    sudo grep '^user=' /etc/turnserver.conf   # usuario:clave del coturn
    ```
 
-2. Móntelo en el servicio `nginx` del `docker-compose.yml`, **fuera de la raíz
-   del frontend**:
+2. Listo. El despliegue lo publica solo: `deploy-falcon.sh` lo copia a
+   `frontend-dist/config/runtime.json` después de compilar, y nginx lo sirve
+   como un archivo estático más. No hay que tocar `docker-compose.yml` ni
+   `nginx.conf`.
 
-   ```yaml
-     nginx:
-       volumes:
-         - ./nginx.conf:/etc/nginx/conf.d/default.conf:ro
-         - ./frontend-dist:/usr/share/nginx/html:ro
-         - ./certs:/etc/nginx/certs:ro
-         - ./runtime.json:/etc/nginx/falcon-runtime.json:ro   # ← agregar
+   Para publicarlo sin esperar al próximo despliegue:
+
+   ```bash
+   cd ~/falcon-deploy
+   mkdir -p frontend-dist/config
+   cp runtime.json frontend-dist/config/runtime.json
+   chmod 644 frontend-dist/config/runtime.json
    ```
 
-3. Publíquelo en `nginx.conf`, dentro del `server{}` del 443 y **antes** del
-   `location /`:
+### Por qué se copia y no se monta
 
-   ```nginx
-   location = /config/runtime.json {
-       alias /etc/nginx/falcon-runtime.json;
-       default_type application/json;
-       add_header Cache-Control "no-store";
-   }
-   ```
+Lo natural sería montarlo con un volumen en
+`/usr/share/nginx/html/config/runtime.json`. **No funciona, y falla callado.**
+Esa ruta es `frontend-dist/config/` en el host, y el despliegue sincroniza esa
+carpeta con `rsync --delete`; la compilación de Angular no produce ningún
+`config/`, así que el primer despliegue siguiente borra el directorio y el
+montaje del contenedor queda apuntando a algo que ya no existe. Nada falla a la
+vista: el despliegue sale en verde, la aplicación arranca, y la videollamada se
+degrada a solo-STUN — invisible en WiFi, rota en datos móviles.
 
-4. `docker compose up -d --force-recreate --no-deps nginx`
+Copiándolo, el script lo repone en cada despliegue (y `rsync` lleva
+`--exclude=/config/` para no borrarlo entre medias), así que lo servido y el
+archivo del servidor no pueden separarse.
 
-### Por qué no se monta dentro de `frontend-dist`
+### La credencial del TURN no es un secreto frente al usuario
 
-Lo natural sería montarlo en `/usr/share/nginx/html/config/runtime.json` y
-dejar que nginx lo sirva como un archivo estático más. **No funciona, y falla
-callado.** Esa ruta es `frontend-dist/config/` en el host, y el despliegue
-sincroniza esa carpeta con `rsync --delete`; la compilación de Angular no
-produce ningún `config/`, así que el primer despliegue siguiente borra el
-directorio y el montaje del contenedor queda apuntando a algo que ya no
-existe. Nada falla a la vista: el despliegue sale en verde, la aplicación
-arranca, y la videollamada empieza a caerse **solo en datos móviles**, que es
-justo donde nadie prueba.
-
-Con el `alias`, el archivo vive fuera de la raíz servida y ningún despliegue lo
-toca. Rotar la credencial o cambiar de servidor TURN sigue sin exigir
-recompilar: se edita `runtime.json`, se recrea nginx, y los navegadores lo
-toman al recargar (de ahí el `no-store`).
+El navegador de cada ciudadano la recibe: sin ella no puede negociar. Sacarla
+del repositorio sirve para que no quede en el historial de git para siempre y
+para poder rotarla sin recompilar el frontend — no para ocultarla del cliente.
+Por eso el archivo publicado es 644 y de lectura pública: así tiene que ser.
 
 ### Verificación
 
@@ -67,8 +61,8 @@ toman al recargar (de ahí el `no-store`).
 curl -s https://<su-dominio>/config/runtime.json
 ```
 
-Debe devolver el JSON. Si devuelve el `index.html` de la aplicación, el montaje
-no quedó: nginx está resolviendo la ruta con el `try_files ... /index.html`.
+Debe devolver el JSON. Si devuelve el `index.html` de la aplicación, el archivo
+no está en `frontend-dist/config/`: lo está resolviendo el `try_files ... /index.html`.
 
 ### Si el archivo no existe
 
