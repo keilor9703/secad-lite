@@ -1,103 +1,115 @@
 #!/usr/bin/env bash
 #
-# Despliegue de Falcon CAD en PRODUCCIÓN.
+# Actualiza Falcon CAD en este servidor: trae el código sobre el checkout real
+# que usa Docker (~/falcon-deploy/secad-lite), reconstruye los backends y
+# republica el frontend estático que sirve nginx.
 #
-#   cd ~/falcon-deploy && ./deploy-falcon.sh
+#   ./deploy-falcon.sh              # backend y frontend
+#   ./deploy-falcon.sh backend      # solo backend
+#   ./deploy-falcon.sh frontend     # solo frontend
+#   ./deploy-falcon.sh --respaldo   # respalda la base antes (ver abajo)
 #
-# Opciones:
-#   --sin-respaldo   No respalda la base antes de desplegar (no recomendado).
-#   --solo-frontend  Compila y publica el frontend; no toca backend ni base.
-#   --solo-backend   Reconstruye el backend; no toca el frontend.
+# El respaldo NO se hace por defecto: la mayoría de los despliegues no tocan el
+# esquema y media hora de fricción diaria no se paga sola. Pero si los commits
+# que entran traen migraciones, el script AVISA — ahí sí conviene correrlo con
+# --respaldo, porque una migración sobre datos reales no se deshace sola.
 #
-# Qué hace distinto al de desarrollo, y por qué:
-#
-#   1. RESPALDA ANTES. Un despliegue puede traer migraciones, y las migraciones
-#      se aplican solas al arrancar. Si una sale mal sobre datos reales, el
-#      respaldo de hace cinco minutos es la diferencia entre un susto y una
-#      pérdida.
-#   2. REINICIA LAS RÉPLICAS DE UNA EN UNA. Con las tres a la vez el sitio
-#      queda caído mientras arrancan. De a una, siempre hay alguien atendiendo.
-#   3. PUBLICA EL FRONTEND DE GOLPE. Se compila aparte y se cambia al final;
-#      así nadie carga una página a medio copiar.
-#   4. SE DETIENE ANTE EL PRIMER ERROR y lo dice. No sigue adelante dejando
-#      medio desplegado.
+# Estructura que se asume:
+#   ~/falcon-deploy/docker-compose.yml
+#   ~/falcon-deploy/secad-lite/      <- checkout real que construye Docker
+#   ~/falcon-deploy/frontend-dist/   <- raíz que sirve nginx (bind mount)
 set -euo pipefail
 
-cd "$(dirname "$0")"
+DEPLOY_DIR="$HOME/falcon-deploy"
+REPO_DIR="$DEPLOY_DIR/secad-lite"
+DIST_DIR="$DEPLOY_DIR/frontend-dist"
 
-# ── Comprobaciones previas ───────────────────────────────────────────────
-[[ -f docker-compose.yml ]] || { echo "✖ No veo docker-compose.yml. ¿Está en ~/falcon-deploy?"; exit 1; }
-[[ -f .env ]]               || { echo "✖ Falta .env."; exit 1; }
-[[ -d secad-lite ]]         || { echo "✖ Falta el clon del repositorio (secad-lite/)."; exit 1; }
-
-RESPALDAR=1; FRONTEND=1; BACKEND=1
+MODO=todo
+RESPALDAR=0
 for arg in "$@"; do
   case "$arg" in
-    --sin-respaldo)  RESPALDAR=0 ;;
-    --solo-frontend) BACKEND=0; RESPALDAR=0 ;;
-    --solo-backend)  FRONTEND=0 ;;
-    *) echo "✖ Opción desconocida: $arg"; exit 1 ;;
+    backend|--solo-backend)   MODO=backend ;;
+    frontend|--solo-frontend) MODO=frontend ;;
+    todo)                     MODO=todo ;;
+    --respaldo)               RESPALDAR=1 ;;
+    *) echo "Uso: $0 [backend|frontend|todo] [--respaldo]" >&2; exit 1 ;;
   esac
 done
 
-DOMINIO=$(grep -E '^DOMAIN=' .env | cut -d= -f2-)
-DOMINIO=${DOMINIO:-falconcad.com.co}
-SALUD="https://${DOMINIO}/api/health"
+[[ -d "$REPO_DIR/.git" ]] || { echo "No encuentro un repo git en $REPO_DIR." >&2; exit 1; }
+[[ -f "$DEPLOY_DIR/docker-compose.yml" ]] || { echo "Falta $DEPLOY_DIR/docker-compose.yml." >&2; exit 1; }
+command -v rsync >/dev/null 2>&1 || {
+  echo "Falta rsync: sudo apt-get update && sudo apt-get install -y rsync" >&2; exit 1; }
 
-paso() { echo; echo "── $* ──"; }
+DOMINIO=$(grep -E '^DOMAIN=' "$DEPLOY_DIR/.env" 2>/dev/null | cut -d= -f2-)
+DOMINIO=${DOMINIO:-localhost}
 
-# ── 1. Respaldo ──────────────────────────────────────────────────────────
-if [[ $RESPALDAR -eq 1 ]]; then
-  paso "Respaldando la base antes de tocar nada"
+# ── Código ───────────────────────────────────────────────────────────────
+echo "==> Actualizando código en $REPO_DIR"
+cd "$REPO_DIR"
+git fetch origin
 
-  # /opt pertenece a root: si no se preparó antes con sudo, no se calla el
-  # fallo ni se sigue sin respaldo — se guarda en el home, que siempre se
-  # puede escribir, y se dice dónde quedó.
-  DIR_RESPALDOS="${FALCON_RESPALDOS:-/opt/falcon-backups}"
-  if ! mkdir -p "$DIR_RESPALDOS" 2>/dev/null || [[ ! -w "$DIR_RESPALDOS" ]]; then
-    DIR_RESPALDOS="$HOME/falcon-backups"
-    mkdir -p "$DIR_RESPALDOS"
-    echo "   (sin permiso de escritura en /opt/falcon-backups; se usa $DIR_RESPALDOS)"
+# Falla fuerte si hay cambios locales sin commitear: alguien pudo haber
+# parchado algo aquí mismo para salir de un apuro, y pisarlo sin avisar sería
+# perder la única copia.
+if [[ -n "$(git status --porcelain)" ]]; then
+  echo "Hay cambios locales sin commitear en $REPO_DIR. Revíselos (git status) antes de seguir." >&2
+  exit 1
+fi
+
+ANTES=$(git rev-parse HEAD)
+git merge --ff-only origin/main
+DESPUES=$(git rev-parse HEAD)
+echo "    Ahora en: $(git log --oneline -1)"
+
+if [[ "$ANTES" != "$DESPUES" ]]; then
+  MIGRACIONES=$(git diff --name-only "$ANTES..$DESPUES" -- backend/src/migrations/ | wc -l)
+  if [[ "$MIGRACIONES" -gt 0 && "$RESPALDAR" -eq 0 ]]; then
+    echo
+    echo "    ⚠  Entran $MIGRACIONES migración(es) de base de datos:"
+    git diff --name-only "$ANTES..$DESPUES" -- backend/src/migrations/ | sed 's|.*/|       |'
+    echo "       Se aplican solas al arrancar y no se deshacen solas."
+    echo "       Considere: ./deploy-falcon.sh --respaldo"
+    echo
   fi
+fi
 
-  COPIA="$DIR_RESPALDOS/predespliegue-$(date +%F-%H%M%S).dump"
-  docker compose exec -T postgres pg_dump -U falcon -d falcon_cad -Fc > "$COPIA"
+# ── Respaldo, solo si se pide ────────────────────────────────────────────
+respaldar_base() {
+  echo "==> Respaldando la base"
+  cd "$DEPLOY_DIR"
+  local dir="${FALCON_RESPALDOS:-/opt/falcon-backups}"
+  if ! mkdir -p "$dir" 2>/dev/null || [[ ! -w "$dir" ]]; then
+    dir="$HOME/falcon-backups"
+    mkdir -p "$dir"
+    echo "    (sin permiso en /opt/falcon-backups; se usa $dir)"
+  fi
+  local copia="$dir/predespliegue-$(date +%F-%H%M%S).dump"
+  docker compose exec -T postgres pg_dump -U falcon -d falcon_cad -Fc > "$copia"
 
   # Un respaldo vacío es peor que ninguno: da la sensación de estar cubierto.
-  BYTES=$(stat -c%s "$COPIA" 2>/dev/null || echo 0)
-  if [[ "$BYTES" -lt 10000 ]]; then
-    echo "✖ El respaldo salió vacío o truncado ($BYTES bytes). No se sigue."
-    rm -f "$COPIA"
-    exit 1
+  local bytes; bytes=$(stat -c%s "$copia" 2>/dev/null || echo 0)
+  if [[ "$bytes" -lt 10000 ]]; then
+    echo "    ✖ El respaldo salió vacío o truncado ($bytes bytes). No se sigue." >&2
+    rm -f "$copia"; exit 1
   fi
-  echo "   $COPIA  ($(du -h "$COPIA" | cut -f1))"
-fi
+  echo "    $copia  ($(du -h "$copia" | cut -f1))"
+}
 
-# ── 2. Código ────────────────────────────────────────────────────────────
-paso "Trayendo el código"
-ANTES=$(git -C secad-lite rev-parse HEAD)
-git -C secad-lite pull --ff-only
-DESPUES=$(git -C secad-lite rev-parse HEAD)
-
-if [[ "$ANTES" == "$DESPUES" ]]; then
-  echo "   Sin cambios nuevos (ya estaba en $(git -C secad-lite rev-parse --short HEAD))."
-else
-  echo "   Entra:"
-  git -C secad-lite log --oneline "$ANTES..$DESPUES" | sed 's/^/     /'
-fi
-
-# ── 3. Backend, réplica por réplica ──────────────────────────────────────
-if [[ $BACKEND -eq 1 ]]; then
-  paso "Construyendo la imagen del backend"
+actualizar_backend() {
+  echo "==> Reconstruyendo la imagen del backend"
+  cd "$DEPLOY_DIR"
   docker compose build backend1
 
-  # backend1 es el único con DB_MIGRATE=true: las migraciones corren aquí y
-  # las otras dos arrancan con el esquema ya actualizado.
+  # De una en una, no las tres a la vez: así siempre queda alguien atendiendo.
+  # backend1 va primero porque es el único con DB_MIGRATE=true — las otras dos
+  # arrancan con el esquema ya actualizado.
   for replica in backend1 backend2 backend3; do
-    paso "Reemplazando $replica"
+    echo "==> Reemplazando $replica"
     docker compose up -d --no-deps --force-recreate "$replica"
 
-    printf "   esperando a que esté sana"
+    local estado=desconocido
+    printf "    esperando a que esté sana"
     for _ in $(seq 1 60); do
       estado=$(docker inspect -f '{{.State.Health.Status}}' \
         "$(docker compose ps -q "$replica")" 2>/dev/null || echo desconocido)
@@ -105,70 +117,80 @@ if [[ $BACKEND -eq 1 ]]; then
       printf "."
       sleep 2
     done
-    if [[ "${estado:-}" != "healthy" ]]; then
+    if [[ "$estado" != "healthy" ]]; then
       echo " ✖"
-      echo
-      echo "   $replica no levantó. Últimas líneas de su registro:"
-      docker compose logs --tail 40 "$replica" | sed 's/^/     /'
-      echo
-      echo "   Las otras réplicas siguen atendiendo. Corrija y vuelva a ejecutar."
+      echo "    $replica no levantó. Últimas líneas de su registro:" >&2
+      docker compose logs --tail 40 "$replica" | sed 's/^/      /' >&2
+      echo "    Las otras réplicas siguen atendiendo. Corrija y vuelva a ejecutar." >&2
       exit 1
     fi
   done
-fi
+}
 
-# ── 4. Frontend ──────────────────────────────────────────────────────────
-if [[ $FRONTEND -eq 1 ]]; then
-  paso "Compilando el frontend"
-
-  # `npm ci` solo cuando de verdad hace falta: son varios minutos y casi
-  # ningún despliegue cambia las dependencias.
-  INSTALAR="echo '   dependencias al día, no se reinstalan'"
-  if [[ ! -d secad-lite/frontend/node_modules ]] \
-     || [[ secad-lite/frontend/package-lock.json -nt secad-lite/frontend/node_modules ]]; then
-    INSTALAR="npm ci"
+actualizar_frontend() {
+  echo "==> Compilando el frontend"
+  # Dentro de un contenedor: el servidor no necesita tener Node instalado, ni
+  # la versión correcta. `npm ci` solo cuando cambiaron las dependencias —son
+  # varios minutos y casi ningún despliegue las toca.
+  local instalar="echo '    dependencias al día, no se reinstalan'"
+  if [[ ! -d "$REPO_DIR/frontend/node_modules" ]] \
+     || [[ "$REPO_DIR/frontend/package-lock.json" -nt "$REPO_DIR/frontend/node_modules" ]]; then
+    instalar="npm ci"
   fi
+  docker run --rm -v "$REPO_DIR/frontend:/app" -w /app node:22-alpine \
+    sh -c "$instalar && npx ng build --configuration production"
 
-  docker run --rm -v "$PWD/secad-lite/frontend:/app" -w /app node:22-alpine \
-    sh -c "$INSTALAR && npx ng build --configuration production"
+  local salida="$REPO_DIR/frontend/dist/frontend/browser"
+  [[ -f "$salida/index.html" ]] || {
+    echo "No encuentro $salida/index.html — revise angular.json (outputPath)." >&2; exit 1; }
 
-  COMPILADO="secad-lite/frontend/dist/frontend/browser"
-  [[ -f "$COMPILADO/index.html" ]] || { echo "✖ La compilación no produjo index.html."; exit 1; }
+  echo "==> Publicando en $DIST_DIR"
+  # IMPORTANTE: nginx tiene $DIST_DIR montado con --bind desde que arrancó el
+  # contenedor, y ese bind apunta al DIRECTORIO (inodo) que existía entonces.
+  # Reemplazar el directorio entero (mv, o rm -rf + mkdir) deja al contenedor
+  # viendo la carpeta vieja: serviría el frontend anterior, o un 403, hasta
+  # recrearlo. Se sincroniza el CONTENIDO dentro del mismo directorio, que el
+  # bind sí refleja al instante. `--delete` quita los paquetes de versiones
+  # anteriores, que si no se van acumulando para siempre.
+  #
+  # `--checksum` y no la comprobación rápida por tamaño+fecha: un index.html
+  # con el mismo tamaño y la misma marca de tiempo que el publicado se daría
+  # por igual y NO se copiaría —el despliegue diría «listo» sirviendo la
+  # versión anterior—. Son unos pocos MB: leerlos cuesta milisegundos y quita
+  # de encima toda esa clase de sorpresa.
+  mkdir -p "$DIST_DIR"
+  rsync -a --delete --checksum "$salida/" "$DIST_DIR/"
+  echo "    $(find "$DIST_DIR" -type f | wc -l) archivos publicados"
+}
 
-  paso "Publicando el frontend"
-  # Se publica de golpe: se arma al lado y se intercambia. Nadie alcanza a
-  # cargar una página con la mitad de los archivos viejos.
-  rm -rf frontend-dist.nuevo
-  cp -r "$COMPILADO" frontend-dist.nuevo
-  rm -rf frontend-dist.viejo
-  if [[ -d frontend-dist ]]; then
-    mv frontend-dist frontend-dist.viejo
-  fi
-  mv frontend-dist.nuevo frontend-dist
-  rm -rf frontend-dist.viejo
-  echo "   $(find frontend-dist -type f | wc -l) archivos publicados"
-fi
+[[ $RESPALDAR -eq 1 ]] && respaldar_base
+case "$MODO" in
+  backend)  actualizar_backend ;;
+  frontend) actualizar_frontend ;;
+  todo)     actualizar_backend; actualizar_frontend ;;
+esac
 
-# ── 5. Comprobación final ────────────────────────────────────────────────
-paso "Comprobando"
+# ── Comprobación ─────────────────────────────────────────────────────────
+echo "==> Comprobando"
+cd "$DEPLOY_DIR"
 docker compose ps --format 'table {{.Name}}\t{{.Status}}'
 echo
-if curl -sf "$SALUD" > /dev/null; then
-  echo "✔ $SALUD responde."
+
+if curl -sfk -H "Host: $DOMINIO" https://localhost/api/health > /dev/null; then
+  echo "✔ La API responde."
 else
-  echo "✖ $SALUD NO responde. Mire: docker compose logs --tail 60 nginx backend1"
+  echo "✖ La API NO responde. Mire: docker compose logs --tail 60 nginx backend1" >&2
   exit 1
 fi
 
-# El archivo del TURN está montado aparte y publicar el frontend no lo pisa,
-# pero si alguien lo borró la videollamada falla solo en redes móviles — un
-# fallo que nadie nota hasta que un ciudadano no puede mostrar la escena.
-if curl -sf "https://${DOMINIO}/config/runtime.json" | grep -q turnUrls; then
+# Si falta, la videollamada falla SOLO en redes móviles: un fallo que nadie
+# nota hasta que un ciudadano no puede mostrar la escena.
+if curl -sfk -H "Host: $DOMINIO" https://localhost/config/runtime.json | grep -q turnUrls; then
   echo "✔ La configuración del TURN se está sirviendo."
 else
-  echo "⚠ /config/runtime.json no responde con la configuración del TURN."
+  echo "⚠ /config/runtime.json no trae la configuración del TURN."
   echo "  La videollamada va a fallar en redes móviles. Revise el montaje en docker-compose.yml."
 fi
 
 echo
-echo "Desplegado: $(git -C secad-lite log -1 --format='%h %s')"
+echo "Desplegado: $(git -C "$REPO_DIR" log -1 --format='%h %s')"

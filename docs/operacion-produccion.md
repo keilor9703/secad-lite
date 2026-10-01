@@ -68,17 +68,29 @@ cd ~/falcon-deploy
 ./deploy-falcon.sh
 ```
 
-El script respalda la base, trae el código, reemplaza las réplicas **de una en
-una** (siempre queda alguien atendiendo), compila y publica el frontend de
-golpe, y comprueba al final. Se detiene ante el primer error en vez de dejar
-medio desplegado.
+El script trae el código, reemplaza las réplicas **de una en una** (siempre
+queda alguien atendiendo), compila el frontend y lo publica, y comprueba al
+final. Se detiene ante el primer error en vez de dejar medio desplegado.
 
 | Opción | Para qué |
 |---|---|
-| *(sin opciones)* | Despliegue completo |
-| `--solo-frontend` | Solo cambió la interfaz: no toca backend ni base |
-| `--solo-backend` | Solo cambió la API |
-| `--sin-respaldo` | Se salta el respaldo previo — **no recomendado** |
+| *(sin opciones)* | Backend y frontend |
+| `backend` | Solo la API |
+| `frontend` | Solo la interfaz |
+| `--respaldo` | Respalda la base antes (ver abajo) |
+
+**El respaldo no es automático**, a propósito: la mayoría de los despliegues no
+tocan el esquema y media hora de fricción diaria no se paga sola. Pero si los
+commits que entran traen **migraciones**, el script lo avisa y las lista — ahí
+sí conviene `--respaldo`, porque una migración sobre datos reales no se deshace
+sola.
+
+> El frontend se publica con `rsync --delete --checksum` **dentro** del mismo
+> directorio, nunca reemplazándolo. nginx tiene `frontend-dist` montado por
+> *bind*, atado al inodo que existía al arrancar el contenedor: si se sustituye
+> el directorio (con `mv`, o `rm -rf` + `mkdir`), nginx se queda sirviendo la
+> carpeta vieja o devuelve 403. Es la misma trampa del inodo que hace que
+> `sed -i` rompa el montaje de `nginx.conf`.
 
 Instalarlo o actualizarlo (viene en el repositorio):
 
