@@ -52,9 +52,19 @@ export class PbxService {
 
   private readonly base = environment.apiBaseUrl;
   /**
-   * Origen del canal en vivo. En desarrollo se deduce de la API; publicado, se
-   * toma de `wsBaseUrl`, porque el proxy del alojamiento estático no reenvía
-   * websockets y habría que ir directo al backend.
+   * Origen del canal en vivo. `wsBaseUrl` explícito cuando la API vive en otro
+   * dominio que el frontend (p. ej. Vercel + Render); vacío cuando los sirve
+   * el MISMO origen (nginx, un solo servidor) — ahí basta una ruta relativa
+   * (`/pbx`), exactamente como ya hace `CasosWsService` con `/casos` y
+   * `VideollamadaService` con `/video`. ANTES había además una condición
+   * `hayCanalVivo` que apagaba el socket entero cuando `wsBaseUrl` venía vacío
+   * — copiada de cuando el frontend se publicaba en Vercel (ESA reescritura sí
+   * era incapaz de reenviar websockets). Nginx sirviendo API y frontend del
+   * mismo origen sí los reenvía bien —si no, el tablero en vivo de Despacho y
+   * el chat interno tampoco funcionarían, y si funcionan—, así que esa
+   * condición solo apagaba el aviso de llamada entrante sin ninguna razón
+   * real: el operador tenía que refrescar la página a mano para enterarse de
+   * que había una llamada esperando.
    */
   private get wsBase(): string {
     const explicito = (environment as { wsBaseUrl?: string }).wsBaseUrl;
@@ -62,16 +72,10 @@ export class PbxService {
     return environment.apiBaseUrl.replace(/\/api\/?$/, '');
   }
 
-  /** Sin origen de websocket no hay canal en vivo que abrir. */
-  private get hayCanalVivo(): boolean {
-    return !!(environment as { wsBaseUrl?: string }).wsBaseUrl || !environment.apiBaseUrl.startsWith('/');
-  }
-
   /** Carga la cola y abre el canal en vivo (idempotente). */
   conectar(): void {
     this.recargar();
-    // Sin canal en vivo la cola sigue funcionando por consulta; solo no hay aviso.
-    if (!this.hayCanalVivo || this.socket?.connected) return;
+    if (this.socket?.connected) return;
     this.socket = io(`${this.wsBase}/pbx`, {
       // El superadmin no tiene tenant propio: indica cuál escucha.
       auth: { token: this.auth.token, tenant: this.auth.tenantActivo() },

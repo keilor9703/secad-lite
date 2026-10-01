@@ -512,20 +512,39 @@ export class DetalleComponent implements OnInit, OnDestroy {
     });
   }
 
+  /**
+   * Trae el caso. `cargarAuditoria()`/`cargarDespacho()` las dispara el efecto
+   * que llama a `cargar()`, EN PARALELO, no aquí — son independientes de la
+   * ficha y repetirlas aquí era solo una segunda tanda redundante de las
+   * mismas peticiones (ver `esVigente`, debajo, sobre por qué esa
+   * redundancia importaba, no solo por tráfico de más).
+   */
   cargar(): void {
     this.cargando.set(true);
     this.error.set('');
-    this.casosSvc.obtener(this.id, this.canalId()).subscribe({
+    const id = this.id;
+    this.casosSvc.obtener(id, this.canalId()).subscribe({
       next: (c) => {
+        if (!this.esVigente(id)) return;
         this.caso.set(c);
-        this.cargarAuditoria();
-        this.cargarDespacho();
         this.tomarSiEsNuevo(c);
         if (c.canal === 'whatsapp' && !this.waPoll) this.iniciarWhatsapp();
-        this.videollamadaSvc.historial(this.id).then((v) => this.videoSesiones.set(v)).catch(() => {});
+        this.videollamadaSvc.historial(id).then((v) => { if (this.esVigente(id)) this.videoSesiones.set(v); }).catch(() => {});
       },
       error: () => { this.error.set('No fue posible cargar el caso.'); this.cargando.set(false); },
     });
+  }
+
+  /**
+   * Un caso puede abrirse y cerrarse más rápido de lo que tarda su propia
+   * respuesta en volver — en Despacho, pasar de un caso a otro en la bandeja
+   * es cuestión de un clic. Sin esto, la petición del caso ANTERIOR podía
+   * resolver DESPUÉS de haber cambiado al siguiente y pisar su ficha, su
+   * bitácora o sus asignaciones con datos que no le corresponden — el caso
+   * que se ve ya no es el que se guardó.
+   */
+  private esVigente(id: string): boolean {
+    return id === this.id;
   }
 
   /**
@@ -559,9 +578,10 @@ export class DetalleComponent implements OnInit, OnDestroy {
   }
 
   private cargarAuditoria(): void {
-    this.casosSvc.auditoria(this.id).subscribe({
-      next: (evs) => { this.eventos.set(evs); this.cargando.set(false); },
-      error: () => { this.error.set('No fue posible cargar la bitácora.'); this.cargando.set(false); },
+    const id = this.id;
+    this.casosSvc.auditoria(id).subscribe({
+      next: (evs) => { if (this.esVigente(id)) { this.eventos.set(evs); this.cargando.set(false); } },
+      error: () => { if (this.esVigente(id)) { this.error.set('No fue posible cargar la bitácora.'); this.cargando.set(false); } },
     });
   }
 
@@ -591,7 +611,10 @@ export class DetalleComponent implements OnInit, OnDestroy {
 
   // Despacho -----------------------------------------------------------------
   private cargarDespacho(): void {
-    this.despachoSvc.asignaciones(this.id).subscribe({ next: (a) => this.asignaciones.set(a) });
+    const id = this.id;
+    // `disponibles()` no depende del caso (son los recursos libres del secad):
+    // no necesita la guarda, solo `asignaciones()`, que sí es por caso.
+    this.despachoSvc.asignaciones(id).subscribe({ next: (a) => { if (this.esVigente(id)) this.asignaciones.set(a); } });
     this.despachoSvc.disponibles().subscribe({ next: (r) => this.disponibles.set(r) });
   }
 
