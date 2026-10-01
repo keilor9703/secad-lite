@@ -37,6 +37,12 @@
 .fp-head h2 { font-size: 1.15rem; font-weight: 600; margin: 0; }
 .fp-meta { font-size: 0.78rem; font-family: var(--mono); background: var(--surface-2); border-radius: var(--radius-sm); padding: 0.2rem 0.6rem; color: var(--muted); }
 
+/* `app-videollamada` ya trae su propia tarjeta (.vll.card); este wrapper solo
+   da el botón de lanzarla su propio renglón, sin pelear por ancho con el
+   formulario de dos columnas de más abajo. */
+.video-rec { display: flex; }
+.video-rec app-videollamada { display: block; width: 100%; }
+
 /* 7. Fieldsets */
 .form-panel fieldset {
   border: none;

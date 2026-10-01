@@ -40,7 +40,7 @@ export class VideollamadaController {
   ) {}
 
   /** POST /api/casos/:id/videollamada — abrir la llamada y mandar el enlace. */
-  @Permisos('despacho.ver')
+  @Permisos('casos.ver')
   @Post('casos/:id/videollamada')
   async crear(
     @Tenant() tenant: string,
@@ -61,7 +61,7 @@ export class VideollamadaController {
    * generar otro enlace. Es lo que permite recuperar la llamada tras un F5, un
    * cambio de pestaña, una caída de red o un relevo de turno.
    */
-  @Permisos('despacho.ver')
+  @Permisos('casos.ver')
   @Get('casos/:id/videollamada/activa')
   async activa(
     @Tenant() tenant: string,
@@ -89,14 +89,14 @@ export class VideollamadaController {
    * cerró: quién atendió, cuándo, cuánto duró, dónde estaba el ciudadano y si
    * quedó grabación.
    */
-  @Permisos('despacho.ver')
+  @Permisos('casos.ver')
   @Get('casos/:id/videollamadas')
   listar(@Tenant() tenant: string, @Param('id') casoId: string) {
     return this.video.listarPorCaso(tenant, casoId);
   }
 
   /** GET /api/videollamadas/:id/chat — la transcripción del chat. */
-  @Permisos('despacho.ver')
+  @Permisos('casos.ver')
   @Get('videollamadas/:id/chat')
   chat(@Tenant() tenant: string, @Param('id') sesionId: string) {
     return this.video.listarChat(tenant, sesionId);
@@ -111,7 +111,7 @@ export class VideollamadaController {
    * queda guardado aunque el puesto del despachador muera a mitad de la
    * llamada. Los trozos van por la capa de archivos (POST /archivos/:id/chunk).
    */
-  @Permisos('despacho.ver')
+  @Permisos('casos.ver')
   @Post('videollamadas/:id/grabacion')
   async iniciarGrabacion(
     @Tenant() tenant: string,
@@ -147,7 +147,7 @@ export class VideollamadaController {
    * Por HTTP el colgado llega siempre. Es idempotente: finalizar algo ya
    * finalizado no es un error, es el resultado que se pedía.
    */
-  @Permisos('despacho.ver')
+  @Permisos('casos.ver')
   @Post('videollamadas/:id/finalizar')
   async finalizar(@Tenant() tenant: string, @Param('id') sesionId: string) {
     const sesion = await this.video.obtener(tenant, sesionId);

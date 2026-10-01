@@ -91,6 +91,24 @@
         <span class="fp-meta">{{ abiertoEn() | date: 'dd/MM/yyyy HH:mm' }} · {{ sesionUsuario() }}</span>
       </div>
 
+      <!-- Videollamada: solo tiene sentido con el ciudadano en línea
+      (llamada tomada) y el tenant con el módulo contratado. Al lanzarla
+      todavía no hay caso -solo la llamada-, así que el primer clic crea uno
+      mínimo por detrás (ver `lanzarVideollamada`); "Guardar caso" más abajo
+      lo completa, no crea uno segundo. -->
+      @if (tieneVideollamada() && hayLlamadaEnCurso()) {
+        <div class="video-rec">
+          @if (!casoVideoId()) {
+            <button type="button" class="btn btn--primary" [disabled]="lanzandoVideo()"
+              (click)="lanzarVideollamada()">
+              📹 {{ lanzandoVideo() ? 'Iniciando videollamada…' : 'Videollamada con el ciudadano' }}
+            </button>
+          } @else {
+            <app-videollamada [casoId]="casoVideoId()!" [telefono]="form.controls.telefono.value || null" />
+          }
+        </div>
+      }
+
       <div class="form-cols">
         <div class="form-col">
           <!-- 1. Cómo entra y quién reporta -->

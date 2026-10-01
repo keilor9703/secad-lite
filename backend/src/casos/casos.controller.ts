@@ -197,6 +197,24 @@ export class CasosController {
   }
 
   /**
+   * POST /api/casos/:id/completar — "Guardar caso" cuando el caso YA EXISTE
+   * en estado mínimo (lo creó `PbxService.atender()` al lanzar una
+   * videollamada desde Recepción antes de terminar el formulario). Mismo
+   * permiso que crear uno nuevo: es la otra mitad del mismo flujo.
+   */
+  @Permisos('casos.crear')
+  @Post(':id/completar')
+  async completar(
+    @Tenant() tenant: string,
+    @Usuario() usuario: JwtPayload,
+    @PermisosVigentes() permisos: string[],
+    @Param('id') id: string,
+    @Body() dto: CrearCasoDto,
+  ) {
+    return this.casos.completar(tenant, id, dto, await this.actor(usuario, permisos));
+  }
+
+  /**
    * POST /api/casos/:id/tomar — hacerse cargo. Lo llama la interfaz al abrir un
    * caso nuevo: se asume que quien lo abre lo va a gestionar.
    */

@@ -492,6 +492,64 @@ export class CasosService implements OnModuleInit {
   }
 
   /**
+   * Completa con el formulario de Recepción un caso que YA EXISTE en estado
+   * mínimo — el que `PbxService.atender()` crea con solo canal/teléfono/título
+   * genérico cuando el operador lanza una videollamada antes de terminar de
+   * diligenciar el caso (ver `VideollamadaController` y `RecepcionComponent`).
+   *
+   * Es el mismo cálculo de `crear()` (tipificación, agencia/canales
+   * destino) pero como UPDATE sobre ese caso ya abierto en vez de un INSERT
+   * — así "Guardar caso" no deja dos casos por una sola llamada cuando el
+   * primero nació del video.
+   */
+  async completar(tenant: string, id: string, dto: CrearCasoDto, actor: Actor): Promise<CasoEntity> {
+    const caso = await this.obtener(tenant, id, actor);
+    if (caso.estado === 'cerrado') throw new BadRequestException('El caso está cerrado.');
+    if (!dto?.ciudadano?.trim()) throw new BadRequestException('El ciudadano es obligatorio.');
+    if (dto.prioridad && !PRIORIDADES.includes(dto.prioridad)) throw new BadRequestException('Prioridad inválida.');
+
+    const tipificacion = await this.tipificar(tenant, dto.codigoCaso);
+    const titulo = (dto.titulo?.trim() || tipificacion?.descripcion || '').trim();
+    if (!titulo) throw new BadRequestException('Indique el código de caso o un título.');
+
+    const { responsable, canales, agencias } = await this.resolverAtencion(
+      tenant, dto, tipificacion?.agenciaSugeridaId ?? null,
+    );
+
+    caso.titulo = titulo;
+    caso.descripcion = dto.descripcion?.trim() ?? caso.descripcion;
+    caso.ciudadano = dto.ciudadano.trim();
+    caso.telefono = dto.telefono?.trim() || caso.telefono;
+    caso.direccionLlamante = dto.direccionLlamante?.trim() || caso.direccionLlamante;
+    caso.codigoCaso = tipificacion?.codigo ?? caso.codigoCaso;
+    caso.prioridad = dto.prioridad ?? tipificacion?.prioridad ?? caso.prioridad;
+    caso.ciudad = dto.ciudad?.trim() || caso.ciudad;
+    caso.barrio = dto.barrio?.trim() || caso.barrio;
+    caso.direccion = dto.direccion?.trim() || caso.direccion;
+    caso.lat = typeof dto.lat === 'number' ? dto.lat : caso.lat;
+    caso.lng = typeof dto.lng === 'number' ? dto.lng : caso.lng;
+    if (responsable) {
+      caso.agencia = responsable.nombre;
+      caso.agenciaResponsableId = responsable.id;
+    }
+
+    const destino = canales.length ? ` Enviado a ${this.describirDestino(canales, agencias)}.` : '';
+    const guardado = await this.rls.conTenant(tenant, async (manager) => {
+      const guardado = await manager.getRepository(CasoEntity).save(caso);
+      // Mismo patrón que `remitir()`: suma los canales nuevos, no toca los que
+      // `atender()` ya haya abierto (si el operador no cambió nada, no hay
+      // canales nuevos que abrir).
+      if (canales.length) await this.canales_.abrir(manager, tenant, id, canales);
+      await this.registrar(
+        tenant, id, 'nota', `Caso completado tras videollamada.${destino}`, actor.sub, undefined, undefined, manager,
+      );
+      return guardado;
+    });
+    this.gateway?.emitirCambio(tenant, await this.conEstadosDeCanal(tenant, guardado));
+    return guardado;
+  }
+
+  /**
    * Texto del destino agrupado por entidad —«Policía Nacional (C1, C2) y
    * Salud (A1)»—, para que la bitácora diga a quién se envió y no solo unos
    * códigos de canal sueltos.
