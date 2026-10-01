@@ -95,6 +95,9 @@ sola.
 Instalarlo o actualizarlo (viene en el repositorio):
 
 ```bash
+# Requisito del sistema: el script publica el frontend con rsync
+sudo apt-get update && sudo apt-get install -y rsync
+
 cd ~/falcon-deploy
 git -C secad-lite pull
 cp secad-lite/deploy/deploy-falcon.sh .
