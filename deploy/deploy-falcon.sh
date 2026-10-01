@@ -49,9 +49,27 @@ paso() { echo; echo "── $* ──"; }
 # ── 1. Respaldo ──────────────────────────────────────────────────────────
 if [[ $RESPALDAR -eq 1 ]]; then
   paso "Respaldando la base antes de tocar nada"
-  mkdir -p /opt/falcon-backups 2>/dev/null || true
-  COPIA="/opt/falcon-backups/predespliegue-$(date +%F-%H%M%S).dump"
+
+  # /opt pertenece a root: si no se preparó antes con sudo, no se calla el
+  # fallo ni se sigue sin respaldo — se guarda en el home, que siempre se
+  # puede escribir, y se dice dónde quedó.
+  DIR_RESPALDOS="${FALCON_RESPALDOS:-/opt/falcon-backups}"
+  if ! mkdir -p "$DIR_RESPALDOS" 2>/dev/null || [[ ! -w "$DIR_RESPALDOS" ]]; then
+    DIR_RESPALDOS="$HOME/falcon-backups"
+    mkdir -p "$DIR_RESPALDOS"
+    echo "   (sin permiso de escritura en /opt/falcon-backups; se usa $DIR_RESPALDOS)"
+  fi
+
+  COPIA="$DIR_RESPALDOS/predespliegue-$(date +%F-%H%M%S).dump"
   docker compose exec -T postgres pg_dump -U falcon -d falcon_cad -Fc > "$COPIA"
+
+  # Un respaldo vacío es peor que ninguno: da la sensación de estar cubierto.
+  BYTES=$(stat -c%s "$COPIA" 2>/dev/null || echo 0)
+  if [[ "$BYTES" -lt 10000 ]]; then
+    echo "✖ El respaldo salió vacío o truncado ($BYTES bytes). No se sigue."
+    rm -f "$COPIA"
+    exit 1
+  fi
   echo "   $COPIA  ($(du -h "$COPIA" | cut -f1))"
 fi
 
@@ -123,7 +141,9 @@ if [[ $FRONTEND -eq 1 ]]; then
   rm -rf frontend-dist.nuevo
   cp -r "$COMPILADO" frontend-dist.nuevo
   rm -rf frontend-dist.viejo
-  [[ -d frontend-dist ]] && mv frontend-dist frontend-dist.viejo
+  if [[ -d frontend-dist ]]; then
+    mv frontend-dist frontend-dist.viejo
+  fi
   mv frontend-dist.nuevo frontend-dist
   rm -rf frontend-dist.viejo
   echo "   $(find frontend-dist -type f | wc -l) archivos publicados"
