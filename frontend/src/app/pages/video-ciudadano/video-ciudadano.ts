@@ -5,6 +5,7 @@ import { HttpClient } from '@angular/common/http';
 import { ActivatedRoute } from '@angular/router';
 import { io, Socket } from 'socket.io-client';
 import { environment } from '../../../environments/environment';
+import { iceServers } from '../../core/config-runtime';
 
 type EstadoPagina =
   | 'validando' | 'invalido' | 'pidiendo-permiso' | 'permiso-denegado'
@@ -181,13 +182,9 @@ export class VideoCiudadanoComponent implements OnInit, OnDestroy {
     });
   }
 
+  /** Los mismos servidores ICE que usa el despachador. Ver config-runtime.ts. */
   private iceServers(): RTCIceServer[] {
-    const servers: RTCIceServer[] = [{ urls: 'stun:stun.l.google.com:19302' }];
-    const e = environment as Partial<{ turnUrls: string[]; turnUsername: string; turnCredential: string }>;
-    if (e.turnUrls?.length) {
-      servers.push({ urls: e.turnUrls, username: e.turnUsername, credential: e.turnCredential });
-    }
-    return servers;
+    return iceServers();
   }
 
   /** Contesta la oferta del despachador con el video y audio del celular. */

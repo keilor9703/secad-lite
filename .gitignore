@@ -19,3 +19,7 @@ npm-debug.log*
 .idea/
 .vscode/*
 !.vscode/extensions.json
+
+# Configuración de despliegue: lleva credenciales, nunca se versiona
+deploy/runtime.json
+runtime.json

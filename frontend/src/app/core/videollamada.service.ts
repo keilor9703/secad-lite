@@ -4,6 +4,7 @@ import { BehaviorSubject, Observable, firstValueFrom } from 'rxjs';
 import { io, Socket } from 'socket.io-client';
 import { environment } from '../../environments/environment';
 import { AuthService } from './auth.service';
+import { iceServers } from './config-runtime';
 
 export type EstadoLlamada =
   | 'inactiva' | 'esperando' | 'conectando' | 'conectada' | 'finalizada' | 'error';
@@ -244,17 +245,15 @@ export class VideollamadaService {
   }
 
   /**
-   * Servidores ICE. El STUN público siempre; el TURN propio (coturn) solo si
-   * está configurado. Sin TURN, muchas redes celulares con NAT simétrico de
-   * operador no completan el flujo de medios aunque el ICE parezca conectado.
+   * Servidores ICE: el STUN siempre, y el TURN propio solo si el despliegue lo
+   * configuró. Sin TURN, muchas redes celulares con NAT simétrico de operador
+   * no completan el flujo de medios aunque el ICE parezca conectado.
+   *
+   * La configuración vive en el servidor, no en el código — ver
+   * core/config-runtime.ts.
    */
   private iceServers(): RTCIceServer[] {
-    const servers: RTCIceServer[] = [{ urls: 'stun:stun.l.google.com:19302' }];
-    const e = environment as Partial<{ turnUrls: string[]; turnUsername: string; turnCredential: string }>;
-    if (e.turnUrls?.length) {
-      servers.push({ urls: e.turnUrls, username: e.turnUsername, credential: e.turnCredential });
-    }
-    return servers;
+    return iceServers();
   }
 
   private prepararPeerConnection(): void {
