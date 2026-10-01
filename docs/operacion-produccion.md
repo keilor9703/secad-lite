@@ -188,13 +188,30 @@ que nginx sirve en `/config/runtime.json`:
 }
 ```
 
-Montado en el `docker-compose.yml`:
+Se monta **fuera de la raíz del frontend** y nginx lo publica con un `alias`:
 
 ```yaml
   nginx:
     volumes:
-      - ./runtime.json:/usr/share/nginx/html/config/runtime.json:ro
+      - ./runtime.json:/etc/nginx/falcon-runtime.json:ro
 ```
+
+```nginx
+# en el mismo server{} del 443, ANTES del `location /`
+location = /config/runtime.json {
+    alias /etc/nginx/falcon-runtime.json;
+    default_type application/json;
+    add_header Cache-Control "no-store";   # rotar la credencial surte efecto ya
+}
+```
+
+> ⚠ **No lo monte en `/usr/share/nginx/html/config/runtime.json`.** Esa ruta
+> está dentro de `frontend-dist/`, y el despliegue sincroniza esa carpeta con
+> `rsync --delete`. La compilación de Angular no produce ningún `config/`, así
+> que el primer despliegue borra el directorio del host y el montaje del
+> contenedor queda huérfano: el TURN deja de servirse **sin que nada falle a la
+> vista**, y la videollamada empieza a caerse solo en datos móviles. Fuera de la
+> raíz, ningún despliegue lo toca.
 
 Cambiar de servidor TURN o rotar la credencial **no exige recompilar nada**:
 se edita el archivo, `docker compose up -d --force-recreate nginx`, y los
@@ -208,7 +225,8 @@ sudo grep '^user=' /etc/turnserver.conf
 curl -s https://falconcad.com.co/config/runtime.json
 ```
 
-Si eso devuelve el `index.html` en vez del JSON, el montaje no quedó.
+Si eso devuelve el `index.html` en vez del JSON, falta el `location` en
+`nginx.conf`: la ruta la está resolviendo el `try_files ... /index.html`.
 
 **Si el archivo falta**, la aplicación arranca igual con solo STUN y avisa por
 consola. La videollamada funciona en WiFi y falla en redes móviles con NAT

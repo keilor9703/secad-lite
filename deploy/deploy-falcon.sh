@@ -230,11 +230,23 @@ fi
 
 # Si falta, la videollamada falla SOLO en redes móviles: un fallo que nadie
 # nota hasta que un ciudadano no puede mostrar la escena.
-if curl -sfk -H "Host: $DOMINIO" https://localhost/config/runtime.json | grep -q turnUrls; then
-  echo "✔ La configuración del TURN se está sirviendo."
-else
+CONF=$(curl -sfk -H "Host: $DOMINIO" https://localhost/config/runtime.json 2>/dev/null || true)
+if ! grep -q turnUrls <<<"$CONF"; then
   echo "⚠ /config/runtime.json no trae la configuración del TURN."
-  echo "  La videollamada va a fallar en redes móviles. Revise el montaje en docker-compose.yml."
+  if grep -qi '<!doctype html' <<<"$CONF"; then
+    echo "  Está devolviendo el index.html: falta el 'location = /config/runtime.json'"
+    echo "  en nginx.conf, así que lo resuelve el try_files. Ver deploy/README.md."
+  else
+    echo "  Revise el montaje de runtime.json en docker-compose.yml. Ver deploy/README.md."
+  fi
+  echo "  Mientras falte, la videollamada falla en redes móviles."
+elif grep -q 'CAMBIE-ESTO' <<<"$CONF"; then
+  # Peor que faltar: el frontend cree tener TURN, lo intenta, y la negociación
+  # muere con 401 en vez de caer limpio a solo-STUN.
+  echo "⚠ runtime.json se sirve, pero lleva la credencial de ejemplo sin cambiar."
+  echo "  Póngale la real: sudo grep '^user=' /etc/turnserver.conf"
+else
+  echo "✔ La configuración del TURN se está sirviendo."
 fi
 
 echo
