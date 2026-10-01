@@ -4,8 +4,70 @@
 .error { color: var(--danger); margin: 0; }
 .cargando { color: var(--muted); margin: 0; }
 
-.grid { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1.1fr); gap: 1rem; align-items: start; }
-@media (max-width: 720px) { .grid { grid-template-columns: 1fr; } }
+// ==========================================================================
+// PESTAÑAS — Ficha, Despacho, WhatsApp, Chat interno, Videollamadas, Bitácora
+//
+// Antes todas estas secciones se mostraban a la vez (una al lado o debajo de
+// la otra): con datos reales —varias videollamadas, una bitácora larga—
+// terminaba siendo una pila enorme de tarjetas, cada una compitiendo por
+// espacio. Ahora es una sola a la vez, elegida arriba: nada se recorta ni
+// exige scrollear para encontrar lo que se busca.
+// ==========================================================================
+
+.tabs { display: flex; flex-direction: column; gap: 0.8rem; }
+
+.tabs-nav {
+  display: flex;
+  gap: 0.3rem;
+  overflow-x: auto;
+  padding-bottom: 0.2rem;
+  scrollbar-width: thin;
+  scrollbar-color: var(--border-2) transparent;
+  // Quien aloja esto puede tener algo flotando en su esquina superior derecha
+  // (en Despacho con videollamada, el botón de cerrar el caso) y lo reserva
+  // aquí — mismo mecanismo que `--vll-espacio-cierre` en la videollamada.
+  padding-right: var(--det-espacio-cierre, 0);
+}
+
+.tab-btn {
+  font: inherit;
+  cursor: pointer;
+  flex: none;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  white-space: nowrap;
+  padding: 0.45rem 0.85rem;
+  border: 1px solid transparent;
+  border-radius: var(--radius-sm);
+  background: none;
+  color: var(--muted);
+  font-size: 0.85rem;
+  font-weight: 500;
+  transition: background 0.15s ease, color 0.15s ease, border-color 0.15s ease;
+}
+.tab-btn:hover { background: var(--surface-2); color: var(--ink-soft); }
+.tab-btn:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+.tab-btn.activa {
+  background: var(--surface);
+  border-color: var(--border);
+  color: var(--ink);
+  font-weight: 600;
+  box-shadow: var(--shadow);
+}
+
+.tab-badge {
+  font-family: var(--mono);
+  font-size: 0.68rem;
+  font-weight: 700;
+  padding: 0.05rem 0.4rem;
+  border-radius: 999px;
+  background: var(--surface-2);
+  color: var(--muted);
+}
+.tab-btn.activa .tab-badge { background: var(--accent-soft); color: var(--accent-deep); }
+
+.tabs-panel { min-width: 0; }
 
 .ficha { padding: 1.2rem 1.3rem; display: flex; flex-direction: column; gap: 0.7rem; }
 .ficha-head { display: flex; align-items: center; justify-content: space-between; }
@@ -32,10 +94,8 @@
 .badge[data-estado="despachado"] { background: var(--tag-teal-bg); color: var(--tag-teal-fg); }
 .badge[data-estado="derivado"]   { background: var(--tag-info-bg); color: var(--tag-info-fg); }
 .badge[data-estado="cerrado"]    { background: var(--surface-2); color: var(--muted); }
-.col-der { display: flex; flex-direction: column; gap: 1rem; }
 
 .despacho-panel { padding: 1.2rem 1.3rem; display: flex; flex-direction: column; gap: 0.7rem; }
-.despacho-panel h2 { margin: 0; font-size: 0.95rem; font-weight: 600; }
 .despachar-form { display: flex; gap: 0.5rem; }
 .despachar-form app-selector { flex: 1; }
 .despacho-panel .vacio { color: var(--muted); margin: 0; }
@@ -55,7 +115,6 @@
 .asig-badge[data-estado="finalizada"]{ background: var(--surface-2); color: var(--muted); }
 .asig-badge[data-estado="cancelada"] { background: var(--tag-danger-bg); color: var(--tag-danger-fg); }
 .chat-panel { padding: 1.2rem 1.3rem; display: flex; flex-direction: column; gap: 0.7rem; }
-.chat-panel h2 { margin: 0; font-size: 0.95rem; font-weight: 600; }
 .chat-msgs { display: flex; flex-direction: column; gap: 0.5rem; max-height: 40vh; overflow-y: auto; }
 .chat-msgs .vacio { color: var(--muted); margin: 0.4rem 0; }
 .cmsg { max-width: 82%; align-self: flex-start; display: flex; flex-direction: column; }
@@ -68,7 +127,6 @@
 .chat-entrada input { flex: 1; }
 
 .bitacora { padding: 1.2rem 1.3rem; display: flex; flex-direction: column; gap: 0.9rem; }
-.bitacora h2 { margin: 0; font-size: 0.95rem; font-weight: 600; }
 .nota-form { display: flex; flex-direction: column; gap: 0.5rem; }
 .nota-form button { align-self: flex-end; }
 
@@ -164,12 +222,8 @@
 
 .vgrab {
   padding: 1rem 1.1rem;
-
-  h2 {
-    margin: 0 0 0.7rem;
-    font-size: 0.95rem;
-    font-weight: 600;
-  }
+  display: flex;
+  flex-direction: column;
 }
 
 .vgrab-sesion {

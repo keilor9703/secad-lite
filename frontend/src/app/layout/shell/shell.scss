@@ -162,6 +162,11 @@
  */
 .content { padding: 1.25rem clamp(1rem, 2.5vw, 2.5rem); max-width: 2200px; margin: 0 auto; }
 
+// La excepción de ancho para Despacho (`body.desp-ancho .content`) vive en el
+// global styles.scss, no aquí: esta hoja tiene encapsulación emulada, y un
+// selector que empieza por `body` —fuera del árbol de ShellComponent— nunca
+// llega a calzar con el atributo de scope que Angular le agrega a `.content`.
+
 /**
  * Con hasta 9 pestañas (según rol) el nav nunca cupo en una pantalla angosta
  * — en vez de forzar scroll horizontal de toda la página, por debajo de este

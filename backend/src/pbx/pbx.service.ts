@@ -347,8 +347,21 @@ export class PbxService {
       if (llamada.destinatario && llamada.destinatario !== actor.username && !actor.supervisor) {
         throw new ForbiddenException('Esta llamada fue tomada por otro operador.');
       }
-      // Idempotente si ya quedó enlazada a ese mismo caso (doble clic, reintento).
-      if (llamada.estado === 'atendida' && llamada.casoId === casoId) return llamada;
+      const casoRepo = manager.getRepository(CasoEntity);
+      // Idempotente si ya quedó enlazada a ese mismo caso (doble clic,
+      // reintento) — PERO el enlace inverso (`caso.llamadaId`) puede seguir
+      // faltando: es el caso de `atender()` al lanzar una videollamada desde
+      // Recepción, que ya deja la llamada "atendida" con su `casoId`, pero
+      // nunca toca el caso. Se completa aquí antes de salir, no solo cuando
+      // el resto del método corre completo.
+      if (llamada.estado === 'atendida' && llamada.casoId === casoId) {
+        const caso = await casoRepo.findOne({ where: { tenant, id: casoId } });
+        if (caso && caso.llamadaId !== llamada.id) {
+          caso.llamadaId = llamada.id;
+          await casoRepo.save(caso);
+        }
+        return llamada;
+      }
       // Solo se enlaza una llamada aún en curso: una perdida o finalizada no
       // puede "resucitar" como atendida.
       if (llamada.estado !== 'sonando') throw new BadRequestException('La llamada ya no está en cola.');
@@ -356,7 +369,6 @@ export class PbxService {
       // como enlace y el historial llevaba a un caso inexistente. (El catch
       // cubre un id que ni siquiera es un UUID: para Postgres es un error de
       // sintaxis, para el cliente es el mismo "no existe".)
-      const casoRepo = manager.getRepository(CasoEntity);
       const caso = await casoRepo.findOne({ where: { tenant, id: casoId ?? '' } }).catch(() => null);
       if (!caso) throw new BadRequestException('El caso a enlazar no existe.');
       llamada.estado = 'atendida';

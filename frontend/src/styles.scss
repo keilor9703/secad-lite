@@ -231,3 +231,16 @@ input:focus, textarea:focus {
   }
 }
 
+/* Despacho, con el panel de un caso abierto, se sale del tope de ancho
+   general (.content, en shell.scss): es la única pantalla donde video, mapa
+   y la ficha completa a la vez piden más que cualquier otro módulo — en un
+   monitor grande, ese tope dejaba franjas vacías a los lados sin ninguna
+   razón. Fuera de ese estado, y en cualquier otro módulo, el límite general
+   sigue rigiendo. `DespachoComponent` pone y quita la clase (ver despacho.ts).
+
+   Va en esta hoja GLOBAL, no en shell.scss: shell.scss tiene encapsulación
+   emulada, y un selector que arranca en `body` —fuera del árbol de
+   ShellComponent— nunca llega a calzar con el atributo de scope que Angular
+   le agrega a `.content`. */
+body.desp-ancho .content { max-width: none; }
+

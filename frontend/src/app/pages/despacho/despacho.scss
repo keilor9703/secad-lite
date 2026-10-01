@@ -528,10 +528,16 @@
 }
 
 // 8. Panel del caso -------------------------------------------------------
+//
+// La cola es una lista de referencia mientras se gestiona un caso, no el foco
+// — por eso va en un riel ANGOSTO Y FIJO (no un porcentaje: un porcentaje
+// crece con la pantalla y en un monitor grande le robaba ancho al panel que
+// sí lo necesita). Su propio @container (más abajo) sigue compactando las
+// filas si aun así queda corto.
 
 .desp.con-panel {
   display: grid;
-  grid-template-columns: minmax(340px, 30%) 1fr;
+  grid-template-columns: minmax(280px, 320px) 1fr;
   gap: 1rem;
   align-items: start;
   height: calc(100vh - 6rem);
@@ -564,7 +570,24 @@
   padding: 1rem 1.2rem 1.2rem;
   box-shadow: var(--shadow);
   height: calc(100vh - 6rem);
+  // Siempre `auto`, nunca `hidden`: normalmente no hace falta —cada sección
+  // de adentro tiene su propio alto y su propio scroll, ver el punto 11— pero
+  // es la red de seguridad para cualquier caso donde ese cálculo no alcance
+  // (una ficha con mucho contenido en una ventana angosta, por ejemplo). Sin
+  // esto, ese contenido no quedaría "con menos espacio": quedaría CORTADO,
+  // sin ninguna forma de llegar a él. Cuando las secciones de adentro sí
+  // llenan exactamente el alto disponible (el caso normal), este scroll
+  // quedaría dormido — nunca aparece porque nunca hay nada que desbordar.
   overflow-y: auto;
+}
+
+// Sin videollamada, las pestañas son lo único que hay: ocupan el panel
+// completo, y su barra sí queda justo bajo el botón de cerrar — a
+// diferencia de cuando hay video (más abajo), aquí sí necesitan el espacio.
+.panel-caso > app-detalle {
+  display: block;
+  height: 100%;
+  --det-espacio-cierre: 2.1rem;
 }
 
 .panel-caso .cerrar {
@@ -629,12 +652,31 @@
   .panel-caso { height: auto; }
 }
 
-// 11. Videollamada del caso -----------------------------------------------
-// Encabeza el panel; su cabecera deja libre la esquina donde flota el botón
-// de cerrar, que va posicionado sobre todo el panel.
-
-.panel-caso app-videollamada {
-  display: block;
-  margin-bottom: 0.9rem;
-  --vll-espacio-cierre: 2rem;
+// 11. Panel del caso con videollamada: video+mapa arriba, pestañas debajo --
+//
+// Antes video+mapa y las pestañas eran dos COLUMNAS lado a lado, cada una
+// peleando por ancho — con las pestañas ya reducidas a una tarjeta a la vez
+// (ver detalle.html/scss), esa pelea no tenía sentido: la videollamada
+// necesita todo el ancho para que el mapa quepa a su lado, y las pestañas
+// necesitan todo el ancho para leerse cómodas. Así que van APILADAS, cada
+// una a su turno con el ancho completo del panel — no columnas.
+.panel-video-detalle {
+  display: flex;
+  flex-direction: column;
+  gap: 1.1rem;
 }
+
+.panel-video,
+.panel-detalle {
+  min-width: 0;
+}
+
+.panel-video app-videollamada {
+  display: block;
+}
+
+// El botón de cerrar flota sobre la esquina superior derecha de TODO el
+// panel. Video siempre va primero (ver el comentario de arriba), así que es
+// su cabecera la que necesita ceder el paso; las pestañas, ya más abajo, no.
+.panel-video app-videollamada { --vll-espacio-cierre: 2rem; }
+.panel-detalle { --det-espacio-cierre: 0; }

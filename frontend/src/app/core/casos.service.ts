@@ -75,6 +75,15 @@ export class CasosService {
   }
 
   /**
+   * "Guardar caso" cuando el caso ya existe en estado mínimo — lo creó
+   * `PbxService.atender()` al lanzar una videollamada desde Recepción antes
+   * de terminar el formulario. Completa ESE caso en vez de crear uno nuevo.
+   */
+  completar(id: string, dto: CrearCaso): Observable<Caso> {
+    return this.http.post<Caso>(`${this.base}/${id}/completar`, dto);
+  }
+
+  /**
    * `canalId` es la bandeja desde la que se actúa. Es obligatorio en la práctica
    * para un caso multi-agencia: sin él, el servidor no sabe a cuál de las
    * entidades corresponde el cambio y termina moviendo el estado global — que

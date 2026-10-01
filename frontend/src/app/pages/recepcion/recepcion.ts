@@ -15,6 +15,7 @@ import { AutocompletarComponent, OpcionAutocompletar } from '../../shared/autoco
 import { SelectorComponent } from '../../shared/selector/selector';
 import { OpcionComponent } from '../../shared/selector/opcion';
 import { DictadoComponent } from '../../shared/dictado/dictado';
+import { VideollamadaComponent } from '../despacho/videollamada/videollamada';
 import {
   Agencia, Canal, CanalAtencion, Caso, CodigoCaso, CrearCaso, EstadoCaso, Llamada, OrigenLlamada, PrioridadCaso,
 } from '../../core/models';
@@ -22,7 +23,10 @@ import {
 @Component({
   selector: 'app-recepcion',
   standalone: true,
-  imports: [CommonModule, ReactiveFormsModule, RouterLink, AutocompletarComponent, SelectorComponent, OpcionComponent, DictadoComponent],
+  imports: [
+    CommonModule, ReactiveFormsModule, RouterLink, AutocompletarComponent, SelectorComponent, OpcionComponent,
+    DictadoComponent, VideollamadaComponent,
+  ],
   templateUrl: './recepcion.html',
   styleUrl: './recepcion.scss',
   changeDetection: ChangeDetectionStrategy.OnPush,
@@ -49,6 +53,8 @@ export class RecepcionComponent implements OnInit {
    */
   readonly veTodo = computed(() => this.auth.tienePermiso('casos.ver_todos'));
   readonly puedeRecepcionar = computed(() => this.auth.tienePermiso('casos.crear'));
+  /** Igual que en Despacho: basta con que el tenant la tenga contratada (Plataforma), ningún permiso de rol aparte. */
+  readonly tieneVideollamada = computed(() => this.auth.tieneIntegracion('videollamada'));
 
   /** Llamadas timbrando: de aquí arranca el trabajo de quien recepciona. */
   readonly sonando = this.pbx.sonando;
@@ -70,6 +76,7 @@ export class RecepcionComponent implements OnInit {
    * cancela sin guardar (ver `limpiarForm`).
    */
   private readonly llamadaEnCurso = signal<Llamada | null>(null);
+  readonly hayLlamadaEnCurso = computed(() => !!this.llamadaEnCurso());
 
   esLaLlamadaEnCurso(l: Llamada): boolean {
     return this.llamadaEnCurso()?.id === l.id;
@@ -93,6 +100,35 @@ export class RecepcionComponent implements OnInit {
         this.llamadaEnCurso.set(llamada);
       },
       error: (e) => this.error.set(e?.error?.message ?? 'No fue posible tomar la llamada.'),
+    });
+  }
+
+  /**
+   * El caso detrás de la videollamada en curso, si ya se lanzó una. En
+   * Recepción, a diferencia de Despacho, todavía no hay `casoId` cuando el
+   * operador está al teléfono — solo el de la llamada. Lanzar video exige
+   * uno real (la ruta de videollamada, la grabación y sus archivos cuelgan
+   * de un caso, no de una llamada), así que lanzarlo crea uno MÍNIMO con lo
+   * mismo que ya se sabe (teléfono, canal) reusando `PbxService.atender()`
+   * —la misma función que usa Despacho para su cola en vivo—, y "Guardar
+   * caso" más adelante lo COMPLETA (`completar`) en vez de crear uno nuevo.
+   */
+  readonly casoVideoId = signal<string | null>(null);
+  readonly lanzandoVideo = signal(false);
+
+  lanzarVideollamada(): void {
+    const llamada = this.llamadaEnCurso();
+    if (!llamada || this.casoVideoId() || this.lanzandoVideo()) return;
+    this.lanzandoVideo.set(true);
+    this.pbx.atender(llamada.id).subscribe({
+      next: ({ casoId }) => {
+        this.lanzandoVideo.set(false);
+        this.casoVideoId.set(casoId);
+      },
+      error: (e) => {
+        this.lanzandoVideo.set(false);
+        this.error.set(e?.error?.message ?? 'No fue posible iniciar la videollamada.');
+      },
     });
   }
   readonly cargando = signal(false);
@@ -338,9 +374,15 @@ export class RecepcionComponent implements OnInit {
   limpiarForm(): void {
     const enCurso = this.llamadaEnCurso();
     if (enCurso) {
+      // Si ya se lanzó video, `atender()` dejó la llamada "atendida" (no
+      // "sonando"): `soltar()` es un no-op seguro en ese caso, así que no
+      // hace falta distinguirlo aquí. El caso mínimo que quedó creado no se
+      // deshace —es el mismo comportamiento que ya tiene Despacho al
+      // "Atender" una llamada sin completarla después.
       this.pbx.soltar(enCurso.id).subscribe({ error: () => {} });
       this.llamadaEnCurso.set(null);
     }
+    this.casoVideoId.set(null);
     this.form.reset(this.formVacio());
     this.canalesMarcados.set([]);
     this.sugeridaPorCodigo.set(null);
@@ -488,13 +530,21 @@ export class RecepcionComponent implements OnInit {
     };
     const destino = this.resumenDestino();
     this.guardando.set(true);
-    this.casosSvc.crear(dto).subscribe({
+    // Si ya se lanzó videollamada, el caso YA EXISTE (mínimo, creado por
+    // `atender()` al lanzarla) — hay que completarlo, no crear uno segundo.
+    const casoVideo = this.casoVideoId();
+    const guardar$ = casoVideo ? this.casosSvc.completar(casoVideo, dto) : this.casosSvc.crear(dto);
+    guardar$.subscribe({
       next: (caso) => {
         this.casos.update((cs) => [caso, ...cs]);
         this.guardando.set(false);
         // El caso ya quedó creado con todo lo que se alcanzó a diligenciar
         // mientras el operador hablaba: ahora sí se cierra el círculo con la
         // llamada que lo originó (queda "atendida" y enlazada a este caso).
+        // Si venía de video, `atender()` ya la dejó "atendida" con este
+        // mismo casoId — `vincular` es idempotente en ese caso (solo
+        // completa el enlace inverso que le falte), así que no hace falta
+        // distinguirlo aquí.
         const llamada = this.llamadaEnCurso();
         if (llamada) {
           this.llamadaEnCurso.set(null);
@@ -513,7 +563,7 @@ export class RecepcionComponent implements OnInit {
       },
       error: (e) => {
         this.guardando.set(false);
-        this.error.set(e?.error?.message ?? 'No fue posible crear el caso.');
+        this.error.set(e?.error?.message ?? 'No fue posible guardar el caso.');
       },
     });
   }

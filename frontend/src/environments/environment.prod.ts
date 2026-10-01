@@ -11,10 +11,15 @@
  * Al ponerla, el navegador habla directo con el backend, así que hay que
  * listar el dominio del frontend en la variable CORS_ORIGINS del backend.
  *
- * Si se deja vacía, la aplicación llama a `/api` en su propio origen, lo que
- * exige una reescritura hacia el backend en vercel.json. Sirve, pero el aviso
- * de llamada entrante queda inactivo: una reescritura de Vercel no reenvía
- * websockets. Ver docs/despliegue-demo.md.
+ * Si se deja vacía, la aplicación llama a `/api` en su propio origen —lo que
+ * corresponde cuando nginx sirve frontend y API bajo el mismo dominio, como
+ * en el despliegue de un solo servidor—. El canal en vivo (Socket.IO) también
+ * usa ese mismo origen por ruta relativa y funciona igual: nginx reenvía
+ * websockets sin problema con la configuración de `proxy_pass` habitual. Solo
+ * hace falta `ORIGEN_API` cuando la API vive en un dominio DISTINTO al del
+ * frontend (p. ej. Vercel + Render) — ahí sí hace falta la URL absoluta,
+ * porque una reescritura de hosting estático no reenvía websockets. Ver
+ * docs/despliegue-demo.md.
  * ────────────────────────────────────────────────────────────────────────────
  */
 
@@ -32,9 +37,10 @@ export const environment = {
   production: true,
   apiBaseUrl: ORIGEN_API ? `${ORIGEN_API}/api` : '/api',
   /**
-   * Origen del canal en vivo (Socket.IO) de la planta telefónica. Tiene que ser
-   * la URL absoluta del backend; vacío deja el aviso de llamada entrante
-   * inactivo, sin romper el resto de la aplicación.
+   * Origen del canal en vivo (Socket.IO): PBX, casos en vivo, chat interno y
+   * videollamada. Vacío = mismo origen que la página (ruta relativa, lo
+   * correcto con nginx proxy de un solo servidor); con valor, URL absoluta
+   * del backend (API y frontend en dominios distintos).
    */
   wsBaseUrl: ORIGEN_API,
   tenant: 'demo',
