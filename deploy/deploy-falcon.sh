@@ -161,6 +161,51 @@ actualizar_frontend() {
   mkdir -p "$DIST_DIR"
   rsync -a --delete --checksum "$salida/" "$DIST_DIR/"
   echo "    $(find "$DIST_DIR" -type f | wc -l) archivos publicados"
+
+  verificar_montaje
+}
+
+# Publicar en el host no prueba nada: lo que importa es qué ve nginx. Si el
+# directorio fue reemplazado alguna vez (un `mv`, un `rm -rf` + `mkdir`), el
+# bind del contenedor sigue apuntando al inodo viejo y nginx sirve el frontend
+# anterior —o un 403, si ese inodo quedó vacío— aunque el host esté perfecto.
+# Desde fuera es indistinguible de un despliegue correcto, así que se comprueba
+# DENTRO del contenedor y, si no coincide, se recrea: es la única forma de
+# volver a enganchar el bind.
+verificar_montaje() {
+  local raiz=/usr/share/nginx/html
+  local esperado; esperado=$(md5sum "$DIST_DIR/index.html" | cut -d' ' -f1)
+
+  local visto
+  visto=$(docker compose exec -T nginx md5sum "$raiz/index.html" 2>/dev/null | cut -d' ' -f1 || true)
+
+  if [[ "$visto" == "$esperado" ]]; then
+    echo "    ✔ nginx está viendo esta publicación"
+    return
+  fi
+
+  if [[ -z "$visto" ]]; then
+    echo "    ⚠ nginx no encuentra index.html: su montaje quedó colgado de un directorio viejo."
+  else
+    echo "    ⚠ nginx está sirviendo OTRA versión: su montaje quedó colgado de un directorio viejo."
+  fi
+  echo "    Recreando el contenedor para reenganchar el montaje..."
+  docker compose up -d --force-recreate --no-deps nginx
+
+  # Recrear tarda un instante en tener el proceso listo para `exec`.
+  for _ in $(seq 1 15); do
+    visto=$(docker compose exec -T nginx md5sum "$raiz/index.html" 2>/dev/null | cut -d' ' -f1 || true)
+    [[ -n "$visto" ]] && break
+    sleep 1
+  done
+
+  if [[ "$visto" != "$esperado" ]]; then
+    echo "    ✖ Tras recrearlo, nginx sigue sin ver esta publicación." >&2
+    echo "      Revise el volumen de nginx en docker-compose.yml: debe montar" >&2
+    echo "      $DIST_DIR en $raiz." >&2
+    exit 1
+  fi
+  echo "    ✔ Montaje reenganchado; nginx ya ve esta publicación"
 }
 
 [[ $RESPALDAR -eq 1 ]] && respaldar_base

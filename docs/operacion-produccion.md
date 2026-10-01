@@ -347,6 +347,7 @@ docker system df
 | El despachador no ve al ciudadano aunque este entró | WebSocket: cabeceras `Upgrade`/`Connection` en `location /socket.io/` |
 | SMS no llega y el sistema dice que sí | `docker compose logs backend1 \| grep -i infobip` — trae el estado real y el `messageId` |
 | Un caso aparece en una réplica y no en otra | Redis: `docker compose logs redis`, y `REDIS_URL` en los tres backends |
+| **403 Forbidden** en el dominio, con el despliegue en verde | nginx no ve `index.html`: su montaje quedó atado a un directorio viejo — ver «Editar archivos montados» |
 
 ### Reiniciar sin perder datos
 
@@ -378,6 +379,38 @@ Si ya lo hizo, recréelo:
 docker compose up -d --force-recreate nginx
 docker compose exec nginx nginx -T | grep client_max_body_size   # verifique que cambió
 ```
+
+### Lo mismo pasa con el DIRECTORIO del frontend
+
+Un *bind mount* de un directorio queda atado al **inodo** que existía al crear
+el contenedor. Si alguna vez se reemplazó `frontend-dist/` entero (un `mv`, un
+`rm -rf` + `mkdir`), nginx sigue mirando la carpeta anterior: sirve el frontend
+viejo o, si ese inodo quedó vacío, devuelve **403 Forbidden** — aunque en el
+host los archivos estén perfectos, con los permisos correctos y recién
+publicados. `chmod`, `cp` y volver a desplegar no lo arreglan, porque el
+problema no está en el host.
+
+Para distinguirlo en un paso —el host contra lo que ve el contenedor:
+
+```bash
+cd ~/falcon-deploy
+md5sum frontend-dist/index.html
+docker compose exec -T nginx md5sum /usr/share/nginx/html/index.html
+```
+
+Si no coinciden, o el segundo falla, reenganche el montaje:
+
+```bash
+docker compose up -d --force-recreate --no-deps nginx
+```
+
+`--no-deps` evita que se reinicien los tres backends de paso. El registro
+delata el caso: `directory index of "/usr/share/nginx/html/" is forbidden`
+significa literalmente que nginx mira la carpeta y no encuentra `index.html`.
+
+Desde la versión actual, `deploy-falcon.sh` compara esos dos `md5sum` al
+publicar y recrea nginx solo si hace falta, así que esto no debería volver a
+aparecer en un despliegue normal.
 
 ---
 
