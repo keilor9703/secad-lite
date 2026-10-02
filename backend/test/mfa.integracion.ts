@@ -16,6 +16,7 @@
  */
 import 'reflect-metadata';
 import { JwtService } from '@nestjs/jwt';
+import { ValidationPipe } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { Reflector } from '@nestjs/core';
 import { Repository } from 'typeorm';
@@ -23,6 +24,7 @@ import { UsuarioEntity } from '../src/usuarios/usuario.entity';
 import { ConfigMfaEntity } from '../src/auth/mfa/config-mfa.entity';
 import { MfaService, TENANT_CONFIG_MFA } from '../src/auth/mfa/mfa.service';
 import { JwtAuthGuard } from '../src/auth/jwt-auth.guard';
+import { ConfirmarMfaDto, InscripcionMfaDto, VerificarMfaDto } from '../src/auth/dto/login.dto';
 import { codigoDeContador, contadorDe, deBase32 } from '../src/auth/mfa/totp';
 
 const fallos: string[] = [];
@@ -173,8 +175,37 @@ async function main(): Promise<number> {
   afirmar((await conEntorno.verConfig()).forzadoPorEntorno === true,
     'y la pantalla puede avisar de que lo apagó el entorno');
 
-  // ── 8. Restablecer ─────────────────────────────────────────────────────
-  console.log('\n8. Restablecer el enrolamiento');
+  // ── 8. Los DTO contra el ValidationPipe REAL ──────────────────────────
+  //
+  // `main.ts` usa whitelist: true, que BORRA toda propiedad sin decorador de
+  // validación. Un DTO sin decoradores llega al controlador con todos los
+  // campos en undefined y el doble factor falla entero, con un mensaje que no
+  // apunta a nada. Pasó en producción. Se prueba con el pipe de verdad, con
+  // las mismas opciones que el arranque, porque es la única forma de que esto
+  // no vuelva a colarse.
+  console.log('\n8. Los campos sobreviven al ValidationPipe');
+  const pipe = new ValidationPipe({ whitelist: true, transform: true });
+  const pasar = async (metatype: new () => object, cuerpo: Record<string, string>) =>
+    (await pipe.transform(cuerpo, { type: 'body', metatype })) as Record<string, unknown>;
+
+  const conf = await pasar(ConfirmarMfaDto,
+    { reto: 'r-1', inscripcion: 'i-1', codigo: '123456' });
+  afirmar(conf['reto'] === 'r-1' && conf['inscripcion'] === 'i-1' && conf['codigo'] === '123456',
+    'ConfirmarMfaDto conserva reto, inscripcion y codigo');
+
+  const ver = await pasar(VerificarMfaDto, { reto: 'r-2', codigo: '654321' });
+  afirmar(ver['reto'] === 'r-2' && ver['codigo'] === '654321',
+    'VerificarMfaDto conserva reto y codigo');
+
+  const ins = await pasar(InscripcionMfaDto, { reto: 'r-3' });
+  afirmar(ins['reto'] === 'r-3', 'InscripcionMfaDto conserva reto');
+
+  // Y que siga filtrando lo que no declaró: para eso está el whitelist.
+  const colado = await pasar(VerificarMfaDto, { reto: 'r', codigo: '1', intruso: 'x' });
+  afirmar(colado['intruso'] === undefined, 'y sigue descartando campos no declarados');
+
+  // ── 9. Restablecer ─────────────────────────────────────────────────────
+  console.log('\n9. Restablecer el enrolamiento');
   await mfa.restablecer(usuario.id);
   afirmar(!usuario.mfaSecreto && !usuario.mfaActivadoEn, 'queda sin secreto, listo para volver a enrolarse');
   afirmar(usuario.mfaIntentosFallidos === 0 && !usuario.mfaBloqueoHasta, 'y sin bloqueo arrastrado');

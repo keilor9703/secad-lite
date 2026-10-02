@@ -111,8 +111,13 @@ export class MfaService {
     let claims: RetoMfa;
     try {
       claims = this.jwt.verify<RetoMfa>(token);
-    } catch {
-      throw new UnauthorizedException('La sesión de verificación expiró. Vuelva a iniciar sesión.');
+    } catch (e) {
+      // Caducado e inválido NO son lo mismo, y decir «expiró» ante cualquier
+      // fallo manda a buscar donde no es: con el token llegando vacío por un
+      // problema de validación, el mensaje señalaba al reloj.
+      throw new UnauthorizedException(this.expirado(e)
+        ? 'La sesión de verificación expiró. Vuelva a iniciar sesión.'
+        : 'No se pudo validar la sesión de verificación. Vuelva a iniciar sesión.');
     }
     if (claims?.uso !== USO_INTERMEDIO || claims.fase !== 'reto' || !claims.sub) {
       throw new UnauthorizedException('Token de verificación inválido.');
@@ -149,8 +154,10 @@ export class MfaService {
     let claims: TokenInscripcion;
     try {
       claims = this.jwt.verify<TokenInscripcion>(inscripcion);
-    } catch {
-      throw new UnauthorizedException('El enrolamiento expiró. Vuelva a generar el código QR.');
+    } catch (e) {
+      throw new UnauthorizedException(this.expirado(e)
+        ? 'El enrolamiento expiró. Vuelva a generar el código QR.'
+        : 'No se pudo validar el enrolamiento. Vuelva a generar el código QR.');
     }
     if (claims?.uso !== USO_INTERMEDIO || claims.fase !== 'inscripcion' || !claims.secreto) {
       throw new UnauthorizedException('Token de enrolamiento inválido.');
@@ -262,6 +269,11 @@ export class MfaService {
     const u = await this.usuarios.findOne({ where: { id, activo: true } });
     if (!u) throw new UnauthorizedException('La cuenta ya no está disponible.');
     return u;
+  }
+
+  /** ¿El token falló por caducidad, o por cualquier otra cosa? */
+  private expirado(e: unknown): boolean {
+    return (e as { name?: string })?.name === 'TokenExpiredError';
   }
 
   private secreto(): string {

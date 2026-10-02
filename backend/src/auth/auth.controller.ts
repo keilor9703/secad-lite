@@ -1,7 +1,7 @@
 import { Body, Controller, ForbiddenException, Get, Post, UseGuards } from '@nestjs/common';
 import { Throttle, ThrottlerGuard } from '@nestjs/throttler';
 import { AuthService } from './auth.service';
-import { CambiarContrasenaDto, ConfirmarMfaDto, LoginDto, VerificarMfaDto } from './dto/login.dto';
+import { CambiarContrasenaDto, ConfirmarMfaDto, InscripcionMfaDto, LoginDto, VerificarMfaDto } from './dto/login.dto';
 import { MfaService } from './mfa/mfa.service';
 import { Public } from './public.decorator';
 import { Usuario } from '../common/usuario.decorator';
@@ -46,7 +46,7 @@ export class AuthController {
   @UseGuards(ThrottlerGuard)
   @Throttle({ default: { limit: 10, ttl: 60_000 } })
   @Post('mfa/inscripcion')
-  inscripcion(@Body() dto: { reto?: string }) {
+  inscripcion(@Body() dto: InscripcionMfaDto) {
     return this.mfa.iniciarInscripcion(dto?.reto ?? '');
   }
 

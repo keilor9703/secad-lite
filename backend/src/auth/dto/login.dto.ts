@@ -67,13 +67,34 @@ export interface RetoMfaResult {
   nombre: string;
 }
 
+/**
+ * Los decoradores NO son adorno: `main.ts` usa ValidationPipe con
+ * `whitelist: true`, que BORRA toda propiedad que no declare validación. Sin
+ * ellos, estos campos llegan como `undefined` al controlador y el doble factor
+ * falla entero —el servidor intenta verificar un token vacío— con un mensaje
+ * que no apunta a nada.
+ */
 export class VerificarMfaDto {
+  @IsString() @MaxLength(4000)
   reto!: string;
+
+  @IsString() @MaxLength(12)
   codigo!: string;
 }
 
 export class ConfirmarMfaDto {
+  @IsString() @MaxLength(4000)
   reto!: string;
+
+  @IsString() @MaxLength(4000)
   inscripcion!: string;
+
+  @IsString() @MaxLength(12)
   codigo!: string;
+}
+
+/** El cuerpo de `POST /auth/mfa/inscripcion`. */
+export class InscripcionMfaDto {
+  @IsString() @MaxLength(4000)
+  reto!: string;
 }
