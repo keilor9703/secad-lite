@@ -571,7 +571,7 @@
 
           <div class="tbl-wrap">
             <table>
-              <thead><tr><th>Usuario</th><th>Nombre</th><th>Rol</th><th>Agencia</th><th>Canales</th><th>Extensión PBX</th><th>Tenant</th><th>Estado</th><th>Contraseña</th><th></th></tr></thead>
+              <thead><tr><th>Usuario</th><th>Nombre</th><th>Rol</th><th>Agencia</th><th>Canales</th><th>Extensión PBX</th><th>Tenant</th><th>Estado</th><th>Contraseña</th><th>Doble factor</th><th></th></tr></thead>
               <tbody>
                 @for (u of usuarios(); track u) {
                   <tr>
@@ -654,6 +654,33 @@
                           <button type="button" class="btn btn--primary mini" (click)="guardarClave(u)">Guardar</button>
                           <button type="button" class="btn btn--ghost mini" (click)="cancelarCambioClave()">Cancelar</button>
                         </span>
+                      }
+                    </td>
+                    <!-- Doble factor: estado y restablecimiento, para quien cambió
+                         de teléfono o lo perdió. La identidad la verifica quien
+                         restablece; por eso vive aquí y no en una recuperación
+                         automática por correo. -->
+                    <td class="mfa-col">
+                      @if (confirmandoMfa() === u.id) {
+                        <span class="mfa-confirma">
+                          <span>¿Restablecer?</span>
+                          <button type="button" class="btn btn--primary mini"
+                                  [disabled]="restableciendoMfa() === u.id" (click)="restablecerMfa(u)">
+                            {{ restableciendoMfa() === u.id ? 'Restableciendo…' : 'Sí' }}
+                          </button>
+                          <button type="button" class="btn btn--ghost mini"
+                                  [disabled]="restableciendoMfa() === u.id" (click)="cancelarRestablecerMfa()">No</button>
+                        </span>
+                      } @else if (u.mfaActivadoEn) {
+                        <span class="mfa-estado">
+                          <span class="mfa-punto" aria-hidden="true"></span>
+                          Vinculado {{ u.mfaActivadoEn | date: 'dd/MM/yyyy' }}
+                        </span>
+                        <button type="button" class="btn btn--ghost mini" (click)="pedirConfirmacionMfa(u)">
+                          Restablecer
+                        </button>
+                      } @else {
+                        <span class="mfa-estado mfa-estado--sin">Sin vincular</span>
                       }
                     </td>
                     <td>

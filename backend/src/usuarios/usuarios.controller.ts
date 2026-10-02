@@ -46,6 +46,31 @@ export class UsuariosController {
     return u;
   }
 
+  /**
+   * POST /api/usuarios/:id/mfa/restablecer
+   *
+   * Exige `usuarios.gestionar` Y `usuarios.mfa_restablecer`: el permiso propio
+   * no es por el riesgo —quien puede restablecer una contraseña ya se puede
+   * apoderar de la cuenta, y eso lo da `usuarios.gestionar`— sino para que la
+   * capacidad se conceda a conciencia y quede separada en la bitácora.
+   */
+  @Permisos('usuarios.gestionar', 'usuarios.mfa_restablecer')
+  @Post(':id/mfa/restablecer')
+  async restablecerMfa(@Usuario() actor: JwtPayload, @Param('id') id: string) {
+    const r = await this.usuarios.restablecerMfa(actor, id);
+    await this.auditoria.registrar(
+      r.tenant ?? 'plataforma', actor.sub, 'usuario.mfa_restablecer',
+      `Restableció el doble factor de «${r.username}»`
+        + (r.teniaMfa ? '.' : ' (que no lo tenía configurado).'),
+    );
+    return {
+      ok: true,
+      mensaje: r.teniaMfa
+        ? `${r.username} deberá vincular su aplicación de autenticación al entrar.`
+        : `${r.username} no tenía doble factor configurado; no había nada que restablecer.`,
+    };
+  }
+
   @Patch(':id')
   async actualizar(@Usuario() actor: JwtPayload, @Param('id') id: string, @Body() dto: ActualizarUsuarioDto) {
     const u = await this.usuarios.actualizar(actor, id, dto);

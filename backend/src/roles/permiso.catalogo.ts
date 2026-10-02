@@ -32,6 +32,7 @@ export const PERMISOS: PermisoDef[] = [
   { clave: 'metricas.ver',        etiqueta: 'Ver el panel de gestión',                  grupo: 'Gestión' },
   { clave: 'catalogos.gestionar', etiqueta: 'Gestionar agencias, canales y códigos', grupo: 'Administración' },
   { clave: 'usuarios.gestionar',  etiqueta: 'Gestionar usuarios',                       grupo: 'Administración' },
+  { clave: 'usuarios.mfa_restablecer', etiqueta: 'Restablecer el doble factor de un usuario', grupo: 'Administración' },
   { clave: 'roles.gestionar',     etiqueta: 'Gestionar roles y permisos',               grupo: 'Administración' },
 ];
 
@@ -100,7 +101,7 @@ export const MODULOS: ModuloPermisos[] = [
     clave: 'administracion', etiqueta: 'Administración',
     descripcion: 'Gestionar usuarios y roles, y configurar PBX, WhatsApp, CTI/YACO y entidades externas.',
     permisos: [
-      'usuarios.gestionar', 'roles.gestionar', 'catalogos.gestionar',
+      'usuarios.gestionar', 'usuarios.mfa_restablecer', 'roles.gestionar', 'catalogos.gestionar',
       'pbx.configurar', 'whatsapp.configurar', 'entidades.gestionar', 'cti.configurar',
     ],
   },

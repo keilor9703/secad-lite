@@ -182,3 +182,35 @@ tbody tr:last-child td { border-bottom: none; }
 
 /* Bitácora de administración. */
 .bit-detalle { white-space: normal; min-width: 260px; }
+
+/* ── Doble factor en la tabla de usuarios ───────────────────────────────── */
+
+.mfa-col { white-space: nowrap; }
+
+.mfa-estado {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  margin-right: 0.4rem;
+  font-size: 0.78rem;
+  color: var(--ink-soft);
+
+  &--sin { color: var(--muted); font-style: italic; }
+}
+
+/* Verde solo si de verdad hay un dispositivo vinculado: de un vistazo se ve
+   quién quedó a medias. */
+.mfa-punto {
+  width: 0.45rem;
+  height: 0.45rem;
+  border-radius: 50%;
+  background: var(--ok);
+}
+
+.mfa-confirma {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  font-size: 0.78rem;
+  color: var(--ink-soft);
+}

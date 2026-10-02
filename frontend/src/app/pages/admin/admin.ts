@@ -862,6 +862,42 @@ export class AdminComponent implements OnInit {
   // por tenant para su rol): el alcance real lo impone el backend.
 
   /** Id del usuario cuya fila tiene el campo de nueva contraseña abierto. */
+  // ── Restablecer el doble factor ─────────────────────────────────────────
+  //
+  // Con confirmación en dos pasos, en la misma fila, igual que el cambio de
+  // contraseña. No es una acción destructiva de datos, pero sí deja a una
+  // persona fuera de su cuenta hasta que vuelva a vincular su teléfono: no
+  // puede dispararse con un clic distraído.
+
+  /** Fila que está pidiendo confirmación. */
+  readonly confirmandoMfa = signal<string | null>(null);
+  readonly restableciendoMfa = signal<string | null>(null);
+
+  pedirConfirmacionMfa(u: UsuarioAdmin): void {
+    this.confirmandoMfa.set(u.id);
+  }
+
+  cancelarRestablecerMfa(): void {
+    this.confirmandoMfa.set(null);
+  }
+
+  restablecerMfa(u: UsuarioAdmin): void {
+    this.restableciendoMfa.set(u.id);
+    this.admin.restablecerMfaUsuario(u.id).subscribe({
+      next: (r) => {
+        this.restableciendoMfa.set(null);
+        this.confirmandoMfa.set(null);
+        this.toast.exito(r.mensaje);
+        this.cargarUsuarios();
+      },
+      error: (e) => {
+        this.restableciendoMfa.set(null);
+        this.confirmandoMfa.set(null);
+        this.toast.error(e?.error?.message ?? 'No fue posible restablecer el doble factor.');
+      },
+    });
+  }
+
   readonly cambiandoClave = signal<string | null>(null);
   readonly claveNuevaCtrl = new FormControl('', { nonNullable: true });
   /** Id del usuario cuya contraseña se acaba de guardar (confirmación breve). */

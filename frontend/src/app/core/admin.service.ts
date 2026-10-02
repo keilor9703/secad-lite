@@ -47,6 +47,14 @@ export class AdminService {
     return this.http.post<Tenant>(`${this.base}/tenants`, dto);
   }
 
+  /**
+   * Quita el enrolamiento del doble factor de una cuenta. El usuario verá otra
+   * vez el código QR en su siguiente ingreso.
+   */
+  restablecerMfaUsuario(id: string): Observable<{ ok: boolean; mensaje: string }> {
+    return this.http.post<{ ok: boolean; mensaje: string }>(`${this.base}/usuarios/${id}/mfa/restablecer`, {});
+  }
+
   // Usuarios (permiso usuarios.gestionar)
   listarUsuarios(): Observable<UsuarioAdmin[]> {
     return this.http.get<UsuarioAdmin[]>(`${this.base}/usuarios`);

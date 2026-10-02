@@ -29,6 +29,12 @@ export interface UsuarioDto {
   extension: string | null;
   /** "@" de WhatsApp para la integración CTI/YACO; null si no aplica. */
   whatsappHandle: string | null;
+  /**
+   * Cuándo vinculó su aplicación de autenticación; null si todavía no lo ha
+   * hecho. Solo la FECHA: el secreto no sale de aquí jamás. Le dice al
+   * administrador si tiene algo que restablecer antes de pulsar el botón.
+   */
+  mfaActivadoEn: Date | null;
 }
 
 export interface CrearUsuarioDto {
@@ -180,6 +186,39 @@ export class UsuariosService implements OnModuleInit {
       }),
     );
     return this.aDto(u);
+  }
+
+  /**
+   * Quita el enrolamiento del doble factor: la próxima vez que entre, el
+   * usuario verá otra vez el código QR y vinculará el teléfono nuevo.
+   *
+   * Es el camino para quien cambió de celular o lo perdió. La identidad la
+   * verifica quien restablece —en persona, por radio o por teléfono—, que en
+   * una central con supervisor de turno es más confiable que un código enviado
+   * a un buzón.
+   *
+   * Lleva la MISMA guarda de instancia que `actualizar`: un administrador de
+   * un municipio no puede tocar las cuentas de otro. Reescribirla aparte era
+   * la forma segura de que las dos se separaran con el tiempo.
+   */
+  async restablecerMfa(actor: Actor, id: string): Promise<{ username: string; tenant: string | null; teniaMfa: boolean }> {
+    const u = await this.repo.findOne({ where: { id } });
+    if (!u) throw new NotFoundException('Usuario no encontrado.');
+    if (actor.rol !== 'superadmin' && u.tenant !== actor.tenant) {
+      throw new ForbiddenException('No puede gestionar usuarios de otro tenant.');
+    }
+
+    const teniaMfa = !!u.mfaSecreto;
+    u.mfaSecreto = null;
+    u.mfaActivadoEn = null;
+    u.mfaUltimoContador = null;
+    // También se levanta el bloqueo: quien llega aquí tras cinco intentos
+    // fallidos no debería tener que esperar quince minutos más.
+    u.mfaIntentosFallidos = 0;
+    u.mfaBloqueoHasta = null;
+    await this.repo.save(u);
+
+    return { username: u.username, tenant: u.tenant ?? null, teniaMfa };
   }
 
   async actualizar(actor: Actor, id: string, dto: ActualizarUsuarioDto): Promise<UsuarioDto> {
@@ -358,6 +397,7 @@ export class UsuariosService implements OnModuleInit {
       agenciaId: u.agenciaId ?? null, canales: u.canales ?? [],
       extension: u.extension ?? null,
       whatsappHandle: u.whatsappHandle ?? null,
+      mfaActivadoEn: u.mfaActivadoEn ?? null,
     };
   }
 

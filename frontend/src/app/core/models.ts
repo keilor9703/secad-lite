@@ -344,6 +344,8 @@ export interface UsuarioAdmin {
   canales: string[];
   /** Extensión de la planta telefónica; null si no atiende llamadas por PBX. */
   extension: string | null;
+  /** Cuándo vinculó su aplicación de autenticación; null si no lo ha hecho. */
+  mfaActivadoEn?: string | null;
 }
 
 // --- API entrante (entidades externas) ---

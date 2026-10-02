@@ -272,13 +272,20 @@ usuarios ya enrolados no tienen que escanear de nuevo.
 
 ### El usuario perdió el teléfono
 
-Mientras no exista el flujo de recuperación, se le quita el enrolamiento y en
-su siguiente ingreso vuelve a ver el QR:
+**Administración → Usuarios → columna «Doble factor» → Restablecer.** Pide
+confirmación en la misma fila; al aceptar, el usuario vuelve a ver el código QR
+en su siguiente ingreso y vincula el teléfono nuevo. También se levanta el
+bloqueo por intentos fallidos, si lo había.
 
-```bash
-curl -ks -X POST https://localhost/api/plataforma/mfa/restablecer/<id-del-usuario> \
-  -H "Host: $DOMINIO" -H "Authorization: Bearer <token-del-superadmin>"
-```
+Lo pueden hacer el superadministrador y el administrador de la instancia —el
+permiso es `usuarios.mfa_restablecer`, concedido junto con `usuarios.gestionar`—.
+Un administrador **solo alcanza cuentas de su propio municipio**.
+
+> La identidad la verifica quien restablece: en persona, por radio o por
+> teléfono. En una central con supervisor de turno eso es más confiable que un
+> código enviado a un buzón, y por eso no existe una recuperación automática.
+
+Queda en la bitácora como `usuario.mfa_restablecer`, con quién lo hizo y a quién.
 
 ### Síntomas
 
