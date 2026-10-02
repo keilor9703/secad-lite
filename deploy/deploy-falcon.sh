@@ -99,6 +99,8 @@ respaldar_base() {
 actualizar_backend() {
   echo "==> Reconstruyendo la imagen del backend"
   cd "$DEPLOY_DIR"
+  # Compilar antes de tocar nada: si el código no compila, el fallo sale aquí,
+  # con las tres réplicas viejas todavía atendiendo.
   docker compose build backend1
 
   # De una en una, no las tres a la vez: así siempre queda alguien atendiendo.
@@ -106,7 +108,15 @@ actualizar_backend() {
   # arrancan con el esquema ya actualizado.
   for replica in backend1 backend2 backend3; do
     echo "==> Reemplazando $replica"
-    docker compose up -d --no-deps --force-recreate "$replica"
+    # `--build` por réplica, y no un único `build backend1`: si en el
+    # docker-compose.yml cada réplica tiene su propia sección `build`, recrear
+    # backend2 y backend3 reutiliza SU imagen anterior y se quedan con el
+    # código viejo. El sistema queda entonces corriendo dos versiones a la vez
+    # y nginx reparte entre ellas: una de cada tres peticiones usa la vieja.
+    # El síntoma es desquiciante —una ruta nueva responde 404 a veces y 200
+    # otras, un formulario guarda unas veces sí y otras no— y no se parece en
+    # nada a su causa.
+    docker compose up -d --no-deps --force-recreate --build "$replica"
 
     local estado=desconocido
     printf "    esperando a que esté sana"
@@ -125,6 +135,8 @@ actualizar_backend() {
       exit 1
     fi
   done
+
+  verificar_replicas
 }
 
 actualizar_frontend() {
@@ -245,6 +257,32 @@ verificar_montaje() {
     exit 1
   fi
   echo "    ✔ Montaje reenganchado; nginx ya ve esta publicación"
+}
+
+# Que cada réplica arranque sana no basta: pueden estar sanas y ser versiones
+# distintas. Esto es lo que no comprobaba el script, y costó una noche entera.
+verificar_replicas() {
+  local imagenes=() replica id
+  for replica in backend1 backend2 backend3; do
+    id=$(docker compose ps -q "$replica" 2>/dev/null) || id=''
+    imagenes+=("${id:+$(docker inspect -f '{{.Image}}' "$id" 2>/dev/null)}")
+  done
+
+  if [[ -n "${imagenes[0]}" && "${imagenes[0]}" == "${imagenes[1]}" && "${imagenes[1]}" == "${imagenes[2]}" ]]; then
+    echo "    ✔ las tres réplicas corren la misma imagen"
+    return
+  fi
+
+  echo "    ✖ Las réplicas NO corren la misma imagen del backend." >&2
+  local i=0
+  for replica in backend1 backend2 backend3; do
+    echo "        $replica: ${imagenes[$i]:-(sin contenedor)}" >&2
+    i=$((i + 1))
+  done
+  echo "      Con versiones distintas, nginx reparte entre ellas y el sistema" >&2
+  echo "      responde bien o mal según a cuál le toque. Pare y revise las" >&2
+  echo "      secciones 'build' de backend1/2/3 en docker-compose.yml." >&2
+  exit 1
 }
 
 [[ $RESPALDAR -eq 1 ]] && respaldar_base
