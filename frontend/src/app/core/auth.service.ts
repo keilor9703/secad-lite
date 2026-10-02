@@ -1,4 +1,5 @@
 import { Injectable, computed, signal } from '@angular/core';
+import { RetoMfa, esRetoMfa } from './mfa.service';
 import { HttpClient } from '@angular/common/http';
 import { Observable, tap } from 'rxjs';
 import { environment } from '../../environments/environment';
@@ -98,10 +99,20 @@ export class AuthService {
     return this.http.post<{ ok: boolean }>(`${this.base}/auth/cambiar-contrasena`, { actual, nueva });
   }
 
-  login(usuario: string, contrasena: string): Observable<Sesion> {
+  /**
+   * Inicia sesión. Puede devolver la sesión directamente, o un RETO de doble
+   * factor —sin token— cuando el usuario tiene que presentar su código. Solo
+   * se guarda lo que de verdad es una sesión: un reto no autoriza nada.
+   */
+  login(usuario: string, contrasena: string): Observable<Sesion | RetoMfa> {
     return this.http
-      .post<Sesion>(`${this.base}/auth/login`, { usuario, contrasena })
-      .pipe(tap((s) => this.guardar(s)));
+      .post<Sesion | RetoMfa>(`${this.base}/auth/login`, { usuario, contrasena })
+      .pipe(tap((r) => { if (!esRetoMfa(r)) this.guardar(r); }));
+  }
+
+  /** Guarda la sesión que el servidor entregó tras verificar el segundo factor. */
+  establecerSesion(s: Sesion): void {
+    this.guardar(s);
   }
 
   /** Cambia el tenant en gestión (solo aplica al superadmin). */

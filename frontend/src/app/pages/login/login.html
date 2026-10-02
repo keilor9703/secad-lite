@@ -35,4 +35,8 @@
   <p class="foot">Gestión integral de emergencias · 123 · multi-agencia · multicanal</p>
 </div>
 
+@if (reto(); as r) {
+  <app-mfa-modal [reto]="r" (autenticado)="alAutenticar($event)" (cancelado)="alCancelar()" />
+}
+
 <app-toast />

@@ -1,0 +1,112 @@
+<!--
+  Ventana del doble factor. `role="dialog"` + `aria-modal` para que un lector
+  de pantalla la anuncie como lo que es, y el foco arranca en la primera
+  casilla: quien entra aquí viene de teclear usuario y contraseña y lo único
+  que quiere es seguir tecleando.
+-->
+<div class="mfa-fondo">
+  <div class="mfa-caja" role="dialog" aria-modal="true" aria-labelledby="mfa-titulo">
+
+    <header class="mfa-cab">
+      <span class="mfa-escudo" aria-hidden="true">
+        <svg viewBox="0 0 24 24" width="26" height="26" fill="none" stroke="currentColor"
+             stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M12 2.5 4.5 5.8v5.4c0 4.6 3.2 8.9 7.5 10.3 4.3-1.4 7.5-5.7 7.5-10.3V5.8L12 2.5Z"/>
+          <path d="m9.2 12.1 2 2 3.6-3.9"/>
+        </svg>
+      </span>
+      <div>
+        <h2 id="mfa-titulo">
+          {{ enrolando() ? 'Proteja su cuenta' : 'Verificación en dos pasos' }}
+        </h2>
+        <p class="mfa-sub">
+          @if (enrolando()) {
+            Hola, {{ reto().nombre }}. Antes de entrar, vincule una aplicación de
+            autenticación a su cuenta de FALCON CAD.
+          } @else {
+            Hola, {{ reto().nombre }}. Abra su aplicación de autenticación e ingrese
+            el código de seis dígitos.
+          }
+        </p>
+      </div>
+    </header>
+
+    @if (enrolando()) {
+      <ol class="mfa-pasos">
+        <li>
+          <span class="mfa-num">1</span>
+          <div>
+            <strong>Instale una aplicación de autenticación</strong>
+            <p>Google Authenticator, Microsoft Authenticator, Authy, 1Password…
+               cualquiera sirve.</p>
+          </div>
+        </li>
+        <li>
+          <span class="mfa-num">2</span>
+          <div>
+            <strong>Escanee este código</strong>
+            <div class="mfa-qr">
+              @if (qrSvg()) {
+                <div class="mfa-qr-lienzo" [innerHTML]="qrSvg()" aria-label="Código QR de vinculación"></div>
+              } @else if (cargando()) {
+                <div class="mfa-qr-hueco">Generando…</div>
+              } @else {
+                <div class="mfa-qr-hueco">Sin código QR</div>
+              }
+            </div>
+
+            @if (claveManual()) {
+              <button type="button" class="mfa-enlace" (click)="verClaveManual.set(!verClaveManual())">
+                {{ verClaveManual() ? 'Ocultar la clave' : '¿No puede escanear? Escriba la clave' }}
+              </button>
+              @if (verClaveManual()) {
+                <div class="mfa-clave">
+                  <code>{{ claveManual() }}</code>
+                  <button type="button" class="btn btn--ghost" (click)="copiarClave()">Copiar</button>
+                </div>
+              }
+            }
+          </div>
+        </li>
+        <li>
+          <span class="mfa-num">3</span>
+          <div>
+            <strong>Escriba el código que aparece en la aplicación</strong>
+            <p>Cambia cada 30 segundos. Si falla, revise que la hora del teléfono
+               esté en automático.</p>
+          </div>
+        </li>
+      </ol>
+    }
+
+    <!-- Seis casillas y no un campo de texto: se ve cuántos dígitos faltan,
+         y pegar el código de golpe también funciona. -->
+    <div class="mfa-casillas" #casillas role="group" aria-label="Código de seis dígitos">
+      @for (d of digitos(); track $index) {
+        <input type="text" inputmode="numeric" autocomplete="one-time-code"
+               maxlength="6" [attr.aria-label]="'Dígito ' + ($index + 1)"
+               [disabled]="cargando()"
+               (input)="alEscribir($index, $event)"
+               (keydown)="alTeclear($index, $event)" />
+      }
+    </div>
+
+    @if (error()) {
+      <p class="mfa-error" role="alert">{{ error() }}</p>
+    }
+
+    <div class="mfa-acciones">
+      <button type="button" class="btn btn--ghost" (click)="cancelado.emit()" [disabled]="cargando()">
+        Cancelar
+      </button>
+      <button type="button" class="btn btn--primary" (click)="enviar()"
+              [disabled]="!completo() || cargando()">
+        {{ cargando() ? 'Verificando…' : (enrolando() ? 'Vincular y entrar' : 'Verificar') }}
+      </button>
+    </div>
+
+    <p class="mfa-pie">
+      Este segundo paso impide que alguien entre a FALCON CAD con solo su contraseña.
+    </p>
+  </div>
+</div>
