@@ -1,7 +1,7 @@
 import { ChangeDetectionStrategy, Component, OnInit, computed, inject, signal } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormControl, FormGroup, FormsModule, ReactiveFormsModule, Validators } from '@angular/forms';
-import { AdminService, ConfigElsGuardar, ConfigElsVisible, ConfigSmsGuardar, ConfigSmsVisible } from '../../core/admin.service';
+import { AdminService, ConfigElsGuardar, ConfigElsVisible, ConfigMfaVisible, ConfigSmsGuardar, ConfigSmsVisible } from '../../core/admin.service';
 import { EstadoSuscripcion, PlanTenant, Tenant } from '../../core/models';
 import { SelectorMunicipioComponent } from '../../shared/selector-municipio/selector-municipio';
 import { SelectorComponent } from '../../shared/selector/selector';
@@ -106,6 +106,7 @@ export class PlataformaComponent implements OnInit {
     this.cargar();
     this.cargarSms();
     this.cargarEls();
+    this.cargarMfa();
   }
 
   // --- SMS Global ---
@@ -131,6 +132,32 @@ export class PlataformaComponent implements OnInit {
         this.smsExito.set('Configuración de SMS guardada.');
       },
       error: () => this.smsError.set('No fue posible guardar la configuración de SMS.'),
+    });
+  }
+
+  // --- Doble factor ---
+  readonly mfaConfig = signal<ConfigMfaVisible | null>(null);
+  readonly mfaError = signal('');
+  readonly mfaExito = signal('');
+
+  cargarMfa(): void {
+    this.admin.verConfigMfa().subscribe({
+      next: (cfg) => this.mfaConfig.set(cfg),
+      error: () => this.mfaError.set('No fue posible cargar la política de doble factor.'),
+    });
+  }
+
+  guardarMfa(exigido: boolean): void {
+    this.mfaError.set('');
+    this.mfaExito.set('');
+    this.admin.guardarConfigMfa(exigido).subscribe({
+      next: (cfg) => {
+        this.mfaConfig.set(cfg);
+        this.mfaExito.set(exigido
+          ? 'El doble factor queda EXIGIDO para todos los usuarios (salvo el superadministrador).'
+          : 'El doble factor queda DESACTIVADO: los usuarios entrarán solo con contraseña.');
+      },
+      error: () => this.mfaError.set('No fue posible cambiar la política de doble factor.'),
     });
   }
 

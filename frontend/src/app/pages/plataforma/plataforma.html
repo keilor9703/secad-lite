@@ -52,6 +52,46 @@
 
   <!-- Configuración global de SMS — una sola para toda la plataforma -->
   <div class="panel card sms-global">
+    <h2>🔐 Doble factor de autenticación</h2>
+    <p class="hint">Exige a cada usuario un código temporal de su aplicación de autenticación,
+      además de la contraseña. El superadministrador queda exento a propósito: es quien tiene
+      que poder entrar a desactivarlo si algo falla.</p>
+
+    @if (mfaError()) {
+      <p class="error">{{ mfaError() }}</p>
+    }
+    @if (mfaExito()) {
+      <p class="exito">{{ mfaExito() }}</p>
+    }
+
+    @if (mfaConfig(); as cfg) {
+      @if (cfg.forzadoPorEntorno) {
+        <p class="error">⚠ La variable de entorno <code>MFA_OBLIGATORIO=false</code> tiene el doble
+          factor APAGADO en el servidor, y manda sobre este interruptor. Mientras siga puesta,
+          nadie tendrá que presentar código aunque aquí diga «Exigido».</p>
+      }
+      <div class="t-grid">
+        <label class="campo">
+          <span>Estado</span>
+          <app-selector [valorActual]="cfg.exigido" (cambio)="guardarMfa($any($event))">
+            <app-opcion [valor]="true">Exigido a todos</app-opcion>
+            <app-opcion [valor]="false">Desactivado</app-opcion>
+          </app-selector>
+        </label>
+      </div>
+      <p class="hint">Al desactivarlo, los usuarios ya enrolados conservan su vinculación: si
+        vuelve a activarlo, no tendrán que escanear otra vez.</p>
+      @if (cfg.actualizadoPor) {
+        <p class="hint">Última actualización por {{ cfg.actualizadoPor }}
+          @if (cfg.actualizadoEn) { el {{ cfg.actualizadoEn | date: 'dd/MM/yyyy HH:mm' }} }
+        </p>
+      }
+    } @else {
+      <p class="hint">Cargando política…</p>
+    }
+  </div>
+
+  <div class="panel card sms-global">
     <h2>📱 Mensajería SMS</h2>
     <p class="hint">Proveedor de SMS para el envío de enlaces de videollamada. Esta configuración
       aplica para todas las instancias que tengan la integración de videollamada habilitada.</p>

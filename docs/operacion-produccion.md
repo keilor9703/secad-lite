@@ -237,6 +237,64 @@ Tiene que aparecer al menos un candidato de tipo **`relay`**. Si solo salen
 
 ---
 
+## Doble factor de autenticación (2FA)
+
+Cada usuario presenta, además de su contraseña, un código de seis dígitos que
+cambia cada 30 segundos y que genera una aplicación de autenticación en su
+teléfono (Google Authenticator, Microsoft Authenticator, Authy, 1Password…).
+
+**El superadministrador está exento.** No es un descuido: es quien tiene que
+poder entrar a desactivarlo si algo falla. Si también dependiera del código,
+un problema en el 2FA dejaría la plataforma sin nadie que pudiera arreglarla.
+
+### Apagarlo
+
+Dos interruptores, y el del entorno manda:
+
+| | Dónde | Cuándo usarlo |
+|---|---|---|
+| Plataforma → Doble factor | La pantalla | El de todos los días |
+| `MFA_OBLIGATORIO=false` | `.env` + recrear backends | Si no se puede llegar a la pantalla |
+
+```bash
+# El de emergencia
+cd ~/falcon-deploy
+echo 'MFA_OBLIGATORIO=false' >> .env
+docker compose up -d --force-recreate backend1 backend2 backend3
+```
+
+El del entorno **solo apaga**: no puede encender lo que la pantalla desactivó.
+Y mientras esté puesto, la pantalla de Plataforma lo avisa, para que nadie vea
+«Exigido» sin entender por qué nadie presenta código.
+
+Desactivarlo **no borra** las vinculaciones: al volver a activarlo, los
+usuarios ya enrolados no tienen que escanear de nuevo.
+
+### El usuario perdió el teléfono
+
+Mientras no exista el flujo de recuperación, se le quita el enrolamiento y en
+su siguiente ingreso vuelve a ver el QR:
+
+```bash
+curl -ks -X POST https://localhost/api/plataforma/mfa/restablecer/<id-del-usuario> \
+  -H "Host: $DOMINIO" -H "Authorization: Bearer <token-del-superadmin>"
+```
+
+### Síntomas
+
+| Síntoma | Causa casi siempre |
+|---|---|
+| «El código no es correcto» con un código recién leído | **Relojes desfasados.** La ventana es de 90 segundos. Compare `date` en el servidor con la hora del teléfono (que debe estar en automático) |
+| «Ese código ya se usó» | Correcto y a propósito: un código vale una sola vez. Espere al siguiente |
+| «Demasiados intentos fallidos» | Cinco fallos bloquean 15 minutos. Se espera, o se restablece el enrolamiento |
+| «No se pudo verificar el segundo factor» | Cambió `JWT_SECRET`: los secretos guardados ya no se pueden descifrar y hay que volver a enrolar a todos |
+
+> 🔴 **Cambiar `JWT_SECRET` invalida todos los enrolamientos**, porque con esa
+> llave se cifran los secretos TOTP. Antes de tocarla, desactive el 2FA desde
+> Plataforma; después, cada usuario tendrá que escanear otra vez.
+
+---
+
 ## Respaldos
 
 ```bash

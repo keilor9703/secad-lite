@@ -110,6 +110,14 @@ export class AdminService {
   probarEls(telefono: string): Observable<{ ok: boolean; mensaje: string }> {
     return this.http.post<{ ok: boolean; mensaje: string }>(`${this.base}/plataforma/els/probar`, { telefono });
   }
+
+  // --- Política de doble factor (solo superadmin desde Plataforma) ---
+  verConfigMfa(): Observable<ConfigMfaVisible> {
+    return this.http.get<ConfigMfaVisible>(`${this.base}/plataforma/mfa`);
+  }
+  guardarConfigMfa(exigido: boolean): Observable<ConfigMfaVisible> {
+    return this.http.post<ConfigMfaVisible>(`${this.base}/plataforma/mfa`, { exigido });
+  }
 }
 
 export interface ConfigSmsVisible {
@@ -147,4 +155,17 @@ export interface ConfigElsGuardar {
   clienteSecreto?: string;
   casoPorDefecto?: string | null;
   activo?: boolean;
+}
+
+/** Política de doble factor de la plataforma. */
+export interface ConfigMfaVisible {
+  exigido: boolean;
+  /**
+   * El entorno lo apagó con MFA_OBLIGATORIO=false. Cuando es true, el
+   * interruptor de la pantalla no manda — y hay que decirlo, o el
+   * administrador vería «exigido» sin entender por qué nadie lo pide.
+   */
+  forzadoPorEntorno: boolean;
+  actualizadoPor: string | null;
+  actualizadoEn: string | null;
 }
