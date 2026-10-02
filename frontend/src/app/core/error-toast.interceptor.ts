@@ -15,7 +15,7 @@ import { AuthService } from './auth.service';
  *   un mensaje que se entiende. Sin esto, un servidor que rechaza los trozos
  *   tapaba la pantalla de avisos idénticos encima del video del ciudadano.
  */
-const SILENCIOSAS = ['/auth/login', '/chunk'];
+const SILENCIOSAS = ['/auth/login', '/chunk', '/els/ubicacion'];
 
 /**
  * Avisa con un toast cualquier petición que el backend rechace, además del

@@ -1,7 +1,7 @@
 import { ChangeDetectionStrategy, Component, OnInit, computed, inject, signal } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormControl, FormGroup, FormsModule, ReactiveFormsModule, Validators } from '@angular/forms';
-import { AdminService, ConfigSmsGuardar, ConfigSmsVisible } from '../../core/admin.service';
+import { AdminService, ConfigElsGuardar, ConfigElsVisible, ConfigSmsGuardar, ConfigSmsVisible } from '../../core/admin.service';
 import { EstadoSuscripcion, PlanTenant, Tenant } from '../../core/models';
 import { SelectorMunicipioComponent } from '../../shared/selector-municipio/selector-municipio';
 import { SelectorComponent } from '../../shared/selector/selector';
@@ -88,6 +88,7 @@ export class PlataformaComponent implements OnInit {
     { clave: 'api', nombre: 'API entrante' },
     { clave: 'cti', nombre: 'CTI / YACO (barra embebida)' },
     { clave: 'videollamada', nombre: 'Videollamada con ciudadano' },
+    { clave: 'els', nombre: 'Geolocalización del llamante (Android ELS)' },
   ];
 
   readonly nuevoTenantForm = new FormGroup({
@@ -104,6 +105,7 @@ export class PlataformaComponent implements OnInit {
   ngOnInit(): void {
     this.cargar();
     this.cargarSms();
+    this.cargarEls();
   }
 
   // --- SMS Global ---
@@ -129,6 +131,51 @@ export class PlataformaComponent implements OnInit {
         this.smsExito.set('Configuración de SMS guardada.');
       },
       error: () => this.smsError.set('No fue posible guardar la configuración de SMS.'),
+    });
+  }
+
+  // --- Geolocalización ELS global ---
+  readonly elsConfig = signal<ConfigElsVisible | null>(null);
+  readonly elsError = signal('');
+  readonly elsExito = signal('');
+  readonly elsProbandoNumero = signal('');
+  readonly elsProbando = signal(false);
+
+  cargarEls(): void {
+    this.admin.verConfigEls().subscribe({
+      next: (cfg) => this.elsConfig.set(cfg),
+      error: () => this.elsError.set('No fue posible cargar la configuración de geolocalización.'),
+    });
+  }
+
+  guardarEls(datos: Partial<ConfigElsGuardar>): void {
+    this.elsError.set('');
+    this.elsExito.set('');
+    this.admin.guardarConfigEls(datos).subscribe({
+      next: (cfg) => {
+        this.elsConfig.set(cfg);
+        this.elsExito.set('Configuración de geolocalización guardada.');
+      },
+      error: () => this.elsError.set('No fue posible guardar la configuración de geolocalización.'),
+    });
+  }
+
+  probarEls(): void {
+    const num = this.elsProbandoNumero().trim();
+    if (!num) return;
+    this.elsProbando.set(true);
+    this.elsError.set('');
+    this.elsExito.set('');
+    this.admin.probarEls(num).subscribe({
+      next: (res) => {
+        this.elsProbando.set(false);
+        if (res.ok) this.elsExito.set(res.mensaje);
+        else this.elsError.set(res.mensaje);
+      },
+      error: () => {
+        this.elsProbando.set(false);
+        this.elsError.set('No fue posible consultar la ubicación de prueba.');
+      },
     });
   }
 

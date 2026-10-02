@@ -134,7 +134,13 @@
               </div>
               <div class="field">
                 <label for="ftel">Teléfono</label>
-                <input id="ftel" formControlName="telefono" placeholder="Abonado" />
+                <input id="ftel" formControlName="telefono" placeholder="Abonado"
+                  (blur)="consultarEls()" />
+                @if (consultandoEls()) {
+                  <small class="rec-els">Consultando la ubicación del teléfono…</small>
+                } @else if (avisoEls()) {
+                  <small class="rec-els">{{ avisoEls() }}</small>
+                }
               </div>
               <div class="field span2">
                 <label for="fdirll">Dirección de quien llama</label>

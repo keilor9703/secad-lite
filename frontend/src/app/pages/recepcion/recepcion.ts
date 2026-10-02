@@ -5,6 +5,7 @@ import { firstValueFrom } from 'rxjs';
 import { RouterLink } from '@angular/router';
 import { CasosService } from '../../core/casos.service';
 import { PbxService } from '../../core/pbx.service';
+import { ElsService } from '../../core/els.service';
 import { CatalogosService } from '../../core/catalogos.service';
 import { AuthService } from '../../core/auth.service';
 import { AdminService } from '../../core/admin.service';
@@ -39,6 +40,7 @@ export class RecepcionComponent implements OnInit {
   private geografia = inject(GeografiaService);
   private googleMaps = inject(GoogleMapsLoaderService);
   private pbx = inject(PbxService);
+  private els = inject(ElsService);
   private toast = inject(ToastService);
 
   readonly casos = signal<Caso[]>([]);
@@ -76,6 +78,17 @@ export class RecepcionComponent implements OnInit {
    * cancela sin guardar (ver `limpiarForm`).
    */
   private readonly llamadaEnCurso = signal<Llamada | null>(null);
+
+  /**
+   * Qué dijo la geolocalización automática del último número consultado, para
+   * que el operador sepa de dónde salió el punto del mapa. Un punto que
+   * aparece solo, sin explicación, no es de fiar en una emergencia.
+   */
+  readonly avisoEls = signal('');
+  /** Hay una consulta en curso: se avisa en vez de dejar la pantalla muda. */
+  readonly consultandoEls = signal(false);
+  /** Último número consultado: no se vuelve a gastar una consulta por él. */
+  private telefonoConsultado = '';
   readonly hayLlamadaEnCurso = computed(() => !!this.llamadaEnCurso());
 
   esLaLlamadaEnCurso(l: Llamada): boolean {
@@ -94,6 +107,9 @@ export class RecepcionComponent implements OnInit {
     this.pbx.reclamar(l.id).subscribe({
       next: (llamada) => {
         this.form.controls.telefono.setValue(llamada.numero);
+        // La llamada entró por la planta: se pregunta de inmediato dónde
+        // estaba el teléfono, que es justo el caso que esto resuelve.
+        this.consultarEls();
         // El "Medio de comunicación" se llena solo según de dónde vino —
         // el operador no tiene que acordarse de cambiarlo a mano.
         this.form.controls.canal.setValue(this.canalDeOrigen(llamada.origen));
@@ -638,6 +654,69 @@ export class RecepcionComponent implements OnInit {
   }
 
   /** Coloca el marcador y refleja las coordenadas en el formulario. */
+  /**
+   * Pregunta al proveedor dónde estaba el teléfono del llamante y, si lo sabe,
+   * pone el punto en el mapa y resuelve dirección y barrio con el mismo camino
+   * que un clic en el mapa.
+   *
+   * Solo actúa sobre un formulario todavía en blanco en su parte de ubicación:
+   * si el operador ya marcó un punto o escribió una dirección, eso es lo que le
+   * dijo el ciudadano de viva voz, y una coordenada automática no tiene por qué
+   * pisarlo. Lo que llega del proveedor es una ayuda, no la verdad.
+   */
+  consultarEls(): void {
+    if (!this.auth.tieneIntegracion('els')) return;
+
+    const telefono = (this.form.controls.telefono.value ?? '').trim();
+    const digitos = telefono.replace(/\D+/g, '');
+    // Menos de siete dígitos no es un abonado: sería gastar una consulta.
+    if (digitos.length < 7 || digitos === this.telefonoConsultado) return;
+
+    const v = this.form.getRawValue();
+    if (v.lat != null || v.lng != null || v.direccion.trim()) {
+      this.avisoEls.set('');
+      return;
+    }
+
+    this.telefonoConsultado = digitos;
+    this.consultandoEls.set(true);
+    this.avisoEls.set('');
+
+    this.els.ubicacion(telefono).subscribe({
+      next: (u) => {
+        this.consultandoEls.set(false);
+        if (!u) {
+          this.avisoEls.set('El teléfono no reportó ubicación automática.');
+          return;
+        }
+        // Si mientras llegaba la respuesta el operador ya ubicó el caso, manda
+        // el operador: estaba hablando con el ciudadano.
+        const ahora = this.form.getRawValue();
+        if (ahora.lat != null || ahora.lng != null || ahora.direccion.trim()) {
+          this.avisoEls.set('Llegó una ubicación automática, pero ya había una puesta a mano.');
+          return;
+        }
+
+        void this.fijarPunto(u.lat, u.lng, true);
+        this.geocodificarInverso(u.lat, u.lng);
+
+        const momento = u.momento ? new Date(u.momento) : null;
+        const hora = momento && !Number.isNaN(momento.getTime())
+          ? momento.toLocaleTimeString('es-CO', { hour: '2-digit', minute: '2-digit' })
+          : null;
+        this.avisoEls.set(
+          'Ubicación automática del teléfono' + (hora ? `, tomada a las ${hora}` : '')
+          + '. Confírmela con el ciudadano.',
+        );
+      },
+      error: () => {
+        // El servicio ya devuelve null ante un fallo; esto es la última red.
+        this.consultandoEls.set(false);
+        this.avisoEls.set('');
+      },
+    });
+  }
+
   private async fijarPunto(lat: number, lng: number, centrar = false): Promise<void> {
     this.form.patchValue({ lat: Number(lat.toFixed(6)), lng: Number(lng.toFixed(6)) });
 

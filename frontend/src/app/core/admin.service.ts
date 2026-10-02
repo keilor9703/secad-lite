@@ -99,6 +99,17 @@ export class AdminService {
   probarSms(numero: string): Observable<{ ok: boolean; mensaje: string }> {
     return this.http.post<{ ok: boolean; mensaje: string }>(`${this.base}/plataforma/sms/probar`, { numero });
   }
+
+  // --- Config de geolocalización ELS global (solo superadmin desde Plataforma) ---
+  verConfigEls(): Observable<ConfigElsVisible> {
+    return this.http.get<ConfigElsVisible>(`${this.base}/plataforma/els`);
+  }
+  guardarConfigEls(datos: Partial<ConfigElsGuardar>): Observable<ConfigElsVisible> {
+    return this.http.post<ConfigElsVisible>(`${this.base}/plataforma/els`, datos);
+  }
+  probarEls(telefono: string): Observable<{ ok: boolean; mensaje: string }> {
+    return this.http.post<{ ok: boolean; mensaje: string }>(`${this.base}/plataforma/els/probar`, { telefono });
+  }
 }
 
 export interface ConfigSmsVisible {
@@ -115,5 +126,25 @@ export interface ConfigSmsGuardar {
   apiKey?: string;
   baseUrl?: string | null;
   sender?: string | null;
+  activo?: boolean;
+}
+
+/** Configuración del proveedor de geolocalización ELS; el secreto nunca viaja. */
+export interface ConfigElsVisible {
+  baseUrl: string | null;
+  agencia: string | null;
+  clienteId: string | null;
+  casoPorDefecto: string | null;
+  activo: boolean;
+  tieneSecreto: boolean;
+  actualizadoPor: string | null;
+  actualizadoEn: string | null;
+}
+export interface ConfigElsGuardar {
+  baseUrl?: string | null;
+  agencia?: string | null;
+  clienteId?: string | null;
+  clienteSecreto?: string;
+  casoPorDefecto?: string | null;
   activo?: boolean;
 }

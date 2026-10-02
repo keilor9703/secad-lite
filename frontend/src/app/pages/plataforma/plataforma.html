@@ -115,6 +115,74 @@
     }
   </div>
 
+  <div class="panel card sms-global">
+    <h2>📍 Geolocalización del llamante (Android ELS)</h2>
+    <p class="hint">Proveedor que entrega las coordenadas del teléfono desde el que se llama.
+      Esta configuración aplica para todas las instancias que tengan habilitada la
+      integración de geolocalización; qué instancias la tienen se decide abajo, en cada una.</p>
+
+    @if (elsError()) {
+      <p class="error">{{ elsError() }}</p>
+    }
+    @if (elsExito()) {
+      <p class="exito">{{ elsExito() }}</p>
+    }
+
+    @if (elsConfig(); as cfg) {
+      <div class="t-grid">
+        <label class="campo">
+          <span>Host / Base URL</span>
+          <input type="text" [value]="cfg.baseUrl ?? ''" placeholder="https://api-sandbox.rapidsos.com"
+                 (change)="guardarEls({ baseUrl: $any($event.target).value })" />
+        </label>
+        <label class="campo">
+          <span>Agencia</span>
+          <input type="text" [value]="cfg.agencia ?? ''" placeholder="antioquia"
+                 (change)="guardarEls({ agencia: $any($event.target).value })" />
+        </label>
+        <label class="campo">
+          <span>Caso por defecto</span>
+          <input type="text" [value]="cfg.casoPorDefecto ?? ''" placeholder="abc123"
+                 (change)="guardarEls({ casoPorDefecto: $any($event.target).value })" />
+        </label>
+      </div>
+      <div class="t-grid">
+        <label class="campo">
+          <span>Usuario (id)</span>
+          <input type="text" [value]="cfg.clienteId ?? ''" placeholder="Identificador que dio el proveedor"
+                 (change)="guardarEls({ clienteId: $any($event.target).value })" />
+        </label>
+        <label class="campo">
+          <span>Secreto {{ cfg.tieneSecreto ? '(configurado ✓)' : '(sin configurar)' }}</span>
+          <input type="password" placeholder="Pegue el nuevo secreto aquí"
+                 (change)="guardarEls({ clienteSecreto: $any($event.target).value }); $any($event.target).value = ''" />
+        </label>
+        <label class="campo">
+          <span>Estado</span>
+          <app-selector [valorActual]="cfg.activo" (cambio)="guardarEls({ activo: $any($event) })">
+            <app-opcion [valor]="true">Activo</app-opcion>
+            <app-opcion [valor]="false">Desactivado</app-opcion>
+          </app-selector>
+        </label>
+      </div>
+      @if (cfg.actualizadoPor) {
+        <p class="hint">Última actualización por {{ cfg.actualizadoPor }}
+          @if (cfg.actualizadoEn) { el {{ cfg.actualizadoEn | date: 'dd/MM/yyyy HH:mm' }} }
+        </p>
+      }
+      <div class="sms-probar">
+        <input type="tel" inputmode="tel" placeholder="Número para consultar (ej. 3224445555)"
+               [ngModel]="elsProbandoNumero()" (ngModelChange)="elsProbandoNumero.set($event)" />
+        <button type="button" class="btn btn--ghost" [disabled]="elsProbando() || !elsProbandoNumero().trim()"
+                (click)="probarEls()">
+          {{ elsProbando() ? 'Consultando…' : 'Consultar ubicación de prueba' }}
+        </button>
+      </div>
+    } @else {
+      <p class="hint">Cargando configuración…</p>
+    }
+  </div>
+
   @if (tenants().length && !tenantsFiltrados().length) {
     <p class="vacio-inline">Ninguna instancia coincide con la búsqueda.</p>
   }

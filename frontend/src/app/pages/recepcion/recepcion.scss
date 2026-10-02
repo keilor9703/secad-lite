@@ -275,3 +275,13 @@
   text-overflow: ellipsis; white-space: nowrap;
 }
 .sug-chip:hover { background: var(--accent); color: var(--on-accent); }
+
+/* Aviso de la geolocalización automática, bajo el teléfono. Discreto: es una
+   pista para el operador, no una alarma. */
+.rec-els {
+  display: block;
+  margin-top: 0.2rem;
+  color: var(--muted);
+  font-size: 0.78rem;
+  line-height: 1.3;
+}
