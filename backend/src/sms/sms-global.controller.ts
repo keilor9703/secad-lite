@@ -34,7 +34,11 @@ export class SmsGlobalController {
   async probar(@Body() dto: { numero?: string }): Promise<{ ok: boolean; mensaje: string }> {
     if (!dto?.numero?.trim()) return { ok: false, mensaje: 'Indique un número de destino.' };
     const ok = await this.sms.enviar(dto.numero.trim(),
-      'FALCON CAD: mensaje de prueba. Si lo recibió, el envío de SMS está bien configurado.');
+      // Sin tildes a propósito: un solo caracter fuera del alfabeto GSM-7
+      // obliga a codificar TODO el mensaje en Unicode, que parte en 70
+      // caracteres en vez de 160 — este se iría en dos SMS y al doble de
+      // coste. El del enlace ya está escrito así por lo mismo.
+      'FALCON CAD: mensaje de prueba. Si lo recibio, el envio de SMS esta bien configurado.');
     return {
       ok,
       mensaje: ok
