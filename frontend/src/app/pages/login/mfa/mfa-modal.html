@@ -85,7 +85,7 @@
       @for (d of digitos(); track $index) {
         <input type="text" inputmode="numeric" autocomplete="one-time-code"
                maxlength="6" [attr.aria-label]="'Dígito ' + ($index + 1)"
-               [disabled]="cargando()"
+               [disabled]="verificando()"
                (input)="alEscribir($index, $event)"
                (keydown)="alTeclear($index, $event)" />
       }
@@ -96,12 +96,12 @@
     }
 
     <div class="mfa-acciones">
-      <button type="button" class="btn btn--ghost" (click)="cancelado.emit()" [disabled]="cargando()">
+      <button type="button" class="btn btn--ghost" (click)="cancelado.emit()" [disabled]="verificando()">
         Cancelar
       </button>
       <button type="button" class="btn btn--primary" (click)="enviar()"
-              [disabled]="!completo() || cargando()">
-        {{ cargando() ? 'Verificando…' : (enrolando() ? 'Vincular y entrar' : 'Verificar') }}
+              [disabled]="!completo() || verificando()">
+        {{ verificando() ? 'Verificando…' : (enrolando() ? 'Vincular y entrar' : 'Verificar') }}
       </button>
     </div>
 
