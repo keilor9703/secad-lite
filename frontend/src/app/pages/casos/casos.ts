@@ -3,6 +3,7 @@ import { CommonModule } from '@angular/common';
 import { FormControl, FormGroup, ReactiveFormsModule } from '@angular/forms';
 import { RouterLink } from '@angular/router';
 import { CasosService } from '../../core/casos.service';
+import { coincideBusqueda } from './casos-busqueda';
 import { AuthService } from '../../core/auth.service';
 import { CatalogosService } from '../../core/catalogos.service';
 import { Agencia, Canal, CanalAtencion, Caso, EstadoCaso, PrioridadCaso } from '../../core/models';
@@ -57,9 +58,7 @@ export class CasosComponent {
     return this.casos().filter((c) => {
       if (e && c.estado !== e) return false;
       if (p && c.prioridad !== p) return false;
-      if (!q) return true;
-      return [c.titulo, c.ciudadano, c.direccion, c.barrio, c.codigoCaso, c.agencia]
-        .some((v) => (v ?? '').toLowerCase().includes(q));
+      return coincideBusqueda(c, q);
     });
   });
 

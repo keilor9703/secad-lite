@@ -18,7 +18,7 @@
 
   <div class="filtros" [formGroup]="filtroForm">
     <input formControlName="texto"
-      placeholder="Buscar por motivo, ciudadano, dirección, código…" aria-label="Buscar casos" />
+      placeholder="Buscar por motivo, ciudadano, dirección, código, id de caso o de llamada…" aria-label="Buscar casos" />
     <app-selector formControlName="estadoSel" [ariaLabel]="'Filtrar por estado'">
       <app-opcion [valor]="''">Todos los estados</app-opcion>
       @for (e of estados; track e) {
