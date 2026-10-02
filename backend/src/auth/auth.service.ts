@@ -75,6 +75,16 @@ export class AuthService {
     const u = await this.usuarios.buscarPorId(usuarioId);
     if (!u) throw new UnauthorizedException('La cuenta ya no está disponible.');
 
+    // Se vuelve a comprobar el estado de la instancia, aunque el login ya lo
+    // hizo: entre una cosa y otra pasaron los minutos que el usuario tardó en
+    // sacar el teléfono y teclear el código, y en ese rato la instancia pudo
+    // quedar suspendida. El reto acredita que la contraseña era correcta, no
+    // que el municipio siga al día.
+    if (u.rol !== 'superadmin') {
+      const impedimento = await this.tenants.impedimento(u.tenant ?? null);
+      if (impedimento) throw new UnauthorizedException(impedimento.motivo);
+    }
+
     const permisos = await this.roles.permisosDe(u.tenant ?? null, u.rol);
     const { integraciones, logoDataUrl, municipioCodigo } = await this.datosTenant(u.tenant ?? null);
     return this.emitir(
