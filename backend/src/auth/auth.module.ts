@@ -7,6 +7,11 @@ import { AuthService } from './auth.service';
 import { UsuariosModule } from '../usuarios/usuarios.module';
 import { RolesModule } from '../roles/roles.module';
 import { TenantsModule } from '../tenants/tenants.module';
+import { TypeOrmModule } from '@nestjs/typeorm';
+import { UsuarioEntity } from '../usuarios/usuario.entity';
+import { ConfigMfaEntity } from './mfa/config-mfa.entity';
+import { MfaService } from './mfa/mfa.service';
+import { MfaGlobalController } from './mfa/mfa-global.controller';
 
 /** Valores que jamás pueden firmar sesiones en un despliegue publicado. */
 const SECRETOS_DE_DESARROLLO = ['dev-secret', 'cambia-este-secreto-en-produccion'];
@@ -35,6 +40,7 @@ function resolverSecreto(config: ConfigService): string {
     UsuariosModule,
     RolesModule,
     TenantsModule,
+    TypeOrmModule.forFeature([UsuarioEntity, ConfigMfaEntity]),
     JwtModule.registerAsync({
       imports: [ConfigModule],
       inject: [ConfigService],
@@ -44,8 +50,8 @@ function resolverSecreto(config: ConfigService): string {
       }),
     }),
   ],
-  controllers: [AuthController],
-  providers: [AuthService],
-  exports: [JwtModule],
+  controllers: [AuthController, MfaGlobalController],
+  providers: [AuthService, MfaService],
+  exports: [JwtModule, MfaService],
 })
 export class AuthModule {}

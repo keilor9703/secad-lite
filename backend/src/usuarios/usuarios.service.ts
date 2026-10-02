@@ -81,6 +81,15 @@ export class UsuariosService implements OnModuleInit {
    * tenant ya se conozca (viaja en el JWT) — es la búsqueda sin ambigüedad.
    * `tenant: null` es el caso del superadmin (no pertenece a ningún tenant).
    */
+  /**
+   * La cuenta por su id. Es la búsqueda sin ambigüedad posible: el username
+   * es único en la plataforma salvo por duplicados heredados, así que todo lo
+   * que continúe una sesión ya empezada —el segundo factor— debe usar esta.
+   */
+  buscarPorId(id: string): Promise<UsuarioEntity | null> {
+    return this.repo.findOne({ where: { id, activo: true } });
+  }
+
   buscarPorUsernameYTenant(username: string, tenant: string | null): Promise<UsuarioEntity | null> {
     return this.repo.findOne({
       where: { username: username.trim().toLowerCase(), tenant: tenant ?? IsNull(), activo: true },

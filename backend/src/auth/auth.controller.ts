@@ -1,7 +1,8 @@
 import { Body, Controller, ForbiddenException, Get, Post, UseGuards } from '@nestjs/common';
 import { Throttle, ThrottlerGuard } from '@nestjs/throttler';
 import { AuthService } from './auth.service';
-import { CambiarContrasenaDto, LoginDto } from './dto/login.dto';
+import { CambiarContrasenaDto, ConfirmarMfaDto, LoginDto, VerificarMfaDto } from './dto/login.dto';
+import { MfaService } from './mfa/mfa.service';
 import { Public } from './public.decorator';
 import { Usuario } from '../common/usuario.decorator';
 import { JwtPayload } from './auth.service';
@@ -14,6 +15,7 @@ export class AuthController {
     private readonly auth: AuthService,
     private readonly usuarios: UsuariosService,
     private readonly auditoria: AuditoriaAdminService,
+    private readonly mfa: MfaService,
   ) {}
 
   /**
@@ -27,6 +29,48 @@ export class AuthController {
   @Post('login')
   login(@Body() dto: LoginDto) {
     return this.auth.login(dto);
+  }
+
+  // ── Doble factor ────────────────────────────────────────────────────────
+  // Los tres son públicos porque el usuario todavía NO tiene sesión: lo que
+  // acredita quién es, es el token de reto que devolvió el login. Y los tres
+  // llevan tope de intentos: un código de seis dígitos se adivina en un millón
+  // de pruebas, que sin límite son minutos.
+
+  /**
+   * POST /api/auth/mfa/inscripcion — genera el secreto y el QR para un usuario
+   * que todavía no tiene segundo factor. No guarda nada: el secreto viaja
+   * dentro del token de inscripción hasta que se confirme con un código.
+   */
+  @Public()
+  @UseGuards(ThrottlerGuard)
+  @Throttle({ default: { limit: 10, ttl: 60_000 } })
+  @Post('mfa/inscripcion')
+  inscripcion(@Body() dto: { reto?: string }) {
+    return this.mfa.iniciarInscripcion(dto?.reto ?? '');
+  }
+
+  /**
+   * POST /api/auth/mfa/confirmar — el usuario teclea el primer código. Si es
+   * correcto, se guarda el secreto y queda autenticado.
+   */
+  @Public()
+  @UseGuards(ThrottlerGuard)
+  @Throttle({ default: { limit: 10, ttl: 60_000 } })
+  @Post('mfa/confirmar')
+  async confirmar(@Body() dto: ConfirmarMfaDto) {
+    const usuarioId = await this.mfa.confirmarInscripcion(dto?.inscripcion ?? '', dto?.codigo ?? '');
+    return this.auth.sesionDe(usuarioId);
+  }
+
+  /** POST /api/auth/mfa/verificar — usuario ya enrolado que presenta su código. */
+  @Public()
+  @UseGuards(ThrottlerGuard)
+  @Throttle({ default: { limit: 10, ttl: 60_000 } })
+  @Post('mfa/verificar')
+  async verificar(@Body() dto: VerificarMfaDto) {
+    const usuarioId = await this.mfa.verificar(dto?.reto ?? '', dto?.codigo ?? '');
+    return this.auth.sesionDe(usuarioId);
   }
 
   /**

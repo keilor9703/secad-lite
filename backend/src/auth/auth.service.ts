@@ -1,6 +1,7 @@
 import { Injectable, UnauthorizedException } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
-import { LoginDto, LoginResult } from './dto/login.dto';
+import { LoginDto, LoginResult, RetoMfaResult } from './dto/login.dto';
+import { MfaService } from './mfa/mfa.service';
 import { UsuariosService } from '../usuarios/usuarios.service';
 import { RolesService } from '../roles/roles.service';
 import { TenantsService } from '../tenants/tenants.service';
@@ -32,9 +33,10 @@ export class AuthService {
     private readonly usuarios: UsuariosService,
     private readonly roles: RolesService,
     private readonly tenants: TenantsService,
+    private readonly mfa: MfaService,
   ) {}
 
-  async login(dto: LoginDto): Promise<LoginResult> {
+  async login(dto: LoginDto): Promise<LoginResult | RetoMfaResult> {
     if (!dto?.usuario?.trim() || !dto?.contrasena) {
       throw new UnauthorizedException('Diligencie usuario y contraseña.');
     }
@@ -46,6 +48,33 @@ export class AuthService {
       const impedimento = await this.tenants.impedimento(u.tenant);
       if (impedimento) throw new UnauthorizedException(impedimento.motivo);
     }
+    // Segundo factor. El superadministrador queda fuera a propósito: es quien
+    // tiene que poder entrar a desactivarlo si algo falla, y si dependiera de
+    // él un problema aquí dejaría la plataforma sin nadie que la arregle.
+    if (!this.mfa.exento(u.rol) && await this.mfa.exigido()) {
+      return {
+        requiereMfa: true,
+        inscripcion: !(await this.mfa.tieneSecreto(u.id)),
+        reto: this.mfa.firmarReto(u.id),
+        nombre: u.nombre,
+      };
+    }
+
+    return this.sesionDe(u.id);
+  }
+
+  /**
+   * Emite la sesión de un usuario ya autenticado por completo.
+   *
+   * Separado del login porque ahora hay dos caminos que terminan aquí: el
+   * directo (sin 2FA) y el que pasa por el código. Los permisos y los datos
+   * del tenant se vuelven a resolver en este punto, no en el del reto: entre
+   * una cosa y otra pueden pasar minutos.
+   */
+  async sesionDe(usuarioId: string): Promise<LoginResult> {
+    const u = await this.usuarios.buscarPorId(usuarioId);
+    if (!u) throw new UnauthorizedException('La cuenta ya no está disponible.');
+
     const permisos = await this.roles.permisosDe(u.tenant ?? null, u.rol);
     const { integraciones, logoDataUrl, municipioCodigo } = await this.datosTenant(u.tenant ?? null);
     return this.emitir(

@@ -75,4 +75,29 @@ export class UsuarioEntity {
 
   @Column({ type: 'boolean', default: true })
   activo!: boolean;
+
+  // ── Doble factor (TOTP) ────────────────────────────────────────────────
+  // El secreto va CIFRADO en reposo (common/secretos.ts). Nunca sale hacia el
+  // navegador: solo se usa dentro del servidor para verificar el código.
+
+  /** Secreto TOTP cifrado. Vacío = el usuario todavía no se ha enrolado. */
+  @Column({ type: 'varchar', length: 500, nullable: true })
+  mfaSecreto?: string | null;
+
+  @Column({ type: 'timestamptz', nullable: true })
+  mfaActivadoEn?: Date | null;
+
+  /**
+   * Paso de tiempo del último código aceptado. Impide que el MISMO código
+   * valga dos veces dentro de su ventana de 90 segundos: sin esto, quien vea
+   * el código por encima del hombro puede usarlo después.
+   */
+  @Column({ type: 'bigint', nullable: true })
+  mfaUltimoContador?: string | null;
+
+  @Column({ type: 'int', default: 0 })
+  mfaIntentosFallidos!: number;
+
+  @Column({ type: 'timestamptz', nullable: true })
+  mfaBloqueoHasta?: Date | null;
 }

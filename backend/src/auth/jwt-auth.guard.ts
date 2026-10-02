@@ -29,11 +29,23 @@ export class JwtAuthGuard implements CanActivate {
     if (scheme !== 'Bearer' || !token) {
       throw new UnauthorizedException('Falta el token de autenticación.');
     }
+    let claims: JwtPayload & { uso?: string };
     try {
-      (req as any).user = this.jwt.verify<JwtPayload>(token);
-      return true;
+      claims = this.jwt.verify<JwtPayload & { uso?: string }>(token);
     } catch {
       throw new UnauthorizedException('Token inválido o expirado.');
     }
+
+    // Los tokens intermedios del doble factor —el del reto y el de la
+    // inscripción— se firman con la MISMA llave que los de sesión, porque el
+    // servicio de JWT es uno solo. Sin este rechazo, presentar uno de ellos
+    // como `Bearer` daría una sesión completa sin haber pasado el segundo
+    // factor: el 2FA se saltaría entero. Un token de sesión nunca lleva `uso`.
+    if (claims?.uso) {
+      throw new UnauthorizedException('Este token no autoriza una sesión.');
+    }
+
+    (req as any).user = claims;
+    return true;
   }
 }

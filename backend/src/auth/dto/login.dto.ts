@@ -50,3 +50,30 @@ export interface LoginResult {
    */
   municipioCodigo: string | null;
 }
+
+/**
+ * Respuesta del login cuando falta el segundo factor.
+ *
+ * Deliberadamente NO trae token de sesión: hasta que el código se verifique,
+ * el usuario no tiene sesión de ninguna clase.
+ */
+export interface RetoMfaResult {
+  requiereMfa: true;
+  /** true = todavía no se ha enrolado y hay que mostrarle el QR. */
+  inscripcion: boolean;
+  /** Token efímero que acredita que usuario y contraseña ya se validaron. */
+  reto: string;
+  /** Para saludarlo por su nombre mientras escanea. */
+  nombre: string;
+}
+
+export class VerificarMfaDto {
+  reto!: string;
+  codigo!: string;
+}
+
+export class ConfirmarMfaDto {
+  reto!: string;
+  inscripcion!: string;
+  codigo!: string;
+}
