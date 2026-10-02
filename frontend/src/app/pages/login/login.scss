@@ -58,3 +58,94 @@ form { display: flex; flex-direction: column; gap: 0.9rem; }
 .foot { font-size: 0.78rem; color: var(--muted); margin: 0; }
 
 .tema-fila { display: flex; justify-content: flex-end; margin-bottom: -0.4rem; }
+
+/* ── Salida hacia el sistema ─────────────────────────────────────────────
+   La tarjeta se va antes de navegar. Sin esto, entrar es un corte seco de una
+   pantalla a otra; con esto, el sistema parece abrirse. 260 ms es lo que dura
+   la navegación: el ojo registra el cambio y nadie siente que espera. */
+.login { transition: opacity 0.26s ease; }
+
+.login--saliendo {
+  opacity: 0;
+  pointer-events: none;
+
+  .login-card { transform: translateY(-6px) scale(0.99); }
+}
+
+.login-card { transition: transform 0.26s cubic-bezier(0.22, 1, 0.36, 1); }
+
+/* ── Credenciales, una vez entregadas ────────────────────────────────────
+   Siguen a la vista —el operador quiere ver con qué usuario está entrando—
+   pero dejan de ser el sitio donde escribir. */
+.credenciales {
+  display: flex;
+  flex-direction: column;
+  gap: 0.9rem;
+  transition: opacity 0.35s ease;
+}
+
+.credenciales--atras {
+  opacity: 0.45;
+
+  input { cursor: default; }
+}
+
+/* ── Segundo paso, desplegado dentro del formulario ──────────────────────
+   `grid-template-rows: 0fr → 1fr` es la única forma limpia de animar hacia
+   una altura automática sin medirla con JavaScript. */
+.paso2 {
+  display: grid;
+  grid-template-rows: 0fr;
+  transition: grid-template-rows 0.46s cubic-bezier(0.22, 1, 0.36, 1);
+
+  > div { overflow: hidden; min-height: 0; }
+
+  &--abierto { grid-template-rows: 1fr; }
+}
+
+.paso2-caja {
+  display: grid;
+  gap: 0.75rem;
+  margin-top: 0.1rem;
+  padding: 0.95rem 0.9rem 0.85rem;
+  border-radius: 14px;
+  border: 1px solid color-mix(in srgb, var(--accent) 22%, var(--border));
+  background:
+    linear-gradient(to bottom, color-mix(in srgb, var(--accent-soft) 55%, transparent), transparent 60%),
+    var(--surface);
+  /* El contenido entra un instante después que la caja, para que no parezca
+     que todo aparece de golpe. */
+  animation: paso2-entrar 0.5s 0.08s cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+@keyframes paso2-entrar {
+  from { opacity: 0; transform: translateY(-6px) }
+  to   { opacity: 1; transform: none }
+}
+
+.paso2-cab {
+  display: flex;
+  gap: 0.55rem;
+  align-items: flex-start;
+
+  strong { display: block; font-size: 0.86rem; letter-spacing: -0.01em; }
+  p { margin: 0.1rem 0 0; font-size: 0.76rem; color: var(--ink-soft); line-height: 1.4; }
+}
+
+.paso2-icono {
+  flex: none;
+  display: grid;
+  place-items: center;
+  width: 1.65rem;
+  height: 1.65rem;
+  border-radius: 50%;
+  background: var(--accent-soft);
+  color: var(--accent-deep);
+}
+
+.paso2-pie {
+  margin: 0;
+  font-size: 0.72rem;
+  color: var(--muted);
+  line-height: 1.4;
+}

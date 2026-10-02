@@ -1,4 +1,6 @@
 import { TestBed } from '@angular/core/testing';
+import { provideHttpClient } from '@angular/common/http';
+import { provideRouter } from '@angular/router';
 import { App } from './app';
 
 /**
@@ -13,7 +15,13 @@ import { App } from './app';
  */
 describe('App', () => {
   beforeEach(async () => {
-    await TestBed.configureTestingModule({ imports: [App] }).compileComponents();
+    // El componente raíz monta el panel flotante de videollamada, que vive por
+    // encima del enrutador y pide HttpClient. Sin estos proveedores, la prueba
+    // falla por el montaje y no por lo que quiere comprobar.
+    await TestBed.configureTestingModule({
+      imports: [App],
+      providers: [provideHttpClient(), provideRouter([])],
+    }).compileComponents();
   });
 
   it('arranca', () => {

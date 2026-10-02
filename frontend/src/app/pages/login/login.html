@@ -1,4 +1,4 @@
-<div class="login">
+<div class="login" [class.login--saliendo]="saliendo()">
   <div class="login-card card">
     <div class="tema-fila"><app-tema-toggle /></div>
     <div class="brand">
@@ -10,33 +10,77 @@
     </div>
 
     <form [formGroup]="form" (ngSubmit)="entrar()">
-      <div class="field">
-        <label for="usuario">Usuario</label>
-        <input id="usuario" formControlName="usuario"
-          placeholder="p. ej. operador1" autocomplete="username" />
+      <!-- Con el código pedido, las credenciales quedan atrás: siguen a la
+           vista para dar contexto, pero ya no son donde hay que escribir. -->
+      <div class="credenciales" [class.credenciales--atras]="pidiendoCodigo()">
+        <div class="field">
+          <label for="usuario">Usuario</label>
+          <input id="usuario" formControlName="usuario"
+            placeholder="p. ej. operador1" autocomplete="username"
+            [readonly]="pidiendoCodigo()" />
+        </div>
+
+        <div class="field">
+          <label for="clave">Contraseña</label>
+          <input id="clave" type="password" formControlName="contrasena"
+            placeholder="••••••" autocomplete="current-password"
+            [readonly]="pidiendoCodigo()" />
+        </div>
       </div>
 
-      <div class="field">
-        <label for="clave">Contraseña</label>
-        <input id="clave" type="password" formControlName="contrasena"
-          placeholder="••••••" autocomplete="current-password" />
+      <!-- Segundo paso, desplegado aquí mismo. `grid-template-rows: 0fr → 1fr`
+           para crecer hacia la altura real sin medir nada con JavaScript. -->
+      <div class="paso2" [class.paso2--abierto]="pidiendoCodigo()" aria-live="polite">
+        <div>
+          <div class="paso2-caja">
+            <div class="paso2-cab">
+              <span class="paso2-icono" aria-hidden="true">
+                <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor"
+                     stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round">
+                  <path d="M12 2.5 4.5 5.8v5.4c0 4.6 3.2 8.9 7.5 10.3 4.3-1.4 7.5-5.7 7.5-10.3V5.8L12 2.5Z"/>
+                </svg>
+              </span>
+              <div>
+                <strong>Verificación en dos pasos</strong>
+                <p>Abra su aplicación de autenticación y escriba los seis dígitos.</p>
+              </div>
+            </div>
+
+            @if (pidiendoCodigo()) {
+              <app-codigo-casillas [deshabilitado]="verificando()" [enfocar]="true"
+                                   (completado)="verificar($event)" />
+            }
+
+            <p class="paso2-pie">
+              El código cambia cada 30 segundos. Si no lo acepta, revise que la
+              hora de su teléfono esté en automático.
+            </p>
+          </div>
+        </div>
       </div>
 
       @if (error()) {
-        <p class="error">{{ error() }}</p>
+        <p class="error" role="alert">{{ error() }}</p>
       }
 
-      <button type="submit" class="btn btn--primary full" [disabled]="cargando()">
-        {{ cargando() ? 'Ingresando…' : 'Ingresar' }}
-      </button>
+      @if (pidiendoCodigo()) {
+        <button type="button" class="btn btn--ghost full" (click)="alCancelar()"
+                [disabled]="verificando()">
+          Usar otra cuenta
+        </button>
+      } @else {
+        <button type="submit" class="btn btn--primary full" [disabled]="cargando()">
+          {{ cargando() ? 'Ingresando…' : 'Ingresar' }}
+        </button>
+      }
     </form>
   </div>
 
   <p class="foot">Gestión integral de emergencias · 123 · multi-agencia · multicanal</p>
 </div>
 
-@if (reto(); as r) {
-  <app-mfa-modal [reto]="r" (autenticado)="alAutenticar($event)" (cancelado)="alCancelar()" />
+@if (enrolando()) {
+  <app-mfa-modal [reto]="reto()!" (autenticado)="alAutenticar($event)" (cancelado)="alCancelar()" />
 }
 
 <app-toast />
