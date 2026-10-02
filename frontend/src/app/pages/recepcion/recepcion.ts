@@ -16,7 +16,7 @@ import { AutocompletarComponent, OpcionAutocompletar } from '../../shared/autoco
 import { SelectorComponent } from '../../shared/selector/selector';
 import { OpcionComponent } from '../../shared/selector/opcion';
 import { DictadoComponent } from '../../shared/dictado/dictado';
-import { VideollamadaComponent } from '../despacho/videollamada/videollamada';
+import { AnclajeVideollamadaDirective } from '../../components/videollamada-flotante/anclaje-videollamada.directive';
 import {
   Agencia, Canal, CanalAtencion, Caso, CodigoCaso, CrearCaso, EstadoCaso, Llamada, OrigenLlamada, PrioridadCaso,
 } from '../../core/models';
@@ -26,7 +26,7 @@ import {
   standalone: true,
   imports: [
     CommonModule, ReactiveFormsModule, RouterLink, AutocompletarComponent, SelectorComponent, OpcionComponent,
-    DictadoComponent, VideollamadaComponent,
+    DictadoComponent, AnclajeVideollamadaDirective,
   ],
   templateUrl: './recepcion.html',
   styleUrl: './recepcion.scss',

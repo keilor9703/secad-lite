@@ -194,7 +194,9 @@
              de los primeros segundos, no algo que se busque al final. -->
         <div class="panel-video-detalle">
           <div class="panel-video">
-            <app-videollamada [casoId]="id" [telefono]="casoAbierto()?.telefono ?? null" />
+            <!-- Hueco donde se acopla el panel. El panel vive en app.html; esto solo
+                 dice dónde ponerse cuando el operador lo acopla. -->
+            <div [appAnclajeVideollamada]="id" [telefono]="casoAbierto()?.telefono ?? null"></div>
           </div>
           <div class="panel-detalle">
             <app-detalle [casoId]="id" [incrustado]="true" [canalId]="canalActivo()" (cambiado)="cargar(true)" />

@@ -1,0 +1,122 @@
+:host { display: contents; }
+
+.vfl {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  border-radius: var(--radius);
+  border: 1px solid var(--border);
+  background: var(--surface);
+  overflow: hidden;
+}
+
+/* Flotante: por encima de todo, movible y redimensionable.
+   `resize: both` del navegador en vez de un tirador propio — es el gesto que
+   la gente ya conoce, y no hay que mantener código para reinventarlo. */
+.vfl--flotante {
+  position: fixed;
+  z-index: 900;
+  width: min(26rem, calc(100vw - 2rem));
+  height: min(32rem, calc(100dvh - 3rem));
+  min-width: 18rem;
+  min-height: 14rem;
+  max-width: calc(100vw - 1rem);
+  max-height: calc(100dvh - 1rem);
+  resize: both;
+  box-shadow: 0 16px 44px rgba(8, 18, 26, 0.3);
+}
+
+/* Acoplada: ocupa el hueco del caso y se comporta como un panel más. */
+.vfl:not(.vfl--flotante) {
+  width: 100%;
+  border: 0;
+  background: none;
+  border-radius: 0;
+}
+
+.vfl-barra {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+  padding: 0.4rem 0.4rem 0.4rem 0.7rem;
+  border-bottom: 1px solid var(--border);
+  background: var(--surface-2);
+  user-select: none;
+}
+
+.vfl--flotante .vfl-barra { cursor: grab; }
+.vfl--flotante .vfl-barra:active { cursor: grabbing; }
+
+/* Acoplada no se arrastra: la barra queda como simple encabezado. */
+.vfl:not(.vfl--flotante) .vfl-barra {
+  background: none;
+  border-bottom: 0;
+  padding-left: 0;
+  padding-right: 0;
+}
+
+.vfl-titulo {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  font-size: 0.82rem;
+  font-weight: 600;
+  color: var(--ink-soft);
+}
+
+/* Verde solo con llamada viva: de un vistazo se sabe si hay alguien al otro lado. */
+.vfl-punto {
+  width: 0.5rem;
+  height: 0.5rem;
+  border-radius: 50%;
+  background: var(--border-2);
+
+  &--vivo {
+    background: var(--ok);
+    box-shadow: 0 0 0 3px color-mix(in srgb, var(--ok) 22%, transparent);
+  }
+}
+
+.vfl-mandos {
+  display: flex;
+  gap: 0.15rem;
+
+  button {
+    display: grid;
+    place-items: center;
+    width: 1.75rem;
+    height: 1.75rem;
+    padding: 0;
+    border: 0;
+    border-radius: var(--radius-sm);
+    background: none;
+    color: var(--ink-soft);
+    cursor: pointer;
+
+    &:hover:not(:disabled) { background: var(--surface); color: var(--ink); }
+    &:disabled { opacity: 0.35; cursor: default; }
+  }
+
+  .vfl-cerrar:hover:not(:disabled) { background: var(--tag-danger-bg); color: var(--tag-danger-fg); }
+}
+
+.vfl-cuerpo {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  padding: 0.6rem;
+}
+
+.vfl:not(.vfl--flotante) .vfl-cuerpo { padding: 0; overflow: visible; }
+
+/* En pantalla completa el navegador pone el elemento en negro: que el cuerpo
+   lo aproveche entero en vez de quedar una tarjeta pequeña en el centro. */
+.vfl:fullscreen {
+  width: 100%;
+  height: 100%;
+  border-radius: 0;
+  resize: none;
+
+  .vfl-cuerpo { padding: 1rem; }
+}

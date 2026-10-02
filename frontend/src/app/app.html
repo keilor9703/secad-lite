@@ -1,1 +1,6 @@
 <router-outlet />
+
+<!-- Por ENCIMA del enrutador: es lo que permite que una videollamada en curso
+     sobreviva a cambiar de pantalla. Dentro de la página del caso, navegar
+     destruía el componente y tumbaba la llamada. -->
+<app-videollamada-flotante />

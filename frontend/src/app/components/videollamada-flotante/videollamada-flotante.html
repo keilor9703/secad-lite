@@ -1,0 +1,53 @@
+@if (visible()) {
+  <!-- `caja` se mueve por el DOM entre esta posición y el hueco del caso. Mover
+       el nodo no reinicia nada: el <video> conserva su stream y la llamada no
+       se corta al acoplar o desacoplar. -->
+  <section #caja class="vfl" [class.vfl--flotante]="modo() === 'flotante'"
+           [style.left.px]="modo() === 'flotante' ? x() : null"
+           [style.top.px]="modo() === 'flotante' ? y() : null"
+           role="region" aria-label="Videollamada con el ciudadano">
+
+    <header class="vfl-barra"
+            (pointerdown)="empezarArrastre($event)"
+            (pointermove)="moverArrastre($event)"
+            (pointerup)="soltar()" (pointercancel)="soltar()">
+      <span class="vfl-titulo">
+        <span class="vfl-punto" [class.vfl-punto--vivo]="video.hayLlamada()" aria-hidden="true"></span>
+        Videollamada
+      </span>
+
+      <div class="vfl-mandos">
+        <button type="button" [disabled]="!puedeAcoplar() && modo() === 'flotante'"
+                [title]="modo() === 'acoplada' ? 'Desacoplar' : (puedeAcoplar() ? 'Acoplar al caso' : 'Abra el caso para poder acoplarla')"
+                [attr.aria-label]="modo() === 'acoplada' ? 'Desacoplar' : 'Acoplar al caso'"
+                (click)="alternarAcople()">
+          @if (modo() === 'acoplada') {
+            <!-- salir del hueco -->
+            <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2"
+                 stroke-linecap="round" stroke-linejoin="round"><path d="M14 4h6v6M20 4l-8 8M10 20H4v-6M4 20l8-8"/></svg>
+          } @else {
+            <!-- entrar al hueco -->
+            <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2"
+                 stroke-linecap="round" stroke-linejoin="round"><path d="M9 3H3v6M3 3l8 8M15 21h6v-6M21 21l-8-8"/></svg>
+          }
+        </button>
+
+        <button type="button" title="Pantalla completa" aria-label="Pantalla completa"
+                (click)="pantallaCompleta()">
+          <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2"
+               stroke-linecap="round" stroke-linejoin="round"><path d="M8 3H3v5M16 3h5v5M8 21H3v-5M16 21h5v-5"/></svg>
+        </button>
+
+        <button type="button" class="vfl-cerrar" title="Cerrar el panel" aria-label="Cerrar el panel"
+                [disabled]="video.hayLlamada()" (click)="cerrar()">
+          <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2"
+               stroke-linecap="round"><path d="M18 6 6 18M6 6l12 12"/></svg>
+        </button>
+      </div>
+    </header>
+
+    <div class="vfl-cuerpo">
+      <app-videollamada />
+    </div>
+  </section>
+}

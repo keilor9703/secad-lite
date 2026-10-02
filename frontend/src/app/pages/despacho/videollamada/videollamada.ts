@@ -1,6 +1,6 @@
 import {
   ChangeDetectionStrategy, Component, ElementRef, OnDestroy,
-  computed, effect, inject, input, signal, untracked, viewChild,
+  computed, effect, inject, signal, untracked, viewChild,
 } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
@@ -25,11 +25,18 @@ import { MapaRecorridoComponent } from './mapa-recorrido';
   styleUrl: './videollamada.scss',
 })
 export class VideollamadaComponent implements OnDestroy {
-  readonly casoId = input.required<string>();
-  /** Teléfono del ciudadano tomado del caso; el despachador puede corregirlo. */
-  readonly telefono = input<string | null>(null);
-
   private readonly video = inject(VideollamadaService);
+
+  /**
+   * Caso y teléfono salen del SERVICIO, no de un `input`.
+   *
+   * El panel ya no vive dentro de la página del caso sino por encima del
+   * enrutador: es lo que permite que la llamada siga cuando el despachador se
+   * va a Recepción o al mapa. Un `input` ataría su ciclo de vida al de la
+   * página, que es exactamente lo que había que romper.
+   */
+  readonly casoId = computed(() => this.video.casoPanel() ?? '');
+  readonly telefono = computed(() => this.video.telefonoPanel());
   private readonly toast = inject(ToastService);
 
   private readonly videoRemoto = viewChild<ElementRef<HTMLVideoElement>>('remoto');
@@ -106,6 +113,7 @@ export class VideollamadaComponent implements OnDestroy {
     // este panel el video de OTRO incidente.
     effect(() => {
       const id = this.casoId();
+      if (!id) return;
       // Solo el caso dispara esto: leer el estado de la llamada aquí sin aislar
       // volvería a consultar el servidor en cada cambio de estado.
       untracked(() => {
@@ -123,8 +131,10 @@ export class VideollamadaComponent implements OnDestroy {
   }
 
   ngOnDestroy(): void {
-    // Salir del caso no puede perder la grabación: se cierra en segundo plano.
-    if (this.enCurso()) this.video.abandonar();
+    // Ya NO se cuelga aquí. El panel vive por encima del enrutador, así que
+    // destruirlo significa que se está cerrando la aplicación entera —cerrar
+    // sesión, recargar—, no que el despachador cambió de pantalla. Colgar en
+    // ese caso era justo lo que hacía perder la llamada al navegar.
     this.pararReloj();
   }
 

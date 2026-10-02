@@ -2,7 +2,7 @@ import { ChangeDetectionStrategy, Component, computed, effect, inject, OnDestroy
 import { FormsModule } from '@angular/forms';
 import { ActivatedRoute, Router, RouterLink } from '@angular/router';
 import { DetalleComponent } from '../detalle/detalle';
-import { VideollamadaComponent } from './videollamada/videollamada';
+import { AnclajeVideollamadaDirective } from '../../components/videollamada-flotante/anclaje-videollamada.directive';
 import { CasosService } from '../../core/casos.service';
 import { CatalogosService } from '../../core/catalogos.service';
 import { AuthService } from '../../core/auth.service';
@@ -42,7 +42,7 @@ const PASOS: ReadonlyArray<[EstadoCaso, string, string]> = [
 @Component({
   selector: 'app-despacho',
   standalone: true,
-  imports: [RouterLink, DetalleComponent, VideollamadaComponent, FormsModule, SelectorComponent, OpcionComponent],
+  imports: [RouterLink, DetalleComponent, AnclajeVideollamadaDirective, FormsModule, SelectorComponent, OpcionComponent],
   templateUrl: './despacho.html',
   styleUrl: './despacho.scss',
   changeDetection: ChangeDetectionStrategy.OnPush,

@@ -1,4 +1,5 @@
-import { Injectable } from '@angular/core';
+import { Injectable, computed, signal } from '@angular/core';
+import { toSignal } from '@angular/core/rxjs-interop';
 import { HttpClient } from '@angular/common/http';
 import { BehaviorSubject, Observable, firstValueFrom } from 'rxjs';
 import { io, Socket } from 'socket.io-client';
@@ -126,6 +127,54 @@ export class VideollamadaService {
 
   private readonly grabandoSubject = new BehaviorSubject<boolean>(false);
   readonly grabando$: Observable<boolean> = this.grabandoSubject.asObservable();
+
+  /**
+   * Caso cuyo panel de videollamada está abierto, y teléfono propuesto.
+   *
+   * Vive en el servicio y no en un `input` del componente porque el panel ya
+   * no pertenece a la página del caso: vive por encima del enrutador, que es
+   * lo que le permite al despachador irse a Recepción o al mapa sin que la
+   * llamada se caiga. La página solo dice QUÉ caso está mirando.
+   */
+  readonly casoPanel = signal<string | null>(null);
+  readonly telefonoPanel = signal<string | null>(null);
+
+  /**
+   * Elemento donde se incrusta el panel cuando está ACOPLADO. Lo registra la
+   * página del caso; cuando no hay ninguno —porque el despachador se fue a
+   * otra pantalla— el panel se queda flotando, que es justo lo que se busca.
+   */
+  readonly anclaje = signal<HTMLElement | null>(null);
+
+  /**
+   * El estado como señal, y si hay o no una llamada viva. Lo consulta quien
+   * decide si el panel debe seguir en pantalla al salir del caso: con llamada
+   * en curso sigue (flotando), sin llamada se cierra.
+   */
+  readonly estadoActual = toSignal(this.estado$, { initialValue: 'inactiva' as EstadoLlamada });
+  readonly hayLlamada = computed(
+    () => this.estadoActual() !== 'inactiva' && this.estadoActual() !== 'finalizada');
+
+  /**
+   * Devuelve el panel a su posición flotante, ya mismo.
+   *
+   * Lo registra el caparazón flotante y lo llama la página al destruirse. Hace
+   * falta que sea SÍNCRONO: si se dejara al efecto, el navegador se llevaría el
+   * nodo junto con la página antes de que nadie lo rescate, y el <video> se
+   * quedaría un instante desconectado del árbol en mitad de una llamada.
+   */
+  readonly devolverAFlotante = signal<(() => void) | null>(null);
+
+  /** Abre el panel para un caso. Idempotente: volver a llamar no reinicia nada. */
+  abrirPanel(casoId: string, telefono: string | null): void {
+    this.casoPanel.set(casoId);
+    this.telefonoPanel.set(telefono);
+  }
+
+  cerrarPanel(): void {
+    this.casoPanel.set(null);
+    this.telefonoPanel.set(null);
+  }
 
   constructor(private readonly http: HttpClient, private readonly auth: AuthService) {}
 
