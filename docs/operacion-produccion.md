@@ -414,7 +414,7 @@ docker system df
 | SMS no llega y el sistema dice que sí | `docker compose logs backend1 \| grep -i infobip` — trae el estado real y el `messageId` |
 | Un caso aparece en una réplica y no en otra | Redis: `docker compose logs redis`, y `REDIS_URL` en los tres backends |
 | **403 Forbidden** en el dominio, con el despliegue en verde | nginx no ve `index.html`: su montaje quedó atado a un directorio viejo — ver «Editar archivos montados» |
-| Una pantalla guarda **unas veces sí y otras no**, o una ruta nueva da 404 a ratos | Las réplicas corren versiones distintas: `docker compose ps -q backendN` + `docker inspect -f '{{.Image}}'` en las tres deben dar lo mismo |
+| Una pantalla guarda **unas veces sí y otras no**, o una ruta nueva da 404 a ratos | Las réplicas corren versiones distintas. Compare las CAPAS, no el id de la imagen (cada réplica tiene su propio nombre de imagen y los ids siempre difieren): `docker inspect -f '{{.RootFS.Layers}}' $(docker inspect -f '{{.Image}}' $(docker compose ps -q backend1))` en las tres debe dar lo mismo |
 
 ### Reiniciar sin perder datos
 

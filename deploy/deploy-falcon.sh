@@ -26,6 +26,8 @@ DIST_DIR="$DEPLOY_DIR/frontend-dist"
 
 MODO=todo
 RESPALDAR=0
+# Se enciende si las réplicas quedaron dispares; se falla al final, no a medias.
+REPLICAS_DISPARES=0
 for arg in "$@"; do
   case "$arg" in
     backend|--solo-backend)   MODO=backend ;;
@@ -278,27 +280,44 @@ verificar_montaje() {
 # Que cada réplica arranque sana no basta: pueden estar sanas y ser versiones
 # distintas. Esto es lo que no comprobaba el script, y costó una noche entera.
 verificar_replicas() {
-  local imagenes=() replica id
+  # Se comparan las CAPAS del sistema de archivos, no el id de la imagen.
+  #
+  # Cada réplica puede tener su propio nombre de imagen
+  # (falcon-deploy-backend1, -backend2, -backend3), construidas del mismo
+  # código: entonces los ids SIEMPRE difieren aunque el contenido sea idéntico,
+  # y comparar ids daba un falso positivo en cada despliegue. Las capas, en
+  # cambio, son el contenido: si coinciden, las tres corren exactamente el
+  # mismo código, se llamen como se llamen.
+  local capas=() replica id
   for replica in backend1 backend2 backend3; do
     id=$(docker compose ps -q "$replica" 2>/dev/null) || id=''
-    imagenes+=("${id:+$(docker inspect -f '{{.Image}}' "$id" 2>/dev/null)}")
+    if [[ -n "$id" ]]; then
+      capas+=("$(docker inspect -f '{{.Image}}' "$id" 2>/dev/null \
+        | xargs -r docker inspect -f '{{.RootFS.Layers}}' 2>/dev/null)")
+    else
+      capas+=('')
+    fi
   done
 
-  if [[ -n "${imagenes[0]}" && "${imagenes[0]}" == "${imagenes[1]}" && "${imagenes[1]}" == "${imagenes[2]}" ]]; then
-    echo "    ✔ las tres réplicas corren la misma imagen"
+  if [[ -n "${capas[0]}" && "${capas[0]}" == "${capas[1]}" && "${capas[1]}" == "${capas[2]}" ]]; then
+    echo "    ✔ las tres réplicas corren el mismo código"
     return
   fi
 
-  echo "    ✖ Las réplicas NO corren la misma imagen del backend." >&2
+  # Aviso, NO parada. Abortar aquí dejaba el backend nuevo con el frontend
+  # viejo, que es peor que el problema que se quiere evitar: si el backend
+  # cambió un contrato —por ejemplo, empezó a exigir doble factor— nadie puede
+  # entrar hasta que el frontend se publique. Se sigue, y se falla al final.
+  echo "    ⚠ Las réplicas NO corren el mismo código." >&2
   local i=0
   for replica in backend1 backend2 backend3; do
-    echo "        $replica: ${imagenes[$i]:-(sin contenedor)}" >&2
+    echo "        $replica: ${capas[$i]:-(sin contenedor)}" >&2
     i=$((i + 1))
   done
   echo "      Con versiones distintas, nginx reparte entre ellas y el sistema" >&2
-  echo "      responde bien o mal según a cuál le toque. Pare y revise las" >&2
-  echo "      secciones 'build' de backend1/2/3 en docker-compose.yml." >&2
-  exit 1
+  echo "      responde bien o mal según a cuál le toque. Revise las secciones" >&2
+  echo "      'build' de backend1/2/3 en docker-compose.yml." >&2
+  REPLICAS_DISPARES=1
 }
 
 [[ $RESPALDAR -eq 1 ]] && respaldar_base
@@ -344,3 +363,11 @@ fi
 
 echo
 echo "Desplegado: $(git -C "$REPO_DIR" log -1 --format='%h %s')"
+
+if [[ "$REPLICAS_DISPARES" -eq 1 ]]; then
+  echo
+  echo "✖ El despliegue terminó, pero las réplicas del backend no corren el mismo" >&2
+  echo "  código (ver el aviso de arriba). Resuélvalo antes de dar por buena esta" >&2
+  echo "  versión: hasta entonces el sistema responde distinto según la réplica." >&2
+  exit 1
+fi
