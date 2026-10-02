@@ -306,12 +306,11 @@ Queda en la bitácora como `usuario.mfa_restablecer`, con quién lo hizo y a qui
 
 ```bash
 cd ~/falcon-deploy
-./respaldo-falcon.sh              # diario: todo MENOS el video (unos MB)
-./respaldo-falcon.sh completo     # TODO, incluidas las grabaciones
-./respaldo-falcon.sh verificar    # restaura el último de verdad y comprueba que sirve
-./respaldo-falcon.sh purgar 90    # qué grabaciones de más de 90 días sobran
-ls -lh /opt/falcon-backups/       # qué hay
-crontab -l                        # las rutinas
+./respaldo-falcon.sh                  # diario: todo MENOS el video (unos MB)
+./respaldo-falcon.sh completo         # TODO, incluidas las grabaciones
+./respaldo-falcon.sh verificar        # restaura el último de verdad y comprueba que sirve
+./respaldo-falcon.sh espacio          # cuánto crece y cuánto falta para llenar el disco
+./respaldo-falcon.sh confirmar <copia> <sha256>   # "ya la bajé a mi disco, y coincide"
 ```
 
 Instalarlo o actualizarlo:
@@ -324,25 +323,81 @@ chmod +x respaldo-falcon.sh
 rm -f respaldo.sh      # el anterior: volcaba todo junto y no verificaba nada
 ```
 
-> Si queda el `respaldo.sh` viejo, alguien lo correrá —y el cron nuevo y el
-> viejo dejarían copias con dos criterios de rotación distintos en el mismo
-> directorio.
+### La política, y las dos cosas que se llaman igual
 
-### Por qué son dos respaldos y no uno
+**Ningún dato se borra nunca.** Lo que se rota son *copias*, que es otra cosa.
+Confundir las dos es lo que hace que este tema parezca enredado:
 
-Las grabaciones de videollamada viven **dentro** de la base, en
-`archivos_chunks`. Es cómodo mientras el video es pequeño —un volcado se lleva
-todo— y deja de serlo en cuanto pesa más que los datos: un volcado de 50 GB no
-se hace a diario, ni se guardan catorce copias, ni se sube a ningún lado.
+| | Qué es | ¿Se puede soltar la más vieja? |
+|---|---|---|
+| **Retención de copias** | Cuántos volcados se guardan en el disco del servidor | Sí. El dato sigue en la base; la copia solo servía para volver atrás |
+| **Retención de datos** | Cuánto tiempo se conserva una grabación | **Nunca se borra.** No hay ningún comando que lo haga |
 
-| | Qué lleva | Cada cuánto | Copias | Tamaño |
-|---|---|---|---|---|
-| `diario` | Casos, usuarios, catálogos, configuración, enrolamientos 2FA | Todas las noches | 14 | MB |
-| `completo` | Lo anterior **más** las grabaciones | Semanal | 2 | GB |
+Antes había un modo `purgar` que borraba grabaciones por antigüedad. **Está
+eliminado**: contradice la política, y una herramienta así en el repositorio es
+una invitación a que alguien la corra.
 
-El diario omite los **datos** de `archivos_chunks`, no la tabla: la estructura
-va siempre, para que una base restaurada de un diario arranque la aplicación
-—con las grabaciones viejas ausentes, pero funcionando—.
+### Retención de copias: siempre quince diarios
+
+```
+día 1 … día 15   →  15 copias
+día 16           →  se hace la nueva, sale la del día 1  →  siguen siendo 15
+```
+
+Eso es exactamente `FALCON_COPIAS_DIARIAS=15`, y es la ventana para volver
+atrás: si alguien borra algo por error, hay quince días para notarlo. No pierde
+información, porque los datos están en la base.
+
+### Por qué un completo NO se rota igual
+
+Un diario es una foto de datos que siguen vivos. Un **completo** lleva además
+las grabaciones y puede ser el único sitio donde queda una, así que:
+
+> El script **no borra** un completo viejo mientras no exista otro **más nuevo
+> que conste fuera del servidor**. Si no consta, avisa en cada ejecución y no
+> borra nada.
+
+"Que conste" significa una de dos:
+
+- `.subido` — el script lo subió a `FALCON_RESPALDO_URL` y el `curl` salió bien.
+- `.afuera` — usted lo bajó a su disco y lo confirmó con su sha256 (ver abajo).
+
+Por qué basta con uno **más nuevo**: mientras nada se borre de la base, un
+volcado posterior contiene todo lo que tenía el anterior. El viejo es un
+subconjunto del nuevo.
+
+> ⚠️ Ese razonamiento se rompe el día que las grabaciones salgan de la base para
+> liberar disco: desde entonces un completo nuevo ya no contendrá lo archivado,
+> y la regla tendrá que pasar a exigir la confirmación de **cada** copia. Está
+> anotado en el propio script, donde se va a tocar.
+
+### Bajar las copias a su disco externo
+
+Desde **su** computador, con el disco conectado:
+
+```bash
+# macOS / Linux
+rsync -avP --ignore-existing ubuntu@157.137.211.196:/opt/falcon-backups/ /Volumes/FALCON/respaldos/
+
+# Windows (PowerShell, con OpenSSH)
+scp -r ubuntu@157.137.211.196:/opt/falcon-backups/* D:\FALCON\respaldos\
+```
+
+Y después confirmar que llegó íntegra, para que el servidor pueda soltarla:
+
+```bash
+# 1. El sha256 de la copia que quedó en SU disco
+shasum -a 256 /Volumes/FALCON/respaldos/falcon-completo-2026-10-05-031200.dump
+#    (Windows:  certutil -hashfile D:\FALCON\respaldos\falcon-...dump SHA256)
+
+# 2. Dárselo al servidor
+ssh ubuntu@157.137.211.196 '~/falcon-deploy/respaldo-falcon.sh confirmar \
+  falcon-completo-2026-10-05-031200.dump <el-sha256-de-arriba>'
+```
+
+El servidor calcula el suyo y los compara. Si no coinciden, **no marca nada** y
+le dice que la vuelva a bajar: la copia de su disco estaba corrupta y marcarla
+habría autorizado a borrar la buena.
 
 ### Las rutinas
 
@@ -353,17 +408,38 @@ va siempre, para que una base restaurada de un diario arranque la aplicación
 40 4 * * 1   cd ~/falcon-deploy && ./respaldo-falcon.sh verificar >> ~/respaldo.log 2>&1
 ```
 
+El completo semanal **no se borra solo**. Bajarlo al disco externo y confirmarlo
+es trabajo manual, de momento semanal. Si eso se vuelve una carga, la salida es
+`FALCON_RESPALDO_URL` (Object Storage de Oracle): ahí el `.subido` lo pone el
+script y la rotación deja de esperar a nadie.
+
+### Por qué son dos respaldos y no uno
+
+Las grabaciones viven **dentro** de la base, en `archivos_chunks`. Es cómodo
+mientras el video es pequeño —un volcado se lleva todo— y deja de serlo en
+cuanto pesa más que los datos: un volcado de 50 GB no se hace a diario, ni se
+guardan quince copias, ni se baja por una conexión normal.
+
+| | Qué lleva | Cada cuánto | Copias | Tamaño |
+|---|---|---|---|---|
+| `diario` | Casos, usuarios, catálogos, configuración, enrolamientos 2FA | Todas las noches | 15 | MB |
+| `completo` | Lo anterior **más** las grabaciones | Semanal | 2 (+ las no confirmadas) | GB |
+
+El diario omite los **datos** de `archivos_chunks`, no la tabla: la estructura
+va siempre, para que una base restaurada de un diario arranque la aplicación
+—con las grabaciones ausentes, pero funcionando—.
+
 ### `verificar` no es opcional
 
 Un volcado que nadie restauró no es un respaldo, es un archivo. Casi todas las
 tablas llevan `FORCE ROW LEVEL SECURITY`: si el rol `falcon` dejara de poder
 saltarse RLS, `pg_dump` fallaría —y en el peor caso un volcado se vería normal
-con tablas vacías por dentro—. Por eso cada respaldo deja al lado un
-`.conteos` con las filas que tenía la base viva, y `verificar` restaura en una
-base desechable y **exige que los números coincidan**:
+con tablas vacías por dentro—. Por eso cada respaldo deja al lado un `.conteos`
+con las filas que tenía la base viva, y `verificar` restaura en una base
+desechable y **exige que los números coincidan**:
 
 ```
-✔ casos: 1 842 de 1 842
+✔ casos: 1842 de 1842
 ✔ usuarios: 57 de 57
 · archivos_chunks: vacía, como corresponde al respaldo diario
 ```
@@ -376,7 +452,7 @@ que haga falta restaurar.
 ```bash
 docker compose stop backend1 backend2 backend3
 docker compose exec -T postgres pg_restore -U falcon -d falcon_cad \
-  --no-owner --clean --if-exists < falcon-datos-2026-10-02-0247.dump
+  --no-owner --clean --if-exists < falcon-datos-2026-10-02-024701.dump
 docker compose start backend1 backend2 backend3
 ```
 
@@ -386,81 +462,46 @@ docker compose start backend1 backend2 backend3
 Si se restaura un **diario**, las grabaciones no vuelven: para recuperarlas hay
 que restaurar encima el último `completo`. Los casos y todo lo demás sí están.
 
-### Purgar grabaciones viejas
-
-Lo único que crece sin techo es el video. `purgar` es lo que mantiene el disco
-bajo control:
+### El problema de los 200 GB, y qué falta por hacer
 
 ```bash
-./respaldo-falcon.sh purgar 90              # ensayo: dice qué borraría
-./respaldo-falcon.sh purgar 90 --ejecutar   # lo borra
+./respaldo-falcon.sh espacio
 ```
 
-Tres salvaguardas, porque esto borra evidencia:
+Informa el tamaño de la base, cuánto de eso es video, cuánto se grabó en los
+últimos 30 días, y **cuántos meses quedan antes del 80% del disco a ese ritmo**.
+No borra ni toca nada.
 
-- **No hay plazo por defecto.** El número lo decide quien responde por la
-  evidencia, no el script.
-- **No borra nada sin `--ejecutar`.** Sin esa palabra solo informa.
-- **No borra lo que ningún respaldo completo haya guardado todavía**, aunque
-  cumpla el plazo. Si no hay ningún `falcon-completo-*.dump`, se niega entero.
-
-Solo toca `origen = 'GRABACION'`. Los adjuntos que alguien subió a un caso no
-se purgan nunca.
-
-### Cuánto aguantan los 200 GB
-
-La grabación tiene techo: 800 kbps de video y 64 de audio
+La grabación ya tiene techo: 800 kbps de video y 64 de audio
 (`VIDEO_BPS_GRABACION` en `videollamada.service.ts`), **≈390 MB por hora
 grabada**. Sin ese techo, MediaRecorder elegía el bitrate según la resolución y
 una llamada 720p se iba a ~1,1 GB/hora. No afecta a lo que ve el despachador
 —el video punto a punto va por su propio canal—, solo a lo que se archiva.
 
-| Uso | Al mes | Con retención de 90 días se estabiliza en |
+| Uso | Al mes | En un año |
 |---|---|---|
-| 1 h/día grabada | 12 GB | ~35 GB |
-| 2 h/día | 23 GB | ~70 GB |
-| 5 h/día | 58 GB | ~175 GB — **no cabe**, hay que bajar la retención |
+| 1 h/día grabada | 12 GB | 140 GB |
+| 2 h/día | 23 GB | 280 GB — **no cabe** |
+| 5 h/día | 58 GB | 700 GB |
 
-Hoy la base entera son 48 MB, 36 de ellos video, y el disco va al 3%. No hay
-urgencia; sí hay que fijar la retención antes de que la haya, porque a 5 h/día
-el margen se consume en cuatro meses.
+Hoy la base entera son 48 MB y el disco va al 3%, así que no hay urgencia. Pero
+con la política de no borrar nunca, **ningún techo de bitrate alcanza**: el
+video solo puede ir en una dirección, que es fuera del servidor.
 
-### Fuera del servidor
+Lo que falta por construir, y es el siguiente paso:
 
-> ⚠️ Un respaldo en la misma máquina no protege de perder la máquina, que es
-> justamente de lo que protege un respaldo.
+**Archivar, no borrar.** Un modo `archivar` que, por cada grabación de más de N
+días: la exporte a un `.webm` real, calcule su sha256, la copie fuera del
+servidor, **compruebe que la copia de fuera coincide**, y solo entonces libere
+los bytes de `archivos_chunks` dejando la fila de `archivos` marcada como
+archivada, con el nombre y el sitio donde está. El caso nunca pierde constancia
+de que la grabación existió, y el archivo `.webm` es directamente reproducible
+—mejor para evidencia que un volcado de 50 GB que hay que restaurar para ver un
+video—.
 
-El script sube cada copia si `FALCON_RESPALDO_URL` está definida, y **grita en
-cada ejecución si no lo está**. Se usa una URL prefirmada (PAR) de Oracle
-Object Storage, que no exige instalar ni configurar nada:
-
-1. Consola de Oracle → *Storage* → *Buckets* → crear `falcon-respaldos`.
-2. En el bucket: *Pre-Authenticated Requests* → crear una con
-   *Permit object reads and writes*, alcance *Bucket*, y vencimiento a un año.
-3. Copiar la URL (**se muestra una sola vez**) al `.env` del respaldo:
-
-   ```bash
-   echo 'export FALCON_RESPALDO_URL="https://objectstorage.<region>.oraclecloud.com/p/<token>/n/<tenancy>/b/falcon-respaldos/o/"' >> ~/.falcon-respaldo-env
-   chmod 600 ~/.falcon-respaldo-env
-   ```
-
-   y cargarlo en las líneas del cron: `cd ~/falcon-deploy && . ~/.falcon-respaldo-env && ./respaldo-falcon.sh diario`.
-
-Capa gratuita: 20 GB. Los diarios caben de sobra; el completo semanal depende
-de cuánto video haya.
-
-### Qué prueba esto antes de llegar al servidor
-
-```bash
-./deploy/pruebas/respaldo.prueba.sh   # levanta un PostgreSQL desechable
-```
-
-Ejercita los cuatro modos contra una base real con el mismo esquema que
-producción —RLS incluido—, y comprueba entre otras cosas que el diario excluye
-los bytes del video pero no la tabla, que `verificar` detecta un volcado
-truncado y unas filas que faltan, que la rotación conserva lo que debe, que
-`purgar` no toca los adjuntos, y que un `pg_dump` que muere a mitad no deja
-basura que luego parezca un respaldo bueno.
+Está pendiente una decisión antes de construirlo: **dónde vive el archivo
+permanente**, porque determina si una grabación archivada sigue viéndose desde
+FALCON o hay que pedírsela a quien tenga el disco. Ver `Pendientes conocidos`.
 
 ---
 
@@ -642,8 +683,14 @@ internet.
 - **Respaldos fuera del servidor.** El script ya los sube, pero falta crear
   la URL prefirmada de Object Storage y definir `FALCON_RESPALDO_URL`. Hasta
   entonces las copias viven en el mismo disco que protegen.
-- **Retención de grabaciones sin decidir.** `purgar` existe y no borra nada
-  por su cuenta; falta fijar el plazo y ponerlo en el cron.
+- **Archivado de grabaciones sin construir.** La política es no borrar nunca,
+  así que el video tiene que salir del servidor, no desaparecer. Falta el modo
+  `archivar` (exportar a `.webm`, verificar la copia de fuera, liberar los bytes
+  de la base dejando la fila marcada). Antes hay que decidir **dónde vive el
+  archivo permanente**: en Object Storage de Oracle la grabación archivada sigue
+  viéndose desde FALCON y cuesta ~US$2,5 al mes por 100 GB; en un disco externo
+  o una NAS en la oficina es gratis, pero el servidor no los alcanza —están tras
+  NAT— y una grabación archivada habría que pedirla a quien tenga el disco.
 - **Nada avisa si el sitio se cae.** Falta un monitor externo contra
   `https://falconcad.com.co/api/health`.
 - **La credencial del TURN del Servidor B está comprometida**: estuvo en un

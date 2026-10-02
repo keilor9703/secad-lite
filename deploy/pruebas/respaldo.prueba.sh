@@ -217,51 +217,75 @@ afirmar_que "y dice exactamente cuántas faltaron" \
 rm -f "$COPIAS"/falcon-datos-9998-*.dump*
 
 echo
-echo "==> rotación"
-for n in 01 02 03 04 05; do
-  cp "$diario" "$COPIAS/falcon-datos-2020-01-$n-0000.dump"
-  cp "$diario" "$COPIAS/predespliegue-2020-01-$n-000000.dump"
-done
-DIARIAS=3 PREDESPLIEGUE=2 correr diario >/dev/null
+echo "==> el respaldo deja su sha256 y coincide"
+afirmar_que "escribe un .sha256 junto a la copia" \
+  "$([[ -f "$diario.sha256" ]] && echo 1 || echo 0)"
+afirmar "y es el del archivo" "$(cat "$diario.sha256")" "$(sha256sum "$diario" | cut -d' ' -f1)"
+
+echo
+echo "==> confirmar: rechaza un sha256 que no cuadra"
+salida=$(correr confirmar "$(basename "$diario")" 0000000000000000000000000000000000000000000000000000000000000000) && estado=0 || estado=1
+afirmar "se niega" "$estado" "1"
+afirmar_que "y avisa de volver a bajarla" \
+  "$(echo "$salida" | grep -q 'Vuelva a bajarla' && echo 1 || echo 0)"
+afirmar "no deja la marca .afuera" "$([[ -f "$diario.afuera" ]] && echo 1 || echo 0)" "0"
+
+echo
+echo "==> rotación: los diarios rotan libres"
+# Un diario es una foto de datos que SIGUEN en la base: soltar el más viejo de
+# quince no borra información.
+for n in 01 02 03 04 05; do cp "$diario" "$COPIAS/falcon-datos-2020-01-$n-0000.dump"; done
+DIARIAS=3 correr diario >/dev/null
 afirmar "conserva 3 respaldos diarios" "$(ls "$COPIAS"/falcon-datos-*.dump | wc -l)" "3"
-afirmar "conserva 2 predespliegue" "$(ls "$COPIAS"/predespliegue-*.dump | wc -l)" "2"
-afirmar "no toca los completos" "$(ls "$COPIAS"/falcon-completo-*.dump | wc -l)" "1"
 afirmar_que "el diario más nuevo sobrevive a su propia rotación" \
   "$([[ -s $(ls -t "$COPIAS"/falcon-datos-*.dump | head -1) ]] && echo 1 || echo 0)"
 
 echo
-echo "==> purgar (ensayo)"
-salida=$(correr purgar 90) || true
+echo "==> rotación: un completo NO se borra si nada consta fuera del servidor"
+# Es lo que materializa "ningún dato se borra nunca": un completo puede ser el
+# único sitio donde queda una grabación.
+sleep 1
+COMPLETAS=1 correr completo >/dev/null 2>&1 || true
+afirmar "siguen los 2 completos" "$(ls "$COPIAS"/falcon-completo-*.dump | wc -l)" "2"
+salida=$(COMPLETAS=1 correr diario)
+afirmar_que "y avisa de que retuvo una copia" \
+  "$(echo "$salida" | grep -q 'retenida' && echo 1 || echo 0)"
+
+echo
+echo "==> confirmar habilita la rotación del completo viejo"
+nuevo_completo=$(ls -t "$COPIAS"/falcon-completo-*.dump | head -1)
+viejo_completo=$(ls -t "$COPIAS"/falcon-completo-*.dump | tail -1)
+salida=$(correr confirmar "$(basename "$nuevo_completo")" "$(sha256sum "$nuevo_completo" | cut -d' ' -f1)")
+afirmar_que "acepta el sha256 correcto" \
+  "$(echo "$salida" | grep -q 'coincide byte a byte' && echo 1 || echo 0)"
+COMPLETAS=1 correr diario >/dev/null
+afirmar "ahora sí suelta el completo viejo" "$([[ -f "$viejo_completo" ]] && echo 1 || echo 0)" "0"
+afirmar_que "pero conserva el confirmado" "$([[ -f "$nuevo_completo" ]] && echo 1 || echo 0)"
+
+echo
+echo "==> no existe ningún modo que borre datos por antigüedad"
+salida=$(correr purgar 90 2>&1) && estado=0 || estado=1
+afirmar "purgar ya no existe" "$estado" "1"
+afirmar "los datos siguen intactos" "$(filas archivos)" "4"
+afirmar "y los chunks también" "$(filas archivos_chunks)" "6"
+
+echo
+echo "==> espacio: informa y no toca nada"
+antes_archivos=$(filas archivos); antes_chunks=$(filas archivos_chunks)
+antes_copias=$(ls "$COPIAS" | wc -l)
+salida=$(correr espacio) && estado=0 || estado=1
 echo "$salida" | sed 's/^/    /'
-afirmar_que "encuentra las 2 grabaciones de más de 90 días" \
-  "$(echo "$salida" | grep -q '2 grabación(es) de más de 90 días' && echo 1 || echo 0)"
-afirmar "el ensayo no borra nada" "$(filas archivos)" "4"
-afirmar "ni un solo chunk" "$(filas archivos_chunks)" "6"
-
-echo
-echo "==> purgar exige retención explícita"
-salida=$(correr purgar) && estado=0 || estado=1
-afirmar "sin días, se niega" "$estado" "1"
-afirmar_que "y explica por qué no hay plazo por defecto" \
-  "$(echo "$salida" | grep -q 'No hay plazo por defecto' && echo 1 || echo 0)"
-
-echo
-echo "==> purgar --ejecutar"
-salida=$(correr purgar 90 --ejecutar) || true
-echo "$salida" | sed 's/^/    /'
-afirmar "quedan 2 archivos (la grabación de hoy y el adjunto)" "$(filas archivos)" "2"
-afirmar "y 2 chunks (los de la grabación de hoy)" "$(filas archivos_chunks)" "2"
-afirmar_que "no borra el ADJUNTO de 300 días: no es video" \
-  "$(psql -U falcon -d falcon_cad -q -tAc "SET row_security=off; SELECT count(*) FROM archivos WHERE origen='ADJUNTO'" | tr -d ' ' | grep -q '^1$' && echo 1 || echo 0)"
-
-echo
-echo "==> purgar se niega sin respaldo completo"
-mkdir -p "$BASE_TMP/vacio"
-salida=$(env PGHOST="$BASE_TMP" PGPORT="$PUERTO" FALCON_PG_EXEC="" FALCON_RESPALDOS="$BASE_TMP/vacio" \
-  FALCON_BD=falcon_cad FALCON_BD_USUARIO=falcon bash "$GUION" purgar 1 --ejecutar 2>&1) && estado=0 || estado=1
-afirmar "sin respaldo completo, no borra" "$estado" "1"
-afirmar_que "y dice qué correr primero" \
-  "$(echo "$salida" | grep -q 'respaldo completo' && echo 1 || echo 0)"
+afirmar "termina bien" "$estado" "0"
+afirmar_que "proyecta en meses cuánto falta para el 80% del disco" \
+  "$(echo "$salida" | grep -qE 'quedan ~[0-9]+ meses' && echo 1 || echo 0)"
+# Salía "el disco ya pasó del 80%" con el disco al 32%: restaba `size - avail`
+# para deducir lo usado, y en un sistema de archivos con reserva eso no cuadra.
+pct_real=$(df --output=pcent "$COPIAS" | tail -1 | tr -dc '0-9')
+afirmar_que "no avisa del 80% con el disco al ${pct_real}%" \
+  "$([[ $pct_real -ge 80 ]] || ! echo "$salida" | grep -q 'pasó del 80%' && echo 1 || echo 0)"
+afirmar "no borra datos" "$(filas archivos)" "$antes_archivos"
+afirmar "ni chunks" "$(filas archivos_chunks)" "$antes_chunks"
+afirmar "ni copias" "$(ls "$COPIAS" | wc -l)" "$antes_copias"
 
 echo
 echo "==> un pg_dump que se muere a mitad no deja basura"

@@ -2,24 +2,39 @@
 #
 # Respaldo de FALCON CAD.
 #
-#   ./respaldo-falcon.sh              # diario: todo MENOS el video
-#   ./respaldo-falcon.sh completo     # incluye las grabaciones
-#   ./respaldo-falcon.sh verificar    # restaura el último respaldo y comprueba que sirve
-#   ./respaldo-falcon.sh purgar 90    # qué grabaciones de más de 90 días se podrían borrar
-#   ./respaldo-falcon.sh purgar 90 --ejecutar   # borrarlas de verdad
+#   ./respaldo-falcon.sh                  # diario: todo MENOS el video
+#   ./respaldo-falcon.sh completo         # incluye las grabaciones
+#   ./respaldo-falcon.sh verificar        # restaura el último respaldo y comprueba que sirve
+#   ./respaldo-falcon.sh confirmar <copia> <sha256>   # "ya la bajé a mi disco, y coincide"
+#   ./respaldo-falcon.sh espacio          # cuánto crece y cuánto falta para llenar el disco
+#
+# LA POLÍTICA, EN UNA FRASE
+#
+# Ningún dato se borra nunca. Lo que se rota son COPIAS, que es otra cosa.
+#
+#   · Un respaldo DIARIO es una foto de datos que siguen vivos en la base.
+#     Guardar quince y soltar la decimosexta no pierde información: la
+#     información está en la base, la copia solo servía para volver atrás.
+#
+#   · Un respaldo COMPLETO puede ser, en cambio, el único sitio donde queda una
+#     grabación —el día que el video salga de la base para liberar disco, lo
+#     será—. Por eso este script NO rota un completo mientras no conste que
+#     salió del servidor: o lo subió (`.subido`), o alguien lo bajó y lo
+#     confirmó con su sha256 (`.afuera`). Si no consta, avisa y no borra.
+#
+# Aquí no hay ningún modo que borre datos por antigüedad, a propósito.
 #
 # POR QUÉ DOS RESPALDOS DISTINTOS
 #
 # Las grabaciones viven dentro de la base, en `archivos_chunks`. Eso es cómodo
 # —un volcado se lleva todo— hasta que el video pesa más que los datos: un
-# volcado completo de 50 GB no se puede hacer a diario, ni guardar catorce
-# copias, ni subir a ningún lado.
+# volcado completo de 50 GB no se puede hacer a diario, ni guardar quince
+# copias, ni bajarlo por una conexión normal.
 #
 # Separar los dos respaldos convierte lo irreemplazable —casos, usuarios,
 # catálogos, configuración, enrolamientos del doble factor— en unos pocos MB
-# que sí se pueden copiar todos los días, guardar muchos y mandar fuera del
-# servidor. El video se respalda aparte y con menos frecuencia, que es lo que
-# su valor justifica.
+# que sí se pueden copiar todos los días y guardar quince veces. El video se
+# respalda aparte, se baja aparte, y se conserva para siempre aparte.
 #
 # QUÉ COMPRUEBA, Y POR QUÉ ESO IMPORTA MÁS QUE EL VOLCADO
 #
@@ -37,23 +52,23 @@ DEPLOY_DIR="${FALCON_DEPLOY_DIR:-$HOME/falcon-deploy}"
 BD="${FALCON_BD:-falcon_cad}"
 USUARIO_BD="${FALCON_BD_USUARIO:-falcon}"
 
-# Cuántas copias se conservan aquí. El respaldo pequeño es diario y pesa poco,
-# así que se guardan dos semanas; el completo es semanal y pesa, así que dos.
-# Los `predespliegue-*.dump` los deja deploy-falcon.sh antes de cada despliegue
-# y son completos: si nadie los rota, crecen hasta llenar el disco.
-COPIAS_DIARIAS="${FALCON_COPIAS_DIARIAS:-14}"
+# Quince copias diarias: la política es "siempre hay quince"; al hacer la
+# dieciseisava, la primera sale. Los `predespliegue-*.dump` los deja
+# deploy-falcon.sh antes de cada despliegue y son completos: si nadie los rota,
+# crecen hasta llenar el disco.
+COPIAS_DIARIAS="${FALCON_COPIAS_DIARIAS:-15}"
 COPIAS_COMPLETAS="${FALCON_COPIAS_COMPLETAS:-2}"
 COPIAS_PREDESPLIEGUE="${FALCON_COPIAS_PREDESPLIEGUE:-3}"
 
 # Un respaldo que solo vive en el servidor que respalda no es un respaldo: si
-# se pierde la máquina, se pierden los dos. Se sube a una URL prefirmada de
-# Oracle Object Storage (PAR), que no exige instalar ni configurar nada.
+# se pierde la máquina, se pierden los dos. Si está definida, se sube a una URL
+# prefirmada de Oracle Object Storage (PAR), que no exige instalar nada.
 URL_REMOTA="${FALCON_RESPALDO_URL:-}"
 
 MODO="${1:-diario}"
 case "$MODO" in
-  diario|completo|verificar|purgar) ;;
-  *) echo "Uso: $0 [diario|completo|verificar|purgar <días> [--ejecutar]]" >&2; exit 1 ;;
+  diario|completo|verificar|confirmar|espacio) ;;
+  *) echo "Uso: $0 [diario|completo|verificar|confirmar <copia> <sha256>|espacio]" >&2; exit 1 ;;
 esac
 
 # ── Cómo se alcanza PostgreSQL ───────────────────────────────────────────
@@ -99,6 +114,73 @@ contar() {
 }
 
 TABLAS_TESTIGO=(casos usuarios archivos archivos_chunks)
+
+# ── Confirmar que una copia ya está fuera del servidor ───────────────────
+# Esto es lo que convierte "creo que la bajé" en un hecho comprobado, y lo que
+# habilita a la rotación a soltar un completo viejo. El sha256 lo calcula usted
+# en el disco donde quedó la copia:
+#   Linux/macOS:  shasum -a 256 falcon-completo-....dump
+#   Windows:      certutil -hashfile falcon-completo-....dump SHA256
+if [[ "$MODO" == confirmar ]]; then
+  nombre="${2:-}"; suyo=$(echo "${3:-}" | tr 'A-Z' 'a-z' | limpio)
+  [[ -n "$nombre" && -n "$suyo" ]] || {
+    echo "Uso: $0 confirmar <nombre-de-la-copia> <sha256-de-su-disco>" >&2; exit 1; }
+  copia="$DESTINO/$(basename "$nombre")"
+  [[ -f "$copia" ]] || { echo "✖ No existe $copia." >&2; exit 1; }
+
+  mio=$(sha256sum "$copia" | cut -d' ' -f1)
+  if [[ "$mio" != "$suyo" ]]; then
+    echo "✖ NO coinciden. La copia que bajó está distinta de la del servidor." >&2
+    echo "    servidor: $mio" >&2
+    echo "    su disco: $suyo" >&2
+    echo "  Vuelva a bajarla. No se marcó nada." >&2
+    exit 1
+  fi
+  : > "$copia.afuera"
+  echo "✔ $(basename "$copia") coincide byte a byte con su copia."
+  echo "  Marcada como respaldada fuera del servidor; la rotación ya puede soltarla."
+  exit 0
+fi
+
+# ── Espacio: cuánto crece y cuánto falta ─────────────────────────────────
+# No borra nada ni toca nada. Es para no enterarse del límite el día que llega.
+if [[ "$MODO" == espacio ]]; then
+  bd=$(psql_ "SELECT pg_size_pretty(pg_database_size('$BD'))" | limpio)
+  video=$(psql_ "SELECT pg_size_pretty(pg_total_relation_size('archivos_chunks'))" | limpio)
+  mes=$(psql_ "SET row_security = off;
+    SELECT coalesce(sum(bytes), 0) FROM archivos
+     WHERE origen = 'GRABACION' AND \"creadoEn\" > now() - interval '30 days'" | limpio)
+
+  libre_k=$(df --output=avail "$DESTINO" | tail -1 | tr -dc '0-9')
+  total_k=$(df --output=size "$DESTINO" | tail -1 | tr -dc '0-9')
+  # `usado` de df, no `size - avail`: en sistemas de archivos con reserva o
+  # superpuestos esas dos cuentas no cuadran, y restando salía un margen
+  # negativo que hacía avisar de un disco al 80% estando al 32%.
+  usado_k=$(df --output=used "$DESTINO" | tail -1 | tr -dc '0-9')
+  pct=$(df --output=pcent "$DESTINO" | tail -1 | tr -dc '0-9')
+
+  echo "Base de datos         $bd"
+  echo "  de eso, video       $video"
+  echo "Disco                 $(( total_k / 1024 / 1024 )) GB totales, $(( libre_k / 1024 / 1024 )) GB libres, al ${pct}%"
+  echo "Grabado últimos 30 d  $(psql_ "SELECT pg_size_pretty($mes::bigint)" | limpio)"
+  echo
+
+  # El margen útil se cuenta hasta el 80%, no hasta el 100%: un disco al 95%
+  # con PostgreSQL encima no es "casi lleno", es una caída esperando turno.
+  margen_k=$(( total_k * 80 / 100 - usado_k ))
+  if [[ "$pct" -ge 80 ]]; then
+    echo "⚠ El disco ya pasó del 80%. Hay que sacar video del servidor ya." >&2
+  elif [[ "$mes" -le 0 ]]; then
+    echo "No se grabó nada en los últimos 30 días: sin ritmo no hay proyección."
+  elif [[ "$margen_k" -le 0 ]]; then
+    echo "⚠ Ya no queda margen hasta el 80% del disco." >&2
+  else
+    meses=$(( margen_k * 1024 / mes ))
+    echo "Al ritmo de los últimos 30 días quedan ~$meses meses antes del 80% del disco."
+    [[ "$meses" -le 6 ]] && echo "  ⚠ Menos de seis meses. Es hora de sacar el video del servidor." >&2
+  fi
+  exit 0
+fi
 
 # ── Verificar: restaurar de verdad ───────────────────────────────────────
 if [[ "$MODO" == verificar ]]; then
@@ -159,68 +241,11 @@ if [[ "$MODO" == verificar ]]; then
   exit 0
 fi
 
-# ── Purgar grabaciones viejas ────────────────────────────────────────────
-# Lo único que crece sin techo es el video. Esto es lo que mantiene el disco
-# bajo control, pero borra evidencia: por eso no tiene retención por defecto
-# —el plazo lo decide quien responde por la evidencia, no este script—, no
-# borra nada sin --ejecutar, y se niega a borrar lo que ningún respaldo
-# completo haya guardado todavía.
-if [[ "$MODO" == purgar ]]; then
-  dias="${2:-}"
-  [[ "$dias" =~ ^[0-9]+$ && "$dias" -ge 1 ]] || {
-    echo "Uso: $0 purgar <días> [--ejecutar]" >&2
-    echo "  No hay plazo por defecto a propósito: decídalo y escríbalo." >&2
-    exit 1
-  }
-  ejecutar=0
-  [[ "${3:-}" == --ejecutar ]] && ejecutar=1
-
-  completo=$(ls -t "$DESTINO"/falcon-completo-*.dump 2>/dev/null | head -1) || true
-  if [[ -z "${completo:-}" ]]; then
-    echo "✖ No hay ningún respaldo completo en $DESTINO." >&2
-    echo "  Borrar grabaciones que nadie respaldó es perderlas. Corra primero:" >&2
-    echo "      $0 completo" >&2
-    exit 1
-  fi
-  corte_respaldo=$(date -u -d "@$(stat -c%Y "$completo")" +'%Y-%m-%d %H:%M:%S+00')
-  echo "==> Último respaldo completo: $(basename "$completo") ($corte_respaldo UTC)"
-
-  # Dos condiciones, y la del respaldo manda: una grabación se borra solo si
-  # además de ser vieja está dentro de ese respaldo completo.
-  donde="origen = 'GRABACION'
-         AND \"creadoEn\" < now() - interval '$dias days'
-         AND \"creadoEn\" < timestamptz '$corte_respaldo'"
-
-  resumen=$(psql_ "SET row_security = off;
-    SELECT count(*) || '|' || coalesce(pg_size_pretty(sum(bytes)), '0 bytes')
-      FROM archivos WHERE $donde") || resumen='0|0 bytes'
-  cuantas=${resumen%%|*}; pesan=${resumen##*|}
-
-  if [[ "${cuantas:-0}" == 0 ]]; then
-    echo "    Nada que purgar: ninguna grabación de más de $dias días está ya respaldada."
-    exit 0
-  fi
-  echo "    $cuantas grabación(es) de más de $dias días, $pesan"
-
-  if [[ "$ejecutar" != 1 ]]; then
-    echo "    (ensayo: no se borró nada. Añada --ejecutar para borrarlas)"
-    exit 0
-  fi
-
-  # Se borra la fila de `archivos`; los trozos se van por ON DELETE CASCADE.
-  # Queda constancia en el log de la aplicación de que la grabación existió:
-  # lo que se borra son los bytes, no el caso.
-  borradas=$(psql_ "SET row_security = off;
-    WITH ido AS (DELETE FROM archivos WHERE $donde RETURNING 1)
-    SELECT count(*) FROM ido" | limpio)
-  echo "    ✔ Borradas $borradas grabación(es)."
-  psql_ "VACUUM (ANALYZE) archivos_chunks" >/dev/null 2>&1 || true
-  echo "    Base ahora: $(psql_ "SELECT pg_size_pretty(pg_database_size('$BD'))" | limpio)"
-  exit 0
-fi
-
 # ── Respaldar ────────────────────────────────────────────────────────────
-marca=$(date +%F-%H%M)
+# Con segundos: dos respaldos del mismo minuto tendrían el mismo nombre y el
+# segundo sobrescribiría al primero sin decir nada. Los `predespliegue-*` ya los
+# llevaban.
+marca=$(date +%F-%H%M%S)
 if [[ "$MODO" == diario ]]; then
   archivo="$DESTINO/falcon-datos-$marca.dump"
   # --exclude-table-data y NO --exclude-table: la ESTRUCTURA de la tabla sí va,
@@ -273,17 +298,22 @@ trap - EXIT
 for tabla in "${TABLAS_TESTIGO[@]}"; do
   echo "$tabla=${antes[$tabla]}" >> "$archivo.conteos"
 done
+# El sha256 es lo que después permite comprobar que la copia bajada al disco
+# externo llegó íntegra, sin volver a subirla para compararla.
+sha256sum "$archivo" | cut -d' ' -f1 > "$archivo.sha256"
 echo "    $(basename "$archivo")  ($(du -h "$archivo" | cut -f1))" \
      "· ${antes[casos]} casos, ${antes[usuarios]} usuarios, ${antes[archivos]} archivos"
+echo "    sha256 $(cat "$archivo.sha256")"
 
 # ── Fuera del servidor ───────────────────────────────────────────────────
 if [[ -n "$URL_REMOTA" ]]; then
   echo "==> Subiendo fuera del servidor"
   subido=1
-  for destino in "$archivo" "$archivo.conteos"; do
-    curl -fsS --max-time 900 -T "$destino" "${URL_REMOTA%/}/$(basename "$destino")" >/dev/null || subido=0
+  for suelto in "$archivo" "$archivo.conteos" "$archivo.sha256"; do
+    curl -fsS --max-time 900 -T "$suelto" "${URL_REMOTA%/}/$(basename "$suelto")" >/dev/null || subido=0
   done
   if [[ "$subido" == 1 ]]; then
+    : > "$archivo.subido"
     echo "    ✔ Subido"
   else
     # No se aborta: el respaldo local YA existe y es mejor que nada. Pero se
@@ -297,18 +327,56 @@ else
 fi
 
 # ── Rotación ─────────────────────────────────────────────────────────────
+# Rotar NO es borrar datos. Son dos casos distintos:
+#
+#   · Un DIARIO es una foto de datos que siguen vivos en la base. Soltar el más
+#     viejo de quince no pierde información: la base la tiene.
+#
+#   · Un COMPLETO lleva además las grabaciones. Se puede soltar uno viejo
+#     cuando existe otro MÁS NUEVO que ya consta fuera del servidor, porque
+#     —mientras nada se borre de la base— el más nuevo contiene todo lo que
+#     tenía el viejo. Si no hay ninguno confirmado, no se borra nada y se avisa.
+#
+# ⚠ Ese razonamiento depende de que nada salga de la base. El día que las
+#   grabaciones se archiven fuera para liberar disco, un completo nuevo ya NO
+#   será superconjunto del viejo, y esta regla tendrá que pasar a exigir la
+#   confirmación de cada copia por separado.
+referencia_externa() {
+  local c
+  for c in $(ls -t "$DESTINO"/falcon-completo-*.dump 2>/dev/null); do
+    if [[ -f "$c.subido" || -f "$c.afuera" ]]; then stat -c%Y "$c"; return 0; fi
+  done
+  return 1
+}
+CORTE_EXTERNO=$(referencia_externa) || CORTE_EXTERNO=''
+
 rotar() {
-  local patron="$1" conservar="$2" sobran
+  local patron="$1" conservar="$2" exigir_copia="${3:-no}" sobran
   sobran=$(ls -t "$DESTINO"/$patron 2>/dev/null | tail -n +"$((conservar + 1))") || true
   [[ -z "$sobran" ]] && return 0
+  local sueltos=0 retenidos=0
   while IFS= read -r viejo; do
-    rm -f "$viejo" "$viejo.conteos"
+    if [[ "$exigir_copia" == si ]]; then
+      if [[ -z "$CORTE_EXTERNO" ]] || [[ "$(stat -c%Y "$viejo")" -ge "$CORTE_EXTERNO" ]]; then
+        retenidos=$((retenidos + 1))
+        echo "    ⚠ $(basename "$viejo") sobra por antigüedad, pero no hay un respaldo" >&2
+        echo "      completo MÁS NUEVO que conste fuera del servidor. No se borra." >&2
+        continue
+      fi
+    fi
+    rm -f "$viejo" "$viejo.conteos" "$viejo.sha256" "$viejo.subido" "$viejo.afuera"
+    sueltos=$((sueltos + 1))
   done <<< "$sobran"
-  echo "    Rotación: eliminada(s) $(echo "$sobran" | wc -l) copia(s) de $patron"
+  [[ "$sueltos" -gt 0 ]] && echo "    Rotación: eliminada(s) $sueltos copia(s) de $patron"
+  if [[ "$retenidos" -gt 0 ]]; then
+    echo "    Rotación: $retenidos copia(s) retenida(s) hasta que una más nueva salga del servidor." >&2
+    echo "      Bájela a su disco y confírmela:  $0 confirmar <copia> <sha256>" >&2
+  fi
+  return 0
 }
 rotar 'falcon-datos-*.dump' "$COPIAS_DIARIAS"
-rotar 'falcon-completo-*.dump' "$COPIAS_COMPLETAS"
-rotar 'predespliegue-*.dump' "$COPIAS_PREDESPLIEGUE"
+rotar 'falcon-completo-*.dump' "$COPIAS_COMPLETAS" si
+rotar 'predespliegue-*.dump' "$COPIAS_PREDESPLIEGUE" si
 
 # ── Aviso de disco ───────────────────────────────────────────────────────
 # Quedarse sin disco en un CAD es una caída, no una molestia.
@@ -319,5 +387,5 @@ tamano_video=$(psql_ "SELECT pg_size_pretty(pg_total_relation_size('archivos_chu
 echo
 echo "Base: $tamano_bd · grabaciones: $tamano_video · disco al ${usado}%"
 if [[ "$usado" -ge 80 ]]; then
-  echo "    ⚠ El disco va al ${usado}%. Purgue grabaciones: $0 purgar <días>" >&2
+  echo "    ⚠ El disco va al ${usado}%. Vea '$0 espacio'." >&2
 fi
