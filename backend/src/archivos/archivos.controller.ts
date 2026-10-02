@@ -5,6 +5,7 @@ import {
 import { FileInterceptor } from '@nestjs/platform-express';
 import type { Response } from 'express';
 import { ArchivosService, MAX_BYTES_CHUNK } from './archivos.service';
+import { ArchivadoService } from './archivado.service';
 import { Tenant } from '../common/tenant.decorator';
 import { Usuario } from '../common/usuario.decorator';
 import { PermisosVigentes } from '../common/permisos-vigentes.decorator';
@@ -27,7 +28,10 @@ interface ArchivoSubido {
 @Permisos('casos.ver')
 @Controller()
 export class ArchivosController {
-  constructor(private readonly archivos: ArchivosService) {}
+  constructor(
+    private readonly archivos: ArchivosService,
+    private readonly archivado: ArchivadoService,
+  ) {}
 
   /** GET /api/casos/:id/archivos — qué hay adjunto a este caso. */
   @Get('casos/:id/archivos')
@@ -126,9 +130,18 @@ export class ArchivosController {
     res.setHeader('Content-Disposition', `inline; filename="${archivo.nombre}"`);
     // Un archivo EN_CURSO todavía está creciendo: anunciar un Content-Length
     // que va a quedarse corto hace que el navegador corte la descarga.
-    if (archivo.estado === 'COMPLETO') res.setHeader('Content-Length', String(Number(archivo.bytes)));
+    if (archivo.estado !== 'EN_CURSO') res.setHeader('Content-Length', String(Number(archivo.bytes)));
 
-    for await (const trozo of this.archivos.leerContenido(tenant, archivoId)) {
+    // Una grabación ARCHIVADA ya no tiene sus bytes en la base: se traen del
+    // almacenamiento de objetos y se entregan igual. Quien la abre no distingue
+    // una de otra, que es justamente el objetivo de archivar en un sitio que el
+    // servidor sí alcanza. La URL prefirmada no sale de aquí: nunca llega al
+    // navegador.
+    const origen: AsyncIterable<Buffer> = archivo.estado === 'ARCHIVADO'
+      ? await this.archivado.abrir(archivo)
+      : this.archivos.leerContenido(tenant, archivoId);
+
+    for await (const trozo of origen) {
       if (!res.write(trozo)) await new Promise((r) => res.once('drain', r));
     }
     res.end();

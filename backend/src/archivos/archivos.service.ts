@@ -1,7 +1,7 @@
 import { BadRequestException, Injectable, Logger, NotFoundException, PayloadTooLargeException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
-import { ArchivoEntity, EstadoArchivo, OrigenArchivo } from './archivo.entity';
+import { ArchivoEntity, EstadoArchivo, OrigenArchivo, estaCerrado } from './archivo.entity';
 import { ArchivoChunkEntity } from './archivo-chunk.entity';
 import { TenantRlsService } from '../common/tenant-rls.service';
 import { TenantEntity } from '../tenants/tenant.entity';
@@ -90,7 +90,10 @@ export class ArchivosService {
       const repoArchivo = manager.getRepository(ArchivoEntity);
       const archivo = await repoArchivo.findOne({ where: { tenant, id: archivoId } });
       if (!archivo) throw new NotFoundException('Archivo no encontrado.');
-      if (archivo.estado === 'COMPLETO') throw new BadRequestException('El archivo ya está cerrado.');
+      // `estaCerrado` y no `=== 'COMPLETO'`: un archivo ARCHIVADO ya no tiene
+      // sus bytes en la base, y anexarle un trozo lo dejaría con un trozo
+      // suelto que no es ni la grabación vieja ni una nueva.
+      if (estaCerrado(archivo.estado)) throw new BadRequestException('El archivo ya está cerrado.');
 
       const actuales = Number(archivo.bytes ?? 0);
       if (actuales + datos.length > MAX_BYTES_ARCHIVO)
@@ -128,7 +131,7 @@ export class ArchivosService {
       const repo = manager.getRepository(ArchivoEntity);
       const archivo = await repo.findOne({ where: { tenant, id: archivoId } });
       if (!archivo) throw new NotFoundException('Archivo no encontrado.');
-      if (archivo.estado === 'COMPLETO') return archivo;
+      if (estaCerrado(archivo.estado)) return archivo;
 
       // Sin un solo trozo no hay archivo que ofrecer: se marca FALLIDO para
       // que no aparezca en la lista como algo descargable que da un cero.

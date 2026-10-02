@@ -7,8 +7,16 @@ export type OrigenArchivo = 'ADJUNTO' | 'GRABACION';
  * EN_CURSO   el archivo se está subiendo; todavía no está completo.
  * COMPLETO   terminó de subirse y se puede descargar.
  * FALLIDO    se abandonó a medias (ver ArchivosService.barrerAbandonados).
+ * ARCHIVADO  los bytes salieron de la base al almacenamiento de objetos y se
+ *            sirven desde allá (ver ArchivadoService). Sigue descargándose
+ *            igual: para quien lo abre, no hay diferencia.
  */
-export type EstadoArchivo = 'EN_CURSO' | 'COMPLETO' | 'FALLIDO';
+export type EstadoArchivo = 'EN_CURSO' | 'COMPLETO' | 'FALLIDO' | 'ARCHIVADO';
+
+/** Un archivo deja de aceptar trozos en cuanto sale de EN_CURSO. */
+export function estaCerrado(estado: EstadoArchivo): boolean {
+  return estado !== 'EN_CURSO';
+}
 
 /**
  * Metadatos de un archivo del caso: un adjunto que sube el operador, o la
@@ -79,4 +87,24 @@ export class ArchivoEntity {
   /** Último trozo recibido — lo usa el barrido de abandonados. */
   @Column({ type: 'timestamptz', nullable: true })
   ultimoChunkEn?: Date | null;
+
+  // ── Archivado ─────────────────────────────────────────────────────────────
+  // Ver la migración ArchivadoGrabaciones y ArchivadoService. La fila sobrevive
+  // al archivado: lo que sale de la base son los bytes, no la constancia.
+
+  /** Cuándo salieron los bytes de la base. Null = el contenido sigue aquí. */
+  @Column({ type: 'timestamptz', nullable: true })
+  archivadoEn?: Date | null;
+
+  /** Dónde está exactamente, en el almacenamiento de objetos. */
+  @Column({ type: 'varchar', length: 300, nullable: true })
+  objetoRemoto?: string | null;
+
+  /**
+   * Hash del contenido original, calculado ANTES de liberar los bytes. Es lo
+   * que permite demostrar años después que lo que se descarga es byte a byte lo
+   * que se grabó.
+   */
+  @Column({ type: 'char', length: 64, nullable: true })
+  sha256?: string | null;
 }

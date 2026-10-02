@@ -16,11 +16,17 @@
 #     Guardar quince y soltar la decimosexta no pierde información: la
 #     información está en la base, la copia solo servía para volver atrás.
 #
-#   · Un respaldo COMPLETO puede ser, en cambio, el único sitio donde queda una
-#     grabación —el día que el video salga de la base para liberar disco, lo
-#     será—. Por eso este script NO rota un completo mientras no conste que
-#     salió del servidor: o lo subió (`.subido`), o alguien lo bajó y lo
-#     confirmó con su sha256 (`.afuera`). Si no consta, avisa y no borra.
+#   · Un respaldo COMPLETO lleva además las grabaciones que todavía están en la
+#     base, así que se trata con más cuidado: NO se rota mientras no conste que
+#     salió del servidor —o lo subió (`.subido`), o alguien lo bajó y lo
+#     confirmó con su sha256 (`.afuera`)—. Si no consta, avisa y no borra.
+#
+#   · El hogar permanente del video NO es este volcado: es el almacenamiento de
+#     objetos donde ArchivadoService deja cada grabación a los 90 días, después
+#     de bajarla de vuelta y comprobar que coincide byte a byte. Ese bucket hay
+#     que bajarlo al disco externo igual que estos respaldos. El índice de qué
+#     objeto es cada grabación y con qué sha256 va en la tabla `archivos`, o sea
+#     en todos los respaldos diarios.
 #
 # Aquí no hay ningún modo que borre datos por antigüedad, a propósito.
 #
@@ -332,15 +338,16 @@ fi
 #   · Un DIARIO es una foto de datos que siguen vivos en la base. Soltar el más
 #     viejo de quince no pierde información: la base la tiene.
 #
-#   · Un COMPLETO lleva además las grabaciones. Se puede soltar uno viejo
-#     cuando existe otro MÁS NUEVO que ya consta fuera del servidor, porque
-#     —mientras nada se borre de la base— el más nuevo contiene todo lo que
-#     tenía el viejo. Si no hay ninguno confirmado, no se borra nada y se avisa.
+#   · Un COMPLETO lleva además las grabaciones que siguen en la base. Se puede
+#     soltar uno viejo cuando existe otro MÁS NUEVO que ya consta fuera del
+#     servidor. Si no hay ninguno confirmado, no se borra nada y se avisa.
 #
-# ⚠ Ese razonamiento depende de que nada salga de la base. El día que las
-#   grabaciones se archiven fuera para liberar disco, un completo nuevo ya NO
-#   será superconjunto del viejo, y esta regla tendrá que pasar a exigir la
-#   confirmación de cada copia por separado.
+# ⚠ Con el archivado en marcha, un completo nuevo ya NO contiene las grabaciones
+#   que se archivaron entre uno y otro: no es superconjunto del viejo. Lo que
+#   hace seguro soltarlo es otra cosa —ArchivadoService libera los bytes de una
+#   grabación solo DESPUÉS de bajarla del almacenamiento de objetos y comprobar
+#   que coincide byte a byte—. Esa copia es el hogar permanente del video, no
+#   este volcado, y por eso ese bucket también hay que bajarlo al disco externo.
 referencia_externa() {
   local c
   for c in $(ls -t "$DESTINO"/falcon-completo-*.dump 2>/dev/null); do

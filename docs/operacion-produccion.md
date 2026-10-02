@@ -157,6 +157,8 @@ DOMAIN=falconcad.com.co
 DB_PASSWORD=...
 JWT_SECRET=...
 VIDEO_TOKEN_SECRET=...
+ARCHIVO_OBJETOS_URL=...      # ver «Archivado de grabaciones»
+ARCHIVO_DIAS=90
 ```
 
 > ⚠️ **`JWT_SECRET` no es solo para las sesiones.** Con una llave derivada de
@@ -362,14 +364,16 @@ las grabaciones y puede ser el único sitio donde queda una, así que:
 - `.subido` — el script lo subió a `FALCON_RESPALDO_URL` y el `curl` salió bien.
 - `.afuera` — usted lo bajó a su disco y lo confirmó con su sha256 (ver abajo).
 
-Por qué basta con uno **más nuevo**: mientras nada se borre de la base, un
-volcado posterior contiene todo lo que tenía el anterior. El viejo es un
-subconjunto del nuevo.
+Por qué es seguro soltar el viejo: **no porque el nuevo lo contenga** —con el
+archivado en marcha, un completo nuevo ya no lleva las grabaciones que se
+archivaron entre uno y otro—, sino porque el archivado solo libera los bytes de
+una grabación después de bajarla del almacenamiento de objetos y comprobar que
+coincide byte a byte. Ver *Archivado de grabaciones* más abajo.
 
-> ⚠️ Ese razonamiento se rompe el día que las grabaciones salgan de la base para
-> liberar disco: desde entonces un completo nuevo ya no contendrá lo archivado,
-> y la regla tendrá que pasar a exigir la confirmación de **cada** copia. Está
-> anotado en el propio script, donde se va a tocar.
+> ⚠️ De eso se sigue una obligación: el **bucket del archivo** es el hogar
+> permanente del video, no el volcado. Hay que bajarlo al disco externo igual
+> que los respaldos. El índice de qué objeto es cada grabación y con qué sha256
+> viaja en la tabla `archivos`, o sea en **todos** los respaldos diarios.
 
 ### Bajar las copias a su disco externo
 
@@ -462,7 +466,7 @@ docker compose start backend1 backend2 backend3
 Si se restaura un **diario**, las grabaciones no vuelven: para recuperarlas hay
 que restaurar encima el último `completo`. Los casos y todo lo demás sí están.
 
-### El problema de los 200 GB, y qué falta por hacer
+### El problema de los 200 GB
 
 ```bash
 ./respaldo-falcon.sh espacio
@@ -472,7 +476,7 @@ Informa el tamaño de la base, cuánto de eso es video, cuánto se grabó en los
 últimos 30 días, y **cuántos meses quedan antes del 80% del disco a ese ritmo**.
 No borra ni toca nada.
 
-La grabación ya tiene techo: 800 kbps de video y 64 de audio
+La grabación tiene techo: 800 kbps de video y 64 de audio
 (`VIDEO_BPS_GRABACION` en `videollamada.service.ts`), **≈390 MB por hora
 grabada**. Sin ese techo, MediaRecorder elegía el bitrate según la resolución y
 una llamada 720p se iba a ~1,1 GB/hora. No afecta a lo que ve el despachador
@@ -481,27 +485,126 @@ una llamada 720p se iba a ~1,1 GB/hora. No afecta a lo que ve el despachador
 | Uso | Al mes | En un año |
 |---|---|---|
 | 1 h/día grabada | 12 GB | 140 GB |
-| 2 h/día | 23 GB | 280 GB — **no cabe** |
+| 2 h/día | 23 GB | 280 GB — no cabe |
 | 5 h/día | 58 GB | 700 GB |
 
-Hoy la base entera son 48 MB y el disco va al 3%, así que no hay urgencia. Pero
-con la política de no borrar nunca, **ningún techo de bitrate alcanza**: el
-video solo puede ir en una dirección, que es fuera del servidor.
+Con la política de no borrar nunca, **ningún techo de bitrate alcanza**: el video
+solo puede ir en una dirección, que es fuera del servidor. De eso se encarga el
+archivado.
 
-Lo que falta por construir, y es el siguiente paso:
+---
 
-**Archivar, no borrar.** Un modo `archivar` que, por cada grabación de más de N
-días: la exporte a un `.webm` real, calcule su sha256, la copie fuera del
-servidor, **compruebe que la copia de fuera coincide**, y solo entonces libere
-los bytes de `archivos_chunks` dejando la fila de `archivos` marcada como
-archivada, con el nombre y el sitio donde está. El caso nunca pierde constancia
-de que la grabación existió, y el archivo `.webm` es directamente reproducible
-—mejor para evidencia que un volcado de 50 GB que hay que restaurar para ver un
-video—.
+## Archivado de grabaciones
 
-Está pendiente una decisión antes de construirlo: **dónde vive el archivo
-permanente**, porque determina si una grabación archivada sigue viéndose desde
-FALCON o hay que pedírsela a quien tenga el disco. Ver `Pendientes conocidos`.
+A los 90 días, una grabación **sale de la base** y pasa al almacenamiento de
+objetos. No se borra: se muda. Lo hace el backend solo, cada noche a las 3:19
+(`ArchivadoBarridoService`).
+
+### El orden es todo el diseño
+
+1. Se lee el contenido de la base y se sube al almacenamiento, calculando su
+   `sha256` al pasar.
+2. Se vuelve a **bajar** lo subido y se comprueba que el hash y el tamaño
+   coincidan.
+3. **Solo entonces** se liberan los bytes de `archivos_chunks`.
+
+El paso 2 es lo que separa archivar de perder. Subir y borrar confiando en que
+el `PUT` devolvió 200 es exactamente cómo se pierde evidencia: basta un objeto
+truncado, un proxy que corta, un bucket que llenó su cuota. Si el paso 2 falla,
+**no se borra nada** y la grabación sigue en la base para el intento de mañana.
+
+La fila de `archivos` sobrevive siempre, con `archivadoEn`, `objetoRemoto` y
+`sha256`. El caso nunca pierde constancia de que la grabación existió, de quién
+la hizo ni de cuánto pesaba — y el `sha256` permite demostrar años después que
+lo que se descarga es byte a byte lo que se grabó.
+
+### Para el usuario no cambia nada
+
+Una grabación archivada se abre igual: la API la trae del almacenamiento y la
+entrega. Esa es la razón de archivar en Object Storage de Oracle y no en una NAS
+de la oficina — el servidor sí alcanza el primero; la NAS está tras NAT y no
+tiene IP pública.
+
+La URL prefirmada **nunca llega al navegador**: la URL es la credencial, y quien
+la tenga puede leer y escribir el bucket. Las descargas pasan por la API, que ya
+aplica el permiso `casos.ver_grabaciones`.
+
+### Configuración
+
+```bash
+# En el .env del backend (~/falcon-deploy/.env)
+ARCHIVO_OBJETOS_URL=https://objectstorage.<region>.oraclecloud.com/p/<token>/n/<tenancy>/b/falcon-archivo/o
+ARCHIVO_DIAS=90
+```
+
+Crear el PAR:
+
+1. Consola de Oracle → *Storage* → *Buckets* → crear `falcon-archivo`.
+   **Distinto del de respaldos**: son dos cosas con vidas distintas, y mezclarlas
+   haría que la rotación de respaldos pase por encima del archivo permanente.
+2. *Pre-Authenticated Requests* → *Permit object reads and writes*, alcance
+   *Bucket*, vencimiento a un año. Marcar también *Enable object listing* si
+   quiere poder bajar el bucket completo al disco externo.
+3. Copiar la URL (**se muestra una sola vez**) al `.env` y reiniciar el backend.
+
+Sin la variable no se archiva nada: las grabaciones se quedan en la base, el
+disco crece, y el backend lo advierte en el log cada noche.
+
+### Comprobar que está funcionando
+
+```bash
+# Qué se archivó y qué sigue en la base
+docker compose exec -T postgres psql -U falcon -d falcon_cad -q -tAc \
+  "SET row_security=off;
+   SELECT estado, count(*), pg_size_pretty(sum(bytes)::bigint)
+     FROM archivos WHERE origen='GRABACION' GROUP BY estado"
+
+# El log de la noche
+docker compose logs --since 24h backend1 backend2 backend3 | grep -i archivad
+```
+
+Un `ERROR ... no se libera nada` es el sistema trabajando bien: detectó que la
+copia del almacenamiento no coincidía y dejó la grabación en la base. Si se
+repite varias noches con la misma grabación, el problema está en el bucket —cuota
+llena, PAR vencido, red— y hay que resolverlo antes de que el disco apriete.
+
+### El bucket del archivo también hay que bajarlo
+
+Es el hogar permanente del video. Dos pasos: el índice sale de la base, los
+objetos del bucket.
+
+**En el servidor**, generar el índice de lo archivado:
+
+```bash
+cd ~/falcon-deploy
+docker compose exec -T postgres psql -U falcon -d falcon_cad -q -tA -F, -c \
+  "SET row_security=off;
+   SELECT \"objetoRemoto\", sha256, bytes FROM archivos WHERE \"archivadoEn\" IS NOT NULL" \
+  > /opt/falcon-backups/archivo-indice.csv
+```
+
+Queda junto a los respaldos, así que `rsync` ya se lo lleva al disco. (Y aunque
+se perdiera, la misma información está en la tabla `archivos` de todos los
+respaldos diarios.)
+
+**En su computador**, bajar cada objeto y verificar su hash:
+
+```bash
+PAR='https://objectstorage.<region>.oraclecloud.com/p/<token>/n/<tenancy>/b/falcon-archivo/o'
+DESTINO=/Volumes/FALCON/archivo
+
+while IFS=, read -r objeto sha bytes; do
+  local_=$DESTINO/$objeto
+  mkdir -p "$(dirname "$local_")"
+  [[ -f $local_ ]] && continue                       # ya bajado antes
+  curl -fsS "$PAR/$objeto" -o "$local_" || { echo "FALLÓ $objeto"; continue; }
+  echo "$sha  $local_" | shasum -a 256 -c            # el hash del ORIGINAL, antes de archivar
+done < $DESTINO/../respaldos/archivo-indice.csv
+```
+
+El `shasum -c` compara contra el hash que el backend calculó **antes** de liberar
+los bytes de la base. Si pasa, la copia de su disco es byte a byte la grabación
+original: eso es lo que hace que esto sea un archivo y no una esperanza.
 
 ---
 
@@ -683,14 +786,10 @@ internet.
 - **Respaldos fuera del servidor.** El script ya los sube, pero falta crear
   la URL prefirmada de Object Storage y definir `FALCON_RESPALDO_URL`. Hasta
   entonces las copias viven en el mismo disco que protegen.
-- **Archivado de grabaciones sin construir.** La política es no borrar nunca,
-  así que el video tiene que salir del servidor, no desaparecer. Falta el modo
-  `archivar` (exportar a `.webm`, verificar la copia de fuera, liberar los bytes
-  de la base dejando la fila marcada). Antes hay que decidir **dónde vive el
-  archivo permanente**: en Object Storage de Oracle la grabación archivada sigue
-  viéndose desde FALCON y cuesta ~US$2,5 al mes por 100 GB; en un disco externo
-  o una NAS en la oficina es gratis, pero el servidor no los alcanza —están tras
-  NAT— y una grabación archivada habría que pedirla a quien tenga el disco.
+- **`ARCHIVO_OBJETOS_URL` sin configurar.** El archivado está construido y
+  probado, pero hasta que exista el bucket y su PAR no archiva nada: las
+  grabaciones se quedan en la base y el disco crece. Ver *Archivado de
+  grabaciones*.
 - **Nada avisa si el sitio se cae.** Falta un monitor externo contra
   `https://falconcad.com.co/api/health`.
 - **La credencial del TURN del Servidor B está comprometida**: estuvo en un
