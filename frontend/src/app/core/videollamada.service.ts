@@ -79,6 +79,21 @@ interface ChatDelServidor {
 /** Cada cuánto MediaRecorder entrega un trozo de la grabación. */
 const TROZO_MS = 4000;
 
+/**
+ * Techo de la grabación. Sin esto MediaRecorder elige el bitrate según la
+ * resolución del track y en una llamada 720p se va a 2,5 Mbps: ~1,1 GB por
+ * hora grabada, dentro de la base de datos y por lo tanto dentro de cada
+ * respaldo completo. Con el techo son ~390 MB por hora, y el servidor tiene
+ * 200 GB en total.
+ *
+ * No afecta a lo que ve el despachador: el video punto a punto va por su
+ * propio canal y mantiene su calidad. Esto solo limita lo que se archiva, que
+ * es donde el tamaño importa y donde 800 kbps siguen siendo suficientes para
+ * reconocer personas, placas y lo que ocurrió.
+ */
+const VIDEO_BPS_GRABACION = 800_000;
+const AUDIO_BPS_GRABACION = 64_000;
+
 /** Reintentos por trozo antes de rendirse. Un trozo perdido es un hueco en la evidencia. */
 const INTENTOS_POR_TROZO = 3;
 
@@ -440,7 +455,11 @@ export class VideollamadaService {
     this.grabacionActiva = true;
     this.grabandoSubject.next(true);
 
-    this.recorder = new MediaRecorder(stream, { mimeType: 'video/webm' });
+    this.recorder = new MediaRecorder(stream, {
+      mimeType: 'video/webm',
+      videoBitsPerSecond: VIDEO_BPS_GRABACION,
+      audioBitsPerSecond: AUDIO_BPS_GRABACION,
+    });
     this.recorder.ondataavailable = (e) => {
       if (e.data.size > 0) this.encolar(e.data);
     };
