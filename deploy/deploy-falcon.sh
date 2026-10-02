@@ -224,8 +224,24 @@ publicar_runtime() {
 # DENTRO del contenedor y, si no coincide, se recrea: es la única forma de
 # volver a enganchar el bind.
 verificar_montaje() {
+  # `docker compose` usa el compose del directorio ACTUAL, y el script se deja
+  # parado dentro del repositorio —que tiene su propio docker-compose.yml, el
+  # de desarrollo, sin ningún nginx—. Sin este cd, la comprobación miraba el
+  # archivo equivocado y concluía que el montaje estaba colgado cuando lo que
+  # pasaba es que ese servicio no existe ahí.
+  cd "$DEPLOY_DIR"
+
   local raiz=/usr/share/nginx/html
   local esperado; esperado=$(md5sum "$DIST_DIR/index.html" | cut -d' ' -f1)
+
+  # Antes de interpretar nada: que el servicio exista. Si no, el problema no es
+  # un montaje viejo y recrearlo no arreglaría nada — conviene decir cuál es.
+  if ! docker compose ps --services 2>/dev/null | grep -qx nginx; then
+    echo "    ✖ En $DEPLOY_DIR/docker-compose.yml no hay un servicio 'nginx'." >&2
+    echo "      Los archivos SÍ se publicaron en $DIST_DIR; lo que no se pudo" >&2
+    echo "      es comprobar qué está sirviendo el contenedor." >&2
+    exit 1
+  fi
 
   local visto
   visto=$(docker compose exec -T nginx md5sum "$raiz/index.html" 2>/dev/null | cut -d' ' -f1 || true)
