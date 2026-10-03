@@ -43,6 +43,15 @@
 .video-rec { display: flex; }
 .video-rec app-videollamada { display: block; width: 100%; }
 
+/* El hueco donde se acopla el panel de videollamada tiene que ocupar el ancho
+   del formulario. Como ítem flex con ancho automático se encogía al contenido,
+   y el panel —que se dimensiona con una container query sobre SU ancho, no el
+   de la ventana— recibía unos 200 px y se dibujaba en su disposición más
+   angosta: el teléfono recortado y la tarjeta apretada contra el margen.
+   Es el mismo componente que usa Despacho; lo único distinto era el ancho que
+   le daba el hueco. */
+.video-rec-hueco { flex: 1; min-width: 0; }
+
 /* 7. Fieldsets */
 .form-panel fieldset {
   border: none;

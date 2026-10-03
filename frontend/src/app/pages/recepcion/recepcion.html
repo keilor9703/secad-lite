@@ -106,7 +106,8 @@
               📹 {{ lanzandoVideo() ? 'Iniciando videollamada…' : 'Videollamada con el ciudadano' }}
             </button>
           } @else {
-            <div [appAnclajeVideollamada]="casoVideoId()!" [telefono]="form.controls.telefono.value || null"></div>
+            <div class="video-rec-hueco" [appAnclajeVideollamada]="casoVideoId()!"
+              [telefono]="form.controls.telefono.value || null"></div>
           }
         </div>
       }
