@@ -1,6 +1,7 @@
 import { Body, Controller, Get, Param, Patch, Post, Put, Query } from '@nestjs/common';
 import { Actor, CasosService } from './casos.service';
 import { CrearCasoDto } from './dto/crear-caso.dto';
+import { CasoMinimoDto } from './dto/caso-minimo.dto';
 import { CambiarEstadoDto } from './dto/cambiar-estado.dto';
 import { AgregarNotaDto } from './dto/agregar-nota.dto';
 import { EnviarChatDto } from './dto/enviar-chat.dto';
@@ -194,6 +195,43 @@ export class CasosController {
   crear(@Tenant() tenant: string, @Usuario() usuario: JwtPayload, @Body() dto: CrearCasoDto) {
     // El origen del caso es SIEMPRE la agencia del funcionario, nunca el cuerpo.
     return this.casos.crear(tenant, dto, usuario?.sub ?? 'desconocido', usuario?.agencia ?? null);
+  }
+
+  /**
+   * POST /api/casos/minimo — abre un caso MÍNIMO para un abonado que el operador
+   * DIGITÓ a mano en Recepción, sin haber tomado ninguna llamada de la cola.
+   *
+   * Existe porque la videollamada, su grabación y sus archivos cuelgan de un
+   * caso y no de un número: para ofrecerla antes de que el formulario esté
+   * completo hay que tener un caso. Es el equivalente, para el número escrito a
+   * mano, de lo que `PbxService.atender()` hace con el que entra por la central
+   * —y pasa por la misma función, así que reusa el caso abierto del mismo
+   * abonado en vez de duplicarlo—. «Guardar caso» después lo COMPLETA
+   * (`completar`), no crea uno segundo.
+   *
+   * Mismo permiso que crear un caso: es la primera mitad del mismo flujo. No
+   * exige la integración de PBX, porque escribir un número no pasa por la
+   * central.
+   */
+  @Permisos('casos.crear')
+  @Post('minimo')
+  async minimo(@Tenant() tenant: string, @Usuario() usuario: JwtPayload, @Body() dto: CasoMinimoDto) {
+    const numero = dto.telefono.trim();
+    return this.casos.minimoDeTelefono(
+      tenant,
+      {
+        telefono: numero,
+        canal: dto.canal ?? 'llamada',
+        titulo: `Contacto con abonado ${numero}`,
+        // `crear` exige ciudadano; si el operador ya escribió quién reporta se
+        // usa eso, y si no, el número es lo único que de verdad se sabe.
+        ciudadano: dto.ciudadano?.trim() || `Llamante ${numero}`,
+        nota: `Contacto con el abonado ${numero} (número digitado por el operador).`,
+      },
+      usuario?.sub ?? 'desconocido',
+      // El origen del caso es SIEMPRE la agencia del funcionario, nunca el cuerpo.
+      usuario?.agencia ?? null,
+    );
   }
 
   /**

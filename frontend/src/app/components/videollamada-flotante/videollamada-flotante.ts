@@ -21,8 +21,14 @@ const MARGEN = 24;
  * cualquier navegación, y el despachador puede consultar otro caso, mirar el
  * mapa o recepcionar mientras sigue viendo al ciudadano.
  *
- * Arranca FLOTANTE a propósito: es el estado en el que la llamada no depende
- * de dónde esté el operador.
+ * Arranca ACOPLADO, en el hueco de la página, que es donde el operador espera
+ * encontrar la videollamada: al lado del caso que está atendiendo, con el mapa
+ * a la vista. Flotar es una decisión del operador, no el estado por omisión.
+ *
+ * Solo flota sin que nadie lo pida cuando no hay dónde acoplarse —el operador
+ * se fue a otra pantalla—, y vuelve al hueco en cuanto regresa. Esa ida y
+ * vuelta no cuenta como haber desacoplado: si el operador SÍ desacopló a mano,
+ * se respeta y no se le vuelve a meter en el hueco a sus espaldas.
  */
 @Component({
   selector: 'app-videollamada-flotante',
@@ -38,8 +44,19 @@ export class VideollamadaFlotanteComponent implements AfterViewInit, OnDestroy {
   private readonly caja = viewChild<ElementRef<HTMLElement>>('caja');
   private readonly host = inject(ElementRef<HTMLElement>);
 
-  readonly modo = signal<Modo>('flotante');
+  readonly modo = signal<Modo>('acoplada');
   readonly visible = computed(() => !!this.video.casoPanel());
+
+  /**
+   * El operador oprimió «Desacoplar». Distingue flotar porque lo pidió de
+   * flotar porque la página que ofrecía el hueco ya no está — sin esta
+   * distinción, volver al caso no podría devolver el panel a su sitio sin
+   * pisar una decisión suya.
+   */
+  private readonly desacoploElOperador = signal(false);
+
+  /** Panel de la llamada anterior, para reiniciar el modo en cada llamada nueva. */
+  private panelPrevio: string | null = null;
 
   /** Posición de la ventana flotante, en píxeles desde la esquina superior izquierda. */
   readonly x = signal(0);
@@ -64,10 +81,23 @@ export class VideollamadaFlotanteComponent implements AfterViewInit, OnDestroy {
       if (caja.parentElement !== destino) destino.appendChild(caja);
     });
 
-    // Si la página que ofrecía el anclaje desaparece, no se puede seguir
-    // acoplado: se vuelve a flotar en vez de quedarse en un hueco que ya no existe.
+    // Cada llamada nueva empieza acoplada: el «desacoplé a mano» de la llamada
+    // anterior no debe heredarse a la siguiente.
     effect(() => {
-      if (!this.video.anclaje() && this.modo() === 'acoplada') this.modo.set('flotante');
+      const panel = this.video.casoPanel();
+      if (panel && panel !== this.panelPrevio) this.desacoploElOperador.set(false);
+      this.panelPrevio = panel;
+    });
+
+    // Dónde debe estar el panel cuando nadie lo ha movido a mano:
+    //   sin anclaje  → flotando, porque no hay hueco donde ponerlo.
+    //   con anclaje  → en el hueco, que es el estado por omisión.
+    effect(() => {
+      if (!this.video.anclaje()) {
+        if (this.modo() === 'acoplada') this.modo.set('flotante');
+      } else if (!this.desacoploElOperador() && this.modo() === 'flotante') {
+        this.modo.set('acoplada');
+      }
     });
   }
 
@@ -81,6 +111,8 @@ export class VideollamadaFlotanteComponent implements AfterViewInit, OnDestroy {
       if (caja && caja.parentElement !== this.host.nativeElement) {
         this.host.nativeElement.appendChild(caja);
       }
+      // No se marca `desacoploElOperador`: esto es la página yéndose, no una
+      // decisión suya. Al volver al caso, el panel se reacopla solo.
       this.modo.set('flotante');
       this.colocarAlInicio();
     });
@@ -102,6 +134,9 @@ export class VideollamadaFlotanteComponent implements AfterViewInit, OnDestroy {
 
   alternarAcople(): void {
     this.modo.update((m) => (m === 'acoplada' ? 'flotante' : 'acoplada'));
+    // Se guarda la DECISIÓN, no solo el estado: es lo que impide que el efecto
+    // de arriba vuelva a acoplar el panel que el operador acaba de soltar.
+    this.desacoploElOperador.set(this.modo() === 'flotante');
     if (this.modo() === 'flotante') queueMicrotask(() => this.colocarAlInicio());
   }
 

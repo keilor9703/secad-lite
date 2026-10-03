@@ -4,7 +4,7 @@ import { Between, EntityManager, FindOptionsWhere, In, LessThan, MoreThanOrEqual
 import { CasoEntity } from './caso.entity';
 import { EventoCasoEntity, TipoEvento } from './evento.entity';
 import { MensajeChatInternoEntity } from './chat-interno.entity';
-import { CANALES, EstadoCaso, ESTADOS, PRIORIDADES } from './caso.model';
+import { CANALES, Canal, EstadoCaso, ESTADOS, PRIORIDADES } from './caso.model';
 import { CatalogosService } from '../catalogos/catalogos.service';
 import { DespachoService } from '../despacho/despacho.service';
 import { TenantsService } from '../tenants/tenants.service';
@@ -502,6 +502,50 @@ export class CasosService implements OnModuleInit {
    * — así "Guardar caso" no deja dos casos por una sola llamada cuando el
    * primero nació del video.
    */
+  /**
+   * Caso MÍNIMO para un abonado: reusa el caso abierto más reciente de ese
+   * mismo número si existe, y si no crea uno con lo único que se sabe.
+   *
+   * Hay dos caminos que necesitan un caso ANTES de que el operador termine el
+   * formulario, porque la videollamada, su grabación y sus archivos cuelgan de
+   * un caso y no de una llamada: atender una llamada de la central
+   * (`PbxService.atender`) y digitar el abonado a mano en Recepción. Los dos
+   * pasan por aquí, y de ahí para allá el flujo es el mismo —incluida la regla
+   * de no duplicar: dos casos abiertos del mismo abonado son dos despachos al
+   * mismo incidente—.
+   */
+  async minimoDeTelefono(
+    tenant: string,
+    datos: { telefono: string; canal: Canal; titulo: string; ciudadano: string; nota: string },
+    usuario: string,
+    agenciaOrigenId?: string | null,
+  ): Promise<{ casoId: string; reusado: boolean }> {
+    const telefono = (datos.telefono ?? '').trim();
+    if (!telefono) throw new BadRequestException('Falta el abonado.');
+
+    const abierto = await this.rls.conTenant(tenant, (manager) =>
+      manager.getRepository(CasoEntity).findOne({
+        where: { tenant, telefono, estado: Not('cerrado') },
+        order: { creadoEn: 'DESC' },
+      }),
+    );
+
+    if (abierto) {
+      // Queda constancia de por qué este caso volvió a tocarse: sin la nota, el
+      // segundo contacto sería invisible en la bitácora del caso.
+      await this.agregarNota(tenant, abierto.id, datos.nota, usuario);
+      return { casoId: abierto.id, reusado: true };
+    }
+
+    const caso = await this.crear(
+      tenant,
+      { canal: datos.canal, titulo: datos.titulo, ciudadano: datos.ciudadano, telefono } as CrearCasoDto,
+      usuario,
+      agenciaOrigenId,
+    );
+    return { casoId: caso.id, reusado: false };
+  }
+
   async completar(tenant: string, id: string, dto: CrearCasoDto, actor: Actor): Promise<CasoEntity> {
     const caso = await this.obtener(tenant, id, actor);
     if (caso.estado === 'cerrado') throw new BadRequestException('El caso está cerrado.');

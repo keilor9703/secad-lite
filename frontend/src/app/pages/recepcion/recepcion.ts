@@ -1,7 +1,7 @@
 import { ChangeDetectionStrategy, Component, OnInit, computed, effect, inject, signal } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormControl, FormGroup, ReactiveFormsModule, Validators } from '@angular/forms';
-import { firstValueFrom } from 'rxjs';
+import { Observable, firstValueFrom } from 'rxjs';
 import { RouterLink } from '@angular/router';
 import { CasosService } from '../../core/casos.service';
 import { PbxService } from '../../core/pbx.service';
@@ -91,6 +91,53 @@ export class RecepcionComponent implements OnInit {
   private telefonoConsultado = '';
   readonly hayLlamadaEnCurso = computed(() => !!this.llamadaEnCurso());
 
+  /**
+   * El operador DIGITÓ el abonado y oprimió Enter, en vez de tomar una llamada
+   * de la cola. No siempre hay llamada entrante: el ciudadano escribe por otro
+   * medio, o el operador devuelve una llamada caída, y la videollamada hace
+   * igual de falta. Desde aquí el flujo es el mismo que si el número hubiera
+   * aparecido solo.
+   */
+  readonly abonadoConfirmado = signal(false);
+
+  /** Dígitos mínimos para dar por bueno un abonado; el mismo criterio que ELS. */
+  private static readonly DIGITOS_MINIMOS = 7;
+
+  /** Hay con qué videollamar: una llamada tomada, o un abonado digitado y confirmado. */
+  readonly hayAbonadoParaVideo = computed(() => this.hayLlamadaEnCurso() || this.abonadoConfirmado());
+
+  /** El abonado escrito ya da la talla, pero el operador todavía no oprimió Enter. */
+  readonly abonadoSinConfirmar = computed(
+    () => !this.hayLlamadaEnCurso() && !this.abonadoConfirmado() && this.digitosDelAbonado() >= RecepcionComponent.DIGITOS_MINIMOS);
+
+  /**
+   * Enter sobre el abonado: lo da por bueno y dispara lo mismo que dispara una
+   * llamada entrante —la consulta de ubicación del teléfono—, para que los dos
+   * caminos dejen el formulario en el mismo estado.
+   */
+  confirmarAbonado(): void {
+    if (this.digitosDelAbonado() < RecepcionComponent.DIGITOS_MINIMOS) {
+      this.abonadoConfirmado.set(false);
+      return;
+    }
+    this.abonadoConfirmado.set(true);
+    this.consultarEls();
+  }
+
+  /**
+   * El operador cambió el número a mano: se retira la confirmación, porque la
+   * videollamada se lanzaría contra el abonado viejo. Si ya se lanzó —hay caso
+   * de video— no se toca: la llamada está en curso y el panel no se retira por
+   * corregir un dígito.
+   */
+  abonadoEditado(): void {
+    if (!this.casoVideoId()) this.abonadoConfirmado.set(false);
+  }
+
+  private digitosDelAbonado(): number {
+    return (this.form.controls.telefono.value ?? '').replace(/\D+/g, '').length;
+  }
+
   esLaLlamadaEnCurso(l: Llamada): boolean {
     return this.llamadaEnCurso()?.id === l.id;
   }
@@ -133,10 +180,24 @@ export class RecepcionComponent implements OnInit {
   readonly lanzandoVideo = signal(false);
 
   lanzarVideollamada(): void {
+    if (this.casoVideoId() || this.lanzandoVideo()) return;
+
+    // Dos caminos para llegar al caso mínimo, y a partir de ahí todo es igual:
+    // con llamada tomada se atiende esa llamada (queda enlazada); con el abonado
+    // digitado a mano no hay llamada que atender, así que el caso se abre desde
+    // el número. El servidor reusa el caso abierto de ese abonado en los dos.
     const llamada = this.llamadaEnCurso();
-    if (!llamada || this.casoVideoId() || this.lanzandoVideo()) return;
+    if (!llamada && this.digitosDelAbonado() < RecepcionComponent.DIGITOS_MINIMOS) return;
+
+    const v = this.form.getRawValue();
+    // Tipado al mínimo común: los dos caminos devuelven cosas distintas y de
+    // esto solo hace falta el casoId.
+    const abrir$: Observable<{ casoId: string }> = llamada
+      ? this.pbx.atender(llamada.id)
+      : this.casosSvc.minimo(v.telefono.trim(), { ciudadano: v.ciudadano.trim() || undefined, canal: v.canal });
+
     this.lanzandoVideo.set(true);
-    this.pbx.atender(llamada.id).subscribe({
+    abrir$.subscribe({
       next: ({ casoId }) => {
         this.lanzandoVideo.set(false);
         this.casoVideoId.set(casoId);
@@ -399,6 +460,7 @@ export class RecepcionComponent implements OnInit {
       this.llamadaEnCurso.set(null);
     }
     this.casoVideoId.set(null);
+    this.abonadoConfirmado.set(false);
     this.form.reset(this.formVacio());
     this.canalesMarcados.set([]);
     this.sugeridaPorCodigo.set(null);

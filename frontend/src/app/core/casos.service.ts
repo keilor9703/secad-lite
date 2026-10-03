@@ -2,7 +2,7 @@ import { Injectable } from '@angular/core';
 import { HttpClient, HttpParams } from '@angular/common/http';
 import { Observable } from 'rxjs';
 import { environment } from '../../environments/environment';
-import { Caso, CrearCaso, EstadoCaso, EventoCaso, MensajeChatInterno, RemisionConfig, TenantDirectorio } from './models';
+import { Canal, Caso, CrearCaso, EstadoCaso, EventoCaso, MensajeChatInterno, RemisionConfig, TenantDirectorio } from './models';
 
 /** Acceso a la bandeja de recepción (casos) del backend. */
 @Injectable({ providedIn: 'root' })
@@ -75,9 +75,24 @@ export class CasosService {
   }
 
   /**
+   * Abre un caso MÍNIMO para un abonado que el operador digitó a mano, sin
+   * haber tomado ninguna llamada de la cola. Hace falta porque la videollamada
+   * cuelga de un caso y no de un número; `completar` lo termina después.
+   *
+   * El servidor reusa el caso abierto del mismo abonado si ya hay uno, igual
+   * que al atender una llamada de la central.
+   */
+  minimo(telefono: string, datos: { ciudadano?: string; canal?: Canal } = {}):
+    Observable<{ casoId: string; reusado: boolean }> {
+    return this.http.post<{ casoId: string; reusado: boolean }>(
+      `${this.base}/minimo`, { telefono, ...datos });
+  }
+
+  /**
    * "Guardar caso" cuando el caso ya existe en estado mínimo — lo creó
-   * `PbxService.atender()` al lanzar una videollamada desde Recepción antes
-   * de terminar el formulario. Completa ESE caso en vez de crear uno nuevo.
+   * `PbxService.atender()` al atender una llamada, o `minimo()` con el abonado
+   * digitado a mano, antes de terminar el formulario. Completa ESE caso en vez
+   * de crear uno nuevo.
    */
   completar(id: string, dto: CrearCaso): Observable<Caso> {
     return this.http.post<Caso>(`${this.base}/${id}/completar`, dto);

@@ -91,12 +91,14 @@
         <span class="fp-meta">{{ abiertoEn() | date: 'dd/MM/yyyy HH:mm' }} · {{ sesionUsuario() }}</span>
       </div>
 
-      <!-- Videollamada: solo tiene sentido con el ciudadano en línea
-      (llamada tomada) y el tenant con el módulo contratado. Al lanzarla
-      todavía no hay caso -solo la llamada-, así que el primer clic crea uno
-      mínimo por detrás (ver `lanzarVideollamada`); "Guardar caso" más abajo
-      lo completa, no crea uno segundo. -->
-      @if (tieneVideollamada() && hayLlamadaEnCurso()) {
+      <!-- Videollamada: hace falta el tenant con el módulo contratado y un
+      abonado con el que hablar. Ese abonado llega por dos caminos: una llamada
+      tomada de la cola, o escrito a mano y confirmado con Enter (no siempre
+      hay llamada entrante: el ciudadano escribe por otro medio, o el operador
+      devuelve una llamada caída). Al lanzarla todavía no hay caso, así que el
+      primer clic crea uno mínimo por detrás (ver `lanzarVideollamada`);
+      "Guardar caso" más abajo lo completa, no crea uno segundo. -->
+      @if (tieneVideollamada() && hayAbonadoParaVideo()) {
         <div class="video-rec">
           @if (!casoVideoId()) {
             <button type="button" class="btn btn--primary" [disabled]="lanzandoVideo()"
@@ -135,11 +137,18 @@
               <div class="field">
                 <label for="ftel">Teléfono</label>
                 <input id="ftel" formControlName="telefono" placeholder="Abonado"
+                  (keydown.enter)="confirmarAbonado()" (input)="abonadoEditado()"
                   (blur)="consultarEls()" />
                 @if (consultandoEls()) {
                   <small class="rec-els">Consultando la ubicación del teléfono…</small>
                 } @else if (avisoEls()) {
                   <small class="rec-els">{{ avisoEls() }}</small>
+                }
+                <!-- Sin esta pista nadie adivina que hay que oprimir Enter. Solo
+                aparece cuando serviría de algo: el módulo contratado, sin
+                llamada tomada, y un número que ya da la talla. -->
+                @if (tieneVideollamada() && abonadoSinConfirmar()) {
+                  <small class="rec-els">Oprima Enter para habilitar la videollamada con este abonado.</small>
                 }
               </div>
               <div class="field span2">

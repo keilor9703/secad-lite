@@ -260,6 +260,10 @@ export class PbxService {
     }
 
     const etiqueta = PbxService.ETIQUETA_ORIGEN[llamada.origen ?? 'telefono'];
+    // Mismo camino que usa Recepción cuando el operador digita el abonado a
+    // mano (CasosService.minimoDeTelefono): reusa el caso abierto del número o
+    // crea uno mínimo. Aquí el caso abierto ya se buscó arriba, en la misma
+    // transacción que leyó la llamada, así que se pasa resuelto.
     let casoId: string;
     if (abiertoId) {
       casoId = abiertoId;

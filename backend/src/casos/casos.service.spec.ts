@@ -107,6 +107,70 @@ describe('CasosService', () => {
     jest.spyOn(service as any, 'seed').mockResolvedValue(undefined);
   });
 
+  /**
+   * El caso mínimo que abre Recepción antes de terminar el formulario, por los
+   * dos caminos que llevan a él: atender una llamada de la central y digitar el
+   * abonado a mano. Lo que importa es que NO se dupliquen casos del mismo
+   * abonado —dos casos abiertos del mismo número son dos despachos al mismo
+   * incidente— y que el segundo contacto deje rastro en la bitácora.
+   */
+  describe('minimoDeTelefono()', () => {
+    const datos = {
+      telefono: '3001234567',
+      canal: 'llamada' as const,
+      titulo: 'Contacto con abonado 3001234567',
+      ciudadano: 'Llamante 3001234567',
+      nota: 'Contacto con el abonado 3001234567 (número digitado por el operador).',
+    };
+
+    it('reusa el caso abierto del mismo abonado en vez de crear otro', async () => {
+      repo.findOne.mockResolvedValue({ id: 'caso-abierto' } as CasoEntity);
+      const nota = jest.spyOn(service, 'agregarNota').mockResolvedValue({} as never);
+      const crear = jest.spyOn(service, 'crear');
+
+      const r = await service.minimoDeTelefono('demo', datos, 'operador1');
+
+      expect(r).toEqual({ casoId: 'caso-abierto', reusado: true });
+      expect(crear).not.toHaveBeenCalled();
+      // Sin la nota, el segundo contacto sería invisible en el caso.
+      expect(nota).toHaveBeenCalledWith('demo', 'caso-abierto', datos.nota, 'operador1');
+    });
+
+    it('no reusa un caso CERRADO: ese incidente ya terminó', async () => {
+      repo.findOne.mockResolvedValue(null);
+      jest.spyOn(service, 'crear').mockResolvedValue({ id: 'caso-nuevo' } as CasoEntity);
+
+      await service.minimoDeTelefono('demo', datos, 'operador1');
+
+      // La exclusión vive en el `where`, así que se comprueba ahí: es lo que
+      // impide que un caso cerrado del mismo número se reabra por un contacto nuevo.
+      expect(repo.findOne).toHaveBeenCalledWith(expect.objectContaining({
+        where: expect.objectContaining({ telefono: datos.telefono, estado: expect.anything() }),
+      }));
+    });
+
+    it('crea uno mínimo con el abonado si no hay ninguno abierto', async () => {
+      repo.findOne.mockResolvedValue(null);
+      const crear = jest.spyOn(service, 'crear').mockResolvedValue({ id: 'caso-nuevo' } as CasoEntity);
+
+      const r = await service.minimoDeTelefono('demo', datos, 'operador1', 'agencia-uuid-1');
+
+      expect(r).toEqual({ casoId: 'caso-nuevo', reusado: false });
+      expect(crear).toHaveBeenCalledWith(
+        'demo',
+        expect.objectContaining({ telefono: '3001234567', canal: 'llamada', ciudadano: 'Llamante 3001234567' }),
+        'operador1',
+        'agencia-uuid-1',
+      );
+    });
+
+    it('rechaza un abonado vacío antes de tocar la base', async () => {
+      await expect(service.minimoDeTelefono('demo', { ...datos, telefono: '   ' }, 'operador1'))
+        .rejects.toThrow(BadRequestException);
+      expect(repo.findOne).not.toHaveBeenCalled();
+    });
+  });
+
   describe('obtener()', () => {
     it('lanza NotFoundException si el caso no existe', async () => {
       repo.findOne.mockResolvedValue(null);
