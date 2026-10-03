@@ -244,3 +244,23 @@ input:focus, textarea:focus {
    le agrega a `.content`. */
 body.desp-ancho .content { max-width: none; }
 
+
+/* ---------------------------------------------------------------------------
+   Leaflet, por debajo de la barra superior.
+
+   Leaflet pinta sus capas con z-index propios —200 las teselas, 600 los
+   marcadores, 1000 los controles de zoom— y su contenedor no crea contexto de
+   apilamiento. Sin eso, esos números compiten en el contexto RAÍZ contra los de
+   la aplicación, y como la barra superior está en `z-index: 10` (shell.scss),
+   el mapa gana y se pinta encima: en el módulo Mapa tapaba el menú entero.
+
+   `position` + `z-index` convierten el contenedor en un contexto propio. Todo
+   lo de Leaflet queda encerrado dentro —sus 200, 600 y 1000 solo se ordenan
+   entre ellos— y el bloque entero se ordena por el 0 del contenedor, debajo de
+   la barra y de la ventana flotante de videollamada (z-index: 900).
+
+   Global y no por página: hay tres mapas (Mapa, Recepción y el recorrido del
+   ciudadano en la videollamada) y los tres heredan el mismo defecto.
+   Va después de leaflet.css, que angular.json carga antes de esta hoja.
+--------------------------------------------------------------------------- */
+.leaflet-container { position: relative; z-index: 0; }
