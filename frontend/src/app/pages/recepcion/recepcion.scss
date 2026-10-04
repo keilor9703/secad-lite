@@ -286,6 +286,24 @@
   color: var(--ink); font-size: 0.74rem; line-height: 1.35;
 }
 
+/* Las dos ubicaciones propuestas, cuando las fuentes no concuerdan. Dos
+   tarjetas que se pueden tocar: la decisión es de un clic, no de leer y
+   escribir coordenadas a mano. */
+.rec-dir-opciones { display: grid; gap: 0.35rem; margin-top: 0.4rem; }
+.rec-dir-opcion {
+  display: grid; gap: 0.1rem; text-align: left;
+  padding: 0.5rem 0.6rem;
+  border: 1px solid var(--border); border-left: 3px solid var(--accent);
+  border-radius: var(--radius-sm);
+  background: var(--surface-2); color: var(--ink); cursor: pointer;
+  font: inherit;
+
+  &:hover { border-color: var(--accent); }
+  .fuente { font-size: 0.68rem; letter-spacing: 0.06em; text-transform: uppercase; color: var(--accent); }
+  .etiqueta { font-size: 0.84rem; font-weight: 600; }
+  .detalle { font-size: 0.72rem; color: var(--muted); }
+}
+
 /* El aviso de «la central no mandó el número»: una advertencia, no una pista
    más. El operador tiene que pedirle el número al ciudadano. */
 .rec-sin-numero {

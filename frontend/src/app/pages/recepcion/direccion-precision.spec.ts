@@ -1,4 +1,4 @@
-import { Candidato, Recuadro, dentroDelRecuadro, evaluarCandidato } from './direccion-precision';
+import { Candidato, Recuadro, dentroDelRecuadro, evaluarCandidato, metrosEntre, pareceNomenclaturaColombiana } from './direccion-precision';
 
 /**
  * El caso que motivó esto: buscar una dirección desde Itagüí y que el punto
@@ -78,5 +78,87 @@ describe('evaluarCandidato', () => {
     const v = evaluarCandidato(
       en(10.96, -74.80, { tipoUbicacion: 'ROOFTOP', municipioResuelto: 'Itagüí' }), 'Itagüí', ITAGUI);
     expect(v.aceptar).toBe(false);
+  });
+});
+
+/**
+ * Lo rural: veredas y corregimientos.
+ *
+ * El motor de nomenclatura colombiana resuelve cruces de vías. Una vereda no
+ * tiene cruce que buscar: es un lugar con nombre, y ahí Google es mucho mejor
+ * que buscar por texto en OpenStreetMap. El portero tiene que mandarlas a
+ * Google, no al motor.
+ */
+describe('pareceNomenclaturaColombiana', () => {
+  it('reconoce la nomenclatura urbana, escrita como la escribe la gente', () => {
+    expect(pareceNomenclaturaColombiana('Calle 53 # 52-35')).toBe(true);
+    expect(pareceNomenclaturaColombiana('Cra 7 No 45-12')).toBe(true);
+    expect(pareceNomenclaturaColombiana('KR 68 #24-30 Sur')).toBe(true);
+    expect(pareceNomenclaturaColombiana('diagonal 40a nro 12-05')).toBe(true);
+  });
+
+  it('NO manda las veredas al motor de nomenclatura', () => {
+    expect(pareceNomenclaturaColombiana('Vereda El Pedregal')).toBe(false);
+    expect(pareceNomenclaturaColombiana('Corregimiento San Antonio de Prado')).toBe(false);
+    expect(pareceNomenclaturaColombiana('Vereda La Doctora sector 2')).toBe(false);
+    expect(pareceNomenclaturaColombiana('Km 5 vía Las Palmas')).toBe(false);
+  });
+
+  it('una dirección rural CON forma de nomenclatura también va a Google', () => {
+    // Estos son los que de verdad ejercitan la guarda: tienen cruce, así que
+    // sin ella pasarían al motor. Pero en una vereda no hay retícula: el motor
+    // buscaría esa esquina en la zona urbana y devolvería un punto de otro
+    // lado del municipio. (Lo descubrí saboteando la guarda y viendo que la
+    // prueba seguía en verde: los casos que tenía no la tocaban.)
+    expect(pareceNomenclaturaColombiana('Vereda La Doctora Calle 10 # 5-20')).toBe(false);
+    expect(pareceNomenclaturaColombiana('Corregimiento Santa Elena Carrera 20 # 30-15')).toBe(false);
+    expect(pareceNomenclaturaColombiana('Km 5 vía Las Palmas Cra 2 # 3-4')).toBe(false);
+  });
+
+  it('ni los puntos de interés, que es donde Google gana', () => {
+    expect(pareceNomenclaturaColombiana('Centro Comercial Viva Envigado')).toBe(false);
+    expect(pareceNomenclaturaColombiana('Hospital San Rafael')).toBe(false);
+    expect(pareceNomenclaturaColombiana('Parque principal')).toBe(false);
+  });
+
+  it('una vía SIN cruce tampoco: sin esquina, el motor no aporta nada', () => {
+    expect(pareceNomenclaturaColombiana('Calle 53')).toBe(false);
+    expect(pareceNomenclaturaColombiana('Carrera 52')).toBe(false);
+  });
+});
+
+describe('metrosEntre', () => {
+  it('mide distancias cortas con sentido', () => {
+    // Una cuadra típica del centro de Medellín, ~100 m.
+    expect(metrosEntre(6.2518, -75.5636, 6.2527, -75.5636)).toBeGreaterThan(80);
+    expect(metrosEntre(6.2518, -75.5636, 6.2527, -75.5636)).toBeLessThan(120);
+  });
+
+  it('y el mismo punto da cero', () => {
+    expect(metrosEntre(6.2518, -75.5636, 6.2518, -75.5636)).toBe(0);
+  });
+});
+
+describe('evaluarCandidato — lo rural no debe salir advertido siempre', () => {
+  it('un corregimiento NO se advierte como otro municipio', () => {
+    // Google devuelve «San Antonio de Prado» como localidad; es un
+    // corregimiento de Medellín, no otro municipio. Sin esto, cada búsqueda
+    // rural salía advertida, y una advertencia que aparece siempre no se lee.
+    const v = evaluarCandidato(
+      en(6.172, -75.612, { municipioResuelto: 'San Antonio de Prado' }),
+      'Itagüí', ITAGUI,
+      (n) => ['Medellín', 'Sabaneta', 'Envigado'].includes(n),
+    );
+    expect(v.aceptar).toBe(true);
+    expect(v.aviso).withContext('sin ruido').toBe('');
+  });
+
+  it('pero un municipio vecino de verdad sí', () => {
+    const v = evaluarCandidato(
+      en(6.172, -75.612, { municipioResuelto: 'Sabaneta' }),
+      'Itagüí', ITAGUI,
+      (n) => ['Medellín', 'Sabaneta', 'Envigado'].includes(n),
+    );
+    expect(v.aviso).toContain('Sabaneta');
   });
 });

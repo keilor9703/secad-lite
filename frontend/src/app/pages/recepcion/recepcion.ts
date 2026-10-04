@@ -5,12 +5,24 @@ import { Observable, firstValueFrom } from 'rxjs';
 import { RouterLink } from '@angular/router';
 import { CasosService } from '../../core/casos.service';
 import { PbxService, abonadoDeLlamada } from '../../core/pbx.service';
-import { Recuadro, evaluarCandidato } from './direccion-precision';
+import {
+  METROS_ACUERDO, Recuadro, evaluarCandidato, metrosEntre, pareceNomenclaturaColombiana,
+} from './direccion-precision';
+
+/** Una ubicación propuesta por una de las dos fuentes, para que el operador elija. */
+interface OpcionDireccion {
+  fuente: 'Nomenclatura' | 'Google';
+  etiqueta: string;
+  detalle: string;
+  lat: number;
+  lng: number;
+  comps: Array<{ texto: string; types: string[] }>;
+}
 import { ElsService } from '../../core/els.service';
 import { CatalogosService } from '../../core/catalogos.service';
 import { AuthService } from '../../core/auth.service';
 import { AdminService } from '../../core/admin.service';
-import { GeografiaService, Municipio } from '../../core/geografia.service';
+import { GeografiaService, Municipio, PuntoDireccion } from '../../core/geografia.service';
 import { GoogleMapsLoaderService } from '../../core/google-maps-loader.service';
 import { ToastService } from '../../shared/toast/toast.service';
 import { AutocompletarComponent, OpcionAutocompletar } from '../../shared/autocompletar/autocompletar';
@@ -116,6 +128,14 @@ export class RecepcionComponent implements OnInit {
    * punto: el operador lo despacha sin dudarlo.
    */
   readonly avisoDireccion = signal('');
+
+  /**
+   * Cuando las dos fuentes no concuerdan, las dos opciones para que el operador
+   * elija. No se escoge por él: a más de una cuadra y media de diferencia, una
+   * de las dos está mal y no hay forma automática de saber cuál — pero él sabe
+   * si el caso es en el centro o en una vereda.
+   */
+  readonly opcionesDireccion = signal<OpcionDireccion[]>([]);
   /** Hay una consulta en curso: se avisa en vez de dejar la pantalla muda. */
   readonly consultandoEls = signal(false);
   /** Último número consultado: no se vuelve a gastar una consulta por él. */
@@ -509,6 +529,7 @@ export class RecepcionComponent implements OnInit {
     this.abonadoConfirmado.set(false);
     this.avisoAbonado.set('');
     this.avisoDireccion.set('');
+    this.opcionesDireccion.set([]);
     this.form.reset(this.formVacio());
     this.canalesMarcados.set([]);
     this.sugeridaPorCodigo.set(null);
@@ -984,6 +1005,9 @@ export class RecepcionComponent implements OnInit {
       { lat, lng, municipioResuelto: de(['locality', 'administrative_area_level_2']), ...señas },
       this.municipioActual() || 'el municipio del caso',
       this.recuadroMunicipio,
+      // Un corregimiento no es otro municipio: sin esto, cada búsqueda rural
+      // salía advertida y la advertencia dejaba de leerse.
+      (n) => this.municipiosTenant().some((m) => this.normalizar(m.nombre) === this.normalizar(n)),
     );
 
     this.avisoDireccion.set(veredicto.aviso);
@@ -1029,6 +1053,17 @@ export class RecepcionComponent implements OnInit {
     this.buscandoDireccion.set(true);
     this.error.set('');
 
+    this.opcionesDireccion.set([]);
+    this.avisoDireccion.set('');
+
+    // El PORTERO. Solo la nomenclatura urbana con cruce va al motor
+    // colombiano; las veredas, corregimientos y puntos de interés van derecho
+    // a Google, que es el que los tiene. Ver `pareceNomenclaturaColombiana`.
+    if (pareceNomenclaturaColombiana(texto)) {
+      this.buscarConLasDosFuentes(texto);
+      return;
+    }
+
     if (this.geocoder) {
       const r0 = this.recuadroMunicipio;
       this.geocoder.geocode({
@@ -1058,6 +1093,107 @@ export class RecepcionComponent implements OnInit {
       return;
     }
     this.buscarDireccionOsm(texto);
+  }
+
+  /**
+   * Las DOS fuentes a la vez, y se comparan.
+   *
+   * Para una dirección con cruce, cada una sabe algo que la otra no: el motor
+   * colombiano entiende que «# 52-35» son 35 metros desde la esquina con la
+   * Carrera 52 —y da precisión de placa—; Google tiene mejor cobertura y
+   * resuelve lo que OpenStreetMap no trae.
+   *
+   * Si concuerdan, se usa la del motor, que es la más fina, y se dice que las
+   * dos coinciden. Si no, NO se elige por el operador: se le muestran las dos.
+   * A más de una cuadra y media de diferencia una está mal, y él sabe si el
+   * caso es en el centro o en el borde del municipio; el programa no.
+   */
+  private buscarConLasDosFuentes(texto: string): void {
+    const municipio = this.form.controls.municipioCodigo.value;
+    const r0 = this.recuadroMunicipio;
+
+    const porGoogle = this.geocoder
+      ? this.geocoder.geocode({
+          address: this.conMunicipio(texto),
+          componentRestrictions: { country: 'co' },
+          ...(r0 ? { bounds: { south: r0.sur, north: r0.norte, west: r0.oeste, east: r0.este } } : {}),
+        }).then(({ results }) => results[0] ?? null).catch(() => null)
+      : Promise.resolve(null);
+
+    const porNomenclatura = firstValueFrom(this.geografia.geocodificar(texto, municipio))
+      .catch(() => null);
+
+    Promise.all([porGoogle, porNomenclatura]).then(([g, n]) => {
+      this.buscandoDireccion.set(false);
+
+      // El motor cae a texto libre cuando no encuentra el cruce, y eso ya no
+      // aporta nada sobre Google: solo cuenta si resolvió esquina o placa.
+      const nSirve = n && n.precision !== 'aproximada' ? n : null;
+
+      if (!g && !nSirve) { this.error.set('No se encontró esa dirección.'); return; }
+
+      if (g && nSirve) {
+        const d = metrosEntre(nSirve.lat, nSirve.lng, g.geometry.location.lat(), g.geometry.location.lng());
+        if (d > METROS_ACUERDO) {
+          this.ofrecerOpciones(nSirve, g, d);
+          return;
+        }
+        // Concuerdan: gana la del motor, que es la más fina de las dos.
+        this.aplicarDeNomenclatura(nSirve, g, d);
+        return;
+      }
+
+      if (nSirve) { this.aplicarDeNomenclatura(nSirve, null, null); return; }
+      const comps = g!.address_components.map((c) => ({ texto: c.long_name, types: c.types }));
+      this.aplicarVerificado(
+        g!.formatted_address, g!.geometry.location.lat(), g!.geometry.location.lng(), comps,
+        { tipoUbicacion: g!.geometry.location_type, coincidenciaParcial: g!.partial_match },
+      );
+    });
+  }
+
+  /** Aplica el punto del motor de nomenclatura, con lo que diga la comparación. */
+  private aplicarDeNomenclatura(
+    n: PuntoDireccion,
+    g: google.maps.GeocoderResult | null,
+    metros: number | null,
+  ): void {
+    const comps = g?.address_components.map((c) => ({ texto: c.long_name, types: c.types })) ?? [];
+    this.aplicarVerificado(n.etiqueta, n.lat, n.lng, comps, {});
+    if (this.avisoDireccion()) return;   // ya hubo algo más grave que decir
+    this.avisoDireccion.set(
+      metros != null
+        ? `Nomenclatura y Google coinciden (${metros} m de diferencia). Punto de ${n.precision === 'placa' ? 'placa' : 'esquina'}.`
+        : `Resuelto por nomenclatura (punto de ${n.precision === 'placa' ? 'placa' : 'esquina'}).`,
+    );
+  }
+
+  /** Las dos fuentes discrepan: se le muestran al operador y él elige. */
+  private ofrecerOpciones(n: PuntoDireccion, g: google.maps.GeocoderResult, metros: number): void {
+    this.opcionesDireccion.set([
+      {
+        fuente: 'Nomenclatura',
+        etiqueta: n.etiqueta,
+        detalle: n.precision === 'placa' ? 'Portal calculado desde la esquina' : 'Esquina de las dos vías',
+        lat: n.lat, lng: n.lng, comps: [],
+      },
+      {
+        fuente: 'Google',
+        etiqueta: g.formatted_address,
+        detalle: g.partial_match ? 'Coincidencia parcial' : 'Resultado de Google Maps',
+        lat: g.geometry.location.lat(), lng: g.geometry.location.lng(),
+        comps: g.address_components.map((c) => ({ texto: c.long_name, types: c.types })),
+      },
+    ]);
+    this.avisoDireccion.set(
+      `Las dos fuentes difieren en ${metros} m. Elija cuál corresponde; si no está seguro, fije el punto en el mapa.`);
+  }
+
+  /** El operador eligió una de las dos. */
+  elegirOpcion(o: OpcionDireccion): void {
+    this.opcionesDireccion.set([]);
+    this.avisoDireccion.set('');
+    this.aplicarVerificado(o.etiqueta, o.lat, o.lng, o.comps, {});
   }
 
   // --- Respaldo (sin clave de Google): OpenStreetMap / Nominatim --------------

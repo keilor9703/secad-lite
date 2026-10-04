@@ -11,6 +11,61 @@
  * decide aparte del formulario para poder probarla entera.
  */
 
+/**
+ * ¿Vale la pena preguntarle al motor de nomenclatura colombiana?
+ *
+ * Solo sirve para direcciones URBANAS con cruce: «Calle 53 # 52-35» significa
+ * «sobre la Calle 53, a 35 metros de la esquina con la Carrera 52», y el motor
+ * busca ese cruce. Es donde Google falla, porque no entiende el `#` y se queda
+ * con la vía entera.
+ *
+ * Pero una VEREDA o un CORREGIMIENTO no tienen nomenclatura: «Vereda El
+ * Pedregal» es un lugar con nombre, no un cruce. Ahí el motor no tiene nada que
+ * cruzar y caería a una búsqueda por texto en OpenStreetMap, que para lo rural
+ * en Colombia es mucho peor que Google. Lo mismo con un punto de interés
+ * («Centro Comercial Viva», «Hospital San Rafael»).
+ *
+ * Por eso esto NO es un analizador de direcciones —ese vive en el backend, con
+ * sus sinónimos y sus sufijos—, es solo el portero: decide a quién se le
+ * pregunta. Se equivoca hacia el lado seguro: si no está claro que sea
+ * nomenclatura, va a Google, que es el que resuelve de todo.
+ */
+export function pareceNomenclaturaColombiana(texto: string): boolean {
+  const t = (texto ?? '').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
+
+  // Un nombre de lugar rural nunca es nomenclatura, aunque lleve números
+  // («Vereda La Doctora sector 2»).
+  if (/\b(vereda|corregimiento|finca|hacienda|km|kilometro|parcelacion|resguardo|centro poblado)\b/.test(t)) {
+    return false;
+  }
+
+  // Tipo de vía + número, y un separador de cruce con su número detrás. Sin el
+  // cruce no hay esquina que buscar, y el motor no aporta nada sobre Google.
+  const via = '(calle|cll?|carrera|cra|kra|kr|cr|avenida|av|autopista|ak|ac|diagonal|dg|transversal|tv|tr)';
+  return new RegExp(`\\b${via}\\s*\\d+[a-z]?\\s*(#|n[°º]|nro\\.?|no\\.?)\\s*\\d`, 'i').test(t);
+}
+
+/** Metros entre dos puntos (Haversine). Para decidir si dos fuentes concuerdan. */
+export function metrosEntre(aLat: number, aLng: number, bLat: number, bLng: number): number {
+  const R = 6_371_000;
+  const rad = (g: number) => (g * Math.PI) / 180;
+  const dLat = rad(bLat - aLat);
+  const dLng = rad(bLng - aLng);
+  const h = Math.sin(dLat / 2) ** 2
+    + Math.cos(rad(aLat)) * Math.cos(rad(bLat)) * Math.sin(dLng / 2) ** 2;
+  return Math.round(2 * R * Math.asin(Math.sqrt(h)));
+}
+
+/**
+ * Cuándo se da por bueno que dos fuentes dicen lo mismo.
+ *
+ * 150 metros es alrededor de una cuadra y media: dentro de eso, las dos
+ * apuntan al mismo sitio y la diferencia es la precisión de cada una, no un
+ * desacuerdo. Más lejos, una de las dos está equivocada y no hay forma
+ * automática de saber cuál — ahí decide el operador.
+ */
+export const METROS_ACUERDO = 150;
+
 /** Recuadro del municipio, tal como lo entrega el catálogo. */
 export interface Recuadro {
   sur: number;
@@ -73,6 +128,18 @@ export function evaluarCandidato(
   c: Candidato,
   municipio: string,
   recuadro: Recuadro | null,
+  /**
+   * ¿Ese nombre es OTRO municipio del catálogo?
+   *
+   * Hace falta para no alarmar en lo rural: al buscar «Vereda El Pedregal,
+   * Itagüí», Google suele devolver como localidad el nombre del corregimiento o
+   * del centro poblado, no el del municipio. Comparando nombres a secas, cada
+   * búsqueda rural salía advertida de estar en otro municipio — y una
+   * advertencia que aparece siempre deja de leerse.
+   *
+   * Solo se advierte cuando el nombre es, de verdad, otro municipio.
+   */
+  esOtroMunicipio: (nombre: string) => boolean = () => true,
 ): Veredicto {
   // 1. Fuera del municipio: esto no se acepta ni con advertencia. Es el caso
   //    que manda una unidad a otra ciudad.
@@ -87,7 +154,9 @@ export function evaluarCandidato(
   // 2. Dentro, pero Google dice que es otro municipio. Puede ser un corregimiento
   //    o un nombre distinto del mismo sitio: se acepta y se avisa, sin cambiar
   //    el municipio del caso a espaldas del operador.
-  if (c.municipioResuelto && !mismoNombre(c.municipioResuelto, municipio)) {
+  if (c.municipioResuelto
+      && !mismoNombre(c.municipioResuelto, municipio)
+      && esOtroMunicipio(c.municipioResuelto)) {
     return {
       aceptar: true,
       aviso: `El mapa ubicó esta dirección en ${c.municipioResuelto}, no en ${municipio}. Verifique el punto.`,

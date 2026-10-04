@@ -285,6 +285,19 @@
                 @if (avisoDireccion()) {
                   <small class="rec-dir-aviso" role="status">{{ avisoDireccion() }}</small>
                 }
+                <!-- Las dos fuentes discrepan. No se elige por el operador: él
+                sabe si el caso es en el centro o en una vereda; el programa no. -->
+                @if (opcionesDireccion().length) {
+                  <div class="rec-dir-opciones">
+                    @for (o of opcionesDireccion(); track o.fuente) {
+                      <button type="button" class="rec-dir-opcion" (click)="elegirOpcion(o)">
+                        <span class="fuente">{{ o.fuente }}</span>
+                        <span class="etiqueta">{{ o.etiqueta }}</span>
+                        <span class="detalle">{{ o.detalle }}</span>
+                      </button>
+                    }
+                  </div>
+                }
               </div>
               <div class="field">
                 <label for="flat">Latitud</label>
