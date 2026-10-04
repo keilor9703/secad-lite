@@ -29,14 +29,41 @@ class SocketFalso {
 
   /** Lo que hace socket.io al establecer (o reestablecer) la conexión. */
   conectado(): void { this.connected = true; this.manejadores.get('connect')?.(undefined); }
-  caido(): void { this.connected = false; this.manejadores.get('disconnect')?.(undefined); }
+  /**
+   * `motivo` tal como lo entrega socket.io. 'transport close' es una caída de
+   * red —de esas se reintenta solo—; 'io server disconnect' es el servidor
+   * cerrando la conexión, y de esas NO.
+   */
+  caido(motivo = 'transport close'): void {
+    this.connected = false;
+    this.manejadores.get('disconnect')?.(motivo);
+  }
   emitirAlCliente(evento: string, dato: unknown): void { this.manejadores.get(evento)?.(dato); }
 }
 
 /** PbxService con el socket sustituido por el doble. */
 class PbxServicePrueba extends PbxService {
-  readonly falso = new SocketFalso();
-  protected override crearSocket(): Socket { return this.falso as unknown as Socket; }
+  /** Un socket NUEVO por cada apertura, como en la vida real. */
+  readonly abiertos: SocketFalso[] = [];
+  get falso(): SocketFalso { return this.abiertos[this.abiertos.length - 1]; }
+
+  /** Reaperturas pendientes, para dispararlas sin esperar en tiempo real. */
+  readonly pendientes: Array<() => void> = [];
+
+  protected override crearSocket(): Socket {
+    const s = new SocketFalso();
+    this.abiertos.push(s);
+    return s as unknown as Socket;
+  }
+  // Solo se sustituye CUÁNDO: el qué (reabrirAhora) es el del servicio real.
+  protected override reabrirMasTarde(_ms: number, reabrir: () => void): void {
+    this.pendientes.push(reabrir);
+  }
+  /** Adelanta el reloj, de forma SÍNCRONA: así la aserción no corre antes. */
+  correElTiempo(): void {
+    const ps = this.pendientes.splice(0);
+    for (const p of ps) p();
+  }
 }
 
 const LLAMADA: Llamada = {
@@ -105,6 +132,64 @@ describe('PbxService — la cola se pone al día sola', () => {
     pbx.falso.emitirAlCliente('llamada:entrante', LLAMADA);
     expect(pbx.sonando().length).toBe(1);
     expect(pbx.ultimaEntrante()?.id).toBe('l-1');
+  });
+
+  it('un cierre DEL SERVIDOR no deja el canal muerto: se vuelve a abrir', () => {
+    // socket.io no reintenta tras un 'io server disconnect'. Sin reabrirlo a
+    // mano, ese operador se queda sin aviso en vivo el resto de la jornada y
+    // solo lo descubre oprimiendo F5.
+    pbx.conectar();
+    responderCola([]);
+    pbx.falso.conectado();
+    responderCola([]);
+    expect(pbx.abiertos.length).toBe(1);
+
+    pbx.falso.caido('io server disconnect');
+    expect(pbx.enVivo()).toBe(false);
+
+    pbx.correElTiempo();
+    // La reapertura pide la cola de nuevo (conectar() lo hace de entrada).
+    responderCola([]);
+    expect(pbx.abiertos.length).withContext('se abrió un socket nuevo').toBe(2);
+
+    pbx.falso.conectado();
+    responderCola([LLAMADA]);
+    expect(pbx.sonando().length).withContext('y la cola se puso al día').toBe(1);
+    expect(pbx.enVivo()).toBe(true);
+  });
+
+  it('deja de insistir tras unos cuantos rechazos seguidos del servidor', () => {
+    // Si el servidor rechaza el saludo porque la sesión ya no vale, insistir
+    // para siempre no la revive: solo gasta red y esconde el problema. Al
+    // agotarse, `enVivo` queda en falso y la pantalla lo dice.
+    pbx.conectar();
+    responderCola([]);
+
+    // Ocho rechazos seguidos, más que el tope.
+    for (let i = 0; i < 8; i++) {
+      pbx.falso.caido('io server disconnect');
+      pbx.correElTiempo();
+      // Cada reapertura pide la cola; cuando ya no reabre, no hay petición.
+      const pendientes = http.match((r) => r.url.endsWith('/pbx/llamadas'));
+      for (const p of pendientes) p.flush([]);
+    }
+
+    expect(pbx.abiertos.length)
+      .withContext('se abrieron el original más los reintentos del tope, y ni uno más')
+      .toBe(1 + 5);
+    expect(pbx.enVivo()).withContext('y la pantalla sabe que está sin canal').toBe(false);
+  });
+
+  it('una caída de red NO se reabre a mano: de esas socket.io se encarga solo', () => {
+    pbx.conectar();
+    responderCola([]);
+    pbx.falso.conectado();
+    responderCola([]);
+
+    pbx.falso.caido('transport close');
+    pbx.correElTiempo();
+    expect(pbx.abiertos.length).withContext('no se duplica el socket').toBe(1);
+    expect(pbx.enVivo()).toBe(false);
   });
 
   it('desconectar a propósito también apaga el indicador de canal vivo', () => {

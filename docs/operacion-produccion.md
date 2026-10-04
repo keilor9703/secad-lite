@@ -736,6 +736,31 @@ docker compose exec -T redis redis-cli ping     # → PONG
 > él, el operador de la réplica equivocada solo se entera en la siguiente
 > reconexión, que puede tardar.
 
+Y si el servidor CIERRA la conexión (el saludo no pasó: token vencido, o la
+instancia reiniciando justo en ese momento), socket.io **no vuelve a intentarlo
+solo**: ese operador se quedaría sin aviso en vivo el resto de su jornada. El
+cliente reabre el canal con el token vigente, hasta cinco veces; si tras eso
+sigue rechazado, deja de insistir y la pantalla lo dice.
+
+### ¿Llegó el webhook, y cuándo?
+
+Antes de buscar en el canal en vivo, compruebe que la central sí avisó, y a qué
+hora. Es lo que separa «FALCON no lo mostró» de «la central lo mandó tarde»:
+
+```bash
+cd ~/falcon-deploy
+docker compose exec -T postgres psql -U falcon -d falcon_cad -c \
+  "SELECT l.\"creadoEn\" AS aviso_central, w.\"estadoHttp\", w.motivo, l.numero, l.estado
+     FROM pbx_webhook_log w
+     LEFT JOIN llamadas l ON l.id = w.\"llamadaId\"
+    ORDER BY w.\"creadoEn\" DESC LIMIT 10"
+```
+
+Compare esa hora con la que el operador dice que timbró el teléfono. Si el
+webhook llegó al timbrar, el problema está en el canal en vivo; si llegó cuando
+contestaron, la central está avisando tarde y no hay nada que arreglar en
+FALCON.
+
 Mientras el canal está caído, Recepción lo dice: «Sin conexión en vivo». Una
 cola vacía sin ese aviso sí significa que no hay llamadas.
 

@@ -39,6 +39,16 @@ export class PbxService {
    */
   readonly enVivo = signal(false);
 
+  /**
+   * Reintentos tras un cierre DEL SERVIDOR. Acotados: si el servidor rechaza el
+   * saludo porque la sesión ya no vale, insistir para siempre no la revive y
+   * solo gasta red. Al agotarlos, `enVivo` queda en falso y la pantalla lo dice.
+   */
+  private reintentos = 0;
+  private static readonly MAX_REINTENTOS = 5;
+  /** El canal se apagó a propósito (cambio de instancia, salida): no se reabre solo. */
+  private apagadoAProposito = false;
+
   /** Timbre encendido/apagado; la elección se recuerda en el puesto de trabajo. */
   readonly sonidoActivo = signal(localStorage.getItem('falconcad_pbx_sonido') !== 'off');
 
@@ -97,6 +107,7 @@ export class PbxService {
 
   /** Carga la cola y abre el canal en vivo (idempotente). */
   conectar(): void {
+    this.apagadoAProposito = false;
     this.recargar();
     if (this.socket?.connected) return;
     this.socket = this.crearSocket();
@@ -113,10 +124,24 @@ export class PbxService {
     // El socket sirve para enterarse rápido; la verdad está en el servidor y se
     // vuelve a preguntar en cuanto hay por dónde.
     this.socket.on('connect', () => {
+      this.reintentos = 0;
       this.enVivo.set(true);
       this.recargar();
     });
-    this.socket.on('disconnect', () => this.enVivo.set(false));
+
+    // Un cierre ordenado DEL SERVIDOR es un callejón sin salida: cuando el
+    // servidor cierra la conexión —el saludo no pasó: token vencido, instancia
+    // reiniciando a mitad del saludo— socket.io NO vuelve a intentarlo solo.
+    // Sin esto, ese operador se queda sin aviso en vivo el resto de su jornada
+    // y tiene que descubrirlo oprimiendo F5. Se reabre con el token VIGENTE,
+    // que es la diferencia: el socket viejo lleva pegado el de hace horas.
+    this.socket.on('disconnect', (motivo: string) => {
+      this.enVivo.set(false);
+      if (motivo !== 'io server disconnect' || this.apagadoAProposito) return;
+      if (this.reintentos >= PbxService.MAX_REINTENTOS) return;
+      this.reintentos++;
+      this.reabrirMasTarde(1000 * this.reintentos, () => this.reabrirAhora());
+    });
 
     this.socket.on('llamada:entrante', (l: Llamada) => {
       this.upsert(l);
@@ -161,7 +186,24 @@ export class PbxService {
     } catch { /* sin audio disponible */ }
   }
 
+  /**
+   * CUÁNDO se reabre. Separado solo para eso: las pruebas lo sustituyen para
+   * adelantar el reloj sin esperar en tiempo real. El QUÉ se hace vive en
+   * `reabrirAhora`, que no se sustituye — así la prueba ejercita la lógica de
+   * verdad y no una copia suya.
+   */
+  protected reabrirMasTarde(ms: number, reabrir: () => void): void {
+    setTimeout(reabrir, ms);
+  }
+
+  private reabrirAhora(): void {
+    if (this.apagadoAProposito) return;
+    this.socket = undefined;
+    this.conectar();
+  }
+
   desconectar(): void {
+    this.apagadoAProposito = true;
     this.socket?.disconnect();
     this.socket = undefined;
     this.enVivo.set(false);
