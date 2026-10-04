@@ -2,8 +2,10 @@ import { TestBed } from '@angular/core/testing';
 import { provideHttpClient } from '@angular/common/http';
 import { HttpTestingController, provideHttpClientTesting } from '@angular/common/http/testing';
 import type { Socket } from 'socket.io-client';
+import { Injectable, signal } from '@angular/core';
 import { PbxService } from './pbx.service';
-import { Llamada } from './models';
+import { AuthService } from './auth.service';
+import { Llamada, Sesion } from './models';
 
 /**
  * La cola de llamadas tiene que ponerse al día sola.
@@ -42,6 +44,9 @@ class SocketFalso {
 }
 
 /** PbxService con el socket sustituido por el doble. */
+// @Injectable propio: heredarlo de la clase padre ya avisa de obsoleto y en
+// una versión próxima de Angular será un error.
+@Injectable()
 class PbxServicePrueba extends PbxService {
   /** Un socket NUEVO por cada apertura, como en la vida real. */
   readonly abiertos: SocketFalso[] = [];
@@ -64,6 +69,11 @@ class PbxServicePrueba extends PbxService {
     const ps = this.pendientes.splice(0);
     for (const p of ps) p();
   }
+}
+
+/** Sesión de mentiras: lo único que mira PbxService es usuario, rol y permisos. */
+function sesionDe(usuario: string, permisos: string[] = [], rol = 'operador') {
+  return signal<Sesion | null>({ usuario, rol, permisos, token: 't', nombre: usuario, tipo: 'institucional', tenant: 'itagui' } as Sesion);
 }
 
 const LLAMADA: Llamada = {
@@ -201,5 +211,78 @@ describe('PbxService — la cola se pone al día sola', () => {
 
     pbx.desconectar();
     expect(pbx.enVivo()).toBe(false);
+  });
+});
+
+/**
+ * Ver una llamada y que le suene a uno no son lo mismo.
+ *
+ * El caso real: con una cuenta de Administrador (que lleva `casos.ver_todos`)
+ * aparecía en la cola una llamada dirigida a OTRA extensión. Eso es deliberado
+ * —la supervisión ve toda la cola para poder auxiliar un puesto vacío— pero el
+ * timbre no debe sonarle: un aviso que suena siempre deja de avisar.
+ */
+describe('PbxService — ver no es sonar', () => {
+  const AJENA = { ...LLAMADA, id: 'l-2', destinatario: 'op110' } as Llamada;
+  const SIN_DUENO = { ...LLAMADA, id: 'l-3', destinatario: null } as Llamada;
+
+  function montar(usuario: string, permisos: string[]) {
+    TestBed.configureTestingModule({
+      providers: [
+        provideHttpClient(), provideHttpClientTesting(),
+        { provide: AuthService, useValue: { sesion: sesionDe(usuario, permisos), token: 't', tenantActivo: () => 'itagui' } },
+        { provide: PbxService, useClass: PbxServicePrueba },
+      ],
+    });
+    return {
+      pbx: TestBed.inject(PbxService) as PbxServicePrueba,
+      http: TestBed.inject(HttpTestingController),
+    };
+  }
+
+  it('al operador de otro puesto no le aparece la llamada dirigida a la 110', () => {
+    const { pbx, http } = montar('op103', ['casos.ver', 'pbx.usar']);
+    pbx.conectar();
+    http.expectOne((r) => r.url.endsWith('/pbx/llamadas')).flush([AJENA]);
+    expect(pbx.sonando().length).toBe(0);
+    http.verify();
+  });
+
+  it('a la supervisión sí le aparece, para poder auxiliar ese puesto', () => {
+    const { pbx, http } = montar('jefe', ['casos.ver', 'casos.ver_todos']);
+    pbx.conectar();
+    http.expectOne((r) => r.url.endsWith('/pbx/llamadas')).flush([AJENA]);
+    expect(pbx.sonando().length).toBe(1);
+    http.verify();
+  });
+
+  it('pero no es suya: no le suena', () => {
+    const { pbx, http } = montar('jefe', ['casos.ver', 'casos.ver_todos']);
+    pbx.conectar();
+    http.expectOne((r) => r.url.endsWith('/pbx/llamadas')).flush([]);
+    expect(pbx.esMia(AJENA)).withContext('no es suya').toBe(false);
+    expect(pbx.esMia(SIN_DUENO)).withContext('una sin dueño sí le toca').toBe(true);
+    http.verify();
+  });
+
+  it('una llamada sin dueño le aparece a cualquier operador', () => {
+    // Central sin ACD, extensión inexistente, o extensión de un funcionario
+    // desactivado: no puede quedarse sin que nadie la vea.
+    const { pbx, http } = montar('op103', ['casos.ver', 'pbx.usar']);
+    pbx.conectar();
+    http.expectOne((r) => r.url.endsWith('/pbx/llamadas')).flush([SIN_DUENO]);
+    expect(pbx.sonando().length).toBe(1);
+    expect(pbx.esMia(SIN_DUENO)).toBe(true);
+    http.verify();
+  });
+
+  it('y la suya le aparece y es suya', () => {
+    const mia = { ...LLAMADA, id: 'l-4', destinatario: 'op103' } as Llamada;
+    const { pbx, http } = montar('op103', ['casos.ver', 'pbx.usar']);
+    pbx.conectar();
+    http.expectOne((r) => r.url.endsWith('/pbx/llamadas')).flush([mia]);
+    expect(pbx.sonando().length).toBe(1);
+    expect(pbx.esMia(mia)).toBe(true);
+    http.verify();
   });
 });

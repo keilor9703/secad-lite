@@ -32,7 +32,8 @@
         ocupa el ancho — un blanco grande, que es lo que se necesita cuando un
         teléfono está timbrando. -->
         @for (l of sonando(); track l) {
-          <div class="llam" [class.llam--mia]="esLaLlamadaEnCurso(l)">
+          <div class="llam" [class.llam--mia]="esLaLlamadaEnCurso(l)"
+            [class.llam--ajena]="!esMia(l)">
             <div class="llam-cab">
               <span class="llam-icono" role="img" [attr.aria-label]="origenLabel(l.origen)">{{ origenIcon(l.origen) }}</span>
               <span class="num mono">{{ l.numero }}</span>

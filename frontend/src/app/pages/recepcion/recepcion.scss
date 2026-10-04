@@ -264,6 +264,10 @@
 }
 .llam--mia { border-left-color: var(--ok); }
 
+/* De otro puesto: solo la ve la supervisión, y se nota que no es suya. Apagada,
+   no escondida — está ahí por si ese puesto está vacío y hay que auxiliarlo. */
+.llam--ajena { border-left-color: var(--border-2, var(--border)); opacity: 0.78; }
+
 .llam-cab { display: flex; align-items: center; gap: 0.45rem; min-width: 0; }
 .llam-icono { flex: 0 0 auto; font-size: 0.95rem; line-height: 1; }
 

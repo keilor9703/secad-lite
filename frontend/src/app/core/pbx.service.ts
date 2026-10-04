@@ -61,12 +61,28 @@ export class PbxService {
    * ¿A esta sesión le toca ver/oír esta llamada? Una que otro operador ya tomó
    * (o que el ACD dirigió a otro) no es suya — es la misma regla que aplica el
    * servidor al listar, repetida aquí porque los avisos en vivo van a todo el
-   * tenant. Un supervisor (casos.ver_todos) las ve/oye todas.
+   * tenant. Un supervisor (casos.ver_todos) las VE todas —para poder auxiliar
+   * un puesto vacío—, pero solo le SUENAN las suyas: ver y sonar no son lo
+   * mismo (ver `esMia`).
    */
   private meCorresponde(l: Llamada): boolean {
     const s = this.auth.sesion();
     const supervisor = s?.rol === 'superadmin' || (s?.permisos ?? []).includes('casos.ver_todos');
-    return supervisor || !l.destinatario || l.destinatario === s?.usuario;
+    return supervisor || this.esMia(l);
+  }
+
+  /**
+   * ¿Esta llamada es MÍA? Sin excepción para la supervisión, a diferencia de
+   * `meCorresponde`.
+   *
+   * Ver y sonar no son lo mismo. La supervisión ve toda la cola para poder
+   * auxiliar un puesto vacío; que además le TIMBRE cada llamada de la ciudad
+   * convierte el aviso en ruido, y un aviso que suena siempre deja de avisar.
+   * Suena solo lo que es de uno, o lo que no tiene dueño.
+   */
+  esMia(l: Llamada): boolean {
+    const s = this.auth.sesion();
+    return !l.destinatario || l.destinatario === s?.usuario;
   }
 
   private readonly base = environment.apiBaseUrl;
@@ -150,7 +166,7 @@ export class PbxService {
       // convierte en caso: antes no había NINGÚN sonido atado al evento real
       // de "está timbrando", así que el operador dependía de mirar la
       // pantalla de Recepción para enterarse.
-      if (this.sonidoActivo() && this.meCorresponde(l)) this.timbre();
+      if (this.sonidoActivo() && this.esMia(l)) this.timbre();
     });
     this.socket.on('llamada:cambio', (l: Llamada) => this.upsert(l));
   }
