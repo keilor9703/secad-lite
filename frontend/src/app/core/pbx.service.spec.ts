@@ -325,14 +325,16 @@ describe('abonadoDeLlamada', () => {
     expect(abonadoDeLlamada('3175882321')).toEqual({ abonado: '3175882321', aviso: '' });
   });
 
-  it('el identificador de la central NO se escribe, y se explica por qué', () => {
-    const r = abonadoDeLlamada('+CO.1744934636794102');
-    expect(r.abonado).withContext('el campo queda vacío, no con basura').toBe('');
+  it('el identificador de la central SÍ se escribe: es el único rastro del contacto', () => {
+    // Vaciar el campo perdía lo único que ata el caso con quien llamó. Se
+    // escribe, pero con la advertencia de que no es un teléfono.
+    const r = abonadoDeLlamada('+CO.4552575428314811');
+    expect(r.abonado).withContext('no se pierde').toBe('+CO.4552575428314811');
     expect(r.aviso).toContain('no envió el número');
-    expect(r.aviso).withContext('se muestra qué mandó, para poder rastrearlo').toContain('+CO.1744934636794102');
+    expect(r.aviso).withContext('se muestra qué mandó, para poder rastrearlo').toContain('+CO.4552575428314811');
   });
 
   it('y el operador sabe qué hacer: preguntárselo al ciudadano', () => {
-    expect(abonadoDeLlamada('+CO.1744934636794102').aviso).toContain('Pregúnteselo');
+    expect(abonadoDeLlamada('+CO.4552575428314811').aviso).toContain('Pregúnteselo');
   });
 });

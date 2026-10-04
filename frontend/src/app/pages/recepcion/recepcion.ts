@@ -67,6 +67,17 @@ export class RecepcionComponent implements OnInit {
   esMia(l: Llamada): boolean { return this.pbx.esMia(l); }
   /** ¿Lo que mandó la central es un abonado, o un identificador suyo? */
   esMarcable(valor: string): boolean { return PbxService.esNumeroMarcable(valor); }
+
+  /**
+   * Teléfono que se le propone a la videollamada. Null si lo que hay en Abonado
+   * no se puede marcar: la videollamada manda un SMS, y prellenarla con el
+   * identificador de la central era condenar ese envío a fallar. El operador
+   * escribe el celular en el propio panel.
+   */
+  telefonoParaVideo(): string | null {
+    const v = (this.form.controls.telefono.value ?? '').trim();
+    return PbxService.esNumeroMarcable(v) ? v : null;
+  }
   alternarSonido(): void { this.pbx.alternarSonido(); }
 
   /**
@@ -112,15 +123,14 @@ export class RecepcionComponent implements OnInit {
    */
   readonly abonadoConfirmado = signal(false);
 
-  /** Dígitos mínimos para dar por bueno un abonado; el mismo criterio que ELS. */
-  private static readonly DIGITOS_MINIMOS = 7;
+
 
   /** Hay con qué videollamar: una llamada tomada, o un abonado digitado y confirmado. */
   readonly hayAbonadoParaVideo = computed(() => this.hayLlamadaEnCurso() || this.abonadoConfirmado());
 
   /** El abonado escrito ya da la talla, pero el operador todavía no oprimió Enter. */
   readonly abonadoSinConfirmar = computed(
-    () => !this.hayLlamadaEnCurso() && !this.abonadoConfirmado() && this.digitosDelAbonado() >= RecepcionComponent.DIGITOS_MINIMOS);
+    () => !this.hayLlamadaEnCurso() && !this.abonadoConfirmado() && this.abonadoEsMarcable());
 
   /**
    * Enter sobre el abonado: lo da por bueno y dispara lo mismo que dispara una
@@ -128,7 +138,7 @@ export class RecepcionComponent implements OnInit {
    * caminos dejen el formulario en el mismo estado.
    */
   confirmarAbonado(): void {
-    if (this.digitosDelAbonado() < RecepcionComponent.DIGITOS_MINIMOS) {
+    if (!this.abonadoEsMarcable()) {
       this.abonadoConfirmado.set(false);
       return;
     }
@@ -146,8 +156,16 @@ export class RecepcionComponent implements OnInit {
     if (!this.casoVideoId()) this.abonadoConfirmado.set(false);
   }
 
-  private digitosDelAbonado(): number {
-    return (this.form.controls.telefono.value ?? '').replace(/\D+/g, '').length;
+  /**
+   * ¿Lo que hay en Abonado sirve para llamar?
+   *
+   * No basta con contar dígitos: el identificador que manda la central para
+   * WhatsApp (`+CO.4552575428314811`) tiene de sobra y no se puede marcar. La
+   * videollamada manda un SMS a ese número, así que ofrecerla con un
+   * identificador es ofrecer algo que va a fallar.
+   */
+  private abonadoEsMarcable(): boolean {
+    return PbxService.esNumeroMarcable(this.form.controls.telefono.value ?? '');
   }
 
   esLaLlamadaEnCurso(l: Llamada): boolean {
@@ -207,7 +225,7 @@ export class RecepcionComponent implements OnInit {
     // digitado a mano no hay llamada que atender, así que el caso se abre desde
     // el número. El servidor reusa el caso abierto de ese abonado en los dos.
     const llamada = this.llamadaEnCurso();
-    if (!llamada && this.digitosDelAbonado() < RecepcionComponent.DIGITOS_MINIMOS) return;
+    if (!llamada && !this.abonadoEsMarcable()) return;
 
     const v = this.form.getRawValue();
     // Tipado al mínimo común: los dos caminos devuelven cosas distintas y de
@@ -752,8 +770,11 @@ export class RecepcionComponent implements OnInit {
 
     const telefono = (this.form.controls.telefono.value ?? '').trim();
     const digitos = telefono.replace(/\D+/g, '');
-    // Menos de siete dígitos no es un abonado: sería gastar una consulta.
-    if (digitos.length < 7 || digitos === this.telefonoConsultado) return;
+    // Lo que no es un abonado no se consulta: sería gastar una consulta. Cubre
+    // los dos casos —un número a medio escribir, y el identificador de sesión
+    // que manda la central para WhatsApp, que tiene dígitos de sobra pero no es
+    // un teléfono—.
+    if (!PbxService.esNumeroMarcable(telefono) || digitos === this.telefonoConsultado) return;
 
     const v = this.form.getRawValue();
     if (v.lat != null || v.lng != null || v.direccion.trim()) {

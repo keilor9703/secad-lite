@@ -7,17 +7,27 @@ import { AuthService } from './auth.service';
 import { Llamada, PbxConfig } from './models';
 
 /**
- * Qué se escribe en el campo «Abonado» al tomar una llamada, y qué se le dice
- * al operador si no se escribe nada.
+ * Qué se escribe en el campo «Abonado» al tomar una llamada, y qué se le
+ * advierte al operador.
+ *
+ * Lo que manda la central SIEMPRE se escribe, aunque no sea un número: para los
+ * contactos de WhatsApp manda un identificador de sesión
+ * (`+CO.4552575428314811`), y ese identificador es el único rastro de quién
+ * llamó. Dejar el campo vacío lo perdía: el caso quedaba sin nada que lo ate al
+ * contacto, ni para devolver la llamada ni para cruzarlo con la central.
+ *
+ * Lo que sí cambia es que no se presenta como si fuera un teléfono: va con la
+ * advertencia de que la central no mandó el número y de que hay que pedírselo
+ * al ciudadano. El operador lo sobrescribe en cuanto lo tenga.
  *
  * Función aparte y pura a propósito: es una decisión pequeña con consecuencias
- * —un número inventado en ese campo se marca, se copia al caso y se cruza
- * contra otros casos— y así se puede probar sin montar media pantalla.
+ * —lo que quede ahí se guarda en el caso como el teléfono del ciudadano— y así
+ * se puede probar sin montar media pantalla.
  */
 export function abonadoDeLlamada(numero: string): { abonado: string; aviso: string } {
   if (PbxService.esNumeroMarcable(numero)) return { abonado: numero, aviso: '' };
   return {
-    abonado: '',
+    abonado: numero,
     aviso: `La central no envió el número del ciudadano (envió «${numero}»). Pregúnteselo y escríbalo aquí.`,
   };
 }
