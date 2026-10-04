@@ -248,3 +248,46 @@ describe('PbxService.atender() — canal según el origen', () => {
     expect(casos.crear).toHaveBeenCalledWith('demo', expect.objectContaining({ canal: 'whatsapp_llamada' }), 'operador1');
   });
 });
+
+/**
+ * El identificador del llamante, dejado como un abonado marcable.
+ *
+ * El caso que lo motivó: un operador reportó que al tomar una llamada de
+ * WhatsApp el campo "Abonado" de Recepción no se llenaba. Las pasarelas de
+ * WhatsApp no manejan números sino JID (`573175882321@s.whatsapp.net`), y si la
+ * central los reenvía tal cual, eso es lo que el operador ve: un identificador
+ * que no se puede marcar ni cruzar contra los casos del mismo número.
+ */
+describe('PbxService.normalizarNumero', () => {
+  it('recorta el sufijo del JID de WhatsApp', () => {
+    expect(PbxService.normalizarNumero('573175882321@s.whatsapp.net')).toBe('573175882321');
+    expect(PbxService.normalizarNumero('573001234567@c.us')).toBe('573001234567');
+  });
+
+  it('quita los adornos de un número "bonito" de la central', () => {
+    expect(PbxService.normalizarNumero('+57 317 588 2321')).toBe('+573175882321');
+    expect(PbxService.normalizarNumero('(317) 588-2321')).toBe('3175882321');
+    expect(PbxService.normalizarNumero('317.588.2321')).toBe('3175882321');
+  });
+
+  it('no toca un número que ya viene limpio', () => {
+    expect(PbxService.normalizarNumero('3175882321')).toBe('3175882321');
+    expect(PbxService.normalizarNumero('+573175882321')).toBe('+573175882321');
+  });
+
+  it('no adivina el indicativo: 57… y 3… son las dos formas legítimas', () => {
+    expect(PbxService.normalizarNumero('573175882321')).toBe('573175882321');
+    expect(PbxService.normalizarNumero('3175882321')).toBe('3175882321');
+  });
+
+  it('el + solo vale al principio', () => {
+    expect(PbxService.normalizarNumero('+57+317+5882321')).toBe('+573175882321');
+  });
+
+  it('si al limpiar no queda nada marcable, devuelve lo que llegó', () => {
+    // Mejor que el operador vea un identificador raro a que vea el campo vacío
+    // y no sepa que hubo algo del otro lado.
+    expect(PbxService.normalizarNumero('anonimo@c.us')).toBe('anonimo@c.us');
+    expect(PbxService.normalizarNumero('privado')).toBe('privado');
+  });
+});

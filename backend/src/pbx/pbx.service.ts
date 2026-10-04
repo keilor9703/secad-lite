@@ -135,6 +135,35 @@ export class PbxService {
     whatsapp_llamada: { titulo: 'Llamada de WhatsApp', ciudadano: 'Llamante WhatsApp', nota: 'Llamada de WhatsApp atendida' },
   };
 
+  /**
+   * Deja el identificador del llamante como un abonado marcable.
+   *
+   * Las pasarelas de WhatsApp no manejan "números": manejan JID
+   * (`573175882321@s.whatsapp.net`, `…@c.us`). Si la central los reenvía tal
+   * cual, eso es lo que FALCON guarda y lo que el operador ve en el campo
+   * Abonado — un identificador que no se puede marcar ni cruzar contra los
+   * casos del mismo número. Lo mismo pasa con un número "bonito" de la central
+   * (`+57 317 588 2321`): se ve bien y no calza con nada.
+   *
+   * Se recorta el sufijo del JID y se quitan los adornos; el `+` inicial se
+   * conserva porque sí es parte del número. No se toca el indicativo: `57…` y
+   * `3…` son las dos formas legítimas de escribirlo aquí, y adivinar cuál
+   * quiso decir la central sería inventar.
+   *
+   * El valor crudo no se pierde: el body entero de cada petición queda en
+   * `pbx_webhook_log`.
+   */
+  static normalizarNumero(crudo: string): string {
+    const sinJid = crudo.split('@')[0];
+    const limpio = sinJid.replace(/[^\d+]/g, '');
+    // Un `+` solo vale al principio; si queda en medio es ruido.
+    const normalizado = limpio.startsWith('+') ? '+' + limpio.slice(1).replace(/\+/g, '')
+                                               : limpio.replace(/\+/g, '');
+    // Si al limpiar no queda nada marcable, se devuelve lo que llegó: es
+    // preferible que el operador vea un identificador raro a que vea vacío.
+    return normalizado || crudo.trim();
+  }
+
   constructor(
     private readonly casosSvc: CasosService,
     private readonly usuarios: UsuariosService,
@@ -155,8 +184,9 @@ export class PbxService {
       const llamadas = manager.getRepository(LlamadaEntity);
 
       if (dto?.evento === 'entrante') {
-        const numero = dto.numero?.trim();
-        if (!numero) throw new BadRequestException('El número del llamante es obligatorio.');
+        const crudo = dto.numero?.trim();
+        if (!crudo) throw new BadRequestException('El número del llamante es obligatorio.');
+        const numero = PbxService.normalizarNumero(crudo);
 
         // Idempotencia: si la central reintenta el mismo evento (mismo callId
         // aún timbrando), se devuelve la llamada ya registrada en vez de
@@ -397,7 +427,11 @@ export class PbxService {
       return repo.findOne({ where: { tenant, callId: callId.trim() }, order: { creadoEn: 'DESC' } });
     }
     if (numero?.trim()) {
-      return repo.findOne({ where: { tenant, numero: numero.trim(), estado: 'sonando' }, order: { creadoEn: 'DESC' } });
+      // Normalizado igual que al entrar: si no, una 'colgada' con el JID crudo
+      // no encontraría la llamada que se guardó ya limpia, y quedaría timbrando
+      // en la cola para siempre.
+      const limpio = PbxService.normalizarNumero(numero.trim());
+      return repo.findOne({ where: { tenant, numero: limpio, estado: 'sonando' }, order: { creadoEn: 'DESC' } });
     }
     return Promise.resolve(null);
   }
