@@ -15,6 +15,13 @@ export interface Municipio {
   subregion: string | null;
 }
 
+/** Dónde está un municipio: su centro y, si se conoce, su recuadro. */
+export interface UbicacionMunicipio {
+  lat: number;
+  lng: number;
+  recuadro: { sur: number; norte: number; oeste: number; este: number } | null;
+}
+
 /** Punto resuelto de una dirección; `precision` dice cuánto fiarse de él. */
 export interface PuntoDireccion {
   lat: number;
@@ -40,9 +47,14 @@ export class GeografiaService {
     return this.departamentos$;
   }
 
-  /** Centroide del municipio (geocodificado y cacheado en el backend); `null` si no se pudo resolver. */
-  centroide(codigoDane: string): Observable<{ lat: number; lng: number } | null> {
-    return this.http.get<{ lat: number; lng: number } | null>(`${this.base}/geografia/municipios/${codigoDane}/centroide`);
+  /**
+   * Dónde está el municipio: su centro y, cuando se conoce, su EXTENSIÓN real.
+   * El recuadro es lo que permite acotar de verdad el buscador de direcciones
+   * y verificar después que el punto cayó dentro; puede venir nulo, y quien lo
+   * use tiene que seguir funcionando sin él.
+   */
+  centroide(codigoDane: string): Observable<UbicacionMunicipio | null> {
+    return this.http.get<UbicacionMunicipio | null>(`${this.base}/geografia/municipios/${codigoDane}/centroide`);
   }
 
   municipios(departamentoCodigo: string): Observable<Municipio[]> {

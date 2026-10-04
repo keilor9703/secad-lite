@@ -5,6 +5,7 @@ import { Observable, firstValueFrom } from 'rxjs';
 import { RouterLink } from '@angular/router';
 import { CasosService } from '../../core/casos.service';
 import { PbxService, abonadoDeLlamada } from '../../core/pbx.service';
+import { Recuadro, evaluarCandidato } from './direccion-precision';
 import { ElsService } from '../../core/els.service';
 import { CatalogosService } from '../../core/catalogos.service';
 import { AuthService } from '../../core/auth.service';
@@ -108,6 +109,13 @@ export class RecepcionComponent implements OnInit {
    * saberlo para pedírselo al ciudadano en vez de buscar un número que no está.
    */
   readonly avisoAbonado = signal('');
+
+  /**
+   * Qué tan de fiar es el punto que quedó en el mapa. Vacío cuando no hay nada
+   * que advertir. Un punto aproximado que parece exacto es peor que no tener
+   * punto: el operador lo despacha sin dudarlo.
+   */
+  readonly avisoDireccion = signal('');
   /** Hay una consulta en curso: se avisa en vez de dejar la pantalla muda. */
   readonly consultandoEls = signal(false);
   /** Último número consultado: no se vuelve a gastar una consulta por él. */
@@ -500,6 +508,7 @@ export class RecepcionComponent implements OnInit {
     this.casoVideoId.set(null);
     this.abonadoConfirmado.set(false);
     this.avisoAbonado.set('');
+    this.avisoDireccion.set('');
     this.form.reset(this.formVacio());
     this.canalesMarcados.set([]);
     this.sugeridaPorCodigo.set(null);
@@ -883,35 +892,54 @@ export class RecepcionComponent implements OnInit {
     this.geocoder = new Geocoder();
   }
 
+  /** Recuadro del municipio elegido, para acotar y para verificar. Nulo si no se conoce. */
+  private recuadroMunicipio: Recuadro | null = null;
+
   /**
-   * Acota las sugerencias al municipio elegido en el formulario: sin esto,
-   * "Calle 53" sugiere resultados de cualquier ciudad de Colombia. Es un
-   * sesgo (`locationBias`), no una restricción dura — un caso cerca del
-   * límite municipal sigue apareciendo.
+   * RESTRINGE las sugerencias al municipio elegido. Antes las sesgaba, con un
+   * círculo de 30 km alrededor del centro: para Itagüí eso cubre todo el Valle
+   * de Aburrá, y como un sesgo solo cambia el ORDEN, «Calle 53» seguía
+   * pudiendo traer una dirección de otra ciudad si a Google le parecía más
+   * relevante. `locationRestriction` sí es un límite —se cruza con
+   * `includedRegionCodes`— y el recuadro es la extensión real del municipio,
+   * no un radio inventado.
+   *
+   * Si el catálogo todavía no tiene el recuadro, se cae al círculo de antes:
+   * peor que restringir, mejor que nada.
    */
   private biasBuscador(): void {
-    if (!this.gmpElement) return;
     const codigo = this.form.controls.municipioCodigo.value;
     if (!codigo) return;
     this.geografia.centroide(codigo).subscribe({
-      next: (c) => {
-        if (c && this.gmpElement) this.gmpElement.locationBias = { center: { lat: c.lat, lng: c.lng }, radius: 30_000 };
+      next: (u) => {
+        this.recuadroMunicipio = u?.recuadro ?? null;
+        if (!u || !this.gmpElement) return;
+        const r = u.recuadro;
+        if (r) {
+          this.gmpElement.locationRestriction = { south: r.sur, north: r.norte, west: r.oeste, east: r.este };
+        } else {
+          // Sin recuadro no se puede restringir —`locationRestriction` solo
+          // admite un rectángulo— y queda el sesgo de antes. Es el modo
+          // degradado, no el normal: el recuadro se resuelve y se cachea la
+          // primera vez que se consulta el municipio.
+          this.gmpElement.locationBias = { center: { lat: u.lat, lng: u.lng }, radius: 30_000 };
+        }
       },
-      error: () => {},
+      error: () => { this.recuadroMunicipio = null; },
     });
   }
 
-  /** Al elegir una sugerencia del buscador: mueve el punto y llena dirección/barrio/municipio con la forma estandarizada de Google. */
+  /** Al elegir una sugerencia del buscador: verifica el punto antes de moverlo. */
   private alSeleccionarLugar(place: google.maps.places.Place): void {
     this.error.set('');
     const lat = place.location?.lat();
     const lng = place.location?.lng();
     const comps = (place.addressComponents ?? []).map((c) => ({ texto: c.longText ?? '', types: c.types }));
-    if (lat != null && lng != null) {
-      this.aplicarResultado(place.formattedAddress ?? '', lat, lng, comps, true);
-    } else {
+    if (lat == null || lng == null) {
       this.form.patchValue({ direccion: place.formattedAddress ?? '' });
+      return;
     }
+    this.aplicarVerificado(place.formattedAddress ?? '', lat, lng, comps, {});
   }
 
   /**
@@ -936,6 +964,33 @@ export class RecepcionComponent implements OnInit {
     this.geocodificarInversoOsm(lat, lng);
   }
 
+  /**
+   * Pasa el resultado por el veredicto y solo entonces lo aplica.
+   *
+   * Es el único camino por el que un punto de Google llega al formulario: si
+   * queda fuera del municipio NO se mueve nada y se dice por qué. Antes se
+   * aplicaba lo que viniera, y buscar «Calle 53» desde Itagüí podía dejar el
+   * punto en otra ciudad sin que nadie se enterara.
+   */
+  private aplicarVerificado(
+    direccion: string,
+    lat: number,
+    lng: number,
+    comps: Array<{ texto: string; types: string[] }>,
+    señas: { tipoUbicacion?: string; coincidenciaParcial?: boolean },
+  ): void {
+    const de = (tipos: string[]) => comps.find((c) => tipos.some((t) => c.types.includes(t)))?.texto;
+    const veredicto = evaluarCandidato(
+      { lat, lng, municipioResuelto: de(['locality', 'administrative_area_level_2']), ...señas },
+      this.municipioActual() || 'el municipio del caso',
+      this.recuadroMunicipio,
+    );
+
+    this.avisoDireccion.set(veredicto.aviso);
+    if (!veredicto.aceptar) return;
+    this.aplicarResultado(direccion, lat, lng, comps, true);
+  }
+
   /** Aplica una dirección resuelta (Google o el respaldo OSM) al formulario: dirección, barrio y, si calza con el catálogo, el municipio. */
   private aplicarResultado(
     direccion: string,
@@ -950,10 +1005,13 @@ export class RecepcionComponent implements OnInit {
     const municipio = de(['locality', 'administrative_area_level_2']);
     const patch: { direccion: string; barrio?: string; ciudad?: string } = { direccion };
     if (barrio) patch.barrio = barrio;
-    if (municipio) {
-      const m = this.municipiosTenant().find((x) => this.normalizar(x.nombre) === this.normalizar(municipio));
-      if (m) this.form.controls.municipioCodigo.setValue(m.codigoDane, { emitEvent: false });
-      else patch.ciudad = municipio;
+    // El municipio del caso NO se cambia desde aquí. Lo elige el operador, y
+    // cambiárselo porque el geocodificador dijo otro nombre es moverle el caso
+    // de ciudad a sus espaldas — junto con el recuadro que acota la búsqueda.
+    // Si no coincide, `evaluarCandidato` ya lo advirtió; cambiarlo es decisión
+    // suya, en el selector.
+    if (municipio && !this.municipiosTenant().some((x) => this.normalizar(x.nombre) === this.normalizar(municipio))) {
+      patch.ciudad = municipio;
     }
     this.form.patchValue(patch);
   }
@@ -972,13 +1030,25 @@ export class RecepcionComponent implements OnInit {
     this.error.set('');
 
     if (this.geocoder) {
-      this.geocoder.geocode({ address: texto, componentRestrictions: { country: 'co' } }).then(
+      const r0 = this.recuadroMunicipio;
+      this.geocoder.geocode({
+        // Con el municipio pegado al texto: «Calle 53 # 52-35» sola es una
+        // dirección de cualquier ciudad de Colombia, y el geocodificador
+        // elegía por relevancia global.
+        address: this.conMunicipio(texto),
+        componentRestrictions: { country: 'co' },
+        // Y acotada al recuadro del municipio, no solo al país.
+        ...(r0 ? { bounds: { south: r0.sur, north: r0.norte, west: r0.oeste, east: r0.este } } : {}),
+      }).then(
         ({ results }) => {
           this.buscandoDireccion.set(false);
           const r = results[0];
           if (!r) { this.error.set('No se encontró esa dirección.'); return; }
           const comps = r.address_components.map((c) => ({ texto: c.long_name, types: c.types }));
-          this.aplicarResultado(r.formatted_address, r.geometry.location.lat(), r.geometry.location.lng(), comps, true);
+          this.aplicarVerificado(
+            r.formatted_address, r.geometry.location.lat(), r.geometry.location.lng(), comps,
+            { tipoUbicacion: r.geometry.location_type, coincidenciaParcial: r.partial_match },
+          );
         },
         () => {
           this.buscandoDireccion.set(false);

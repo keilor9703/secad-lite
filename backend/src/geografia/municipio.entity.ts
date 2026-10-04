@@ -31,4 +31,21 @@ export class MunicipioEntity {
 
   @Column({ type: 'double precision', nullable: true })
   lng?: number | null;
+
+  /**
+   * Extensión real del municipio, para ACOTAR la búsqueda de direcciones en vez
+   * de solo sesgarla. Un círculo alrededor del centroide no sirve: el de 30 km
+   * que se usaba antes cubría, para Itagüí, todo el Valle de Aburrá.
+   */
+  @Column({ type: 'double precision', nullable: true })
+  latSur?: number | null;
+
+  @Column({ type: 'double precision', nullable: true })
+  latNorte?: number | null;
+
+  @Column({ type: 'double precision', nullable: true })
+  lngOeste?: number | null;
+
+  @Column({ type: 'double precision', nullable: true })
+  lngEste?: number | null;
 }

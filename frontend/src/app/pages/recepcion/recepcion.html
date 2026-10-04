@@ -278,6 +278,13 @@
                     {{ buscandoDireccion() ? 'Buscando…' : 'Buscar en el mapa' }}
                   </button>
                 </div>
+                <!-- Qué tan de fiar es el punto. Un punto aproximado que parece
+                exacto es peor que no tener punto: el operador lo despacha sin
+                dudarlo. Cuando la dirección quedó fuera del municipio, el punto
+                NO se movió y esto dice por qué. -->
+                @if (avisoDireccion()) {
+                  <small class="rec-dir-aviso" role="status">{{ avisoDireccion() }}</small>
+                }
               </div>
               <div class="field">
                 <label for="flat">Latitud</label>
