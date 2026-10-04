@@ -7,6 +7,22 @@ import { AuthService } from './auth.service';
 import { Llamada, PbxConfig } from './models';
 
 /**
+ * Qué se escribe en el campo «Abonado» al tomar una llamada, y qué se le dice
+ * al operador si no se escribe nada.
+ *
+ * Función aparte y pura a propósito: es una decisión pequeña con consecuencias
+ * —un número inventado en ese campo se marca, se copia al caso y se cruza
+ * contra otros casos— y así se puede probar sin montar media pantalla.
+ */
+export function abonadoDeLlamada(numero: string): { abonado: string; aviso: string } {
+  if (PbxService.esNumeroMarcable(numero)) return { abonado: numero, aviso: '' };
+  return {
+    abonado: '',
+    aviso: `La central no envió el número del ciudadano (envió «${numero}»). Pregúnteselo y escríbalo aquí.`,
+  };
+}
+
+/**
  * Cliente de la integración con la planta telefónica (PBX). Mantiene la cola de
  * llamadas en vivo (REST inicial + Socket.IO namespace /pbx) para el screen-pop,
  * y expone la configuración (API key + webhook) para administración.
@@ -48,6 +64,21 @@ export class PbxService {
   private static readonly MAX_REINTENTOS = 5;
   /** El canal se apagó a propósito (cambio de instancia, salida): no se reabre solo. */
   private apagadoAProposito = false;
+
+  /**
+   * ¿Ese identificador se puede marcar?
+   *
+   * Misma regla que `PbxService.esNumeroMarcable` del backend (E.164 admite 15
+   * dígitos; menos de 7 no es un abonado), repetida aquí porque la pantalla
+   * tiene que decidir sin preguntar. Hace falta porque la central no siempre
+   * manda un número: para los contactos de WhatsApp manda un identificador de
+   * sesión (`+CO.1744934636794102`), y eso no se marca ni se escribe en el
+   * campo Abonado como si lo fuera.
+   */
+  static esNumeroMarcable(valor: string | null | undefined): boolean {
+    const digitos = (valor ?? '').replace(/\D/g, '');
+    return digitos.length >= 7 && digitos.length <= 15;
+  }
 
   /** Timbre encendido/apagado; la elección se recuerda en el puesto de trabajo. */
   readonly sonidoActivo = signal(localStorage.getItem('falconcad_pbx_sonido') !== 'off');

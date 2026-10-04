@@ -268,6 +268,24 @@
    no escondida — está ahí por si ese puesto está vacío y hay que auxiliarlo. */
 .llam--ajena { border-left-color: var(--border-2, var(--border)); opacity: 0.78; }
 
+/* Sin abonado: el hueco se nombra en vez de rellenarse con el identificador de
+   la central, que no se puede marcar. El identificador va debajo, en pequeño,
+   porque sigue sirviendo para rastrear la llamada en la central. */
+.llam .num--sin { color: var(--muted); font-weight: 600; font-size: 0.95rem; }
+.llam-id {
+  margin: 0; font-size: 0.68rem; color: var(--muted);
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+
+/* El aviso de «la central no mandó el número»: una advertencia, no una pista
+   más. El operador tiene que pedirle el número al ciudadano. */
+.rec-sin-numero {
+  display: block; margin-top: 0.3rem;
+  padding: 0.35rem 0.5rem; border-radius: var(--radius-sm);
+  background: color-mix(in srgb, var(--warn) 14%, transparent);
+  color: var(--ink); font-size: 0.74rem; line-height: 1.35;
+}
+
 .llam-cab { display: flex; align-items: center; gap: 0.45rem; min-width: 0; }
 .llam-icono { flex: 0 0 auto; font-size: 0.95rem; line-height: 1; }
 

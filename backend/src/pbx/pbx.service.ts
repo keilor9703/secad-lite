@@ -157,11 +157,26 @@ export class PbxService {
     const sinJid = crudo.split('@')[0];
     const limpio = sinJid.replace(/[^\d+]/g, '');
     // Un `+` solo vale al principio; si queda en medio es ruido.
-    const normalizado = limpio.startsWith('+') ? '+' + limpio.slice(1).replace(/\+/g, '')
-                                               : limpio.replace(/\+/g, '');
-    // Si al limpiar no queda nada marcable, se devuelve lo que llegó: es
-    // preferible que el operador vea un identificador raro a que vea vacío.
-    return normalizado || crudo.trim();
+    const candidato = limpio.startsWith('+') ? '+' + limpio.slice(1).replace(/\+/g, '')
+                                             : limpio.replace(/\+/g, '');
+
+    // Solo se limpia lo que de verdad es un teléfono. Si no lo es, se devuelve
+    // TAL CUAL llegó, y esto es deliberado: una central de producción manda
+    // `+CO.1744934636794102` para los contactos de WhatsApp —un identificador
+    // de sesión, no un abonado—, y limpiarlo daba `+1744934636794102`, que
+    // parece un número y no lo es. Un identificador evidentemente raro es
+    // preferible: el operador ve que no hay número. Un número inventado se
+    // marca, se copia al caso y se cruza contra otros casos.
+    return PbxService.esNumeroMarcable(candidato) ? candidato : crudo.trim();
+  }
+
+  /**
+   * ¿Esto se puede marcar? E.164 admite 15 dígitos como máximo, y menos de 7
+   * no es un abonado — el mismo piso que usa la consulta de ubicación.
+   */
+  static esNumeroMarcable(valor: string): boolean {
+    const digitos = (valor ?? '').replace(/\D/g, '');
+    return digitos.length >= 7 && digitos.length <= 15;
   }
 
   constructor(

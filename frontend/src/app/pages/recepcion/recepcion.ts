@@ -4,7 +4,7 @@ import { FormControl, FormGroup, ReactiveFormsModule, Validators } from '@angula
 import { Observable, firstValueFrom } from 'rxjs';
 import { RouterLink } from '@angular/router';
 import { CasosService } from '../../core/casos.service';
-import { PbxService } from '../../core/pbx.service';
+import { PbxService, abonadoDeLlamada } from '../../core/pbx.service';
 import { ElsService } from '../../core/els.service';
 import { CatalogosService } from '../../core/catalogos.service';
 import { AuthService } from '../../core/auth.service';
@@ -65,6 +65,8 @@ export class RecepcionComponent implements OnInit {
   readonly enVivo = this.pbx.enVivo;
   /** ¿Es de este puesto? Las de otro puesto se ven más apagadas (solo las ve la supervisión). */
   esMia(l: Llamada): boolean { return this.pbx.esMia(l); }
+  /** ¿Lo que mandó la central es un abonado, o un identificador suyo? */
+  esMarcable(valor: string): boolean { return PbxService.esNumeroMarcable(valor); }
   alternarSonido(): void { this.pbx.alternarSonido(); }
 
   /**
@@ -89,6 +91,12 @@ export class RecepcionComponent implements OnInit {
    * aparece solo, sin explicación, no es de fiar en una emergencia.
    */
   readonly avisoEls = signal('');
+  /**
+   * Por qué el campo Abonado quedó vacío al tomar la llamada. No es un error
+   * del sistema: es la central que no mandó el número, y el operador tiene que
+   * saberlo para pedírselo al ciudadano en vez de buscar un número que no está.
+   */
+  readonly avisoAbonado = signal('');
   /** Hay una consulta en curso: se avisa en vez de dejar la pantalla muda. */
   readonly consultandoEls = signal(false);
   /** Último número consultado: no se vuelve a gastar una consulta por él. */
@@ -155,9 +163,17 @@ export class RecepcionComponent implements OnInit {
    */
   tomarLlamada(l: Llamada): void {
     this.error.set('');
+    this.avisoAbonado.set('');
     this.pbx.reclamar(l.id).subscribe({
       next: (llamada) => {
-        this.form.controls.telefono.setValue(llamada.numero);
+        // Solo se escribe en Abonado lo que de verdad es un abonado. La central
+        // manda un identificador de sesión para los contactos de WhatsApp
+        // (`+CO.1744934636794102`): ponerlo ahí haría que el operador marcara
+        // un número que no existe, o que quedara guardado en el caso como el
+        // teléfono del ciudadano. Se le dice lo que pasa y él lo pregunta.
+        const { abonado, aviso } = abonadoDeLlamada(llamada.numero);
+        this.form.controls.telefono.setValue(abonado);
+        this.avisoAbonado.set(aviso);
         // La llamada entró por la planta: se pregunta de inmediato dónde
         // estaba el teléfono, que es justo el caso que esto resuelve.
         this.consultarEls();
@@ -465,6 +481,7 @@ export class RecepcionComponent implements OnInit {
     }
     this.casoVideoId.set(null);
     this.abonadoConfirmado.set(false);
+    this.avisoAbonado.set('');
     this.form.reset(this.formVacio());
     this.canalesMarcados.set([]);
     this.sugeridaPorCodigo.set(null);

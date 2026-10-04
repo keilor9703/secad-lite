@@ -36,8 +36,18 @@
             [class.llam--ajena]="!esMia(l)">
             <div class="llam-cab">
               <span class="llam-icono" role="img" [attr.aria-label]="origenLabel(l.origen)">{{ origenIcon(l.origen) }}</span>
-              <span class="num mono">{{ l.numero }}</span>
+              <!-- Lo que manda la central no siempre es un abonado: para los
+              contactos de WhatsApp manda un identificador de sesión. Mostrarlo
+              en grande como «el número» invita a marcarlo. -->
+              @if (esMarcable(l.numero)) {
+                <span class="num mono">{{ l.numero }}</span>
+              } @else {
+                <span class="num num--sin">Sin número</span>
+              }
             </div>
+            @if (!esMarcable(l.numero)) {
+              <p class="llam-id mono" [title]="l.numero">{{ l.numero }}</p>
+            }
 
             <!-- En su propia línea, no al lado del número: compitiendo por el
             ancho partía el número en dos renglones, y ese número es justo lo
@@ -161,6 +171,9 @@
                 <input id="ftel" formControlName="telefono" placeholder="Abonado"
                   (keydown.enter)="confirmarAbonado()" (input)="abonadoEditado()"
                   (blur)="consultarEls()" />
+                @if (avisoAbonado()) {
+                  <small class="rec-sin-numero" role="status">{{ avisoAbonado() }}</small>
+                }
                 @if (consultandoEls()) {
                   <small class="rec-els">Consultando la ubicación del teléfono…</small>
                 } @else if (avisoEls()) {

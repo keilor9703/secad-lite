@@ -3,7 +3,7 @@ import { provideHttpClient } from '@angular/common/http';
 import { HttpTestingController, provideHttpClientTesting } from '@angular/common/http/testing';
 import type { Socket } from 'socket.io-client';
 import { Injectable, signal } from '@angular/core';
-import { PbxService } from './pbx.service';
+import { PbxService, abonadoDeLlamada } from './pbx.service';
 import { AuthService } from './auth.service';
 import { Llamada, Sesion } from './models';
 
@@ -284,5 +284,55 @@ describe('PbxService — ver no es sonar', () => {
     expect(pbx.sonando().length).toBe(1);
     expect(pbx.esMia(mia)).toBe(true);
     http.verify();
+  });
+});
+
+/**
+ * Lo que manda la central no siempre es un abonado.
+ *
+ * Visto en producción (`pbx_webhook_log`): para los contactos de WhatsApp manda
+ * `+CO.1744934636794102`, un identificador de sesión. Escribirlo en el campo
+ * Abonado haría que el operador marcara un número que no existe, o que quedara
+ * guardado en el caso como el teléfono del ciudadano.
+ */
+describe('PbxService.esNumeroMarcable', () => {
+  it('acepta lo que es un abonado', () => {
+    expect(PbxService.esNumeroMarcable('3175882321')).toBe(true);
+    expect(PbxService.esNumeroMarcable('+573175882321')).toBe(true);
+    expect(PbxService.esNumeroMarcable('03133958748')).toBe(true);
+  });
+
+  it('rechaza el identificador de la central', () => {
+    expect(PbxService.esNumeroMarcable('+CO.1744934636794102')).toBe(false);
+  });
+
+  it('rechaza lo que no cabe en un plan de numeración', () => {
+    expect(PbxService.esNumeroMarcable('12345')).toBe(false);
+    expect(PbxService.esNumeroMarcable('')).toBe(false);
+    expect(PbxService.esNumeroMarcable(null)).toBe(false);
+  });
+});
+
+/**
+ * Qué queda en el campo Abonado al tomar una llamada.
+ *
+ * Un número inventado en ese campo no es un detalle cosmético: se marca, se
+ * guarda en el caso como el teléfono del ciudadano, y se cruza contra otros
+ * casos del mismo número.
+ */
+describe('abonadoDeLlamada', () => {
+  it('un abonado de verdad se escribe tal cual', () => {
+    expect(abonadoDeLlamada('3175882321')).toEqual({ abonado: '3175882321', aviso: '' });
+  });
+
+  it('el identificador de la central NO se escribe, y se explica por qué', () => {
+    const r = abonadoDeLlamada('+CO.1744934636794102');
+    expect(r.abonado).withContext('el campo queda vacío, no con basura').toBe('');
+    expect(r.aviso).toContain('no envió el número');
+    expect(r.aviso).withContext('se muestra qué mandó, para poder rastrearlo').toContain('+CO.1744934636794102');
+  });
+
+  it('y el operador sabe qué hacer: preguntárselo al ciudadano', () => {
+    expect(abonadoDeLlamada('+CO.1744934636794102').aviso).toContain('Pregúnteselo');
   });
 });

@@ -290,4 +290,33 @@ describe('PbxService.normalizarNumero', () => {
     expect(PbxService.normalizarNumero('anonimo@c.us')).toBe('anonimo@c.us');
     expect(PbxService.normalizarNumero('privado')).toBe('privado');
   });
+
+  it('NO convierte un identificador de la central en algo que parece un teléfono', () => {
+    // Esto es lo que manda de verdad la central para WhatsApp (visto en
+    // pbx_webhook_log). Limpiarlo daba `+1744934636794102`: 16 dígitos, un
+    // número imposible que el operador marcaría o copiaría al caso. Se deja
+    // crudo justamente para que se vea que NO es un número.
+    expect(PbxService.normalizarNumero('+CO.1744934636794102')).toBe('+CO.1744934636794102');
+  });
+
+  it('un número con cero de salida sí es marcable y se conserva', () => {
+    // También visto en producción: la central antepone el prefijo de salida.
+    expect(PbxService.normalizarNumero('03133958748')).toBe('03133958748');
+  });
+});
+
+describe('PbxService.esNumeroMarcable', () => {
+  it('acepta lo que es un abonado', () => {
+    expect(PbxService.esNumeroMarcable('3175882321')).toBe(true);
+    expect(PbxService.esNumeroMarcable('+573175882321')).toBe(true);
+    expect(PbxService.esNumeroMarcable('03133958748')).toBe(true);
+  });
+
+  it('rechaza lo que no cabe en un plan de numeración', () => {
+    // E.164: 15 dígitos como máximo.
+    expect(PbxService.esNumeroMarcable('+CO.1744934636794102')).toBe(false);
+    expect(PbxService.esNumeroMarcable('1744934636794102')).toBe(false);
+    expect(PbxService.esNumeroMarcable('12345')).toBe(false);
+    expect(PbxService.esNumeroMarcable('')).toBe(false);
+  });
 });
