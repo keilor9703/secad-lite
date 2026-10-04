@@ -770,11 +770,21 @@ export class RecepcionComponent implements OnInit {
       g.maps.importLibrary('marker'),
       this.centroInicial(),
     ]);
+    if (!this.googleMaps.mapId) {
+      console.warn(
+        'GOOGLE_MAPS_MAP_ID no está configurada: el mapa usa el identificador de ejemplo de Google, '
+        + 'que no es para producción. Cree uno en la consola (Map Management) y póngalo en el .env.');
+    }
     this.marcadorGoogleCtor = AdvancedMarkerElement;
     this.mapaGoogle = new Map(div, {
       center: { lat: centro[0], lng: centro[1] },
       zoom,
-      mapId: 'DEMO_MAP_ID',
+      // El Map ID propio, creado en la consola de Google. `DEMO_MAP_ID` es el
+      // de los ejemplos: Google avisa que NO es para producción —no admite
+      // estilos ni funciones de nube— y aun así se cobra como un mapa normal.
+      // Si falta, se usa igual para no dejar el mapa en blanco, pero queda
+      // dicho en la consola del navegador.
+      mapId: this.googleMaps.mapId ?? 'DEMO_MAP_ID',
       streetViewControl: false,
       mapTypeControl: false,
       fullscreenControl: false,

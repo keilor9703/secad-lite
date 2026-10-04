@@ -15,6 +15,13 @@ export interface Municipio {
   subregion: string | null;
 }
 
+/** Lo que hace falta para montar los mapas de Google, resuelto en el servidor. */
+export interface MapasConfig {
+  googleMapsApiKey: string | null;
+  /** Map ID propio. Sin él se usa el de ejemplo de Google, que no es para producción. */
+  googleMapsMapId: string | null;
+}
+
 /** Dónde está un municipio: su centro y, si se conoce, su recuadro. */
 export interface UbicacionMunicipio {
   lat: number;
@@ -90,10 +97,10 @@ export class GeografiaService {
 
   /** Clave de navegador de Google Maps (Places + Geocoding); `null` si el backend no la tiene configurada. */
   private readonly mapasConfig$ = this.http
-    .get<{ googleMapsApiKey: string | null }>(`${this.base}/geografia/mapas-config`)
+    .get<MapasConfig>(`${this.base}/geografia/mapas-config`)
     .pipe(shareReplay(1));
 
-  mapasConfig(): Observable<{ googleMapsApiKey: string | null }> {
+  mapasConfig(): Observable<MapasConfig> {
     return this.mapasConfig$;
   }
 }

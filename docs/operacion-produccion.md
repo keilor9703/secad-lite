@@ -608,6 +608,69 @@ original: eso es lo que hace que esto sea un archivo y no una esperanza.
 
 ---
 
+## Mapas: OpenStreetMap o Google
+
+Hoy el sistema corre **sin clave de Google**: el mapa es Leaflet con
+OpenStreetMap y las direcciones las resuelve el motor propio
+(`direcciones.service.ts`), que entiende la nomenclatura colombiana
+—«Calle 53 # 52-35» es un cruce más 35 metros— que Google no entiende.
+
+Google es mejor para lo RURAL (veredas, corregimientos) y para puntos de
+interés. Encenderlo es poner dos variables; apagarlo es quitarlas.
+
+```bash
+# En ~/falcon-deploy/.env
+GOOGLE_MAPS_API_KEY=AIza...
+GOOGLE_MAPS_MAP_ID=a1b2c3d4e5f6
+```
+
+¿Está encendido?
+
+```bash
+cd ~/falcon-deploy
+docker compose exec -T backend1 printenv GOOGLE_MAPS_API_KEY || echo "(sin clave: OpenStreetMap)"
+```
+
+Y a simple vista, en Recepción: si el mapa dice «Leaflet | © OpenStreetMap» y el
+campo de dirección dice «Escriba la dirección del caso», está en OpenStreetMap.
+Con Google el campo dice «Se completa al elegir una sugerencia».
+
+### Qué hay que habilitar en la consola de Google
+
+Tres APIs, y solo tres — son las que el código pide:
+
+| API | Para qué |
+|---|---|
+| **Maps JavaScript API** | El mapa y el marcador |
+| **Places API (New)** | El buscador con sugerencias. La NUEVA: el componente que usa el código (`PlaceAutocompleteElement`) no funciona con la versión antigua |
+| **Geocoding API** | Dirección → punto, y el clic en el mapa → dirección |
+
+### El Map ID
+
+`GOOGLE_MAPS_MAP_ID` no es opcional en producción. Sin él, el mapa usa
+`DEMO_MAP_ID`, el identificador de los ejemplos de Google: no admite estilos ni
+funciones de nube, Google dice expresamente que no es para producción, y **se
+cobra igual**. Se crea en *Map Management* de la consola. Si falta, el mapa
+igual carga y el navegador deja el aviso en consola.
+
+### Restringir la clave (esto no es opcional)
+
+La clave de navegador **viaja al cliente**: cualquiera que abra el sitio la ve.
+Lo que impide que la usen desde otro lado son las dos restricciones:
+
+- **Por referente HTTP:** `https://falconcad.com.co/*` y nada más.
+- **Por API:** solo las tres de la tabla.
+
+Sin eso, alguien copia la clave y el consumo se carga a su cuenta.
+
+Conviene además un **presupuesto con alertas** en Facturación y un **tope de
+cuotas diarias** por API: la alerta avisa, la cuota corta. Una central de
+emergencias que de pronto deja de geocodificar por haber superado la cuota es
+un problema; una factura inesperada, también. El tope se pone con holgura sobre
+el uso real medido durante la primera semana.
+
+---
+
 ## Cortafuegos — dos capas, las dos importan
 
 ### 1. Security List de Oracle (la que más se olvida)

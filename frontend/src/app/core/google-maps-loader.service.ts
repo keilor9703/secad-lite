@@ -23,9 +23,16 @@ export class GoogleMapsLoaderService {
     return this.cargaPromise;
   }
 
+  /**
+   * Map ID de la consola de Google, para el mapa de Recepción. Nulo mientras no
+   * se configure; ver `mapId` en `prepararMapaGoogle` para qué pasa entonces.
+   */
+  mapId: string | null = null;
+
   private async cargarInterno(): Promise<typeof google | null> {
-    const { googleMapsApiKey } = await firstValueFrom(this.geografia.mapasConfig());
+    const { googleMapsApiKey, googleMapsMapId } = await firstValueFrom(this.geografia.mapasConfig());
     if (!googleMapsApiKey) return null;
+    this.mapId = googleMapsMapId;
     this.inyectarBootstrap(googleMapsApiKey);
     // El buscador (Places) y la geocodificación inversa (clic en el mapa)
     // son las dos únicas bibliotecas que usa este formulario.

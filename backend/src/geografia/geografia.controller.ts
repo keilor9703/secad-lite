@@ -34,7 +34,14 @@ export class GeografiaController {
    */
   @Get('mapas-config')
   mapasConfig() {
-    return { googleMapsApiKey: this.config.get<string>('GOOGLE_MAPS_API_KEY') || null };
+    return {
+      googleMapsApiKey: this.config.get<string>('GOOGLE_MAPS_API_KEY') || null,
+      // Identificador del mapa (Map ID) de la consola de Google. Sin él, el
+      // mapa cae a `DEMO_MAP_ID`, que Google ofrece para ejemplos: NO es para
+      // producción y aun así se cobra. Va aparte de la clave porque se crea
+      // aparte y se rota aparte.
+      googleMapsMapId: this.config.get<string>('GOOGLE_MAPS_MAP_ID') || null,
+    };
   }
 
   @Get('municipios')
