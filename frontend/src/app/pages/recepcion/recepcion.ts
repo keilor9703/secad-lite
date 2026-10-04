@@ -1229,12 +1229,26 @@ export class RecepcionComponent implements OnInit {
       next: (p) => {
         this.buscandoDireccion.set(false);
         if (!p) { this.error.set('No se encontró esa dirección.'); return; }
+
+        // Por el MISMO veredicto que el camino de Google: este es el que corre
+        // cuando no hay clave configurada, y hasta ahora fijaba el punto sin
+        // comprobar que cayera dentro del municipio. Si queda fuera, no se
+        // mueve nada y se dice por qué.
+        const veredicto = evaluarCandidato(
+          { lat: p.lat, lng: p.lng },
+          this.municipioActual() || 'el municipio del caso',
+          this.recuadroMunicipio,
+        );
+        if (!veredicto.aceptar) { this.avisoDireccion.set(veredicto.aviso); return; }
+
         this.fijarPunto(p.lat, p.lng, true);
-        if (p.precision === 'esquina') {
-          this.error.set('Se ubicó la esquina; ajuste el punto si conoce el lugar exacto.');
-        } else if (p.precision === 'aproximada') {
-          this.error.set('Ubicación aproximada: no se pudo resolver la nomenclatura. Verifique el punto.');
-        }
+        this.avisoDireccion.set(
+          p.precision === 'placa'
+            ? 'Resuelto por nomenclatura (punto de placa).'
+            : p.precision === 'esquina'
+              ? 'Se ubicó la esquina de las dos vías; ajuste el punto si conoce el portal exacto.'
+              : 'Ubicación aproximada: no se pudo resolver la nomenclatura. Verifique el punto.',
+        );
         this.geocodificarInversoOsm(p.lat, p.lng);
       },
       error: () => {

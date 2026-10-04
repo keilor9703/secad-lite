@@ -244,6 +244,22 @@ export class DireccionesService {
     return `${(lugar.lat - d).toFixed(4)},${(lugar.lng - d).toFixed(4)},${(lugar.lat + d).toFixed(4)},${(lugar.lng + d).toFixed(4)}`;
   }
 
+  /**
+   * El recuadro para Nominatim, en su orden: oeste,norte,este,sur.
+   *
+   * Distinto del de Overpass (`caja`), que los quiere al revés. Son dos
+   * servicios con dos convenciones, y confundirlas devuelve resultados de
+   * cualquier parte sin dar ningún error.
+   */
+  private viewbox(lugar: Lugar): string {
+    if (lugar.bbox) {
+      const [s, n, o, e] = lugar.bbox;
+      return `${o.toFixed(4)},${n.toFixed(4)},${e.toFixed(4)},${s.toFixed(4)}`;
+    }
+    const d = 0.3;
+    return `${lugar.lng - d},${lugar.lat + d},${lugar.lng + d},${lugar.lat - d}`;
+  }
+
   /** El nodo donde se cruzan dos vías, si existe. */
   private async cruce(
     caja: string,
@@ -377,9 +393,13 @@ export class DireccionesService {
     const q = encodeURIComponent([texto, municipio?.nombre, 'Colombia'].filter(Boolean).join(', '));
     // `viewbox` + `bounded` mantienen el resultado dentro del municipio: sin
     // esto, una calle homónima de otra ciudad ganaba la búsqueda.
-    const vb = municipio
-      ? `&viewbox=${municipio.lng - 0.3},${municipio.lat + 0.3},${municipio.lng + 0.3},${municipio.lat - 0.3}&bounded=1`
-      : '';
+    //
+    // Con el RECUADRO real cuando se conoce. El ±0,3° de antes son unos 33 km
+    // en cada eje: para Itagüí (17 km²) ese cuadro cubre medio Valle de
+    // Aburrá, y «Calle 53» seguía pudiendo resolverse en el municipio vecino.
+    // Es el mismo defecto que tenía el buscador de Google, en el camino que de
+    // verdad corre hoy.
+    const vb = municipio ? `&viewbox=${this.viewbox(municipio)}&bounded=1` : '';
     const d = await this.nominatim<Array<{ lat: string; lon: string; display_name: string }>>(
       `/search?q=${q}&format=json&limit=1&countrycodes=co${vb}`,
     );
