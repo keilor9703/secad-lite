@@ -20,16 +20,55 @@
 .brand span { color: var(--accent); font-weight: 600; }
 
 /**
- * flex-wrap sin media query: con hasta 9 pestañas (según rol) más el bloque
- * de usuario, el nav no cabe en una sola fila ni en varias resoluciones de
- * escritorio/portátil (~900–1700px) — sin esto, entre ese rango y el punto
- * donde entra la hamburguesa (abajo), los últimos módulos quedaban recortados
- * fuera de la pantalla sin aviso (el overflow-x: hidden de styles.scss los
- * ocultaba en vez de sacar scroll, así que ni siquiera era visible el corte).
- * Envolver aquí resuelve TODO ese rango de una vez, sin depender de acertarle
- * a un ancho exacto.
+ * UNA sola fila, siempre.
+ *
+ * Antes envolvía: con hasta 10 pestañas (según rol) no caben en una fila entre
+ * ~900 y ~1700px, y envolver evitaba que los últimos módulos quedaran
+ * recortados sin aviso (el `overflow-x: hidden` global los ocultaba en vez de
+ * sacar scroll). Resolvía ese problema y creaba otro peor: la barra se partía
+ * en tres renglones, crecía hasta 200px de alto y el sistema parecía roto.
+ *
+ * Lo que aprieta cuando falta ancho no es el número de pestañas, son las
+ * ETIQUETAS. Así que por debajo de 1150px se ocultan y queda el icono, que ya
+ * lleva el color de su módulo —la barra está pensada para escanearse por color
+ * antes que por texto, ver el comentario de abajo—. El nombre sigue a un
+ * `title` de distancia.
+ *
+ * Y si aun así no cabe (superadmin, ventana muy angosta), el nav se desplaza en
+ * horizontal: nada queda cortado sin aviso, que era la preocupación original,
+ * pero sin partir la barra.
  */
-.nav { display: flex; flex-wrap: wrap; row-gap: 0.25rem; gap: 0.3rem; }
+.nav {
+  display: flex; flex-wrap: nowrap; gap: 0.3rem;
+  flex: 1 1 auto; min-width: 0;
+  overflow-x: auto;
+  // La barra de desplazamiento propia estorba en un elemento de 36px de alto:
+  // se oculta, el gesto sigue funcionando (rueda, trackpad, táctil).
+  scrollbar-width: none;
+  &::-webkit-scrollbar { display: none; }
+}
+.nav a { flex: 0 0 auto; }
+
+/* Dos escalones antes de la hamburguesa, para que el ancho se acabe de a poco
+   y no de golpe. */
+
+/* 1. Apretado: el texto se compacta, pero sigue ahí. */
+@media (max-width: 1400px) {
+  .nav { gap: 0.15rem; }
+  .nav a { padding: 0.42rem 0.5rem; font-size: 0.84rem; gap: 0.35rem; }
+}
+
+/* 2. Muy apretado: se va la etiqueta y queda el icono, que ya lleva el color de
+   su módulo. El nombre sigue a un `title` de distancia. El icono sube a todo
+   color y crece un punto: solo, atenuado y pequeño, la barra parecía vacía. */
+@media (max-width: 1150px) {
+  .nav a span:not(.ring-badge) { display: none; }
+  .nav a { padding: 0.45rem 0.5rem; }
+  .nav a app-icono { opacity: 1; transform: scale(1.1); }
+  // El contador de llamadas en espera NO se oculta: es justo el que no puede
+  // pasar inadvertido.
+  .nav-llamadas { gap: 0.3rem; }
+}
 .nav a {
   display: inline-flex; align-items: center; gap: 0.45rem;
   text-decoration: none; color: var(--ink-soft); font-weight: 500; font-size: 0.88rem;
@@ -178,6 +217,9 @@
   .nav {
     position: absolute; top: 100%; left: 0; right: 0;
     flex-direction: column; gap: 0.15rem; align-items: stretch;
+    // Desplegada en vertical vuelve a ser una lista: sin desplazamiento
+    // horizontal, y CON las etiquetas — ahí sobra el ancho.
+    flex: none; overflow-x: hidden;
     background: var(--surface); border-bottom: 1px solid var(--border);
     padding: 0.6rem; box-shadow: var(--shadow);
     max-height: min(75vh, 520px); overflow-y: auto;
@@ -187,8 +229,11 @@
   }
   .nav.abierto { opacity: 1; visibility: visible; transform: translateY(0); }
   .nav a { padding: 0.7rem 0.8rem; }
+  .nav a span:not(.ring-badge) { display: inline; }
 
-  .topbar { gap: 0.8rem; flex-wrap: wrap; }
+  // La barra en sí nunca envuelve: logo, hamburguesa y bloque de usuario caben
+  // en una fila a cualquier ancho, y envolverla era lo que la hacía crecer.
+  .topbar { gap: 0.8rem; }
   .user { flex-wrap: wrap; justify-content: flex-end; row-gap: 0.5rem; gap: 0.5rem; }
   // En pantalla angosta la ficha se reduce al avatar y el botón de salir a su
   // icono: el nombre completo y la palabra «Salir» son lo primero que sobra
@@ -197,6 +242,14 @@
   .perfil { padding: 0.2rem; }
   .accion--salir span { display: none; }
   .accion--salir { padding-right: 0.55rem; }
+}
+
+/* Teléfono: el nombre de la marca cede el sitio. Sin esto, la barra desbordaba
+   y el `overflow-x: hidden` global se comía el botón de salir — que es el que
+   nunca puede quedar fuera de alcance. */
+@media (max-width: 430px) {
+  .brand strong { display: none; }
+  .topbar { padding: 0.7rem 0.8rem; gap: 0.6rem; }
 }
 
 /* Selector de tenant en gestión (solo superadmin). */
