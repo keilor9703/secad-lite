@@ -697,8 +697,47 @@ docker system df
 | El despachador no ve al ciudadano aunque este entró | WebSocket: cabeceras `Upgrade`/`Connection` en `location /socket.io/` |
 | SMS no llega y el sistema dice que sí | `docker compose logs backend1 \| grep -i infobip` — trae el estado real y el `messageId` |
 | Un caso aparece en una réplica y no en otra | Redis: `docker compose logs redis`, y `REDIS_URL` en los tres backends |
+| Una llamada entrante **no aparece hasta oprimir F5** | Redis, en las TRES réplicas — ver «El aviso en vivo» abajo |
 | **403 Forbidden** en el dominio, con el despliegue en verde | nginx no ve `index.html`: su montaje quedó atado a un directorio viejo — ver «Editar archivos montados» |
 | Una pantalla guarda **unas veces sí y otras no**, o una ruta nueva da 404 a ratos | Las réplicas corren versiones distintas. Compare las CAPAS, no el id de la imagen (cada réplica tiene su propio nombre de imagen y los ids siempre difieren): `docker inspect -f '{{.RootFS.Layers}}' $(docker inspect -f '{{.Image}}' $(docker compose ps -q backend1))` en las tres debe dar lo mismo |
+
+### El aviso en vivo (llamada entrante, casos, chat)
+
+El webhook de la central llega a **una** réplica. Esa réplica emite el aviso a
+los operadores conectados **a ella**. Con tres réplicas detrás del balanceador,
+sin un canal compartido el aviso solo alcanza a uno de cada tres operadores — y
+los demás no se enteran hasta refrescar la página, porque Socket.IO se reconecta
+solo pero **no reenvía lo que emitió mientras el cliente no estaba**.
+
+Ese canal compartido es Redis. Compruebe que las tres réplicas lo tienen:
+
+```bash
+cd ~/falcon-deploy
+for r in backend1 backend2 backend3; do
+  echo -n "$r: "
+  docker compose logs "$r" 2>/dev/null | grep -c 'Socket.IO conectado a Redis'
+done
+```
+
+Las tres tienen que dar **1 o más**. Un `0` significa que a esa réplica le falta
+`REDIS_URL` y sus operadores no se están enterando de nada en vivo.
+
+```bash
+# Qué REDIS_URL ve cada réplica
+docker compose exec -T backend1 printenv REDIS_URL
+# ¿Redis responde?
+docker compose exec -T redis redis-cli ping     # → PONG
+```
+
+> El cliente también se defiende solo: cada vez que el canal se reestablece
+> vuelve a pedir la cola al servidor, así que lo que haya entrado durante un
+> corte aparece sin que nadie refresque. Eso cubre caídas de red y despliegues
+> —que reinician las réplicas una por una—, pero **no** sustituye a Redis: sin
+> él, el operador de la réplica equivocada solo se entera en la siguiente
+> reconexión, que puede tardar.
+
+Mientras el canal está caído, Recepción lo dice: «Sin conexión en vivo». Una
+cola vacía sin ese aviso sí significa que no hay llamadas.
 
 ### Reiniciar sin perder datos
 

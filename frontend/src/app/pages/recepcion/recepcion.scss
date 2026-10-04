@@ -40,6 +40,19 @@
 /* `app-videollamada` ya trae su propia tarjeta (.vll.card); este wrapper solo
    da el botón de lanzarla su propio renglón, sin pelear por ancho con el
    formulario de dos columnas de más abajo. */
+/* Aviso de canal caído: tiene que leerse como una advertencia, no como una
+   fila más de la lista — es la diferencia entre «no hay llamadas» y «no me
+   estoy enterando». */
+.sin-vivo {
+  margin: 0.4rem 0 0;
+  padding: 0.45rem 0.6rem;
+  border-radius: var(--radius-sm);
+  background: color-mix(in srgb, var(--warn) 14%, transparent);
+  color: var(--ink);
+  font-size: 0.78rem;
+  line-height: 1.35;
+}
+
 .video-rec { display: flex; }
 .video-rec app-videollamada { display: block; width: 100%; }
 

@@ -30,6 +30,15 @@ export class PbxService {
   /** Última llamada entrante no atendida, para avisos globales. */
   readonly ultimaEntrante = signal<Llamada | null>(null);
 
+  /**
+   * ¿El canal en vivo está arriba ahora mismo?
+   *
+   * En una sala de despacho, una cola vacía es ambigua: puede querer decir «no
+   * hay llamadas» o «dejé de enterarme». El operador tiene que poder
+   * distinguirlas sin refrescar para averiguarlo.
+   */
+  readonly enVivo = signal(false);
+
   /** Timbre encendido/apagado; la elección se recuerda en el puesto de trabajo. */
   readonly sonidoActivo = signal(localStorage.getItem('falconcad_pbx_sonido') !== 'off');
 
@@ -72,15 +81,43 @@ export class PbxService {
     return environment.apiBaseUrl.replace(/\/api\/?$/, '');
   }
 
-  /** Carga la cola y abre el canal en vivo (idempotente). */
-  conectar(): void {
-    this.recargar();
-    if (this.socket?.connected) return;
-    this.socket = io(`${this.wsBase}/pbx`, {
+  /**
+   * Abre el socket. Método aparte para poder sustituirlo en las pruebas por un
+   * doble: sin esta costura, lo único comprobable sería que el servicio no
+   * revienta, y lo que hay que comprobar es que al reconectar vuelve a pedir la
+   * cola.
+   */
+  protected crearSocket(): Socket {
+    return io(`${this.wsBase}/pbx`, {
       // El superadmin no tiene tenant propio: indica cuál escucha.
       auth: { token: this.auth.token, tenant: this.auth.tenantActivo() },
       transports: ['websocket', 'polling'],
     });
+  }
+
+  /** Carga la cola y abre el canal en vivo (idempotente). */
+  conectar(): void {
+    this.recargar();
+    if (this.socket?.connected) return;
+    this.socket = this.crearSocket();
+
+    // CADA vez que el canal se (re)establece, se vuelve a pedir la cola.
+    //
+    // Socket.IO se reconecta solo, pero NO reenvía lo que emitió mientras el
+    // cliente estuvo caído: una llamada que entró durante ese hueco se pierde
+    // para siempre y la pantalla se queda vieja hasta que alguien oprima F5.
+    // Y el hueco no es raro: basta una caída de red, la pantalla suspendida, o
+    // un despliegue —que reinicia las tres réplicas una por una y desconecta a
+    // todos los operadores—.
+    //
+    // El socket sirve para enterarse rápido; la verdad está en el servidor y se
+    // vuelve a preguntar en cuanto hay por dónde.
+    this.socket.on('connect', () => {
+      this.enVivo.set(true);
+      this.recargar();
+    });
+    this.socket.on('disconnect', () => this.enVivo.set(false));
+
     this.socket.on('llamada:entrante', (l: Llamada) => {
       this.upsert(l);
       this.ultimaEntrante.set(l);
@@ -127,6 +164,7 @@ export class PbxService {
   desconectar(): void {
     this.socket?.disconnect();
     this.socket = undefined;
+    this.enVivo.set(false);
   }
 
   recargar(): void {

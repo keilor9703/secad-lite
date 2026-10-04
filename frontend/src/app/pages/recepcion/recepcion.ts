@@ -61,6 +61,8 @@ export class RecepcionComponent implements OnInit {
   /** Llamadas timbrando: de aquí arranca el trabajo de quien recepciona. */
   readonly sonando = this.pbx.sonando;
   readonly sonidoActivo = this.pbx.sonidoActivo;
+  /** Si el canal en vivo está caído, una cola vacía no significa «no hay llamadas». */
+  readonly enVivo = this.pbx.enVivo;
   alternarSonido(): void { this.pbx.alternarSonido(); }
 
   /**

@@ -49,6 +49,14 @@
             </span>
           </div>
         }
+        <!-- Una cola vacía con el canal caído no quiere decir «no hay llamadas»,
+        quiere decir «dejé de enterarme». El operador tiene que poder
+        distinguirlas sin refrescar para averiguarlo. -->
+        @if (!enVivo()) {
+          <p class="sin-vivo" role="status">
+            ⚠️ Sin conexión en vivo: reconectando. Puede que una llamada entrante tarde en aparecer.
+          </p>
+        }
         @if (!sonando().length) {
           <p class="sin-llamadas">
             No hay llamadas en espera. Puede recepcionar un caso a mano en el formulario.
