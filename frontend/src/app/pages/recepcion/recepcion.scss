@@ -230,26 +230,67 @@
 .alcance { margin: 0; font-size: 0.82rem; color: var(--muted); }
 
 /* 3. Panel "Llamadas en espera" */
-.entrantes { padding: 1rem 1.2rem; }
-.entrantes h2 { margin: 0 0 0.5rem; font-size: 1.05rem; font-weight: 700; display: flex; align-items: center; }
+.entrantes { padding: 1rem 1.1rem; display: flex; flex-direction: column; gap: 0.55rem; }
+
+/* El título en UNA línea: antes se partía en «Llamadas en / espera» porque
+   competía por el ancho con el contador y la campana en una columna angosta.
+   Se le quitó el 📞 del encabezado —cada llamada ya lleva el ícono de su
+   origen, repetirlo arriba no decía nada— y con eso cabe entero. */
+.entrantes h2 {
+  display: flex; align-items: center; gap: 0.45rem;
+  margin: 0; font-size: 0.95rem; font-weight: 700;
+}
+.entrantes h2 .titulo { flex: 1 1 auto; min-width: 0; white-space: nowrap; }
 
 @keyframes pulse-danger { 0%, 100% { transform: scale(1); } 50% { transform: scale(1.08); } }
-.entrantes .n { font-family: var(--mono); background: var(--tag-danger-bg); color: var(--tag-danger-fg); border-radius: 999px; padding: 0.1rem 0.6rem; font-weight: 700; font-size: 0.82rem; margin-left: 0.4rem; animation: pulse-danger 1.5s infinite; }
-.entrantes .timbre { margin-left: auto; font-size: 1.05rem; padding: 0.3rem 0.5rem; }
-
-
-.llam { 
-  display: flex; align-items: center; justify-content: space-between; gap: 0.5rem;
-  padding: 0.55rem 0; border-bottom: 1px solid var(--border); 
+.entrantes .n {
+  flex: 0 0 auto;
+  font-family: var(--mono); background: var(--tag-danger-bg); color: var(--tag-danger-fg);
+  border-radius: 999px; padding: 0.1rem 0.55rem; font-weight: 700; font-size: 0.8rem;
+  animation: pulse-danger 1.5s infinite;
 }
-.llam:last-child { border-bottom: none; }
-.llam .num { font-size: 1.1rem; font-weight: 700; letter-spacing: 0.02em; }
-.llam .para { font-size: 0.72rem; color: var(--muted); font-style: italic; }
-.acciones-llam { display: flex; gap: 0.4rem; margin-left: auto; }
-.acciones-llam .btn--primary { padding: 0.25rem 0.6rem; font-size: 0.8rem; transform: scale(1); transition: transform 0.1s; }
-.acciones-llam .btn--primary:active { transform: scale(0.96); }
+.entrantes .timbre { flex: 0 0 auto; font-size: 1rem; padding: 0.25rem 0.45rem; }
 
-.en-form { font-size: 0.72rem; font-weight: 600; color: var(--tag-ok-fg, var(--brand)); background: var(--tag-ok-bg, transparent); border-radius: 999px; padding: 0.15rem 0.6rem; }
+/* Cada llamada, una tarjeta dentro de la tarjeta: se lee como una unidad y el
+   contenido se apila en vez de pelear por una sola fila. La franja de acento a
+   la izquierda es lo único que grita; el resto se mantiene callado. */
+.llam {
+  display: flex; flex-direction: column; gap: 0.45rem;
+  padding: 0.6rem 0.7rem;
+  border: 1px solid var(--border);
+  border-left: 3px solid var(--accent);
+  border-radius: var(--radius-sm);
+  background: var(--surface-2);
+}
+.llam--mia { border-left-color: var(--ok); }
+
+.llam-cab { display: flex; align-items: center; gap: 0.45rem; min-width: 0; }
+.llam-icono { flex: 0 0 auto; font-size: 0.95rem; line-height: 1; }
+
+/* `anywhere`: un identificador largo parte de línea en vez de desbordar. */
+.llam .num {
+  flex: 1 1 auto; min-width: 0;
+  font-size: 1.08rem; font-weight: 700; letter-spacing: 0.02em;
+  overflow-wrap: anywhere;
+}
+
+/* Recortada con elipsis; el valor completo queda en el `title`. */
+.llam .para {
+  margin: 0;
+  font-size: 0.72rem; color: var(--muted);
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+
+/* A lo ancho: con un teléfono timbrando, el blanco grande gana al botón bonito. */
+.llam-tomar { width: 100%; padding: 0.4rem 0.6rem; font-size: 0.84rem; }
+.llam-tomar:active { transform: scale(0.98); }
+
+.en-form {
+  align-self: flex-start;
+  font-size: 0.7rem; font-weight: 600;
+  color: var(--tag-ok-fg, var(--ok)); background: var(--tag-ok-bg, transparent);
+  border-radius: 999px; padding: 0.15rem 0.55rem;
+}
 .sin-llamadas { margin: 0; font-size: 0.84rem; color: var(--muted); }
 
 /* 5. Últimas recepciones (.mias) */

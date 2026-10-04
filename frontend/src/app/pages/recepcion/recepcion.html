@@ -18,35 +18,47 @@
       <!-- Llamadas timbrando: el punto de partida del trabajo de recepción -->
       <div class="entrantes card">
         <h2>
-          📞 Llamadas en espera <span class="n">{{ sonando().length }}</span>
+          <span class="titulo">Llamadas en espera</span>
+          <span class="n">{{ sonando().length }}</span>
           <button type="button" class="btn btn--ghost mini timbre" (click)="alternarSonido()"
             [title]="sonidoActivo() ? 'Silenciar el aviso de llamada entrante' : 'Activar el aviso sonoro de llamada entrante'"
             [attr.aria-label]="sonidoActivo() ? 'Silenciar aviso de llamada entrante' : 'Activar aviso sonoro de llamada entrante'">
             {{ sonidoActivo() ? '🔔' : '🔕' }}
           </button>
         </h2>
+        <!-- Apilada, no en una sola fila: el destinatario que manda la central
+        puede ser un correo largo, y en una fila empujaba el botón fuera de la
+        tarjeta. Aquí el número manda, la pista va debajo recortada, y el botón
+        ocupa el ancho — un blanco grande, que es lo que se necesita cuando un
+        teléfono está timbrando. -->
         @for (l of sonando(); track l) {
-          <div class="llam">
-            <span role="img" [attr.aria-label]="origenLabel(l.origen)">{{ origenIcon(l.origen) }}</span>
-            <span class="num mono">{{ l.numero }}</span>
-            <!-- La central ya la dirigió a alguien: se ve solo si usted la supervisa,
-            no si es la suya (esa ya llegó sin necesidad de esta pista). -->
-            @if (l.destinatario && l.destinatario !== miUsuario()) {
-              <span class="para">
-                para {{ l.destinatario }}
-              </span>
+          <div class="llam" [class.llam--mia]="esLaLlamadaEnCurso(l)">
+            <div class="llam-cab">
+              <span class="llam-icono" role="img" [attr.aria-label]="origenLabel(l.origen)">{{ origenIcon(l.origen) }}</span>
+              <span class="num mono">{{ l.numero }}</span>
+            </div>
+
+            <!-- En su propia línea, no al lado del número: compitiendo por el
+            ancho partía el número en dos renglones, y ese número es justo lo
+            que el operador lee en voz alta. -->
+            @if (esLaLlamadaEnCurso(l)) {
+              <span class="en-form">En el formulario</span>
             }
-            <span class="acciones-llam">
-              @if (esLaLlamadaEnCurso(l)) {
-                <span class="en-form">En el formulario</span>
-              }
-              @if (!esLaLlamadaEnCurso(l)) {
-                <button type="button" class="btn btn--primary mini"
-                  (click)="tomarLlamada(l)" title="Trae el número al formulario para completar el caso">
-                  Tomar llamada
-                </button>
-              }
-            </span>
+
+            <!-- La central ya la dirigió a alguien: se ve solo si usted la supervisa,
+            no si es la suya (esa ya llegó sin necesidad de esta pista). Recortada
+            con elipsis y el valor completo en el title: un correo largo no puede
+            descuadrar la tarjeta. -->
+            @if (l.destinatario && l.destinatario !== miUsuario()) {
+              <p class="para" [title]="l.destinatario">Dirigida a {{ l.destinatario }}</p>
+            }
+
+            @if (!esLaLlamadaEnCurso(l)) {
+              <button type="button" class="btn btn--primary llam-tomar"
+                (click)="tomarLlamada(l)" title="Trae el número al formulario para completar el caso">
+                Tomar llamada
+              </button>
+            }
           </div>
         }
         <!-- Una cola vacía con el canal caído no quiere decir «no hay llamadas»,
