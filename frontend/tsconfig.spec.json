@@ -4,8 +4,12 @@
   "extends": "./tsconfig.json",
   "compilerOptions": {
     "outDir": "./out-tsc/spec",
+    // `google.maps` también aquí, no solo en tsconfig.app.json: en cuanto una
+    // prueba importa un componente que usa el SDK de Google, la compilación de
+    // las pruebas necesita los mismos tipos de ambiente que la de la app.
     "types": [
-      "jasmine"
+      "jasmine",
+      "google.maps"
     ]
   },
   "include": [

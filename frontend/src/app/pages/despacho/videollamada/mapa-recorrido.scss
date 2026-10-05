@@ -66,3 +66,16 @@
 
 .mrec-pie .btn { margin-left: auto; }
 .mrec-pie .btn + .btn { margin-left: 0; }
+
+/* La posición actual del ciudadano, con Google. Es el equivalente del
+   `circleMarker` de Leaflet: un punto de tamaño fijo en píxeles, no un
+   alfiler — el alfiler señala un píxel exacto y aquí hay margen de error,
+   que lo muestra el halo. Va con ::ng-deep porque Google se lleva el
+   contenido del marcador fuera del árbol del componente. */
+:host ::ng-deep .punto-ciudadano {
+  display: block; width: 14px; height: 14px;
+  border-radius: 50%;
+  background: #e8776b;
+  border: 2px solid #ffffff;
+  box-shadow: 0 1px 3px rgb(0 0 0 / 45%);
+}
