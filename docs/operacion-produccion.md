@@ -618,10 +618,32 @@ OpenStreetMap y las direcciones las resuelve el motor propio
 Google es mejor para lo RURAL (veredas, corregimientos) y para puntos de
 interés. Encenderlo es poner dos variables; apagarlo es quitarlas.
 
+Son DOS pasos, no uno. Poner la variable en `.env` **no basta**: ese archivo lo
+usa docker compose para sustituir `${VARIABLE}` dentro de su propio YAML, no
+para inyectarle variables al contenedor. Si el servicio no la declara, el
+backend nunca la ve.
+
 ```bash
-# En ~/falcon-deploy/.env
+# 1. El valor, en ~/falcon-deploy/.env
 GOOGLE_MAPS_API_KEY=AIza...
 GOOGLE_MAPS_MAP_ID=a1b2c3d4e5f6
+```
+
+```yaml
+# 2. Y declararla en los TRES backends de ~/falcon-deploy/docker-compose.yml,
+#    dentro del `environment:` de cada uno (backend1, backend2 y backend3).
+#    El `:-` evita el aviso de compose cuando la variable no está definida.
+      GOOGLE_MAPS_API_KEY: ${GOOGLE_MAPS_API_KEY:-}
+      GOOGLE_MAPS_MAP_ID: ${GOOGLE_MAPS_MAP_ID:-}
+```
+
+Si solo se declara en backend1, una de cada tres peticiones responderá que no
+hay clave y el buscador aparecerá y desaparecerá sin razón aparente.
+
+Qué variables ve el contenedor, sin mostrar ningún valor:
+
+```bash
+docker compose exec -T backend1 printenv | cut -d= -f1 | sort
 ```
 
 ¿Está encendido?
