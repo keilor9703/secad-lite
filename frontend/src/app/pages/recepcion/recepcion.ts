@@ -6,7 +6,8 @@ import { RouterLink } from '@angular/router';
 import { CasosService } from '../../core/casos.service';
 import { PbxService, abonadoDeLlamada } from '../../core/pbx.service';
 import {
-  METROS_ACUERDO, Recuadro, evaluarCandidato, metrosEntre, pareceNomenclaturaColombiana,
+  METROS_ACUERDO, Recuadro, PuntoMunicipio, acotarBuscador, evaluarCandidato, metrosEntre,
+  pareceNomenclaturaColombiana,
 } from './direccion-precision';
 
 /** Una ubicación propuesta por una de las dos fuentes, para que el operador elija. */
@@ -927,16 +928,8 @@ export class RecepcionComponent implements OnInit {
   private recuadroMunicipio: Recuadro | null = null;
 
   /**
-   * RESTRINGE las sugerencias al municipio elegido. Antes las sesgaba, con un
-   * círculo de 30 km alrededor del centro: para Itagüí eso cubre todo el Valle
-   * de Aburrá, y como un sesgo solo cambia el ORDEN, «Calle 53» seguía
-   * pudiendo traer una dirección de otra ciudad si a Google le parecía más
-   * relevante. `locationRestriction` sí es un límite —se cruza con
-   * `includedRegionCodes`— y el recuadro es la extensión real del municipio,
-   * no un radio inventado.
-   *
-   * Si el catálogo todavía no tiene el recuadro, se cae al círculo de antes:
-   * peor que restringir, mejor que nada.
+   * SESGA las sugerencias hacia el municipio elegido, y encuadra el mapa en
+   * él. El porqué de sesgar y no restringir está en `acotarBuscador`.
    */
   private biasBuscador(): void {
     const codigo = this.form.controls.municipioCodigo.value;
@@ -944,20 +937,35 @@ export class RecepcionComponent implements OnInit {
     this.geografia.centroide(codigo).subscribe({
       next: (u) => {
         this.recuadroMunicipio = u?.recuadro ?? null;
-        if (!u || !this.gmpElement) return;
-        const r = u.recuadro;
-        if (r) {
-          this.gmpElement.locationRestriction = { south: r.sur, north: r.norte, west: r.oeste, east: r.este };
-        } else {
-          // Sin recuadro no se puede restringir —`locationRestriction` solo
-          // admite un rectángulo— y queda el sesgo de antes. Es el modo
-          // degradado, no el normal: el recuadro se resuelve y se cachea la
-          // primera vez que se consulta el municipio.
-          this.gmpElement.locationBias = { center: { lat: u.lat, lng: u.lng }, radius: 30_000 };
-        }
+        if (!u) return;
+        if (this.gmpElement) acotarBuscador(this.gmpElement, u);
+        this.encuadrarMunicipio(u);
       },
       error: () => { this.recuadroMunicipio = null; },
     });
+  }
+
+  /**
+   * Lleva el mapa al municipio del caso mientras no haya punto puesto.
+   *
+   * Sin esto, cambiar el municipio a uno vecino dejaba el mapa en el del
+   * tenant: el operador elegía «Retiro» y seguía viendo Itagüí, de modo que
+   * «haga clic en el mapa para fijar el punto» arrancaba en el sitio
+   * equivocado. En cuanto hay un punto manda el operador y el mapa no se
+   * mueve solo: puede haber elegido el municipio DESPUÉS de ubicar el caso.
+   */
+  private encuadrarMunicipio(u: PuntoMunicipio): void {
+    const { lat, lng } = this.form.getRawValue();
+    if (lat != null || lng != null) return;
+    const r = u.recuadro;
+    if (this.mapaGoogle) {
+      if (r) this.mapaGoogle.fitBounds({ south: r.sur, north: r.norte, west: r.oeste, east: r.este });
+      else { this.mapaGoogle.setCenter({ lat: u.lat, lng: u.lng }); this.mapaGoogle.setZoom(13); }
+      return;
+    }
+    if (!this.mapa) return;
+    if (r) this.mapa.fitBounds([[r.sur, r.oeste], [r.norte, r.este]]);
+    else this.mapa.setView([u.lat, u.lng], 13);
   }
 
   /** Al elegir una sugerencia del buscador: verifica el punto antes de moverlo. */

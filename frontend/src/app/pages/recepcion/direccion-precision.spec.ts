@@ -1,4 +1,4 @@
-import { Candidato, Recuadro, dentroDelRecuadro, evaluarCandidato, metrosEntre, pareceNomenclaturaColombiana } from './direccion-precision';
+import { BuscadorAcotable, Candidato, RADIO_SESGO_METROS, Recuadro, acotarBuscador, dentroDelRecuadro, evaluarCandidato, metrosEntre, pareceNomenclaturaColombiana } from './direccion-precision';
 
 /**
  * El caso que motivó esto: buscar una dirección desde Itagüí y que el punto
@@ -160,5 +160,60 @@ describe('evaluarCandidato — lo rural no debe salir advertido siempre', () => 
       (n) => ['Medellín', 'Sabaneta', 'Envigado'].includes(n),
     );
     expect(v.aviso).toContain('Sabaneta');
+  });
+});
+
+describe('acotarBuscador', () => {
+  const retiro = { lat: 6.0597, lng: -75.5047, recuadro: { sur: 5.9833, norte: 6.1167, oeste: -75.5833, este: -75.4333 } };
+
+  it('sesga con el recuadro del municipio', () => {
+    const el: BuscadorAcotable = {};
+    acotarBuscador(el, retiro);
+    expect(el.locationBias).toEqual({ south: 5.9833, north: 6.1167, west: -75.5833, east: -75.4333 });
+  });
+
+  it('NUNCA restringe: un límite duro deja el desplegable vacío sin decir por qué', () => {
+    const el: BuscadorAcotable = {};
+    acotarBuscador(el, retiro);
+    expect(el.locationRestriction).toBeNull();
+  });
+
+  it('deshace una restricción que hubiera quedado puesta antes', () => {
+    const el: BuscadorAcotable = { locationRestriction: { south: 6, north: 6.1, west: -75.6, east: -75.5 } };
+    acotarBuscador(el, retiro);
+    expect(el.locationRestriction).toBeNull();
+  });
+
+  it('sin recuadro cae al círculo, que es sesgo igualmente', () => {
+    const el: BuscadorAcotable = {};
+    acotarBuscador(el, { lat: 6.17, lng: -75.61, recuadro: null });
+    expect(el.locationBias).toEqual({ center: { lat: 6.17, lng: -75.61 }, radius: RADIO_SESGO_METROS });
+    expect(el.locationRestriction).toBeNull();
+  });
+
+  it('sin municipio no toca nada: mejor el sesgo anterior que ninguno', () => {
+    const el: BuscadorAcotable = { locationBias: 'lo de antes' };
+    acotarBuscador(el, null);
+    expect(el.locationBias).toBe('lo de antes');
+  });
+
+  it('una vereda del municipio sigue siendo aceptada por el veredicto', () => {
+    // Pantanillo, dentro de El Retiro: lo que el límite duro estaba callando.
+    const v = evaluarCandidato(
+      { lat: 6.0836, lng: -75.5231, municipioResuelto: 'Retiro' },
+      'Retiro', retiro.recuadro,
+    );
+    expect(v.aceptar).toBeTrue();
+    expect(v.aviso).toBe('');
+  });
+
+  it('y una de otro municipio se sigue rechazando, que es lo que de verdad protege', () => {
+    // Pantanillo de Envigado, fuera del recuadro de Retiro.
+    const v = evaluarCandidato(
+      { lat: 6.1650, lng: -75.5600, municipioResuelto: 'Envigado' },
+      'Retiro', retiro.recuadro,
+    );
+    expect(v.aceptar).toBeFalse();
+    expect(v.aviso).toContain('no está en Retiro');
   });
 });

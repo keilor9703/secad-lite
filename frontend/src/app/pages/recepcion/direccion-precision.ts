@@ -183,3 +183,55 @@ export function evaluarCandidato(
 
   return { aceptar: true, aviso: '' };
 }
+
+/**
+ * Lo mínimo del buscador de Google que aquí se toca. Se declara a mano, en vez
+ * de usar el tipo del SDK, para poder probar la decisión sin cargar Google.
+ */
+export interface BuscadorAcotable {
+  locationBias?: unknown;
+  locationRestriction?: unknown;
+}
+
+/** Centro y extensión de un municipio, como los entrega el catálogo. */
+export interface PuntoMunicipio {
+  lat: number;
+  lng: number;
+  recuadro: Recuadro | null;
+}
+
+/**
+ * Radio del sesgo cuando no se conoce la extensión del municipio. Es grueso a
+ * propósito: sin recuadro, lo único que se puede hacer es empujar el orden
+ * hacia la zona, no delimitarla.
+ */
+export const RADIO_SESGO_METROS = 30_000;
+
+/**
+ * Acota el buscador al municipio SESGANDO, nunca restringiendo.
+ *
+ * Esto estuvo al revés y costó caro. Con `locationRestriction` —un límite
+ * duro— Google deja de proponer todo lo que cae fuera del rectángulo, y no
+ * dice por qué: el operador escribe «Vereda Pantanillo», no baja ninguna
+ * sugerencia, y no hay nada en pantalla que explique que la hubo y se
+ * descartó. Un desplegable vacío parece un sistema roto.
+ *
+ * Con `locationBias` las sugerencias del municipio van primero y las de fuera
+ * siguen estando. Lo que impide despachar a otra ciudad no es callar la
+ * sugerencia, es `evaluarCandidato`: al elegirla se verifica contra el
+ * recuadro y, si quedó fuera, NO se mueve el punto y se dice en una frase.
+ * Misma precisión, y el operador se entera.
+ *
+ * El recuadro sigue siendo mejor sesgo que un círculo de radio inventado: es
+ * la extensión real del municipio.
+ */
+export function acotarBuscador(el: BuscadorAcotable, u: PuntoMunicipio | null): void {
+  if (!u) return;
+  const r = u.recuadro;
+  el.locationBias = r
+    ? { south: r.sur, north: r.norte, west: r.oeste, east: r.este }
+    : { center: { lat: u.lat, lng: u.lng }, radius: RADIO_SESGO_METROS };
+  // Explícito, no implícito: deshace cualquier restricción previa y deja
+  // escrito que aquí nunca se pone una.
+  el.locationRestriction = null;
+}
