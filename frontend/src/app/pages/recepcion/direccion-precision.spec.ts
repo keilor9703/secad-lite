@@ -33,10 +33,13 @@ describe('evaluarCandidato', () => {
     expect(v).toEqual({ aceptar: true, aviso: '' });
   });
 
-  it('fuera del municipio se RECHAZA: el punto no se mueve', () => {
-    // Es el que manda una patrulla a otra ciudad. No se acepta ni advertido.
+  it('fuera de la jurisdicción se acepta, pero se advierte y se dice dónde quedó', () => {
+    // Se ubica —negarse dejaba al operador sin salida y dependía de que el
+    // recuadro fuera correcto— pero nunca en silencio: eso es lo que evita
+    // que una patrulla salga a otra ciudad sin que nadie lo note.
     const v = evaluarCandidato(en(10.96, -74.80, { municipioResuelto: 'Barranquilla' }), 'Itagüí', ITAGUI);
-    expect(v.aceptar).toBe(false);
+    expect(v.aceptar).toBe(true);
+    expect(v.aviso).withContext('nunca puede quedar callado').not.toBe('');
     expect(v.aviso).toContain('no está en Itagüí');
     expect(v.aviso).withContext('se dice dónde quedó, para que el operador entienda').toContain('Barranquilla');
   });
@@ -72,12 +75,15 @@ describe('evaluarCandidato', () => {
     expect(v.aviso).toContain('más parecida');
   });
 
-  it('estar fuera manda sobre todo lo demás', () => {
+  it('estar fuera manda sobre todo lo demás: es lo que se dice, no otra cosa', () => {
     // Un resultado exacto y del municipio correcto según Google, pero en otras
-    // coordenadas, sigue siendo un punto en otra parte.
+    // coordenadas, sigue siendo un punto en otra parte. Ya no se rechaza, pero
+    // el aviso que sale tiene que ser ESE y no el de «ubicación aproximada»:
+    // la advertencia que importa no puede quedar tapada por una menor.
     const v = evaluarCandidato(
-      en(10.96, -74.80, { tipoUbicacion: 'ROOFTOP', municipioResuelto: 'Itagüí' }), 'Itagüí', ITAGUI);
-    expect(v.aceptar).toBe(false);
+      en(10.96, -74.80, { tipoUbicacion: 'APPROXIMATE', municipioResuelto: 'Itagüí' }), 'Itagüí', ITAGUI);
+    expect(v.aviso).toContain('no está en Itagüí');
+    expect(v.aviso).not.toContain('aproximada');
   });
 });
 
@@ -207,13 +213,24 @@ describe('acotarBuscador', () => {
     expect(v.aviso).toBe('');
   });
 
-  it('y una de otro municipio se sigue rechazando, que es lo que de verdad protege', () => {
-    // Pantanillo de Envigado, fuera del recuadro de Retiro.
+  it('y la de Envigado también se puede usar, advertida: la vereda está en los dos', () => {
+    // Pantanillo existe en Retiro Y en Envigado. Rechazar la segunda era
+    // dejar al operador viendo la dirección correcta sin poder aplicarla.
     const v = evaluarCandidato(
       { lat: 6.1650, lng: -75.5600, municipioResuelto: 'Envigado' },
       'Retiro', retiro.recuadro,
     );
-    expect(v.aceptar).toBeFalse();
+    expect(v.aceptar).toBeTrue();
     expect(v.aviso).toContain('no está en Retiro');
+    expect(v.aviso).toContain('Envigado');
+  });
+
+  it('el sesgo del encuadre es el recuadro visible, y sigue siendo sesgo', () => {
+    // Lo que hace que la búsqueda sea libre: no hay límite, solo preferencia
+    // por lo que se está viendo. Mover el mapa cambia lo que sale primero.
+    const el: BuscadorAcotable = {};
+    acotarBuscador(el, { lat: 6.07, lng: -75.50, recuadro: { sur: 6.0, norte: 6.14, oeste: -75.58, este: -75.42 } });
+    expect(el.locationBias).toEqual({ south: 6.0, north: 6.14, west: -75.58, east: -75.42 });
+    expect(el.locationRestriction).toBeNull();
   });
 });

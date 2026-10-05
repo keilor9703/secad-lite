@@ -286,21 +286,6 @@
   color: var(--ink); font-size: 0.74rem; line-height: 1.35;
 }
 
-/* La salida del rechazo. Discreta a propósito: es una excepción consciente,
-   no el camino normal — pero tiene que estar donde se lee el aviso, porque es
-   justo ahí donde el operador se queda sin saber qué hacer. */
-.rec-dir-forzar {
-  display: inline-block; margin-top: 0.3rem;
-  padding: 0.2rem 0.5rem;
-  border: 1px solid color-mix(in srgb, var(--warn) 55%, transparent);
-  border-radius: var(--radius-sm);
-  background: transparent; color: var(--ink);
-  font: inherit; font-size: 0.72rem; cursor: pointer;
-
-  &:hover { background: color-mix(in srgb, var(--warn) 22%, transparent); }
-  &:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
-}
-
 /* Las dos ubicaciones propuestas, cuando las fuentes no concuerdan. Dos
    tarjetas que se pueden tocar: la decisión es de un clic, no de leer y
    escribir coordenadas a mano. */

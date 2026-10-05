@@ -10,16 +10,6 @@ import {
   pareceNomenclaturaColombiana,
 } from './direccion-precision';
 
-/** Un resultado del geocodificador, tal cual, para poder reaplicarlo. */
-interface ResultadoGeo {
-  direccion: string;
-  lat: number;
-  lng: number;
-  comps: Array<{ texto: string; types: string[] }>;
-  /** Municipio que dijo el geocodificador, si lo dijo. */
-  municipio?: string;
-}
-
 /** Una ubicación propuesta por una de las dos fuentes, para que el operador elija. */
 interface OpcionDireccion {
   fuente: 'Nomenclatura' | 'Google';
@@ -148,19 +138,6 @@ export class RecepcionComponent implements OnInit {
    */
   readonly opcionesDireccion = signal<OpcionDireccion[]>([]);
 
-  /**
-   * Lo que la verificación rechazó por caer fuera del municipio, guardado para
-   * que el operador pueda usarlo igual.
-   *
-   * El rechazo automático protege del caso grave —despachar a otra ciudad sin
-   * que nadie lo note— pero no puede ser la última palabra. Hay veredas que
-   * están justo en el límite y figuran en los dos municipios (Pantanillo es
-   * literalmente de Retiro y de Envigado), y hay casos legítimos en el
-   * municipio vecino. Negarlo sin salida convierte una advertencia útil en un
-   * callejón: el operador ve la dirección correcta en la lista, la elige, y el
-   * sistema no hace nada.
-   */
-  readonly direccionRechazada = signal<ResultadoGeo | null>(null);
   /** Hay una consulta en curso: se avisa en vez de dejar la pantalla muda. */
   readonly consultandoEls = signal(false);
   /** Último número consultado: no se vuelve a gastar una consulta por él. */
@@ -469,8 +446,21 @@ export class RecepcionComponent implements OnInit {
     this.geografia.municipios(codigoTenant.slice(0, 2)).subscribe((m) => {
       this.municipiosTenant.set(m);
       this.form.controls.municipioCodigo.setValue(codigoTenant);
+      this.nombreTenant = m.find((x) => x.codigoDane === codigoTenant)?.nombre ?? '';
+    });
+    // La jurisdicción NO es el municipio del selector: ese ahora lo rellena la
+    // dirección encontrada, así que compararlo consigo mismo no diría nada. El
+    // aviso que importa es «este caso quedó fuera de su municipio», y eso se
+    // mide contra el municipio del tenant, que no se mueve.
+    this.geografia.centroide(codigoTenant).subscribe({
+      next: (u) => { this.recuadroTenant = u?.recuadro ?? null; },
+      error: () => { this.recuadroTenant = null; },
     });
   }
+
+  /** Municipio del tenant: su jurisdicción. Para advertir, nunca para impedir. */
+  private nombreTenant = '';
+  private recuadroTenant: Recuadro | null = null;
 
   /**
    * Nombre del municipio elegido en el formulario, o vacío si no hay ninguno.
@@ -555,7 +545,6 @@ export class RecepcionComponent implements OnInit {
     this.avisoAbonado.set('');
     this.avisoDireccion.set('');
     this.opcionesDireccion.set([]);
-    this.direccionRechazada.set(null);
     this.form.reset(this.formVacio());
     this.canalesMarcados.set([]);
     this.sugeridaPorCodigo.set(null);
@@ -818,6 +807,11 @@ export class RecepcionComponent implements OnInit {
     this.mapaGoogle.addListener('click', (e: google.maps.MapMouseEvent) => {
       if (e.latLng) this.alPulsarMapa(e.latLng.lat(), e.latLng.lng());
     });
+    // El buscador sigue a lo que se está viendo. Es lo que hace Google Maps:
+    // la búsqueda parece libre, pero siempre prefiere lo que cae en pantalla.
+    // Así el operador no tiene que declarar un municipio antes de buscar —
+    // arranca en el suyo, y si necesita mirar al lado, mueve el mapa.
+    this.mapaGoogle.addListener('idle', () => this.sesgarAlEncuadre());
   }
 
   /** Coloca el marcador y refleja las coordenadas en el formulario. */
@@ -953,8 +947,9 @@ export class RecepcionComponent implements OnInit {
   private recuadroMunicipio: Recuadro | null = null;
 
   /**
-   * SESGA las sugerencias hacia el municipio elegido, y encuadra el mapa en
-   * él. El porqué de sesgar y no restringir está en `acotarBuscador`.
+   * Lleva el mapa al municipio elegido y guarda su recuadro (lo usa el camino
+   * de respaldo sin Google). Ya NO acota el buscador: de eso se encarga el
+   * encuadre del mapa, vía `sesgarAlEncuadre`.
    */
   private biasBuscador(): void {
     const codigo = this.form.controls.municipioCodigo.value;
@@ -963,10 +958,32 @@ export class RecepcionComponent implements OnInit {
       next: (u) => {
         this.recuadroMunicipio = u?.recuadro ?? null;
         if (!u) return;
-        if (this.gmpElement) acotarBuscador(this.gmpElement, u);
         this.encuadrarMunicipio(u);
+        // Antes de que el mapa informe su primer encuadre, el municipio es el
+        // mejor sesgo disponible. Después manda el mapa.
+        if (this.gmpElement && !this.mapaGoogle?.getBounds()) acotarBuscador(this.gmpElement, u);
       },
       error: () => { this.recuadroMunicipio = null; },
+    });
+  }
+
+  /**
+   * Sesga el buscador hacia lo que el mapa está mostrando.
+   *
+   * Sesgo, nunca límite: lo de fuera del encuadre sigue apareciendo, solo que
+   * después. Escribir «Vereda Pantanillo» con el mapa en el oriente antioqueño
+   * trae primero la de Retiro; con el mapa en Envigado, la de Envigado. Es el
+   * comportamiento que el operador ya conoce de Google Maps.
+   */
+  private sesgarAlEncuadre(): void {
+    const b = this.mapaGoogle?.getBounds();
+    if (!b || !this.gmpElement) return;
+    const ne = b.getNorthEast();
+    const so = b.getSouthWest();
+    acotarBuscador(this.gmpElement, {
+      lat: b.getCenter().lat(),
+      lng: b.getCenter().lng(),
+      recuadro: { sur: so.lat(), norte: ne.lat(), oeste: so.lng(), este: ne.lng() },
     });
   }
 
@@ -1046,45 +1063,15 @@ export class RecepcionComponent implements OnInit {
     const de = (tipos: string[]) => comps.find((c) => tipos.some((t) => c.types.includes(t)))?.texto;
     const veredicto = evaluarCandidato(
       { lat, lng, municipioResuelto: de(['locality', 'administrative_area_level_2']), ...señas },
-      this.municipioActual() || 'el municipio del caso',
-      this.recuadroMunicipio,
+      this.nombreTenant || 'su municipio',
+      this.recuadroTenant,
       // Un corregimiento no es otro municipio: sin esto, cada búsqueda rural
       // salía advertida y la advertencia dejaba de leerse.
       (n) => this.municipiosTenant().some((m) => this.normalizar(m.nombre) === this.normalizar(n)),
     );
 
     this.avisoDireccion.set(veredicto.aviso);
-    if (!veredicto.aceptar) {
-      this.direccionRechazada.set({ direccion, lat, lng, comps, municipio: de(['locality', 'administrative_area_level_2']) });
-      return;
-    }
-    this.direccionRechazada.set(null);
     this.aplicarResultado(direccion, lat, lng, comps, true);
-  }
-
-  /**
-   * «Usarla de todos modos»: aplica la dirección que la verificación había
-   * rechazado, y mueve el caso al municipio que dijo el geocodificador cuando
-   * ese municipio está en el catálogo del tenant.
-   *
-   * Es una decisión explícita del operador, con un clic y un rótulo que dice
-   * lo que hace — no un silencio. Lo que se evita es lo otro: que el punto se
-   * aplicara solo, sin que nadie supiera que quedó en otro municipio.
-   */
-  usarDeTodosModos(): void {
-    const r = this.direccionRechazada();
-    if (!r) return;
-    this.direccionRechazada.set(null);
-    this.aplicarResultado(r.direccion, r.lat, r.lng, r.comps, true);
-    const destino = r.municipio
-      ? this.municipiosTenant().find((m) => this.normalizar(m.nombre) === this.normalizar(r.municipio!))
-      : undefined;
-    if (destino) {
-      this.form.controls.municipioCodigo.setValue(destino.codigoDane);
-      this.avisoDireccion.set(`El caso quedó en ${destino.nombre}. Verifique el punto en el mapa.`);
-    } else {
-      this.avisoDireccion.set('Dirección aplicada fuera del municipio del caso. Verifique el punto en el mapa.');
-    }
   }
 
   /** Aplica una dirección resuelta (Google o el respaldo OSM) al formulario: dirección, barrio y, si calza con el catálogo, el municipio. */
@@ -1101,13 +1088,17 @@ export class RecepcionComponent implements OnInit {
     const municipio = de(['locality', 'administrative_area_level_2']);
     const patch: { direccion: string; barrio?: string; ciudad?: string } = { direccion };
     if (barrio) patch.barrio = barrio;
-    // El municipio del caso NO se cambia desde aquí. Lo elige el operador, y
-    // cambiárselo porque el geocodificador dijo otro nombre es moverle el caso
-    // de ciudad a sus espaldas — junto con el recuadro que acota la búsqueda.
-    // Si no coincide, `evaluarCandidato` ya lo advirtió; cambiarlo es decisión
-    // suya, en el selector.
-    if (municipio && !this.municipiosTenant().some((x) => this.normalizar(x.nombre) === this.normalizar(municipio))) {
+    // El municipio del caso es CONSECUENCIA de la dirección, no un requisito
+    // previo: el operador busca libre y el municipio se rellena con el que
+    // diga el mapa. Cuando está en el catálogo se refleja también en el
+    // selector, para que lo que se guarda esté a la vista y se pueda corregir.
+    if (municipio) {
       patch.ciudad = municipio;
+      const enCatalogo = this.municipiosTenant().find((x) => this.normalizar(x.nombre) === this.normalizar(municipio));
+      if (enCatalogo && enCatalogo.codigoDane !== this.form.controls.municipioCodigo.value) {
+        this.form.controls.municipioCodigo.setValue(enCatalogo.codigoDane, { emitEvent: false });
+        this.recuadroMunicipio = null;   // se recarga al siguiente uso del respaldo OSM
+      }
     }
     this.form.patchValue(patch);
   }
@@ -1127,7 +1118,6 @@ export class RecepcionComponent implements OnInit {
 
     this.opcionesDireccion.set([]);
     this.avisoDireccion.set('');
-    this.direccionRechazada.set(null);
 
     // El PORTERO. Solo la nomenclatura urbana con cruce va al motor
     // colombiano; las veredas, corregimientos y puntos de interés van derecho

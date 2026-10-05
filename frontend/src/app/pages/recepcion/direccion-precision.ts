@@ -141,13 +141,22 @@ export function evaluarCandidato(
    */
   esOtroMunicipio: (nombre: string) => boolean = () => true,
 ): Veredicto {
-  // 1. Fuera del municipio: esto no se acepta ni con advertencia. Es el caso
-  //    que manda una unidad a otra ciudad.
+  // 1. Fuera de la jurisdicción del tenant. Se ACEPTA y se advierte fuerte.
+  //
+  //    Antes se rechazaba, y era un error de diseño. Un buscador que se niega
+  //    a ubicar lo que el operador ve escrito delante no lo protege: lo deja
+  //    sin salida, y encima dependía de que el recuadro del municipio fuera
+  //    correcto —cuando no lo era, rechazaba TODAS las direcciones buenas—.
+  //
+  //    Lo que de verdad evita mandar una unidad a otra ciudad es que no pase
+  //    en silencio: el aviso lo dice, y el municipio resuelto queda escrito en
+  //    el formulario, a la vista. Hay veredas que están en dos municipios a la
+  //    vez y casos legítimos en el vecino; eso lo sabe el operador, no esto.
   if (recuadro && !dentroDelRecuadro(c.lat, c.lng, recuadro)) {
-    const donde = c.municipioResuelto ? ` (quedó en ${c.municipioResuelto})` : '';
+    const donde = c.municipioResuelto ? c.municipioResuelto : 'otro municipio';
     return {
-      aceptar: false,
-      aviso: `Esa dirección no está en ${municipio}${donde}. Revise la dirección, o cambie el municipio del caso si corresponde.`,
+      aceptar: true,
+      aviso: `Atención: esta dirección no está en ${municipio}, quedó en ${donde}. El caso se guardará allí.`,
     };
   }
 

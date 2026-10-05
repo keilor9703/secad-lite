@@ -283,18 +283,7 @@
                 dudarlo. Cuando la dirección quedó fuera del municipio, el punto
                 NO se movió y esto dice por qué. -->
                 @if (avisoDireccion()) {
-                  <small class="rec-dir-aviso" role="status">
-                    {{ avisoDireccion() }}
-                    <!-- Rechazar sin salida es un callejón: hay veredas que
-                    están en dos municipios a la vez y casos legítimos en el
-                    vecino. El operador decide, con un clic y sabiendo qué
-                    hace. -->
-                    @if (direccionRechazada(); as r) {
-                      <button type="button" class="rec-dir-forzar" (click)="usarDeTodosModos()">
-                        Usarla de todos modos@if (r.municipio) { <span>&nbsp;y pasar el caso a {{ r.municipio }}</span> }
-                      </button>
-                    }
-                  </small>
+                  <small class="rec-dir-aviso" role="status">{{ avisoDireccion() }}</small>
                 }
                 <!-- Las dos fuentes discrepan. No se elige por el operador: él
                 sabe si el caso es en el centro o en una vereda; el programa no. -->
