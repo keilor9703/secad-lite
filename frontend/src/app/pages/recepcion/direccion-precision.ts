@@ -1,14 +1,13 @@
 /**
- * ¿Se puede confiar en el punto que devolvió el geocodificador?
+ * ¿Se puede confiar en el PUNTO que devolvió el geocodificador?
  *
- * Hasta ahora no se preguntaba: lo que viniera se aplicaba. Buscar
- * «Calle 53 # 52-35» desde Itagüí podía dejar el punto en Barranquilla, cambiar
- * el municipio del caso en silencio, y nadie se enteraba hasta que la patrulla
- * no encontraba la dirección. En un CAD eso no es un resultado malo, es una
- * unidad enviada a otra ciudad.
+ * Solo eso. Aquí no se decide si la dirección pertenece al municipio del caso:
+ * la búsqueda es libre y el municipio sale de la dirección encontrada, no al
+ * revés. Lo que se evalúa es la calidad del punto —aproximado, o una
+ * coincidencia parcial— que es justo lo que el operador no puede ver mirando
+ * el mapa.
  *
- * Aquí se decide una sola cosa —aceptar o no, y con qué advertencia— y se
- * decide aparte del formulario para poder probarla entera.
+ * Vive aparte del formulario para poder probarlo entero.
  */
 
 /**
@@ -82,98 +81,38 @@ export interface Candidato {
   tipoUbicacion?: string;
   /** Google encontró algo parecido, no lo que se pidió. */
   coincidenciaParcial?: boolean;
-  /** Municipio que Google dice que es, si lo dijo. */
-  municipioResuelto?: string;
 }
 
 export interface Veredicto {
-  /** Si es falso, el punto NO se mueve: es preferible no ubicar a ubicar mal. */
+  /**
+   * Hoy siempre es cierto: nada se rechaza. Se conserva porque las dos vías
+   * que llaman a esto lo consultan, y porque un veredicto que solo puede
+   * decir que sí deja de ser un veredicto el día que haga falta decir que no.
+   */
   aceptar: boolean;
   /** Vacío cuando no hay nada que advertir. */
   aviso: string;
 }
 
 /**
- * Margen sobre el recuadro del municipio, en grados (~1,5 km).
+ * El veredicto sobre un resultado del geocodificador: qué tan de fiar es EL
+ * PUNTO.
  *
- * El recuadro es un rectángulo sobre una frontera que no lo es, y el
- * geocodificador tiene su propio error. Sin margen, una dirección legítima
- * pegada al límite se rechazaría; con uno muy grande vuelve a colarse el
- * municipio vecino. Kilómetro y medio es el ancho de un barrio.
- */
-const MARGEN_GRADOS = 0.0135;
-
-/** ¿El punto cae dentro del municipio, con el margen de cortesía? */
-export function dentroDelRecuadro(lat: number, lng: number, r: Recuadro): boolean {
-  return lat >= r.sur - MARGEN_GRADOS
-      && lat <= r.norte + MARGEN_GRADOS
-      && lng >= r.oeste - MARGEN_GRADOS
-      && lng <= r.este + MARGEN_GRADOS;
-}
-
-/** Compara nombres de municipio sin acentos ni mayúsculas. */
-function mismoNombre(a: string, b: string): boolean {
-  const n = (t: string) => t.toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '').trim();
-  return n(a) === n(b);
-}
-
-/**
- * El veredicto sobre un resultado del geocodificador.
+ * Aquí no se compara contra ningún municipio. Eso existió y se quitó: la
+ * búsqueda es libre, igual que en Google Maps, y el municipio del caso se
+ * rellena con el que diga la dirección encontrada en vez de ser una condición
+ * previa. Advertir «esto no está en Retiro» cada vez que el operador busca una
+ * vereda que está en el límite —o que simplemente pertenece al municipio
+ * vecino— era ruido sobre una decisión que ya tomó él, y además dependía de
+ * que el recuadro del municipio fuera correcto.
  *
- * `recuadro` nulo significa que no se conoce la extensión del municipio: ahí no
- * se puede rechazar por ubicación, y lo honesto es aceptar advirtiendo, no
- * inventar un límite.
+ * Lo que sí se sigue diciendo es lo que el operador NO puede ver por sí mismo:
+ * que el punto es aproximado, o que el geocodificador resolvió otra cosa
+ * parecida a lo que se escribió. Eso no es jurisdicción, es precisión.
  */
-export function evaluarCandidato(
-  c: Candidato,
-  municipio: string,
-  recuadro: Recuadro | null,
-  /**
-   * ¿Ese nombre es OTRO municipio del catálogo?
-   *
-   * Hace falta para no alarmar en lo rural: al buscar «Vereda El Pedregal,
-   * Itagüí», Google suele devolver como localidad el nombre del corregimiento o
-   * del centro poblado, no el del municipio. Comparando nombres a secas, cada
-   * búsqueda rural salía advertida de estar en otro municipio — y una
-   * advertencia que aparece siempre deja de leerse.
-   *
-   * Solo se advierte cuando el nombre es, de verdad, otro municipio.
-   */
-  esOtroMunicipio: (nombre: string) => boolean = () => true,
-): Veredicto {
-  // 1. Fuera de la jurisdicción del tenant. Se ACEPTA y se advierte fuerte.
-  //
-  //    Antes se rechazaba, y era un error de diseño. Un buscador que se niega
-  //    a ubicar lo que el operador ve escrito delante no lo protege: lo deja
-  //    sin salida, y encima dependía de que el recuadro del municipio fuera
-  //    correcto —cuando no lo era, rechazaba TODAS las direcciones buenas—.
-  //
-  //    Lo que de verdad evita mandar una unidad a otra ciudad es que no pase
-  //    en silencio: el aviso lo dice, y el municipio resuelto queda escrito en
-  //    el formulario, a la vista. Hay veredas que están en dos municipios a la
-  //    vez y casos legítimos en el vecino; eso lo sabe el operador, no esto.
-  if (recuadro && !dentroDelRecuadro(c.lat, c.lng, recuadro)) {
-    const donde = c.municipioResuelto ? c.municipioResuelto : 'otro municipio';
-    return {
-      aceptar: true,
-      aviso: `Atención: esta dirección no está en ${municipio}, quedó en ${donde}. El caso se guardará allí.`,
-    };
-  }
-
-  // 2. Dentro, pero Google dice que es otro municipio. Puede ser un corregimiento
-  //    o un nombre distinto del mismo sitio: se acepta y se avisa, sin cambiar
-  //    el municipio del caso a espaldas del operador.
-  if (c.municipioResuelto
-      && !mismoNombre(c.municipioResuelto, municipio)
-      && esOtroMunicipio(c.municipioResuelto)) {
-    return {
-      aceptar: true,
-      aviso: `El mapa ubicó esta dirección en ${c.municipioResuelto}, no en ${municipio}. Verifique el punto.`,
-    };
-  }
-
-  // 3. Un centro de ciudad o de barrio, no un portal. El punto sirve para
-  //    orientarse y no para despachar: hay que decirlo.
+export function evaluarCandidato(c: Candidato): Veredicto {
+  // Un centro de ciudad o de barrio, no un portal. El punto sirve para
+  // orientarse y no para despachar: hay que decirlo.
   if (c.tipoUbicacion === 'APPROXIMATE') {
     return {
       aceptar: true,
@@ -181,8 +120,8 @@ export function evaluarCandidato(
     };
   }
 
-  // 4. Google encontró «algo parecido». Casi siempre significa que ignoró parte
-  //    de lo escrito —el número de la placa, por ejemplo—.
+  // Google encontró «algo parecido». Casi siempre significa que ignoró parte
+  // de lo escrito —el número de la placa, por ejemplo—.
   if (c.coincidenciaParcial) {
     return {
       aceptar: true,

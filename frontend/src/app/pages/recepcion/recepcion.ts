@@ -446,21 +446,8 @@ export class RecepcionComponent implements OnInit {
     this.geografia.municipios(codigoTenant.slice(0, 2)).subscribe((m) => {
       this.municipiosTenant.set(m);
       this.form.controls.municipioCodigo.setValue(codigoTenant);
-      this.nombreTenant = m.find((x) => x.codigoDane === codigoTenant)?.nombre ?? '';
-    });
-    // La jurisdicción NO es el municipio del selector: ese ahora lo rellena la
-    // dirección encontrada, así que compararlo consigo mismo no diría nada. El
-    // aviso que importa es «este caso quedó fuera de su municipio», y eso se
-    // mide contra el municipio del tenant, que no se mueve.
-    this.geografia.centroide(codigoTenant).subscribe({
-      next: (u) => { this.recuadroTenant = u?.recuadro ?? null; },
-      error: () => { this.recuadroTenant = null; },
     });
   }
-
-  /** Municipio del tenant: su jurisdicción. Para advertir, nunca para impedir. */
-  private nombreTenant = '';
-  private recuadroTenant: Recuadro | null = null;
 
   /**
    * Nombre del municipio elegido en el formulario, o vacío si no hay ninguno.
@@ -1046,12 +1033,10 @@ export class RecepcionComponent implements OnInit {
   }
 
   /**
-   * Pasa el resultado por el veredicto y solo entonces lo aplica.
-   *
-   * Es el único camino por el que un punto de Google llega al formulario: si
-   * queda fuera del municipio NO se mueve nada y se dice por qué. Antes se
-   * aplicaba lo que viniera, y buscar «Calle 53» desde Itagüí podía dejar el
-   * punto en otra ciudad sin que nadie se enterara.
+   * Único camino por el que un punto de Google llega al formulario: se aplica
+   * siempre, y el veredicto solo decide qué advertir sobre la CALIDAD del
+   * punto (aproximado, coincidencia parcial). El municipio ya no condiciona
+   * nada: sale de la dirección encontrada y se refleja en el selector.
    */
   private aplicarVerificado(
     direccion: string,
@@ -1060,15 +1045,7 @@ export class RecepcionComponent implements OnInit {
     comps: Array<{ texto: string; types: string[] }>,
     señas: { tipoUbicacion?: string; coincidenciaParcial?: boolean },
   ): void {
-    const de = (tipos: string[]) => comps.find((c) => tipos.some((t) => c.types.includes(t)))?.texto;
-    const veredicto = evaluarCandidato(
-      { lat, lng, municipioResuelto: de(['locality', 'administrative_area_level_2']), ...señas },
-      this.nombreTenant || 'su municipio',
-      this.recuadroTenant,
-      // Un corregimiento no es otro municipio: sin esto, cada búsqueda rural
-      // salía advertida y la advertencia dejaba de leerse.
-      (n) => this.municipiosTenant().some((m) => this.normalizar(m.nombre) === this.normalizar(n)),
-    );
+    const veredicto = evaluarCandidato({ lat, lng, ...señas });
 
     this.avisoDireccion.set(veredicto.aviso);
     this.aplicarResultado(direccion, lat, lng, comps, true);
@@ -1297,11 +1274,7 @@ export class RecepcionComponent implements OnInit {
         // cuando no hay clave configurada, y hasta ahora fijaba el punto sin
         // comprobar que cayera dentro del municipio. Si queda fuera, no se
         // mueve nada y se dice por qué.
-        const veredicto = evaluarCandidato(
-          { lat: p.lat, lng: p.lng },
-          this.municipioActual() || 'el municipio del caso',
-          this.recuadroMunicipio,
-        );
+        const veredicto = evaluarCandidato({ lat: p.lat, lng: p.lng });
         if (!veredicto.aceptar) { this.avisoDireccion.set(veredicto.aviso); return; }
 
         this.fijarPunto(p.lat, p.lng, true);

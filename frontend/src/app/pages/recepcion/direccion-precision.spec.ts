@@ -1,89 +1,59 @@
-import { BuscadorAcotable, Candidato, RADIO_SESGO_METROS, Recuadro, acotarBuscador, dentroDelRecuadro, evaluarCandidato, metrosEntre, pareceNomenclaturaColombiana } from './direccion-precision';
+import { BuscadorAcotable, Candidato, RADIO_SESGO_METROS, acotarBuscador, evaluarCandidato, metrosEntre, pareceNomenclaturaColombiana } from './direccion-precision';
 
-/**
- * El caso que motivó esto: buscar una dirección desde Itagüí y que el punto
- * cayera en otro municipio, sin que nadie lo notara. El recuadro es el de
- * Itagüí (Antioquia) según el catálogo.
- */
-const ITAGUI: Recuadro = { sur: 6.129, norte: 6.199, oeste: -75.653, este: -75.580 };
 const en = (lat: number, lng: number, extra: Partial<Candidato> = {}): Candidato => ({ lat, lng, ...extra });
 
-describe('dentroDelRecuadro', () => {
-  it('un punto del centro de Itagüí está dentro', () => {
-    expect(dentroDelRecuadro(6.172, -75.612, ITAGUI)).toBe(true);
-  });
-
-  it('Barranquilla no', () => {
-    expect(dentroDelRecuadro(10.96, -74.80, ITAGUI)).toBe(false);
-  });
-
-  it('Medellín centro tampoco: es el vecino, y es el error más fácil de cometer', () => {
-    expect(dentroDelRecuadro(6.2518, -75.5636, ITAGUI)).toBe(false);
-  });
-
-  it('pero una dirección justo en el límite sí, por el margen de cortesía', () => {
-    // El recuadro es un rectángulo sobre una frontera que no lo es.
-    expect(dentroDelRecuadro(ITAGUI.norte + 0.005, -75.61, ITAGUI)).toBe(true);
-  });
-});
-
+/**
+ * El veredicto solo habla de la CALIDAD del punto.
+ *
+ * Aquí había una comparación contra el municipio del caso que rechazaba —y
+ * después advertía— cuando la dirección caía fuera. Se quitó entera: la
+ * búsqueda es libre y el municipio sale de la dirección encontrada. Estas
+ * pruebas existen sobre todo para que no vuelva por descuido.
+ */
 describe('evaluarCandidato', () => {
-  it('una dirección del municipio, exacta, pasa sin ruido', () => {
-    const v = evaluarCandidato(en(6.172, -75.612, { tipoUbicacion: 'ROOFTOP' }), 'Itagüí', ITAGUI);
+  it('una dirección exacta pasa sin ruido', () => {
+    expect(evaluarCandidato(en(6.172, -75.612, { tipoUbicacion: 'ROOFTOP' }))).toEqual({ aceptar: true, aviso: '' });
+  });
+
+  it('un punto en la otra punta del país tampoco dice nada del municipio', () => {
+    // Barranquilla buscada desde una central de Itagüí: el operador sabrá por
+    // qué lo hizo. Lo único que se mira es si el punto es de fiar.
+    const v = evaluarCandidato(en(10.96, -74.80, { tipoUbicacion: 'ROOFTOP' }));
     expect(v).toEqual({ aceptar: true, aviso: '' });
   });
 
-  it('fuera de la jurisdicción se acepta, pero se advierte y se dice dónde quedó', () => {
-    // Se ubica —negarse dejaba al operador sin salida y dependía de que el
-    // recuadro fuera correcto— pero nunca en silencio: eso es lo que evita
-    // que una patrulla salga a otra ciudad sin que nadie lo note.
-    const v = evaluarCandidato(en(10.96, -74.80, { municipioResuelto: 'Barranquilla' }), 'Itagüí', ITAGUI);
-    expect(v.aceptar).toBe(true);
-    expect(v.aviso).withContext('nunca puede quedar callado').not.toBe('');
-    expect(v.aviso).toContain('no está en Itagüí');
-    expect(v.aviso).withContext('se dice dónde quedó, para que el operador entienda').toContain('Barranquilla');
+  it('nunca rechaza, pase lo que pase', () => {
+    for (const c of [
+      en(10.96, -74.80),
+      en(6.172, -75.612, { tipoUbicacion: 'APPROXIMATE' }),
+      en(6.172, -75.612, { coincidenciaParcial: true }),
+    ]) {
+      expect(evaluarCandidato(c).aceptar).withContext(JSON.stringify(c)).toBeTrue();
+    }
   });
 
-  it('sin recuadro conocido no se puede rechazar por ubicación', () => {
-    // Inventar un límite sería peor que no tenerlo: se acepta.
-    const v = evaluarCandidato(en(10.96, -74.80), 'Itagüí', null);
-    expect(v.aceptar).toBe(true);
-  });
-
-  it('dentro pero con otro nombre de municipio: se acepta y se avisa', () => {
-    // Corregimientos y nombres alternos del mismo sitio. Lo que NO se hace es
-    // cambiarle el municipio al caso sin decirlo.
-    const v = evaluarCandidato(en(6.172, -75.612, { municipioResuelto: 'Sabaneta' }), 'Itagüí', ITAGUI);
-    expect(v.aceptar).toBe(true);
-    expect(v.aviso).toContain('Sabaneta');
-  });
-
-  it('el nombre se compara sin acentos ni mayúsculas', () => {
-    const v = evaluarCandidato(en(6.172, -75.612, { municipioResuelto: 'ITAGUI' }), 'Itagüí', ITAGUI);
-    expect(v.aviso).toBe('');
+  it('ningún aviso menciona municipios', () => {
+    // La regresión concreta que hay que impedir: que vuelva a aparecer
+    // «esta dirección no está en …» por la puerta de atrás.
+    for (const c of [
+      en(10.96, -74.80),
+      en(6.172, -75.612, { tipoUbicacion: 'APPROXIMATE' }),
+      en(6.172, -75.612, { coincidenciaParcial: true }),
+    ]) {
+      expect(evaluarCandidato(c).aviso).not.toMatch(/no est[áa] en|municipio|qued[óo] en/i);
+    }
   });
 
   it('un resultado APPROXIMATE se acepta advirtiendo: es un centro, no un portal', () => {
-    const v = evaluarCandidato(en(6.172, -75.612, { tipoUbicacion: 'APPROXIMATE' }), 'Itagüí', ITAGUI);
-    expect(v.aceptar).toBe(true);
+    const v = evaluarCandidato(en(6.172, -75.612, { tipoUbicacion: 'APPROXIMATE' }));
+    expect(v.aceptar).toBeTrue();
     expect(v.aviso).toContain('aproximada');
   });
 
   it('una coincidencia parcial también se advierte', () => {
-    const v = evaluarCandidato(en(6.172, -75.612, { coincidenciaParcial: true }), 'Itagüí', ITAGUI);
-    expect(v.aceptar).toBe(true);
+    const v = evaluarCandidato(en(6.172, -75.612, { coincidenciaParcial: true }));
+    expect(v.aceptar).toBeTrue();
     expect(v.aviso).toContain('más parecida');
-  });
-
-  it('estar fuera manda sobre todo lo demás: es lo que se dice, no otra cosa', () => {
-    // Un resultado exacto y del municipio correcto según Google, pero en otras
-    // coordenadas, sigue siendo un punto en otra parte. Ya no se rechaza, pero
-    // el aviso que sale tiene que ser ESE y no el de «ubicación aproximada»:
-    // la advertencia que importa no puede quedar tapada por una menor.
-    const v = evaluarCandidato(
-      en(10.96, -74.80, { tipoUbicacion: 'APPROXIMATE', municipioResuelto: 'Itagüí' }), 'Itagüí', ITAGUI);
-    expect(v.aviso).toContain('no está en Itagüí');
-    expect(v.aviso).not.toContain('aproximada');
   });
 });
 
@@ -145,29 +115,12 @@ describe('metrosEntre', () => {
   });
 });
 
-describe('evaluarCandidato — lo rural no debe salir advertido siempre', () => {
-  it('un corregimiento NO se advierte como otro municipio', () => {
-    // Google devuelve «San Antonio de Prado» como localidad; es un
-    // corregimiento de Medellín, no otro municipio. Sin esto, cada búsqueda
-    // rural salía advertida, y una advertencia que aparece siempre no se lee.
-    const v = evaluarCandidato(
-      en(6.172, -75.612, { municipioResuelto: 'San Antonio de Prado' }),
-      'Itagüí', ITAGUI,
-      (n) => ['Medellín', 'Sabaneta', 'Envigado'].includes(n),
-    );
-    expect(v.aceptar).toBe(true);
-    expect(v.aviso).withContext('sin ruido').toBe('');
-  });
-
-  it('pero un municipio vecino de verdad sí', () => {
-    const v = evaluarCandidato(
-      en(6.172, -75.612, { municipioResuelto: 'Sabaneta' }),
-      'Itagüí', ITAGUI,
-      (n) => ['Medellín', 'Sabaneta', 'Envigado'].includes(n),
-    );
-    expect(v.aviso).toContain('Sabaneta');
-  });
-});
+/*
+ * Aquí vivía «lo rural no debe salir advertido siempre»: un escape para que un
+ * corregimiento (San Antonio de Prado, de Medellín) no se advirtiera como si
+ * fuera otro municipio. Sobra desde que no hay ninguna advertencia de
+ * municipio — lo cubre, más fuerte, «ningún aviso menciona municipios».
+ */
 
 describe('acotarBuscador', () => {
   const retiro = { lat: 6.0597, lng: -75.5047, recuadro: { sur: 5.9833, norte: 6.1167, oeste: -75.5833, este: -75.4333 } };
@@ -201,28 +154,6 @@ describe('acotarBuscador', () => {
     const el: BuscadorAcotable = { locationBias: 'lo de antes' };
     acotarBuscador(el, null);
     expect(el.locationBias).toBe('lo de antes');
-  });
-
-  it('una vereda del municipio sigue siendo aceptada por el veredicto', () => {
-    // Pantanillo, dentro de El Retiro: lo que el límite duro estaba callando.
-    const v = evaluarCandidato(
-      { lat: 6.0836, lng: -75.5231, municipioResuelto: 'Retiro' },
-      'Retiro', retiro.recuadro,
-    );
-    expect(v.aceptar).toBeTrue();
-    expect(v.aviso).toBe('');
-  });
-
-  it('y la de Envigado también se puede usar, advertida: la vereda está en los dos', () => {
-    // Pantanillo existe en Retiro Y en Envigado. Rechazar la segunda era
-    // dejar al operador viendo la dirección correcta sin poder aplicarla.
-    const v = evaluarCandidato(
-      { lat: 6.1650, lng: -75.5600, municipioResuelto: 'Envigado' },
-      'Retiro', retiro.recuadro,
-    );
-    expect(v.aceptar).toBeTrue();
-    expect(v.aviso).toContain('no está en Retiro');
-    expect(v.aviso).toContain('Envigado');
   });
 
   it('el sesgo del encuadre es el recuadro visible, y sigue siendo sesgo', () => {
