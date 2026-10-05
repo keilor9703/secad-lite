@@ -103,7 +103,14 @@
       queda del mismo alto y la misma forma que el resto del formulario, y el
       desplegable de sugerencias sigue siendo el de Google. */
 .gmp-host { width: 100%; }
-.gmp-host gmp-place-autocomplete {
+
+/* `::ng-deep` NO es opcional aquí, y es la razón por la que todo lo de abajo
+   no hacía nada: `<gmp-place-autocomplete>` lo crea TypeScript con
+   `new PlaceAutocompleteElement()` y un `appendChild`, no la plantilla.
+   Angular solo pone el atributo `_ngcontent` en lo que renderiza él, así que
+   una regla encapsulada compila a `gmp-place-autocomplete[_ngcontent-…]` y no
+   casa con nada. Mismo caso que `.pin-caso` en el módulo Mapa. */
+:host ::ng-deep gmp-place-autocomplete {
   width: 100%;
   color-scheme: inherit;
   background-color: var(--surface);
