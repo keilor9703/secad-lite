@@ -252,36 +252,21 @@
           <fieldset [formGroup]="form">
             <legend>Ubicación del caso</legend>
             <div class="grid">
-              <div class="field">
-                <label for="fbar">Barrio</label>
-                <input id="fbar" formControlName="barrio" />
-              </div>
-              <div class="field span2 direccion-est">
-                <span class="lbl-direccion">Dirección del caso</span>
-                <div class="direccion-campos">
-                  <app-selector formControlName="municipioCodigo" [ariaLabel]="'Municipio del caso'" title="Municipio del caso" class="municipio">
-                    <app-opcion [valor]="''">Municipio…</app-opcion>
-                    @for (m of municipiosTenant(); track m.codigoDane) {
-                      <app-opcion [valor]="m.codigoDane">{{ m.nombre }}</app-opcion>
-                    }
-                  </app-selector>
-                  <!-- Buscador estilo Google Maps: escribe, elige una sugerencia, el punto
-                  queda preciso solo. Se muestra en cuanto el SDK termina de cargar —
-                  el div vive siempre en el DOM para que el componente pueda montarlo ahí. -->
-                  <div id="gmpHost" class="gmp-host" [class.oculto]="!googleDisponible()"></div>
-                </div>
-                <div class="con-boton">
-                  <input formControlName="direccion"
-                    [placeholder]="googleDisponible() ? 'Se completa al elegir una sugerencia; puede ajustarla' : 'Escriba la dirección del caso'"
+              <!-- El buscador va PRIMERO y a lo ancho: es por donde empieza
+              todo el flujo. Antes compartía fila con el municipio y quedaban
+              dos campos de alturas distintas peleándose el espacio. -->
+              <div class="field span2">
+                <span class="lbl-campo">Buscar dirección</span>
+                <!-- Buscador estilo Google Maps: escribe, elige una sugerencia, el punto
+                queda preciso solo. Se muestra en cuanto el SDK termina de cargar —
+                el div vive siempre en el DOM para que el componente pueda montarlo ahí. -->
+                <div id="gmpHost" class="gmp-host" [class.oculto]="!googleDisponible()"></div>
+                @if (!googleDisponible()) {
+                  <input formControlName="direccion" placeholder="Escriba la dirección del caso"
                     title="Dirección que queda guardada en el caso — editable" />
-                  <button type="button" class="btn btn--ghost" (click)="buscarDireccion()" [disabled]="buscandoDireccion()">
-                    {{ buscandoDireccion() ? 'Buscando…' : 'Buscar en el mapa' }}
-                  </button>
-                </div>
+                }
                 <!-- Qué tan de fiar es el punto. Un punto aproximado que parece
-                exacto es peor que no tener punto: el operador lo despacha sin
-                dudarlo. Cuando la dirección quedó fuera del municipio, el punto
-                NO se movió y esto dice por qué. -->
+                exacto es peor que no tener punto: el operador lo despacha sin dudarlo. -->
                 @if (avisoDireccion()) {
                   <small class="rec-dir-aviso" role="status">{{ avisoDireccion() }}</small>
                 }
@@ -299,6 +284,39 @@
                   </div>
                 }
               </div>
+
+              <!-- Lo que de verdad queda guardado en el caso, siempre editable. -->
+              @if (googleDisponible()) {
+                <div class="field span2">
+                  <label for="fdir">Dirección del caso</label>
+                  <div class="con-boton">
+                    <input id="fdir" formControlName="direccion"
+                      placeholder="Se completa al elegir una sugerencia; puede ajustarla"
+                      title="Dirección que queda guardada en el caso — editable" />
+                    <button type="button" class="btn btn--ghost" (click)="buscarDireccion()" [disabled]="buscandoDireccion()">
+                      {{ buscandoDireccion() ? 'Buscando…' : 'Buscar en el mapa' }}
+                    </button>
+                  </div>
+                </div>
+              }
+
+              <!-- Municipio y barrio son CONSECUENCIA de la dirección: se
+              rellenan solos y se corrigen a mano. Van juntos, que es lo que
+              son, y de paso llenan la fila que antes quedaba a medias. -->
+              <div class="field">
+                <span class="lbl-campo">Municipio</span>
+                <app-selector formControlName="municipioCodigo" [ariaLabel]="'Municipio del caso'" title="Municipio del caso">
+                  <app-opcion [valor]="''">Municipio…</app-opcion>
+                  @for (m of municipiosTenant(); track m.codigoDane) {
+                    <app-opcion [valor]="m.codigoDane">{{ m.nombre }}</app-opcion>
+                  }
+                </app-selector>
+              </div>
+              <div class="field">
+                <label for="fbar">Barrio</label>
+                <input id="fbar" formControlName="barrio" />
+              </div>
+
               <div class="field">
                 <label for="flat">Latitud</label>
                 <input id="flat" type="number" formControlName="lat" step="0.000001" />
@@ -326,10 +344,14 @@
             <div class="destino"
               [class.marcada]="marcadosDe(g.agencia.id) > 0"
               [class.sugerida]="esSugerida(g.agencia.id)">
+              <!-- La cabecera es SOLO el nombre y sus distintivos. «Marcar
+              todos» estaba aquí y se caía a una segunda línea en cuanto el
+              nombre era largo ("Secretaría de Tránsito" sí, "Policía Nacional"
+              no); al darle sitio fijo, lo que se partía en dos era el nombre.
+              El problema no era la colocación: era que dos cosas se disputaban
+              una fila estrecha. Ahora el botón vive con los canales que marca,
+              que además es donde se mira. -->
               <div class="destino-head">
-                <button type="button" class="btn btn--ghost mini" (click)="alternarAgencia(g.agencia.id)">
-                  {{ marcadosDe(g.agencia.id) === g.canales.length ? 'Quitar todos' : 'Marcar todos' }}
-                </button>
                 <strong>{{ g.agencia.nombre }}</strong>
                 @if (marcadosDe(g.agencia.id)) {
                   <span class="cuenta">{{ marcadosDe(g.agencia.id) }}</span>
@@ -339,6 +361,14 @@
                 }
               </div>
               <div class="destino-canales">
+                <!-- Con un solo canal, «marcar todos» marca ese uno: sobra. -->
+                @if (g.canales.length > 1) {
+                  <button type="button" class="chip chip--todos"
+                    [class.on]="marcadosDe(g.agencia.id) === g.canales.length"
+                    (click)="alternarAgencia(g.agencia.id)">
+                    {{ marcadosDe(g.agencia.id) === g.canales.length ? 'Quitar todos' : 'Marcar todos' }}
+                  </button>
+                }
                 @for (c of g.canales; track c) {
                   <label class="chip">
                     <input type="checkbox" [checked]="canalMarcado(c.id)" (change)="alternarCanal(c.id)" />

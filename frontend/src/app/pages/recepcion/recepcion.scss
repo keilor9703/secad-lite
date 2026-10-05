@@ -90,18 +90,37 @@
 .con-boton input { flex: 1; }
 .con-boton .btn { white-space: nowrap; }
 
-/* Municipio + buscador de direcciones (Google Places): el municipio acota
-   las sugerencias (ver `biasBuscador`), y el buscador ocupa el resto del
-   ancho — nombres de municipio largos ("San Vicente Ferrer") siguen
-   necesitando más espacio que un tipo de vía, así que se deja angosto. */
-.direccion-est { display: flex; flex-direction: column; gap: 0.35rem; }
-.lbl-direccion { font-size: 0.8rem; font-weight: 600; color: var(--ink-soft); }
-.direccion-campos { display: flex; flex-wrap: wrap; gap: 0.4rem; align-items: center; }
-.direccion-campos app-selector.municipio { flex: 1 1 200px; min-width: 170px; }
-.direccion-campos .gmp-host { flex: 2 1 260px; min-width: 220px; }
-/* El propio widget de Google trae su estilo (así se reconoce como "Google
-   Maps"); solo se le da el alto y el radio de los demás campos del formulario. */
-.gmp-host gmp-place-autocomplete { width: 100%; --gmpx-color-surface: var(--surface); }
+/* El buscador de Google Places.
+   Dos cosas que había que arreglar:
+
+   1. Salía con fondo NEGRO sobre la interfaz clara. El elemento trae
+      `color-scheme: light dark`, o sea que sigue al SISTEMA del usuario y no
+      al tema de la aplicación: con Windows en oscuro y Falcon en claro, un
+      recuadro negro en medio del formulario. `color-scheme: inherit` lo
+      devuelve a lo que diga `:root`, que es lo que el operador eligió.
+   2. No se parecía a los demás campos. Google documenta `background-color`,
+      `border`, `border-radius` y `color` como propiedades admitidas; con eso
+      queda del mismo alto y la misma forma que el resto del formulario, y el
+      desplegable de sugerencias sigue siendo el de Google. */
+.gmp-host { width: 100%; }
+.gmp-host gmp-place-autocomplete {
+  width: 100%;
+  color-scheme: inherit;
+  background-color: var(--surface);
+  color: var(--ink);
+  border: 1px solid var(--border-2);
+  border-radius: var(--radius-sm);
+  --gmp-mat-color-surface: var(--surface);
+  --gmp-mat-color-on-surface: var(--ink);
+  --gmp-mat-color-on-surface-variant: var(--ink-soft);
+  --gmp-mat-color-outline-variant: var(--border);
+  --gmp-mat-color-primary: var(--accent);
+}
+/* Rótulo de un campo que NO es un control nativo (el buscador de Google, el
+   selector de municipio): un <label> sin `for` no etiqueta nada, y esos dos se
+   nombran por `aria-label`. Mismo aspecto que `.field > label`. */
+.lbl-campo { font-size: 0.8rem; font-weight: 500; color: var(--ink-soft); }
+
 .oculto { display: none; }
 
 /* 14. Responsivo */
@@ -146,13 +165,22 @@
 
 /* 9. Mapa */
 .mapa-hint { font-size: 0.8rem; color: var(--muted); padding: 0.4rem 0.5rem; background: var(--surface-2); border-radius: var(--radius-sm); margin: 0.6rem 0 0.4rem; }
-.mapa { height: clamp(200px, 28vh, 320px); border-radius: var(--radius-sm); border: 1px solid var(--border-2); overflow: hidden; box-shadow: inset 0 0 0 1px var(--border-2); }
-@media (max-width: 767px) { .mapa { height: 180px; } }
+/* El mapa es el elemento con el que más se trabaja de esta sección —se hace
+   clic en él para fijar el punto— y era el más pequeño. La columna derecha
+   tiene sitio de sobra: la izquierda llega mucho más abajo. */
+.mapa { height: clamp(300px, 44vh, 560px); border-radius: var(--radius-sm); border: 1px solid var(--border-2); overflow: hidden; box-shadow: inset 0 0 0 1px var(--border-2); }
+@media (max-width: 767px) { .mapa { height: 260px; } }
 :host ::ng-deep .pin-caso { font-size: 1.5rem; line-height: 1; text-align: center; }
 :host ::ng-deep .leaflet-control-attribution { font-size: 0.65rem; }
 
 /* 10. Panel de Atención / Destinos */
-.destinos { display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 0.6rem; margin-top: 0.6rem; }
+/* `align-items: start`: sin esto todas las tarjetas de una fila se estiran a
+   la más alta, y una entidad con un solo canal quedaba como una caja medio
+   vacía al lado de otra con cuatro. */
+.destinos {
+  display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+  gap: 0.6rem; margin-top: 0.6rem; align-items: start;
+}
 .destino { 
   border: 1px solid var(--border); border-radius: var(--radius-sm); padding: 0.55rem 0.7rem; 
   transition: all 0.2s ease;
@@ -163,9 +191,29 @@
   border-left: 3px solid var(--accent);
   background: var(--accent-soft);
 }
-.destino-head { display: flex; align-items: center; gap: 0.5rem; flex-wrap: wrap; margin-bottom: 0.45rem; }
-.destino-head strong { font-size: 0.9rem; }
-.destino-head .btn { order: 3; margin-left: auto; }
+/* Solo el nombre y sus distintivos: nada que se dispute la fila con él. */
+.destino-head {
+  display: flex; align-items: center; flex-wrap: wrap;
+  gap: 0.35rem; margin-bottom: 0.5rem;
+}
+.destino-head strong { font-size: 0.9rem; line-height: 1.3; }
+
+/* «Marcar todos» como un chip más, el primero de la fila: es un atajo a los
+   que tiene al lado, y así se lee como lo que es. En punteado para que no se
+   confunda con un canal — no es una casilla, es una acción.
+
+   El reset de `background` y `font` no sobra: `.chip` nació para un <label> y
+   no los declara, así que un <button> con la misma clase salía con el gris y
+   la tipografía por omisión del navegador. */
+.chip--todos {
+  background: transparent;
+  font: inherit; font-size: 0.8rem; font-weight: 600;
+  border-style: dashed;
+  color: var(--ink-soft);
+  cursor: pointer;
+}
+.chip--todos:hover { border-color: var(--accent); color: var(--accent); }
+.chip--todos.on { border-style: solid; border-color: var(--accent); color: var(--accent); }
 .cuenta { font-size: 0.7rem; font-weight: 700; background: var(--accent); color: var(--on-accent, #fff); border-radius: 999px; padding: 0.05rem 0.4rem; }
 
 .sug {
