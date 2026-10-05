@@ -2,10 +2,17 @@
   <div class="mrec-lienzo" #lienzo></div>
 
   @if (!puntos().length) {
-    <p class="mrec-vacio">
-      Cuando el ciudadano acepte compartir su ubicación, aquí aparece dónde
-      está y por dónde se mueve.
-    </p>
+    <!-- Decir POR QUÉ no hay punto, cuando se sabe. Un panel que solo dice
+         «cuando acepte…» deja al despachador esperando algo que quizá no va a
+         llegar nunca, en vez de preguntarle la dirección al ciudadano. -->
+    @if (motivoSinUbicacion()) {
+      <p class="mrec-vacio mrec-vacio--aviso">{{ motivoSinUbicacion() }}</p>
+    } @else {
+      <p class="mrec-vacio">
+        Cuando el ciudadano acepte compartir su ubicación, aquí aparece dónde
+        está y por dónde se mueve.
+      </p>
+    }
   }
 
   @if (ultimo(); as u) {

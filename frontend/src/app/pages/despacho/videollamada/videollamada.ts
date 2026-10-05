@@ -47,6 +47,8 @@ export class VideollamadaComponent implements OnDestroy {
   readonly chat = signal<ChatMensaje[]>([]);
   readonly chatDisponible = signal(false);
   readonly ubicacion = signal<UbicacionCiudadano | null>(null);
+  /** Por qué no llega la ubicación. El despachador tiene que poder preguntarla. */
+  readonly ubicacionFallo = signal('');
   /** Por dónde ha pasado el ciudadano en esta llamada; alimenta el mapa. */
   readonly recorrido = signal<UbicacionCiudadano[]>([]);
   readonly microfono = signal(true);
@@ -93,6 +95,7 @@ export class VideollamadaComponent implements OnDestroy {
     });
     this.video.chatDisponible$.pipe(takeUntilDestroyed()).subscribe((d) => this.chatDisponible.set(d));
     this.video.ubicacion$.pipe(takeUntilDestroyed()).subscribe((u) => this.ubicacion.set(u));
+    this.video.ubicacionFallo$.pipe(takeUntilDestroyed()).subscribe((m) => this.ubicacionFallo.set(m));
     this.video.recorrido$.pipe(takeUntilDestroyed()).subscribe((r) => this.recorrido.set(r));
     this.video.microfono$.pipe(takeUntilDestroyed()).subscribe((m) => this.microfono.set(m));
     this.video.grabando$.pipe(takeUntilDestroyed()).subscribe((g) => this.grabando.set(g));

@@ -45,6 +45,13 @@
            Ver `audio-operador.ts`. -->
       <video id="voz-operador" class="vc__voz" autoplay playsinline></video>
 
+      @if (motivoUbicacion()) {
+        <div class="vc__ubicacion" role="status">
+          <p>{{ motivoUbicacion() }}</p>
+          <button type="button" (click)="reintentarUbicacion()">Reintentar</button>
+        </div>
+      }
+
       @if (pedirToque()) {
         <button type="button" class="vc__desbloquear" (click)="activarAudio()">
           🔊 {{ textoToque() }}

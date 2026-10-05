@@ -79,3 +79,12 @@
   border: 2px solid #ffffff;
   box-shadow: 0 1px 3px rgb(0 0 0 / 45%);
 }
+
+/* El panel dice por qué no hay punto. No es el texto de bienvenida, es un
+   aviso: tiene que distinguirse para que el despachador reaccione. */
+.mrec-vacio--aviso {
+  background: color-mix(in srgb, var(--warn) 16%, transparent);
+  border-radius: var(--radius-sm);
+  padding: 0.5rem 0.65rem;
+  color: var(--ink);
+}

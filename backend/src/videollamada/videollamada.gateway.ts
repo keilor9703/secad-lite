@@ -190,6 +190,24 @@ export class VideollamadaGateway implements OnGatewayConnection {
     });
   }
 
+  /**
+   * El ciudadano no puede compartir dónde está, y el despachador tiene que
+   * saberlo: es la diferencia entre esperar un punto que no va a llegar y
+   * preguntarle la dirección mientras habla con él. No se guarda —no es un
+   * dato del caso, es el estado de un intento— solo se le pasa al operador.
+   */
+  @SubscribeMessage('video:ubicacion-fallo')
+  ubicacionFallo(
+    @ConnectedSocket() socket: Socket,
+    @MessageBody() c: { motivo?: string },
+  ): void {
+    const { tenant, sesionId, rol } = this.datos(socket);
+    if (!tenant || !sesionId || rol !== 'ciudadano') return;
+    const motivo = (c?.motivo ?? '').trim().slice(0, 300);
+    if (!motivo) return;
+    socket.to(this.sala(sesionId)).emit('video:ubicacion-fallo', { motivo });
+  }
+
   @SubscribeMessage('video:chat')
   async chat(
     @ConnectedSocket() socket: Socket,

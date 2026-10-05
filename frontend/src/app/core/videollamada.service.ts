@@ -137,6 +137,14 @@ export class VideollamadaService {
   private readonly recorridoSubject = new BehaviorSubject<UbicacionCiudadano[]>([]);
   readonly recorrido$: Observable<UbicacionCiudadano[]> = this.recorridoSubject.asObservable();
 
+  private readonly ubicacionFalloSubject = new BehaviorSubject<string>('');
+  /**
+   * Por qué NO llega la ubicación del ciudadano. En una central esto no es un
+   * detalle: es la diferencia entre esperar un punto que nunca va a llegar y
+   * preguntarle la dirección mientras se habla con él.
+   */
+  readonly ubicacionFallo$: Observable<string> = this.ubicacionFalloSubject.asObservable();
+
   private readonly microfonoSubject = new BehaviorSubject<boolean>(true);
   readonly microfono$: Observable<boolean> = this.microfonoSubject.asObservable();
 
@@ -285,7 +293,12 @@ export class VideollamadaService {
         lat: c.lat, lng: c.lng, precision: c.precision ?? undefined, en: Date.now(),
       };
       this.ubicacionSubject.next(punto);
+      this.ubicacionFalloSubject.next('');
       this.acumularRecorrido(punto);
+    });
+
+    this.socket.on('video:ubicacion-fallo', (c: { motivo?: string }) => {
+      this.ubicacionFalloSubject.next(c?.motivo ?? '');
     });
 
     // El chat llega YA GUARDADO y el servidor lo reenvía a toda la sala, emisor

@@ -37,6 +37,8 @@ const ZOOM_PUNTO = 17;
 })
 export class MapaRecorridoComponent implements OnDestroy {
   readonly puntos = input.required<UbicacionCiudadano[]>();
+  /** Por qué no llega la ubicación, si no llega. Lo manda el teléfono del ciudadano. */
+  readonly motivoSinUbicacion = input<string>('');
 
   private readonly lienzo = viewChild<ElementRef<HTMLDivElement>>('lienzo');
 

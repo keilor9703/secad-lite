@@ -57,3 +57,41 @@ describe('textoDelToque', () => {
     expect(t).not.toContain('escuchar');
   });
 });
+
+import {
+  UBICACION_DENEGADA, UBICACION_NO_DISPONIBLE, UBICACION_TARDA, explicarFalloUbicacion,
+} from './permisos-ciudadano';
+
+/**
+ * El fallo de ubicación era INVISIBLE: no aparecía el punto, el ciudadano no
+ * veía nada y el operador tampoco. Nadie podía decir siquiera qué pasó — por
+ * eso costó tanto encontrarlo. Lo que se prueba es que ninguna rama se quede
+ * muda, y que la de iPhone diga dónde se arregla.
+ */
+describe('explicarFalloUbicacion', () => {
+  it('ninguna rama se queda sin mensaje, ni para el ciudadano ni para el operador', () => {
+    for (const c of [UBICACION_DENEGADA, UBICACION_NO_DISPONIBLE, UBICACION_TARDA, 99, undefined]) {
+      const f = explicarFalloUbicacion(c);
+      expect(f.mensaje).withContext(`código ${c}`).not.toBe('');
+      expect(f.paraElOperador).withContext(`código ${c}`).not.toBe('');
+    }
+  });
+
+  it('denegado explica el ajuste de iOS, no solo «permiso denegado»', () => {
+    // En iPhone este código casi nunca es «el ciudadano dijo que no»: es que
+    // iOS tiene la localización desactivada para Safari y por eso NO PREGUNTA.
+    const f = explicarFalloUbicacion(UBICACION_DENEGADA);
+    expect(f.mensaje).toContain('Ajustes');
+    expect(f.mensaje).toContain('Safari');
+  });
+
+  it('al operador se le dice que pregunte la dirección cuando no va a llegar', () => {
+    expect(explicarFalloUbicacion(UBICACION_DENEGADA).paraElOperador).toContain('Pregúntele');
+  });
+
+  it('todo fallo es reintentable: en iPhone el ciudadano puede cambiar el ajuste y volver', () => {
+    for (const c of [UBICACION_DENEGADA, UBICACION_NO_DISPONIBLE, UBICACION_TARDA, undefined]) {
+      expect(explicarFalloUbicacion(c).reintentable).withContext(`código ${c}`).toBeTrue();
+    }
+  });
+});

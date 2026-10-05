@@ -7,7 +7,7 @@ import { io, Socket } from 'socket.io-client';
 import { environment } from '../../../environments/environment';
 import { iceServers } from '../../core/config-runtime';
 import { intentarSonar } from './audio-operador';
-import { PLAZO_UBICACION_MS, hayQuePedirToque, textoDelToque } from './permisos-ciudadano';
+import { PLAZO_UBICACION_MS, explicarFalloUbicacion, hayQuePedirToque, textoDelToque } from './permisos-ciudadano';
 
 type EstadoPagina =
   | 'validando' | 'invalido' | 'pidiendo-permiso' | 'permiso-denegado'
@@ -68,6 +68,8 @@ export class VideoCiudadanoComponent implements OnInit, OnDestroy {
   readonly ubicacionDenegada = signal(false);
   /** Pasó el plazo de cortesía sin que llegara ninguna posición. */
   readonly plazoUbicacion = signal(false);
+  /** Por qué no llega la ubicación, en palabras. Vacío cuando no hay nada que decir. */
+  readonly motivoUbicacion = signal('');
 
   private estadoPermisos = computed(() => ({
     audioBloqueado: this.audioBloqueado(),
@@ -311,24 +313,57 @@ export class VideoCiudadanoComponent implements OnInit, OnDestroy {
     if (!navigator.geolocation || this.watchId !== null) return;
     // Si en el plazo no llegó nada, se le ofrece el toque. Ver `permisos-ciudadano.ts`.
     setTimeout(() => this.plazoUbicacion.set(true), PLAZO_UBICACION_MS);
+
+    // Una lectura suelta ANTES del seguimiento. En iPhone es la que provoca
+    // el diálogo de permiso de forma fiable; `watchPosition` a secas se queda
+    // callado más de la cuenta. Si falla, su error ya dice por qué — que era
+    // justo lo que no se sabía.
+    navigator.geolocation.getCurrentPosition(
+      (pos) => this.enviarUbicacion(pos),
+      (err) => this.falloUbicacion(err),
+      { enableHighAccuracy: true, timeout: 15_000 },
+    );
+
     this.watchId = navigator.geolocation.watchPosition(
-      (pos) => {
-        this.ubicacionActiva.set(true);
-        this.socket?.emit('video:ubicacion', {
-          lat: pos.coords.latitude,
-          lng: pos.coords.longitude,
-          precision: pos.coords.accuracy,
-        });
-      },
-      (err) => {
-        this.ubicacionActiva.set(false);
-        // code 1 = PERMISSION_DENIED. Distinguirlo importa: negarla es una
-        // decisión del ciudadano y no se le vuelve a pedir; que falle el GPS
-        // no lo es, y ahí un toque suyo sí puede reintentarlo.
-        if (err?.code === 1) this.ubicacionDenegada.set(true);
-      },
+      (pos) => this.enviarUbicacion(pos),
+      (err) => this.falloUbicacion(err),
       { enableHighAccuracy: true, maximumAge: 10_000, timeout: 20_000 },
     );
+  }
+
+  private enviarUbicacion(pos: GeolocationPosition): void {
+    this.ubicacionActiva.set(true);
+    this.motivoUbicacion.set('');
+    this.socket?.emit('video:ubicacion', {
+      lat: pos.coords.latitude,
+      lng: pos.coords.longitude,
+      precision: pos.coords.accuracy,
+    });
+  }
+
+  /**
+   * El fallo deja de ser invisible. Antes esto solo apagaba una señal: el
+   * ciudadano no veía nada, el operador tampoco, y nadie podía decir siquiera
+   * qué había pasado.
+   */
+  private falloUbicacion(err: GeolocationPositionError | undefined): void {
+    this.ubicacionActiva.set(false);
+    const f = explicarFalloUbicacion(err?.code);
+    this.motivoUbicacion.set(f.mensaje);
+    // El despachador necesita saberlo para preguntar la dirección a viva voz.
+    this.socket?.emit('video:ubicacion-fallo', { motivo: f.paraElOperador });
+    // code 1 = denegado. Deja de pedirse SOLO; el aviso con su botón sigue,
+    // porque en iPhone esto suele ser un ajuste del teléfono que el ciudadano
+    // puede cambiar y volver a intentar sin recargar.
+    if (err?.code === 1) this.ubicacionDenegada.set(true);
+  }
+
+  /** Reintento explícito desde el aviso, tras corregir el ajuste del teléfono. */
+  reintentarUbicacion(): void {
+    if (this.watchId !== null) { navigator.geolocation.clearWatch(this.watchId); this.watchId = null; }
+    this.ubicacionDenegada.set(false);
+    this.motivoUbicacion.set('');
+    this.reportarUbicacion();
   }
 
   /** Cambia entre la cámara trasera y la frontal sin renegociar la conexión. */
