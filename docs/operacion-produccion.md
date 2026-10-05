@@ -629,16 +629,83 @@ GOOGLE_MAPS_API_KEY=AIza...
 GOOGLE_MAPS_MAP_ID=a1b2c3d4e5f6
 ```
 
+El paso 2 es declararla en `~/falcon-deploy/docker-compose.yml`, y **las tres
+réplicas tienen que verla**: si solo la ve `backend1`, una de cada tres
+peticiones responderá que no hay clave y el buscador aparecerá y desaparecerá
+sin razón aparente.
+
+En el compose de producción las tres réplicas comparten un único bloque de
+variables mediante un ancla YAML: `backend1` lo define con `environment: &benv`
+y `backend2`/`backend3` lo reusan con `<<: *benv`. `<<:` **fusiona**, no
+reemplaza —por eso cada réplica puede conservar su propio `DB_MIGRATE` encima
+del bloque común—, así que basta escribir las dos variables **una sola vez**,
+dentro de `&benv`:
+
 ```yaml
-# 2. Y declararla en los TRES backends de ~/falcon-deploy/docker-compose.yml,
-#    dentro del `environment:` de cada uno (backend1, backend2 y backend3).
-#    El `:-` evita el aviso de compose cuando la variable no está definida.
-      GOOGLE_MAPS_API_KEY: ${GOOGLE_MAPS_API_KEY:-}
+    environment: &benv
+      DATABASE_URL: postgres://falcon:${DB_PASSWORD}@postgres:5432/falcon_cad
+      JWT_SECRET: ${JWT_SECRET}
+      GOOGLE_MAPS_API_KEY: ${GOOGLE_MAPS_API_KEY:-}   # ← las dos nuevas
       GOOGLE_MAPS_MAP_ID: ${GOOGLE_MAPS_MAP_ID:-}
+      ...
 ```
 
-Si solo se declara en backend1, una de cada tres peticiones responderá que no
-hay clave y el buscador aparecerá y desaparecerá sin razón aparente.
+El `:-` evita el aviso de compose cuando la variable no está definida.
+
+En el servidor no hay `nano` ni `vi`. Esto hace la edición sin editor, y se
+niega a tocar el archivo si la estructura no es la esperada:
+
+```bash
+cd ~/falcon-deploy
+cp -n docker-compose.yml docker-compose.yml.bak      # respaldo, una sola vez
+
+cat > /tmp/parche-google.py <<'EOF'
+import re, sys
+p = 'docker-compose.yml'
+lineas = open(p).read().split('\n')
+if 'GOOGLE_MAPS_API_KEY' in '\n'.join(lineas):
+    print('Ya estaban declaradas. No se tocó nada.'); sys.exit(1)
+
+salida, puestos = [], 0
+for linea in lineas:
+    salida.append(linea)
+    m = re.match(r'^(\s*)JWT_SECRET\s*:', linea)
+    if not m:
+        continue
+    sangria = m.group(1)
+    salida.append(f'{sangria}GOOGLE_MAPS_API_KEY: ${{GOOGLE_MAPS_API_KEY:-}}')
+    salida.append(f'{sangria}GOOGLE_MAPS_MAP_ID: ${{GOOGLE_MAPS_MAP_ID:-}}')
+    puestos += 1
+
+if puestos != 1:
+    print(f'Esperaba UNA declaración de JWT_SECRET (el bloque &benv) y '
+          f'encontré {puestos}. NO se tocó el archivo.')
+    sys.exit(1)
+open(p, 'w').write('\n'.join(salida))
+print('Listo: agregadas al bloque compartido &benv.')
+EOF
+
+python3 /tmp/parche-google.py
+```
+
+Si imprime cualquier otra cosa que «Listo», el archivo quedó como estaba y hay
+que mirar la estructura antes de seguir.
+
+Validar y reiniciar:
+
+```bash
+docker compose config > /dev/null && echo "YAML correcto"
+docker compose up -d --force-recreate backend1 backend2 backend3
+
+for r in backend1 backend2 backend3; do
+  echo -n "$r: "
+  docker compose exec -T "$r" printenv GOOGLE_MAPS_API_KEY | cut -c1-8
+done
+```
+
+Las tres líneas tienen que imprimir los primeros ocho caracteres de la clave
+(`AIzaSyB…`). Una vacía significa que esa réplica no la ve. Para volver atrás:
+`cp docker-compose.yml.bak docker-compose.yml` y repetir el `up -d`.
 
 Qué variables ve el contenedor, sin mostrar ningún valor:
 
