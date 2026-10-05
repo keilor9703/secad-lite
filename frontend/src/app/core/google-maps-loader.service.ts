@@ -1,4 +1,4 @@
-import { Injectable, inject } from '@angular/core';
+import { Injectable, inject, signal } from '@angular/core';
 import { firstValueFrom } from 'rxjs';
 import { GeografiaService } from './geografia.service';
 
@@ -17,9 +17,29 @@ export class GoogleMapsLoaderService {
   private geografia = inject(GeografiaService);
   private cargaPromise?: Promise<typeof google | null>;
 
+  /**
+   * Google rechazó la clave en tiempo de ejecución: cuota agotada, clave
+   * caducada, referente no permitido, facturación caída. Lo avisa por
+   * `window.gm_authFailure`, un enganche global que hay que poner a mano y que
+   * no estábamos usando — por eso el mapa se quedaba con el cartel de error de
+   * Google en vez de caer al de OpenStreetMap, que sí habría funcionado.
+   */
+  readonly fallo = signal(false);
+
   /** `null` si el backend no tiene la clave configurada — el formulario cae a dirección manual, no es un error. */
   cargar(): Promise<typeof google | null> {
-    if (!this.cargaPromise) this.cargaPromise = this.cargarInterno();
+    // Si Google ya rechazó la clave, no tiene sentido volver a intentarlo en
+    // esta pestaña: se responde `null` y quien llame usa su respaldo.
+    if (this.fallo()) return Promise.resolve(null);
+    if (!this.cargaPromise) {
+      this.cargaPromise = this.cargarInterno().catch((e) => {
+        // Memorizar una promesa RECHAZADA dejaba el mapa roto para el resto de
+        // la sesión: un corte de red de un segundo al arrancar y ya no había
+        // forma de recuperarse sin recargar la página entera.
+        this.cargaPromise = undefined;
+        throw e;
+      });
+    }
     return this.cargaPromise;
   }
 
@@ -51,6 +71,12 @@ export class GoogleMapsLoaderService {
    */
   private inyectarBootstrap(key: string): void {
     if ((window as unknown as { google?: { maps?: { importLibrary?: unknown } } }).google?.maps?.importLibrary) return;
+    // El aviso de Google cuando rechaza la clave. Es una función global con
+    // nombre fijo; no hay otra forma de enterarse desde el código.
+    (window as unknown as { gm_authFailure?: () => void }).gm_authFailure = () => {
+      console.warn('Google rechazó la clave de Maps (cuota, facturación, restricciones). Se usa OpenStreetMap.');
+      this.fallo.set(true);
+    };
     ((g: { key: string; v: string }) => {
       let h: Promise<void> | undefined;
       let a: HTMLScriptElement;

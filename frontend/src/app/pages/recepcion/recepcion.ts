@@ -9,6 +9,7 @@ import {
   METROS_ACUERDO, Recuadro, PuntoMunicipio, acotarBuscador, evaluarCandidato, metrosEntre,
   pareceNomenclaturaColombiana,
 } from './direccion-precision';
+import { PLAZO_TESELAS_MS, hayQueCaerARespaldo } from './mapa-respaldo';
 
 /** Una ubicación propuesta por una de las dos fuentes, para que el operador elija. */
 interface OpcionDireccion {
@@ -520,6 +521,7 @@ export class RecepcionComponent implements OnInit {
       this.googleDisponible.set(true);
       await this.prepararMapaGoogle(g);
       await this.prepararBuscadorDireccion(g);
+      this.vigilarMapaGoogle();
     } else {
       this.googleDisponible.set(false);
       await this.prepararMapaLeaflet();
@@ -815,6 +817,40 @@ export class RecepcionComponent implements OnInit {
     // Así el operador no tiene que declarar un municipio antes de buscar —
     // arranca en el suyo, y si necesita mirar al lado, mueve el mapa.
     this.mapaGoogle.addListener('idle', () => this.sesgarAlEncuadre());
+  }
+
+  private teselasCargadas = false;
+
+  /**
+   * Vigila que el mapa de Google llegue a pintar. Si no, monta el de
+   * OpenStreetMap en su lugar. Ver `mapa-respaldo.ts` para el porqué.
+   */
+  private vigilarMapaGoogle(): void {
+    if (!this.mapaGoogle) return;
+    this.teselasCargadas = false;
+    this.mapaGoogle.addListener('tilesloaded', () => { this.teselasCargadas = true; });
+    setTimeout(() => void this.revisarMapaGoogle(true), PLAZO_TESELAS_MS);
+  }
+
+  private async revisarMapaGoogle(plazoCumplido: boolean): Promise<void> {
+    const caer = hayQueCaerARespaldo({
+      autenticacionFallo: this.googleMaps.fallo(),
+      teselasCargadas: this.teselasCargadas,
+      plazoCumplido,
+    });
+    if (!caer || !this.mapaGoogle) return;
+
+    console.warn('El mapa de Google no llegó a pintar; se monta OpenStreetMap en su lugar.');
+    // El contenedor lo deja Google con su propio cartel de error dentro: hay
+    // que vaciarlo o Leaflet se monta encima de él.
+    this.mapaGoogle = undefined;
+    this.marcadorGoogle = undefined;
+    const div = document.getElementById('mapaCaso');
+    if (div) div.innerHTML = '';
+    this.googleDisponible.set(false);
+    await this.prepararMapaLeaflet();
+    const { lat, lng } = this.form.getRawValue();
+    if (lat != null && lng != null) void this.fijarPunto(lat, lng, true);
   }
 
   /** Coloca el marcador y refleja las coordenadas en el formulario. */
