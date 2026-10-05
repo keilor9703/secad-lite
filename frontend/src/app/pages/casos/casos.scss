@@ -19,7 +19,12 @@
 table { width: 100%; border-collapse: collapse; font-size: 0.9rem; }
 th { text-align: left; font-size: 0.72rem; text-transform: uppercase; letter-spacing: 0.05em;
      color: var(--muted); padding: 0.6rem; border-bottom: 1px solid var(--border); }
-td { padding: 0.55rem 0.6rem; border-bottom: 1px solid var(--border); }
+/* `vertical-align: top` en toda la tabla: hay celdas de una línea (estado,
+   fecha) junto a otras de dos o tres (el id del caso, la lista de canales).
+   Centradas, cada columna arrancaba a una altura distinta y la fila se leía
+   torcida; alineadas arriba, todas empiezan en la misma línea. */
+td { padding: 0.55rem 0.6rem; border-bottom: 1px solid var(--border); vertical-align: top; }
+th { vertical-align: bottom; }
 tbody tr:last-child td { border-bottom: none; }
 .titulo a { color: var(--accent); text-decoration: none; font-weight: 600; }
 .titulo a:hover { text-decoration: underline; }
@@ -39,9 +44,23 @@ tbody tr:last-child td { border-bottom: none; }
 /* Columna "Canales": una fila por entidad a la que se envió el caso, con su
    propio estado — para que el supervisor vea, sin abrir el detalle, cuál ya
    cerró su parte y cuál sigue trabajando. */
-.canales-cel { display: flex; flex-direction: column; gap: 0.3rem; min-width: 190px; }
-.canal-chip { display: flex; align-items: center; gap: 0.4rem; flex-wrap: wrap; }
-.canal-nombre { font-size: 0.78rem; color: var(--ink-soft); }
+.canales-cel { min-width: 230px; }
+
+/* UNA sola rejilla para toda la lista, no una por entrada: así todas las
+   entradas comparten el ancho de columna y las etiquetas de estado quedan en
+   un carril recto, que es como se escanea esta columna de un vistazo. Con una
+   rejilla por entrada, cada etiqueta empezaba en una x distinta.
+
+   Y rejilla en vez de un flex que envuelve: con flex, la etiqueta se caía a
+   una línea propia en cuanto el nombre era largo ("Cuerpo de Bomberos ·
+   Bomberos" sí, "Policía Nacional · Policía" no), así que unas entradas
+   ocupaban una línea y otras dos sin criterio visible. Lo que se acomoda es
+   el nombre. */
+.canales-lista {
+  display: grid; grid-template-columns: minmax(0, 1fr) auto;
+  align-items: start; gap: 0.3rem 0.4rem;
+}
+.canal-nombre { font-size: 0.78rem; color: var(--ink-soft); line-height: 1.35; }
 .sin-canales { color: var(--muted); }
 
 /* Rango de fechas dentro de la barra de filtros. */

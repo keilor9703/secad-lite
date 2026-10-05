@@ -66,13 +66,16 @@
             <td class="mono">{{ c.llamadaId || '—' }}</td>
             <td><span class="badge" [attr.data-estado]="c.estado">{{ estadoLabel(c.estado) }}</span></td>
             <td class="canales-cel">
+              <!-- El flex va en un DIV, no en el <td>: un `display: flex` sobre
+              una celda la saca del modelo de tabla y deja de alinearse con su
+              propia fila, que era justo lo que se veía torcido. -->
               @if (c.canalesEstado?.length) {
-                @for (ce of c.canalesEstado; track ce) {
-                  <span class="canal-chip" [title]="nombreAgenciaAtencion(ce.agenciaId) + ' · ' + nombreCanalAtencion(ce.canalId)">
-                    <span class="canal-nombre">{{ nombreAgenciaAtencion(ce.agenciaId) }} · {{ nombreCanalAtencion(ce.canalId) }}</span>
+                <div class="canales-lista">
+                  @for (ce of c.canalesEstado; track ce) {
+                    <span class="canal-nombre" [title]="nombreAgenciaAtencion(ce.agenciaId) + ' · ' + nombreCanalAtencion(ce.canalId)">{{ nombreAgenciaAtencion(ce.agenciaId) }} · {{ nombreCanalAtencion(ce.canalId) }}</span>
                     <span class="badge" [attr.data-estado]="ce.estado">{{ estadoLabel(ce.estado) }}</span>
-                  </span>
-                }
+                  }
+                </div>
               } @else {
                 <span class="sin-canales">—</span>
               }
