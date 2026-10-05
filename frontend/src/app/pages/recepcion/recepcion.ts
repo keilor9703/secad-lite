@@ -412,7 +412,7 @@ export class RecepcionComponent implements OnInit {
     this.form.controls.municipioCodigo.valueChanges.subscribe((codigo) => {
       const m = this.municipiosTenant().find((x) => x.codigoDane === codigo);
       if (m) this.form.controls.ciudad.setValue(m.nombre);
-      this.biasBuscador();
+      this.encuadrarEnMunicipio();
     });
   }
 
@@ -464,6 +464,22 @@ export class RecepcionComponent implements OnInit {
    * caso. El buscador de Google no lo necesita — ya devuelve la dirección
    * completa con ciudad incluida.
    */
+  /**
+   * Opciones de la geocodificación de Google para el botón «Buscar en el
+   * mapa», con el mismo criterio que el autocompletado: el texto va TAL CUAL
+   * —sin pegarle el municipio— y lo que orienta la búsqueda es el encuadre
+   * del mapa. `bounds` en la API de geocodificación es un sesgo, no un
+   * filtro: lo de fuera sigue pudiendo salir.
+   */
+  private opcionesGeocodificacion(texto: string): google.maps.GeocoderRequest {
+    const b = this.mapaGoogle?.getBounds();
+    return {
+      address: texto,
+      componentRestrictions: { country: 'co' },
+      ...(b ? { bounds: b } : {}),
+    };
+  }
+
   private conMunicipio(base: string): string {
     if (!base) return base;
     const municipio = this.municipioActual();
@@ -917,7 +933,7 @@ export class RecepcionComponent implements OnInit {
     this.gmpElement = new PlaceAutocompleteElement({ includedRegionCodes: ['co'] });
     this.gmpElement.placeholder = 'Escriba la dirección del caso…';
     host.appendChild(this.gmpElement);
-    this.biasBuscador();
+    this.encuadrarEnMunicipio();
 
     this.gmpElement.addEventListener('gmp-select', async (ev: google.maps.places.PlacePredictionSelectEvent) => {
       const place = ev.placePrediction.toPlace();
@@ -930,27 +946,22 @@ export class RecepcionComponent implements OnInit {
     this.geocoder = new Geocoder();
   }
 
-  /** Recuadro del municipio elegido, para acotar y para verificar. Nulo si no se conoce. */
-  private recuadroMunicipio: Recuadro | null = null;
-
   /**
-   * Lleva el mapa al municipio elegido y guarda su recuadro (lo usa el camino
-   * de respaldo sin Google). Ya NO acota el buscador: de eso se encarga el
-   * encuadre del mapa, vía `sesgarAlEncuadre`.
+   * Lleva el mapa al municipio elegido. Eso es TODO lo que hace el municipio
+   * en la búsqueda: centrar la vista. No acota nada — del sesgo se encarga el
+   * encuadre del mapa, vía `sesgarAlEncuadre`, igual que en Google Maps.
    */
-  private biasBuscador(): void {
+  private encuadrarEnMunicipio(): void {
     const codigo = this.form.controls.municipioCodigo.value;
     if (!codigo) return;
     this.geografia.centroide(codigo).subscribe({
       next: (u) => {
-        this.recuadroMunicipio = u?.recuadro ?? null;
         if (!u) return;
         this.encuadrarMunicipio(u);
         // Antes de que el mapa informe su primer encuadre, el municipio es el
         // mejor sesgo disponible. Después manda el mapa.
         if (this.gmpElement && !this.mapaGoogle?.getBounds()) acotarBuscador(this.gmpElement, u);
       },
-      error: () => { this.recuadroMunicipio = null; },
     });
   }
 
@@ -1074,7 +1085,6 @@ export class RecepcionComponent implements OnInit {
       const enCatalogo = this.municipiosTenant().find((x) => this.normalizar(x.nombre) === this.normalizar(municipio));
       if (enCatalogo && enCatalogo.codigoDane !== this.form.controls.municipioCodigo.value) {
         this.form.controls.municipioCodigo.setValue(enCatalogo.codigoDane, { emitEvent: false });
-        this.recuadroMunicipio = null;   // se recarga al siguiente uso del respaldo OSM
       }
     }
     this.form.patchValue(patch);
@@ -1105,16 +1115,7 @@ export class RecepcionComponent implements OnInit {
     }
 
     if (this.geocoder) {
-      const r0 = this.recuadroMunicipio;
-      this.geocoder.geocode({
-        // Con el municipio pegado al texto: «Calle 53 # 52-35» sola es una
-        // dirección de cualquier ciudad de Colombia, y el geocodificador
-        // elegía por relevancia global.
-        address: this.conMunicipio(texto),
-        componentRestrictions: { country: 'co' },
-        // Y acotada al recuadro del municipio, no solo al país.
-        ...(r0 ? { bounds: { south: r0.sur, north: r0.norte, west: r0.oeste, east: r0.este } } : {}),
-      }).then(
+      this.geocoder.geocode(this.opcionesGeocodificacion(texto)).then(
         ({ results }) => {
           this.buscandoDireccion.set(false);
           const r = results[0];
@@ -1150,14 +1151,10 @@ export class RecepcionComponent implements OnInit {
    */
   private buscarConLasDosFuentes(texto: string): void {
     const municipio = this.form.controls.municipioCodigo.value;
-    const r0 = this.recuadroMunicipio;
 
     const porGoogle = this.geocoder
-      ? this.geocoder.geocode({
-          address: this.conMunicipio(texto),
-          componentRestrictions: { country: 'co' },
-          ...(r0 ? { bounds: { south: r0.sur, north: r0.norte, west: r0.oeste, east: r0.este } } : {}),
-        }).then(({ results }) => results[0] ?? null).catch(() => null)
+      ? this.geocoder.geocode(this.opcionesGeocodificacion(texto))
+          .then(({ results }) => results[0] ?? null).catch(() => null)
       : Promise.resolve(null);
 
     const porNomenclatura = firstValueFrom(this.geografia.geocodificar(texto, municipio))

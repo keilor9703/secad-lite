@@ -128,6 +128,17 @@ docker compose logs --tail 40 backend1
 
 > El frontend **no** tiene contenedor propio: nginx sirve los archivos
 > estáticos desde `./frontend-dist`. Por eso hay que compilar y copiar.
+>
+> ⚠ **`docker compose up -d --build frontend` no existe y no hace nada.** No
+> hay servicio `frontend` en el compose. El comando no falla de forma
+> evidente, así que el despliegue parece correcto y se sigue sirviendo el
+> bundle anterior — se han perdido tardes enteras depurando código ya
+> corregido por esto. En la duda, use el script, que además comprueba que
+> nginx esté viendo de verdad lo publicado:
+>
+> ```bash
+> ~/falcon-deploy/secad-lite/deploy/deploy-falcon.sh
+> ```
 
 > `cp -r dist/...` **no pisa** `config/runtime.json`: ese archivo está montado
 > por separado desde el host.
