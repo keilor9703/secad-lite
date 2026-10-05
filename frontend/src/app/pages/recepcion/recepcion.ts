@@ -10,6 +10,16 @@ import {
   pareceNomenclaturaColombiana,
 } from './direccion-precision';
 
+/** Un resultado del geocodificador, tal cual, para poder reaplicarlo. */
+interface ResultadoGeo {
+  direccion: string;
+  lat: number;
+  lng: number;
+  comps: Array<{ texto: string; types: string[] }>;
+  /** Municipio que dijo el geocodificador, si lo dijo. */
+  municipio?: string;
+}
+
 /** Una ubicación propuesta por una de las dos fuentes, para que el operador elija. */
 interface OpcionDireccion {
   fuente: 'Nomenclatura' | 'Google';
@@ -137,6 +147,20 @@ export class RecepcionComponent implements OnInit {
    * si el caso es en el centro o en una vereda.
    */
   readonly opcionesDireccion = signal<OpcionDireccion[]>([]);
+
+  /**
+   * Lo que la verificación rechazó por caer fuera del municipio, guardado para
+   * que el operador pueda usarlo igual.
+   *
+   * El rechazo automático protege del caso grave —despachar a otra ciudad sin
+   * que nadie lo note— pero no puede ser la última palabra. Hay veredas que
+   * están justo en el límite y figuran en los dos municipios (Pantanillo es
+   * literalmente de Retiro y de Envigado), y hay casos legítimos en el
+   * municipio vecino. Negarlo sin salida convierte una advertencia útil en un
+   * callejón: el operador ve la dirección correcta en la lista, la elige, y el
+   * sistema no hace nada.
+   */
+  readonly direccionRechazada = signal<ResultadoGeo | null>(null);
   /** Hay una consulta en curso: se avisa en vez de dejar la pantalla muda. */
   readonly consultandoEls = signal(false);
   /** Último número consultado: no se vuelve a gastar una consulta por él. */
@@ -531,6 +555,7 @@ export class RecepcionComponent implements OnInit {
     this.avisoAbonado.set('');
     this.avisoDireccion.set('');
     this.opcionesDireccion.set([]);
+    this.direccionRechazada.set(null);
     this.form.reset(this.formVacio());
     this.canalesMarcados.set([]);
     this.sugeridaPorCodigo.set(null);
@@ -1029,8 +1054,37 @@ export class RecepcionComponent implements OnInit {
     );
 
     this.avisoDireccion.set(veredicto.aviso);
-    if (!veredicto.aceptar) return;
+    if (!veredicto.aceptar) {
+      this.direccionRechazada.set({ direccion, lat, lng, comps, municipio: de(['locality', 'administrative_area_level_2']) });
+      return;
+    }
+    this.direccionRechazada.set(null);
     this.aplicarResultado(direccion, lat, lng, comps, true);
+  }
+
+  /**
+   * «Usarla de todos modos»: aplica la dirección que la verificación había
+   * rechazado, y mueve el caso al municipio que dijo el geocodificador cuando
+   * ese municipio está en el catálogo del tenant.
+   *
+   * Es una decisión explícita del operador, con un clic y un rótulo que dice
+   * lo que hace — no un silencio. Lo que se evita es lo otro: que el punto se
+   * aplicara solo, sin que nadie supiera que quedó en otro municipio.
+   */
+  usarDeTodosModos(): void {
+    const r = this.direccionRechazada();
+    if (!r) return;
+    this.direccionRechazada.set(null);
+    this.aplicarResultado(r.direccion, r.lat, r.lng, r.comps, true);
+    const destino = r.municipio
+      ? this.municipiosTenant().find((m) => this.normalizar(m.nombre) === this.normalizar(r.municipio!))
+      : undefined;
+    if (destino) {
+      this.form.controls.municipioCodigo.setValue(destino.codigoDane);
+      this.avisoDireccion.set(`El caso quedó en ${destino.nombre}. Verifique el punto en el mapa.`);
+    } else {
+      this.avisoDireccion.set('Dirección aplicada fuera del municipio del caso. Verifique el punto en el mapa.');
+    }
   }
 
   /** Aplica una dirección resuelta (Google o el respaldo OSM) al formulario: dirección, barrio y, si calza con el catálogo, el municipio. */
@@ -1073,6 +1127,7 @@ export class RecepcionComponent implements OnInit {
 
     this.opcionesDireccion.set([]);
     this.avisoDireccion.set('');
+    this.direccionRechazada.set(null);
 
     // El PORTERO. Solo la nomenclatura urbana con cruce va al motor
     // colombiano; las veredas, corregimientos y puntos de interés van derecho

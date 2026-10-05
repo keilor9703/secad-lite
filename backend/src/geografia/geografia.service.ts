@@ -4,6 +4,7 @@ import { Repository } from 'typeorm';
 import { DepartamentoEntity } from './departamento.entity';
 import { MunicipioEntity } from './municipio.entity';
 import { Lugar } from './direcciones.service';
+import { HitNominatim, consultasPara, elegirMunicipio } from './municipio-nominatim';
 
 export interface DepartamentoDto {
   codigoDane: string;
@@ -79,30 +80,39 @@ export class GeografiaService {
     if (yaCompleto) return GeografiaService.ubicacionDe(municipio);
 
     const departamento = await this.departamentos.findOne({ where: { codigoDane: municipio.departamentoCodigo } });
-    const q = encodeURIComponent(`${municipio.nombre}, ${departamento?.nombre ?? ''}, Colombia`);
+    const nombreDepto = departamento?.nombre ?? '';
     try {
-      const r = await fetch(`https://nominatim.openstreetmap.org/search?q=${q}&format=json&limit=1`, {
-        headers: { 'Accept-Language': 'es', 'User-Agent': 'FalconCAD/1.0' },
-      });
-      const datos = (await r.json()) as Array<{ lat: string; lon: string; boundingbox?: string[] }>;
-      const primero = datos?.[0];
-      // Sin respuesta de Nominatim, pero con el punto ya cacheado de antes: se
-      // devuelve lo que hay en vez de nada. Perder el recuadro degrada la
-      // búsqueda; perder el centro deja el mapa sin dónde abrirse.
-      if (!primero) return GeografiaService.ubicacionDe(municipio);
-      const lat = Number(primero.lat);
-      const lng = Number(primero.lon);
-      if (!Number.isFinite(lat) || !Number.isFinite(lng)) return null;
-      municipio.lat = lat;
-      municipio.lng = lng;
-
-      // El recuadro venía en la misma respuesta y se estaba tirando. Es lo que
-      // permite ACOTAR la búsqueda de direcciones al municipio en vez de
-      // sesgarla con un círculo, y verificar después que el punto cayó dentro.
-      const bb = primero.boundingbox?.map(Number);
-      if (bb && bb.length === 4 && bb.every(Number.isFinite)) {
-        [municipio.latSur, municipio.latNorte, municipio.lngOeste, municipio.lngEste] = bb;
+      // Se piden VARIOS resultados y se elige, no se toma el primero: pedir
+      // uno solo fue justo lo que metió un lugar de Urrao como si fuera el
+      // municipio de Retiro. El criterio vive en `elegirMunicipio`.
+      let elegido = null as ReturnType<typeof elegirMunicipio>;
+      for (const q of consultasPara(municipio.nombre, nombreDepto)) {
+        const url = `https://nominatim.openstreetmap.org/search?q=${encodeURIComponent(q)}`
+          + '&format=json&limit=10&addressdetails=1';
+        const r = await fetch(url, {
+          headers: { 'Accept-Language': 'es', 'User-Agent': 'FalconCAD/1.0' },
+        });
+        const datos = (await r.json()) as HitNominatim[];
+        elegido = elegirMunicipio(datos, municipio.nombre, nombreDepto);
+        if (elegido) break;
       }
+
+      // Ningún resultado era el municipio. Con el punto ya cacheado de antes se
+      // devuelve ese; si tampoco lo hay, no se inventa nada. Lo que NUNCA se
+      // hace es guardar el recuadro de otro sitio: sin recuadro solo se pierde
+      // precisión, con uno equivocado se rechazan las direcciones correctas.
+      if (!elegido) {
+        this.logger.warn(`Nominatim no identificó el municipio "${municipio.nombre}, ${nombreDepto}"`);
+        return GeografiaService.ubicacionDe(municipio);
+      }
+
+      municipio.lat = elegido.lat;
+      municipio.lng = elegido.lng;
+      const r0 = elegido.recuadro;
+      municipio.latSur = r0?.sur ?? null;
+      municipio.latNorte = r0?.norte ?? null;
+      municipio.lngOeste = r0?.oeste ?? null;
+      municipio.lngEste = r0?.este ?? null;
       await this.municipios.save(municipio);
       return GeografiaService.ubicacionDe(municipio);
     } catch (e) {
