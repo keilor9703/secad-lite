@@ -38,7 +38,18 @@
       <!-- El video propio ocupa la pantalla: el ciudadano necesita ver qué está
            mostrando, no verse a sí mismo en un recuadro. -->
       <video id="video-local" class="vc__video" autoplay playsinline muted></video>
-      <audio id="audio-operador" autoplay></audio>
+      <!-- La voz del operador. Es un <video> y no un <audio> porque Safari no
+           reproduce un MediaStream remoto en un <audio> de forma fiable, y
+           `playsinline` porque si no iOS lo abre a pantalla completa. No puede
+           ir en `display: none`: iOS no reproduce medios fuera del diseño.
+           Ver `audio-operador.ts`. -->
+      <video id="voz-operador" class="vc__voz" autoplay playsinline></video>
+
+      @if (pedirToque()) {
+        <button type="button" class="vc__desbloquear" (click)="activarAudio()">
+          🔊 {{ textoToque() }}
+        </button>
+      }
 
       @if (estado() === 'esperando') {
         <div class="vc__capa">

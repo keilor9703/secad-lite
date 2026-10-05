@@ -1,4 +1,4 @@
-import { Component, OnDestroy, OnInit, inject, signal } from '@angular/core';
+import { Component, OnDestroy, OnInit, computed, inject, signal } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { HttpClient } from '@angular/common/http';
@@ -6,6 +6,8 @@ import { ActivatedRoute } from '@angular/router';
 import { io, Socket } from 'socket.io-client';
 import { environment } from '../../../environments/environment';
 import { iceServers } from '../../core/config-runtime';
+import { intentarSonar } from './audio-operador';
+import { PLAZO_UBICACION_MS, hayQuePedirToque, textoDelToque } from './permisos-ciudadano';
 
 type EstadoPagina =
   | 'validando' | 'invalido' | 'pidiendo-permiso' | 'permiso-denegado'
@@ -57,6 +59,26 @@ export class VideoCiudadanoComponent implements OnInit, OnDestroy {
   readonly chatTexto = signal('');
   readonly ubicacionActiva = signal(false);
   readonly camaraFrontal = signal(false);
+  /**
+   * La voz del operador llegó pero el navegador no deja reproducirla sin un
+   * toque. Se le pide al ciudadano, porque es el único que puede desbloquearlo.
+   */
+  readonly audioBloqueado = signal(false);
+  /** El ciudadano dijo que NO a la ubicación. Es su decisión: no se le insiste. */
+  readonly ubicacionDenegada = signal(false);
+  /** Pasó el plazo de cortesía sin que llegara ninguna posición. */
+  readonly plazoUbicacion = signal(false);
+
+  private estadoPermisos = computed(() => ({
+    audioBloqueado: this.audioBloqueado(),
+    ubicacionActiva: this.ubicacionActiva(),
+    ubicacionDenegada: this.ubicacionDenegada(),
+    plazoUbicacionCumplido: this.plazoUbicacion(),
+  }));
+
+  /** Un solo toque arregla el sonido y la ubicación; se pide una sola vez. */
+  readonly pedirToque = computed(() => hayQuePedirToque(this.estadoPermisos()));
+  readonly textoToque = computed(() => textoDelToque(this.estadoPermisos()));
 
   /** Lo que venía en la URL: la clave corta, o el token de un enlace antiguo. */
   private readonly clave = this.route.snapshot.paramMap.get('clave') ?? '';
@@ -198,14 +220,8 @@ export class VideoCiudadanoComponent implements OnInit, OnDestroy {
 
     // El audio del despachador se reproduce; su video no se envía.
     this.pc.ontrack = (ev) => {
-      const audio = document.getElementById('audio-operador') as HTMLAudioElement | null;
-      if (audio) {
-        if (ev.streams && ev.streams[0]) {
-          audio.srcObject = ev.streams[0];
-        } else if (ev.track) {
-          audio.srcObject = new MediaStream([ev.track]);
-        }
-      }
+      this.vozOperador = ev.streams?.[0] ?? (ev.track ? new MediaStream([ev.track]) : null);
+      void this.sonarOperador();
     };
 
     this.local?.getTracks().forEach((t) => this.pc!.addTrack(t, this.local!));
@@ -218,7 +234,68 @@ export class VideoCiudadanoComponent implements OnInit, OnDestroy {
     this.estado.set('en-llamada');
     this.mostrarLocal();
     this.reportarUbicacion();
+    this.desbloquearAlPrimerToque();
   }
+
+  /** La voz del operador, guardada: puede llegar antes de que exista el <audio>. */
+  private vozOperador: MediaStream | null = null;
+
+  /**
+   * Es un <video>, no un <audio>: Safari no reproduce un `MediaStream` remoto
+   * en un `<audio>` de forma fiable. Ver `audio-operador.ts`.
+   */
+  private elementoAudio(): HTMLVideoElement | null {
+    return document.getElementById('voz-operador') as HTMLVideoElement | null;
+  }
+
+  /**
+   * Intenta que suene. Si el navegador lo rechaza, se enciende el aviso para
+   * que el ciudadano lo desbloquee con un toque — nunca se queda en silencio
+   * sin que nadie lo sepa, que es lo que pasaba.
+   */
+  private async sonarOperador(): Promise<void> {
+    const el = this.elementoAudio();
+    if (!el || !this.vozOperador) return;   // aún no hay nada que sonar
+    this.audioBloqueado.set(!(await intentarSonar(el, this.vozOperador)));
+  }
+
+  /**
+   * Desde un gesto del ciudadano: ahí el navegador sí deja sonar. Lo llama el
+   * botón del aviso y también el primer toque en cualquier parte de la
+   * página, para que la mayoría de las veces el aviso ni llegue a leerse.
+   */
+  /**
+   * El toque del ciudadano: hace sonar al operador Y vuelve a pedir la
+   * ubicación. Las dos fallan por lo mismo —la página nunca le pidió tocar
+   * nada— así que se arreglan con el mismo gesto y no con dos.
+   */
+  async activarAudio(): Promise<void> {
+    if (!this.ubicacionActiva() && !this.ubicacionDenegada()) {
+      // Rearmar: un watch que nunca entregó nada no vuelve solo.
+      if (this.watchId !== null) { navigator.geolocation.clearWatch(this.watchId); this.watchId = null; }
+      this.reportarUbicacion();
+    }
+    const el = this.elementoAudio();
+    if (!el || !this.vozOperador) return;
+    // `reiniciar` aquí y no en el intento automático: el pause()+play() es el
+    // remedio del atasco de Safari y solo el gesto del ciudadano lo permite.
+    this.audioBloqueado.set(!(await intentarSonar(el, this.vozOperador, { reiniciar: true })));
+  }
+
+  /**
+   * El primer toque en cualquier parte de la pantalla reintenta la
+   * reproducción. Así, si el ciudadano toca algo por su cuenta —el chat,
+   * girar la cámara, o la propia imagen—, el sonido entra sin que llegue a
+   * leer el aviso. El aviso es la red de seguridad, no el camino previsto.
+   */
+  private desbloquearAlPrimerToque(): void {
+    if (this.quitarEscuchaToque) return;
+    const alTocar = () => { void this.activarAudio(); };
+    document.addEventListener('pointerdown', alTocar, { once: true });
+    this.quitarEscuchaToque = () => document.removeEventListener('pointerdown', alTocar);
+  }
+
+  private quitarEscuchaToque: (() => void) | null = null;
 
   private mostrarLocal(): void {
     const v = document.getElementById('video-local') as HTMLVideoElement | null;
@@ -232,6 +309,8 @@ export class VideoCiudadanoComponent implements OnInit, OnDestroy {
    */
   private reportarUbicacion(): void {
     if (!navigator.geolocation || this.watchId !== null) return;
+    // Si en el plazo no llegó nada, se le ofrece el toque. Ver `permisos-ciudadano.ts`.
+    setTimeout(() => this.plazoUbicacion.set(true), PLAZO_UBICACION_MS);
     this.watchId = navigator.geolocation.watchPosition(
       (pos) => {
         this.ubicacionActiva.set(true);
@@ -241,7 +320,13 @@ export class VideoCiudadanoComponent implements OnInit, OnDestroy {
           precision: pos.coords.accuracy,
         });
       },
-      () => this.ubicacionActiva.set(false),
+      (err) => {
+        this.ubicacionActiva.set(false);
+        // code 1 = PERMISSION_DENIED. Distinguirlo importa: negarla es una
+        // decisión del ciudadano y no se le vuelve a pedir; que falle el GPS
+        // no lo es, y ahí un toque suyo sí puede reintentarlo.
+        if (err?.code === 1) this.ubicacionDenegada.set(true);
+      },
       { enableHighAccuracy: true, maximumAge: 10_000, timeout: 20_000 },
     );
   }
@@ -283,6 +368,8 @@ export class VideoCiudadanoComponent implements OnInit, OnDestroy {
   }
 
   private desmontar(): void {
+    this.quitarEscuchaToque?.();
+    this.quitarEscuchaToque = null;
     if (this.watchId !== null) {
       navigator.geolocation.clearWatch(this.watchId);
       this.watchId = null;

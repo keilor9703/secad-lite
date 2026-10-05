@@ -133,3 +133,23 @@
     }
   }
 }
+
+/* La voz del operador. Invisible pero PRESENTE en el diseño: iOS no reproduce
+   medios de un elemento en `display: none` ni `visibility: hidden`. */
+.vc__voz {
+  position: absolute; bottom: 0; left: 0;
+  width: 1px; height: 1px;
+  opacity: 0.01; pointer-events: none;
+}
+
+/* Si el navegador bloqueó el sonido, esto es lo único que puede arreglarlo, y
+   en una emergencia tiene que verse a la primera: ancho completo, arriba del
+   todo y por encima de la imagen. */
+.vc__desbloquear {
+  position: absolute; top: 0; left: 0; right: 0; z-index: 30;
+  border: 0; border-radius: 0;
+  padding: 0.9rem 1rem;
+  background: #b4521f; color: #fff;
+  font: inherit; font-size: 1rem; font-weight: 700;
+  text-align: center; cursor: pointer;
+}
