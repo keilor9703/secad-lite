@@ -308,6 +308,10 @@ datos, así que esa copia es la única que hay.
 
 ## Estado — comprobado el 6 de octubre de 2026
 
+> La cuenta de Oracle es **Pay As You Go**. Los recortes del nivel Always Free
+> y el vencimiento de los créditos de prueba NO le aplican; los recursos
+> siempre gratuitos se siguen usando dentro de esa suscripción.
+
 Funcionando y **probado de extremo a extremo**:
 
 - Cubo de grabaciones con su enlace de lectura/escritura. Diez grabaciones
@@ -340,9 +344,10 @@ da igual y se puede dejar como está.
 
 ## Lo que todavía NO está puesto
 
-- [ ] **La cuenta de Oracle: la prueba vence a finales de octubre.** Lo que no
-      esté dentro de Always Free se termina. Es ahora mismo el riesgo más
-      grande que tiene este sistema, y no es técnico.
+- [ ] **Separar «subir la grabación» de «liberar sus bytes».** Hoy van juntas a
+      los 90 días, y eso deja hasta un mes en que una grabación existe solo en
+      la base de datos (ver la ventana, más arriba). Es el único hueco real que
+      queda en la estrategia, y no lo tapa la NAS.
 - [ ] El respaldo `completo` mensual bajado a un disco externo. Es la **única
       copia fuera de la cuenta de Oracle**: si se pierde la cuenta, se pierden
       el servidor y los dos cubos a la vez.
