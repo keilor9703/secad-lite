@@ -93,8 +93,46 @@ que hubiera que restaurar. Por eso cada respaldo deja al lado un `.conteos`.
 ### El respaldo tiene que salir del servidor
 
 Un respaldo que solo vive en la máquina que respalda no es un respaldo: si se
-pierde la máquina, se pierden los dos. Con `FALCON_RESPALDO_URL` apuntando a una
-URL prefirmada del bucket, el script lo sube solo.
+pierde la máquina, se pierden los dos. Con `FALCON_RESPALDO_URL` el script lo
+sube solo, nada más terminarlo.
+
+## Dos buckets, no uno
+
+Son dos destinos distintos y van en **dos cubos separados**, cada uno con su
+propio enlace prefirmado:
+
+| Variable | Qué guarda | Permiso del enlace |
+|---|---|---|
+| `ARCHIVO_OBJETOS_URL` | Las grabaciones archivadas | **Lectura y escritura** |
+| `FALCON_RESPALDO_URL` | Los volcados de la base | **Solo escritura** |
+
+No es manía de ordenar. Las tres razones:
+
+**1. El permiso no puede ser el mismo.** Falcon *sirve* las grabaciones desde
+su cubo, así que necesita leerlas: el enlace es de lectura y escritura. Los
+respaldos solo se suben. Con un enlace de **solo escritura**, alguien que
+entrara al servidor podría subir basura pero **no podría leerse ni borrarse los
+respaldos** — y un volcado de la base lo contiene todo: cada caso, cada
+usuario, los enrolamientos del doble factor. Es el archivo más sensible del
+sistema. Recuperarlo se hace a mano desde la consola de Oracle, que es
+exactamente donde uno quiere ese trámite.
+
+**2. Los ciclos de vida son opuestos.** Las grabaciones se quedan hasta que
+bajan a la NAS. Los respaldos se acumulan. Mezclarlos invita a que una regla
+pensada para unos toque a los otros.
+
+**3. Si un enlace se filtra, no se filtra el otro.**
+
+Active además **versionado** en el cubo de respaldos: así, si algo sobrescribe
+un respaldo con basura, la versión buena sigue ahí.
+
+> **Lo que esto NO cubre, y conviene saberlo.** El servidor de Falcon y los dos
+> cubos están en la misma cuenta de Oracle. Si se pierde la cuenta —impago,
+> cierre, acceso comprometido— se pierden los tres a la vez. De eso solo
+> protege una copia fuera de esa cuenta: el respaldo `completo` mensual bajado
+> a un disco externo (el script lo registra con `confirmar`) y, cuando exista,
+> la NAS. Es el paso que más se salta todo el mundo y el único que protege del
+> desastre de verdad.
 
 ---
 
