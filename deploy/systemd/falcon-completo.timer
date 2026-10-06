@@ -1,0 +1,12 @@
+[Unit]
+Description=FALCON CAD — respaldo completo, el día 1 de cada mes
+
+[Timer]
+OnCalendar=*-*-01 04:30:00
+# A las 04:30 del día 1: después del diario (02:15) y de la verificación de los
+# domingos (03:40), para que no se peleen por el mismo disco y la misma red.
+Persistent=true
+RandomizedDelaySec=15min
+
+[Install]
+WantedBy=timers.target

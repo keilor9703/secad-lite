@@ -1,0 +1,16 @@
+[Unit]
+Description=FALCON CAD — respaldo completo (incluye las grabaciones que siguen en la base)
+Documentation=file:///home/ubuntu/falcon-deploy/secad-lite/docs/respaldo-y-video.md
+After=network-online.target docker.service
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+User=ubuntu
+Group=ubuntu
+Environment=FALCON_DEPLOY_DIR=/home/ubuntu/falcon-deploy
+ExecStart=/home/ubuntu/falcon-deploy/secad-lite/deploy/respaldo-falcon.sh completo
+# Lleva el video: tarda mucho más que el diario y no hay prisa ninguna.
+TimeoutStartSec=4h
+Nice=19
+IOSchedulingClass=idle

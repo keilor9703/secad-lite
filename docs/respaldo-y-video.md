@@ -140,10 +140,34 @@ un respaldo con basura, la versión buena sigue ahí.
 
 | Cuándo | Qué | Quién |
 |---|---|---|
-| Todos los días, 02:15 | Respaldo diario + subida fuera del servidor | `cron` |
-| Todos los domingos | `verificar` — restauración real de prueba | `cron` |
-| Cada mes | Respaldo `completo` y bajarlo a disco externo | Administrador |
-| Cuando el bucket llegue al 75 % | Bajar todo a la NAS, verificar, y solo entonces borrar del bucket | Administrador |
+| Todos los días, 02:15 | Respaldo diario + subida al cubo | temporizador |
+| Día 1 de cada mes, 04:30 | Respaldo `completo` (con video) + subida al cubo | temporizador |
+| Domingos, 03:40 | `verificar` — restauración real de prueba | temporizador |
+| Cada mes, tras el completo | **Bajarlo a un disco externo** y registrarlo con `confirmar` | Administrador |
+| Cuando el cubo llegue al 75 % | Bajar todo a la NAS, verificar, y solo entonces borrar del cubo | Administrador |
+
+**Los dos respaldos suben al cubo**, diario y completo: es el mismo paso del
+script. Lo que NO puede hacer una máquina es la última fila de administrador:
+el disco externo es la única copia que vive **fuera de la cuenta de Oracle**,
+donde están el servidor y los dos cubos. Si se pierde la cuenta, se pierden los
+tres a la vez.
+
+### La ventana en la que una grabación existe en un solo sitio
+
+Conviene tenerla clara, porque es el punto flaco que queda:
+
+- El respaldo **diario NO lleva el video** (por eso pesa 360 KB y se puede
+  guardar quince veces).
+- Una grabación sale al cubo de archivado **a los 90 días**.
+- El `completo` corre **una vez al mes**.
+
+Entre medias hay hasta **un mes** en que una grabación recién hecha existe
+únicamente en la base de datos. Si se pierde el servidor ese día, se pierde.
+
+La solución buena no es hacer el completo más seguido: es **subir cada
+grabación al cubo en cuanto termina**, y liberar sus bytes de la base a los 90
+días como ahora. Hoy las dos cosas van juntas y no tendrían por qué. Está
+pendiente de decidir.
 
 ### El cron, y por qué deja rastro
 

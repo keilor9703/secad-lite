@@ -29,13 +29,14 @@ GUION=/home/ubuntu/falcon-deploy/secad-lite/deploy/respaldo-falcon.sh
 }
 
 for u in falcon-respaldo.service falcon-respaldo.timer \
+         falcon-completo.service falcon-completo.timer \
          falcon-verificar.service falcon-verificar.timer; do
   install -m 0644 "$AQUI/$u" "$DESTINO/$u"
   echo "  · $u"
 done
 
 systemctl daemon-reload
-systemctl enable --now falcon-respaldo.timer falcon-verificar.timer
+systemctl enable --now falcon-respaldo.timer falcon-completo.timer falcon-verificar.timer
 
 echo
 echo "Listo. Lo que corre y cuándo:"
