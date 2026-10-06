@@ -66,6 +66,34 @@ COPIAS_DIARIAS="${FALCON_COPIAS_DIARIAS:-15}"
 COPIAS_COMPLETAS="${FALCON_COPIAS_COMPLETAS:-2}"
 COPIAS_PREDESPLIEGUE="${FALCON_COPIAS_PREDESPLIEGUE:-3}"
 
+# El .env lo carga EL SCRIPT, no quien lo llama.
+#
+# `cron` arranca con un entorno casi vacío: no hereda nada de la sesión ni lee
+# ningún .env. Cuando esto dependía de quien invocaba, el respaldo nocturno se
+# hacía bien y NO SUBÍA NADA — y el aviso salía por stderr, a un correo que
+# nadie lee. Un respaldo que no sale del servidor no protege de perder el
+# servidor, que es de lo único que de verdad protege un respaldo.
+#
+# Se leen solo líneas `FALCON_*=valor`, sin ejecutar el archivo: un `.env` no
+# es un script y no tiene por qué poder correr nada. Lo que ya venga en el
+# entorno MANDA sobre el archivo, para poder sobrescribirlo en una llamada
+# suelta sin editar nada.
+cargar_env() {
+  local archivo="$1"
+  [[ -r "$archivo" ]] || return 0
+  local linea clave valor
+  while IFS= read -r linea || [[ -n "$linea" ]]; do
+    [[ "$linea" =~ ^[[:space:]]*FALCON_[A-Z0-9_]+= ]] || continue
+    clave="${linea%%=*}"; clave="${clave//[[:space:]]/}"
+    valor="${linea#*=}"
+    # Quitar comillas envolventes, si las trae.
+    [[ "$valor" == \"*\" || "$valor" == \'*\' ]] && valor="${valor:1:${#valor}-2}"
+    [[ -n "${!clave:-}" ]] || printf -v "$clave" '%s' "$valor"
+    export "${clave?}"
+  done < "$archivo"
+}
+cargar_env "$DEPLOY_DIR/.env"
+
 # Un respaldo que solo vive en el servidor que respalda no es un respaldo: si
 # se pierde la máquina, se pierden los dos. Si está definida, se sube a una URL
 # prefirmada de Oracle Object Storage (PAR), que no exige instalar nada.

@@ -145,6 +145,33 @@ un respaldo con basura, la versión buena sigue ahí.
 | Cada mes | Respaldo `completo` y bajarlo a disco externo | Administrador |
 | Cuando el bucket llegue al 75 % | Bajar todo a la NAS, verificar, y solo entonces borrar del bucket | Administrador |
 
+### El cron, y por qué deja rastro
+
+El script **carga `~/falcon-deploy/.env` él mismo**. Hace falta: `cron` arranca
+con un entorno casi vacío y no lee ningún `.env`, así que mientras esto dependía
+de quien lo llamaba, el respaldo nocturno se hacía y **no subía nada** — y el
+aviso salía por `stderr`, a un correo que nadie lee.
+
+```cron
+15 2 * * *  /home/ubuntu/falcon-deploy/secad-lite/deploy/respaldo-falcon.sh diario    >> /var/log/falcon-respaldo.log 2>&1
+40 3 * * 0  /home/ubuntu/falcon-deploy/secad-lite/deploy/respaldo-falcon.sh verificar >> /var/log/falcon-respaldo.log 2>&1
+```
+
+La redirección al log no es adorno: sin ella, lo único que avisa de que el
+respaldo no salió del servidor es un correo local.
+
+**Comprobar que el cron está haciendo su trabajo** — no que está escrito, que
+es otra cosa:
+
+```bash
+tail -30 /var/log/falcon-respaldo.log          # ¿corrió, y cómo terminó?
+ls -lt /opt/falcon-backups/*.subido | head -3  # ¿SALIÓ del servidor?
+```
+
+Un `.subido` reciente es la prueba de que el respaldo de anoche está fuera. Si
+hay `.dump` de ayer pero ningún `.subido`, el respaldo existe **solo en esta
+máquina**.
+
 ---
 
 ## Qué comprar: requisitos de la NAS

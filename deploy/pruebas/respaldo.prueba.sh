@@ -326,6 +326,56 @@ afirmar "no deja ningún .dump nuevo" "$(ls "$COPIAS"/falcon-datos-*.dump | wc -
 afirmar "ni un .parcial tirado" "$(ls "$COPIAS"/*.parcial 2>/dev/null | wc -l)" "0"
 
 echo
+echo "==> el script carga el .env por su cuenta (como lo arranca cron)"
+# `cron` arranca con un entorno casi vacío y no lee ningún .env. Cuando esto
+# dependía de quien invocaba, el respaldo nocturno se hacía y NO SUBÍA NADA,
+# avisando por stderr a un correo que nadie lee. Es el fallo que no se ve
+# hasta el día que hace falta el respaldo.
+ENVDIR="$BASE_TMP/deploy"
+mkdir -p "$ENVDIR"
+cat > "$ENVDIR/.env" <<'FIN'
+DB_PASSWORD=no-soy-falcon
+FALCON_RESPALDO_URL=https://ejemplo/p/S/n/E/b/respaldos/o
+FALCON_COPIAS_DIARIAS=7
+FIN
+
+# Solo el preámbulo del script, hasta la línea de MODO: basta para ver qué
+# quedó en el entorno sin hacer un respaldo entero.
+sonda="$BASE_TMP/sonda.sh"
+sed -n '1,/^MODO=/p' "$GUION" > "$sonda"
+cat >> "$sonda" <<'FIN'
+echo "URL=${FALCON_RESPALDO_URL:-vacia}"
+echo "DIARIAS=${FALCON_COPIAS_DIARIAS:-vacia}"
+echo "PASS=${DB_PASSWORD:-intacta}"
+FIN
+
+vacio=$(env -i HOME="$ENVDIR/.." PATH=/usr/bin:/bin FALCON_DEPLOY_DIR="$ENVDIR" bash "$sonda" 2>&1)
+afirmar_que "con el entorno vacío de cron, lee FALCON_RESPALDO_URL del .env" \
+  "$(echo "$vacio" | grep -q 'URL=https://ejemplo/' && echo 1 || echo 0)"
+afirmar_que "y también el resto de ajustes FALCON_*" \
+  "$(echo "$vacio" | grep -q 'DIARIAS=7' && echo 1 || echo 0)"
+afirmar_que "NO toca variables que no sean FALCON_* (el .env tiene secretos de otros)" \
+  "$(echo "$vacio" | grep -q 'PASS=intacta' && echo 1 || echo 0)"
+
+mandado=$(env -i HOME="$ENVDIR/.." PATH=/usr/bin:/bin FALCON_DEPLOY_DIR="$ENVDIR" \
+  FALCON_RESPALDO_URL="https://mandada/o" bash "$sonda" 2>&1)
+afirmar_que "lo que ya viene en el entorno MANDA sobre el archivo" \
+  "$(echo "$mandado" | grep -q 'URL=https://mandada/o' && echo 1 || echo 0)"
+
+# Un .env NO es un script: nadie debería poder meter órdenes ahí y que corran
+# con los permisos del respaldo.
+printf 'FALCON_RESPALDO_URL=https://buena/o\necho EJECUTADO-MAL\n' > "$ENVDIR/.env"
+hostil=$(env -i HOME="$ENVDIR/.." PATH=/usr/bin:/bin FALCON_DEPLOY_DIR="$ENVDIR" bash "$sonda" 2>&1)
+afirmar_que "un .env con órdenes dentro NO las ejecuta" \
+  "$(echo "$hostil" | grep -q 'EJECUTADO-MAL' && echo 0 || echo 1)"
+afirmar_que "y aun así lee bien la variable" \
+  "$(echo "$hostil" | grep -q 'URL=https://buena/o' && echo 1 || echo 0)"
+
+afirmar_que "sin .env no revienta: sigue sin URL" \
+  "$(rm -f "$ENVDIR/.env"; env -i HOME="$ENVDIR/.." PATH=/usr/bin:/bin FALCON_DEPLOY_DIR="$ENVDIR" \
+     bash "$sonda" 2>&1 | grep -q 'URL=vacia' && echo 1 || echo 0)"
+
+echo
 echo "────────────────────────────────────────"
 echo "$ok comprobaciones bien, $mal mal"
 [[ "$mal" == 0 ]]
