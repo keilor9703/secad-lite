@@ -129,6 +129,47 @@ dependen del tamaño:
 
 ---
 
+## Archivar ahora, sin esperar al barrido
+
+El barrido corre solo a las **3:19**. Para no esperar —al configurar el
+almacén por primera vez, o antes de una ventana de mantenimiento— un
+administrador puede dispararlo:
+
+```bash
+curl -fsS -X POST https://falconcad.com.co/api/archivos/archivado/ejecutar \
+  -H "Authorization: Bearer $TOKEN"
+```
+
+Responde, por ejemplo:
+
+```json
+{ "configurado": true, "archivadas": 3, "diasEnBase": 90 }
+```
+
+- `configurado: false` → falta `ARCHIVO_OBJETOS_URL`. **No archiva nada y el
+  disco crece.** Es lo primero que hay que mirar.
+- `archivadas: 0` con `configurado: true` → no hay grabaciones que hayan
+  cumplido los `diasEnBase`. Normal.
+
+Usa el mismo trabajo que el cron, con su mismo bloqueo: si otra réplica está
+archivando, esta pasada no hace nada.
+
+### Probar la cadena completa el día que se configura
+
+Con datos de prueba, que es cuando no cuesta nada:
+
+1. Baje el plazo a un día: `ARCHIVO_DIAS=1` en el `.env`, declararla en el
+   compose y recrear las réplicas.
+2. Dispare el archivado con el `curl` de arriba. Debe responder `archivadas`
+   mayor que cero.
+3. Abra ese caso en Falcon y **reproduzca la grabación**. Tiene que verse
+   igual: ya se está sirviendo desde el bucket.
+4. Mire el bucket en la consola de Oracle: ahí están los objetos.
+5. Vuelva a dejar `ARCHIVO_DIAS` en 90.
+
+Si el paso 3 funciona, la cadena entera está probada: subir, volver a bajar,
+comparar byte a byte, liberar la base y servir desde el bucket.
+
 ## Lo que todavía NO está puesto
 
 - [ ] El bucket y su URL prefirmada → `ARCHIVO_OBJETOS_URL`. **Sin esto el

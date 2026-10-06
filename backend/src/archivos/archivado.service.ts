@@ -70,6 +70,13 @@ export class ArchivadoService {
   get diasRetencionEnBase(): number { return this.dias; }
 
   /**
+   * ¿Hay a dónde archivar? Sin esto el barrido no hace nada y el disco crece,
+   * así que la pantalla de administración tiene que poder decirlo en vez de
+   * dejar al administrador mirando un cero sin explicación.
+   */
+  get almacenConfigurado(): boolean { return this.almacen.configurado(); }
+
+  /**
    * Abre una grabación archivada para servirla. Quien la pide no nota la
    * diferencia con una que sigue en la base: ese es el punto de archivar en un
    * almacenamiento que el servidor sí alcanza.
