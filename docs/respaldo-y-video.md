@@ -292,6 +292,9 @@ Funcionando y **probado de extremo a extremo**:
 - Cubo de respaldos con su enlace de solo escritura. El respaldo sale del
   servidor (`✔ Subido`).
 - Temporizadores de systemd: diario a las 02:15, verificación los domingos.
+  **Comprobado que disparan solos**, no solo que están instalados: el del 6 de
+  octubre corrió a las 02:19:30 — los cuatro minutos son el
+  `RandomizedDelaySec`, a propósito.
 - **La restauración de prueba pasó**: 72 de 72 casos, 22 de 22 usuarios, 11 de
   11 archivos, y `archivos_chunks` vacía como corresponde al respaldo diario.
 
