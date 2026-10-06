@@ -285,6 +285,60 @@ para cualquiera. La etiqueta de la credencial del ciudadano es el id de la
 sesión, así que un abuso se rastrea en los logs de coturn hasta la llamada que
 lo originó.
 
+### Certificado para `turns:` (TLS del TURN)
+
+El certificado de **Cloudflare Origin CA** que usa nginx **no sirve aquí**. Para
+`turns:` el navegador del ciudadano se conecta directo a coturn, sin Cloudflare
+en el medio, y valida contra las autoridades públicas: el de origen lo
+rechazaría. Hace falta uno de Let's Encrypt, aparte del que ya existe.
+
+El registro `turn.falconcad.com.co` tiene que estar en **nube gris** (DNS only).
+Con el proxy naranja, Cloudflare no transporta TURN y además el certificado que
+vería el ciudadano sería el de Cloudflare, no el suyo.
+
+**1 · Emitirlo** (HTTP-01; el puerto 80 ya está abierto y nginx responde):
+
+```bash
+sudo certbot certonly --webroot -w /var/www/html \
+  -d turn.falconcad.com.co \
+  --non-interactive --agree-tos -m <su-correo>
+```
+
+Si nginx no tiene un `server` para ese nombre, sirve `--standalone` parando
+nginx un momento, o `--nginx` para que certbot lo agregue.
+
+**2 · Dejarlo donde coturn pueda leerlo**, con el gancho de renovación:
+
+```bash
+sudo install -m 755 deploy/coturn-certificado.sh \
+  /etc/letsencrypt/renewal-hooks/deploy/coturn
+sudo /etc/letsencrypt/renewal-hooks/deploy/coturn   # la primera vez, a mano
+```
+
+No apunte `turnserver.conf` a `/etc/letsencrypt/live` directamente: ese
+directorio es 0700 de root y coturn corre como `turnserver`, así que no podría
+leer la clave y el servicio no arrancaría.
+
+**3 · En `/etc/turnserver.conf`:**
+
+```
+tls-listening-port=5349
+cert=/etc/coturn/certs/fullchain.pem
+pkey=/etc/coturn/certs/privkey.pem
+```
+
+**4 · Abrir el puerto en Oracle**: `0.0.0.0/0` · TCP · **5349**.
+
+**5 · Publicar la URL** en `TURN_URLS` del backend:
+
+```
+TURN_URLS=turn:turn.falconcad.com.co:3478?transport=udp,turns:turn.falconcad.com.co:5349
+```
+
+> El 443 sería mejor que el 5349 —lo deja pasar casi cualquier red—, pero en
+> este servidor lo ocupa nginx. Con el 5349 se cubre bastante más que hoy, no
+> el 100%.
+
 ### Probar el TURN desde fuera
 
 <https://webrtc.github.io/samples/src/content/peerconnection/trickle-ice/>
