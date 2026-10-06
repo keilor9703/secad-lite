@@ -60,13 +60,62 @@ export async function cargarConfigRuntime(): Promise<void> {
 }
 
 /**
+ * Credenciales firmadas por el backend, si las entregó.
+ *
+ * Son de vida corta: el backend las deriva de un secreto que comparte con
+ * coturn y que nunca sale del servidor. Reemplazan a la credencial estática de
+ * `runtime.json`, que viajaba en un archivo público y por lo tanto era, en los
+ * hechos, una credencial publicada en internet.
+ */
+let firmados: RTCIceServer[] | null = null;
+let firmadosVencenEn = 0;
+
+/**
+ * Guarda lo que entregó el backend. Lo llaman los dos extremos antes de crear
+ * la RTCPeerConnection: el despachador desde `GET /videollamada/ice`, y el
+ * ciudadano desde la respuesta del enlace público, que ya trae los suyos.
+ *
+ * `venceEn` viene en segundos unix. Si no viene, se le da un margen corto: es
+ * preferible volver a pedirlas de más que arrancar una llamada con una
+ * credencial que coturn ya rechaza.
+ */
+export function guardarIceFirmados(servers: RTCIceServer[] | undefined, venceEn?: number): void {
+  if (!servers?.length) return;
+  firmados = servers;
+  firmadosVencenEn = venceEn ? venceEn * 1000 : Date.now() + 5 * 60_000;
+}
+
+/** Para la prueba y para el cierre de sesión: no dejar credenciales colgando. */
+export function olvidarIceFirmados(): void {
+  firmados = null;
+  firmadosVencenEn = 0;
+}
+
+/** ¿Hay credenciales firmadas y todavía vigentes? */
+export function hayIceFirmadosVigentes(ahora: number = Date.now()): boolean {
+  // Un minuto de colchón: una credencial que vence durante el intercambio ICE
+  // deja la llamada sin relevo a mitad de camino.
+  return Boolean(firmados?.length) && ahora < firmadosVencenEn - 60_000;
+}
+
+/**
  * Los servidores ICE de la videollamada, para los DOS extremos: la consola del
  * despachador y la página del ciudadano. Una sola fuente, para que no se
  * configure uno y se olvide el otro.
+ *
+ * Orden de preferencia:
+ *   1. lo que firmó el backend, mientras esté vigente;
+ *   2. `runtime.json`, que es el respaldo mientras el despliegue no tenga
+ *      configurado `TURN_SECRET`;
+ *   3. `environment`, para un despliegue que todavía no montó el archivo.
+ *
+ * Los tres escalones existen a propósito: así este cambio se puede desplegar
+ * sin coordinar el reinicio del backend con el de coturn, y sin que una
+ * videollamada se quede sin relevo en el intervalo.
  */
 export function iceServers(): RTCIceServer[] {
-  // Compatibilidad: un despliegue que todavía no montó el archivo sigue
-  // tomando lo que hubiera en `environment`.
+  if (hayIceFirmadosVigentes()) return firmados!;
+
   const legado = environment as Partial<ConfigRuntime>;
   const stun = config.stunUrls?.length ? config.stunUrls : STUN_POR_DEFECTO;
   const servers: RTCIceServer[] = [{ urls: stun }];

@@ -5,7 +5,7 @@ import { HttpClient } from '@angular/common/http';
 import { ActivatedRoute } from '@angular/router';
 import { io, Socket } from 'socket.io-client';
 import { environment } from '../../../environments/environment';
-import { iceServers } from '../../core/config-runtime';
+import { iceServers, guardarIceFirmados } from '../../core/config-runtime';
 import { intentarSonar } from './audio-operador';
 import { PLAZO_UBICACION_MS, explicarFalloUbicacion, hayQuePedirToque, textoDelToque } from './permisos-ciudadano';
 
@@ -18,6 +18,15 @@ interface RespuestaPublica {
   mensaje?: string;
   sesionId?: string;
   estado?: string;
+  /**
+   * Servidores ICE con la credencial del TURN ya firmada y con vencimiento.
+   * Vienen aquí y no en una ruta aparte porque esta respuesta solo se produce
+   * cuando la clave corresponde a una sesión viva: una ruta pública suelta
+   * sería un dispensador de credenciales para cualquiera.
+   */
+  iceServers?: RTCIceServer[];
+  /** Marca unix (segundos) en que coturn deja de aceptar esa credencial. */
+  iceVenceEn?: number;
   /**
    * Token firmado con el que se entra a la sala. Antes venía en la URL; ahora
    * la URL lleva solo una clave corta y el token lo entrega el servidor cuando
@@ -106,6 +115,12 @@ export class VideoCiudadanoComponent implements OnInit, OnDestroy {
           this.mensajeError.set(r.mensaje || 'Este enlace ya no es válido.');
           return;
         }
+        // Antes de tocar la cámara: si el servidor firmó credenciales de TURN,
+        // guardarlas. Si no las mandó —un backend anterior a este cambio—, se
+        // sigue con la credencial estática de runtime.json y la llamada
+        // funciona igual.
+        guardarIceFirmados(r.iceServers, r.iceVenceEn);
+
         // Un enlace antiguo trae el token en la URL y el servidor no manda
         // otro; en ese caso la clave ES el token.
         this.token = r.token ?? this.clave;

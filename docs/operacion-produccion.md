@@ -235,6 +235,56 @@ Si eso devuelve el `index.html` en vez del JSON, el archivo no está en
 consola. La videollamada funciona en WiFi y falla en redes móviles con NAT
 simétrico — degradado, no caído.
 
+### Credenciales de vida corta
+
+Desde octubre de 2026 el backend puede **firmar la credencial del TURN por
+llamada**, en vez de repartir una fija.
+
+El problema que resuelve: `/config/runtime.json` es un archivo **público** —lo
+descarga el navegador de cada ciudadano antes de la videollamada—, así que la
+credencial estática que llevaba estaba, en los hechos, publicada en internet.
+Cualquiera con un `curl` podía usar el servidor como relevo propio.
+
+Con `use-auth-secret`, coturn y el backend comparten un secreto que nunca sale
+del servidor, y lo que llega al navegador es un derivado que caduca.
+
+**En coturn** (`/etc/turnserver.conf`): quitar `lt-cred-mech` y `user=`, poner
+
+```
+use-auth-secret
+static-auth-secret=<openssl rand -hex 32>
+```
+
+**En el backend** (`~/falcon-deploy/.env`): el MISMO secreto, y las URL.
+
+```
+TURN_SECRET=<el mismo de turnserver.conf>
+TURN_URLS=turn:turn.falconcad.com.co:3478?transport=udp,turns:turn.falconcad.com.co:5349
+TURN_TTL_SEGUNDOS=7200
+```
+
+> **El orden importa.** Mientras `TURN_SECRET` esté vacío, el backend no firma
+> nada y el frontend sigue usando la credencial estática de `runtime.json`: el
+> comportamiento de siempre. Por eso se puede desplegar el código primero y
+> reconfigurar coturn después, sin coordinar los dos reinicios y sin dejar
+> ninguna videollamada sin relevo en el intervalo.
+>
+> El paso que SÍ hay que hacer junto es el de coturn: en cuanto `user=` deja de
+> existir, la credencial estática de `runtime.json` ya no sirve. Entonces —y
+> solo entonces— hay que vaciar `turnUsername` y `turnCredential` del archivo.
+
+Quién recibe qué:
+
+| Extremo | De dónde la saca |
+|---|---|
+| Despachador | `GET /api/videollamada/ice`, autenticado |
+| Ciudadano | dentro de la respuesta de `GET /api/videollamada/publico/:clave`, que ya comprueba que la sesión esté viva |
+
+No hay una ruta pública suelta que entregue credenciales: sería un dispensador
+para cualquiera. La etiqueta de la credencial del ciudadano es el id de la
+sesión, así que un abuso se rastrea en los logs de coturn hasta la llamada que
+lo originó.
+
 ### Probar el TURN desde fuera
 
 <https://webrtc.github.io/samples/src/content/peerconnection/trickle-ice/>

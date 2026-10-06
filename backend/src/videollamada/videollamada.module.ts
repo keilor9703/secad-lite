@@ -7,6 +7,7 @@ import { VideollamadaService } from './videollamada.service';
 import { VideollamadaController } from './videollamada.controller';
 import { VideollamadaGateway } from './videollamada.gateway';
 import { VideoTokenService } from './video-token.service';
+import { TurnService } from './turn.service';
 import { SmsModule } from '../sms/sms.module';
 import { ArchivosModule } from '../archivos/archivos.module';
 import { AuthModule } from '../auth/auth.module';
@@ -26,7 +27,7 @@ import { AuthModule } from '../auth/auth.module';
     AuthModule,
   ],
   controllers: [VideollamadaController],
-  providers: [VideollamadaService, VideollamadaGateway, VideoTokenService],
-  exports: [VideollamadaService],
+  providers: [VideollamadaService, VideollamadaGateway, VideoTokenService, TurnService],
+  exports: [VideollamadaService, TurnService],
 })
 export class VideollamadaModule {}

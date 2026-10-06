@@ -2,6 +2,7 @@ import { Body, Controller, Get, Param, Post, Req } from '@nestjs/common';
 import { Request } from 'express';
 import { VideollamadaService } from './videollamada.service';
 import { VideoTokenService } from './video-token.service';
+import { TurnService } from './turn.service';
 import { ArchivosService } from '../archivos/archivos.service';
 import { Tenant } from '../common/tenant.decorator';
 import { Usuario } from '../common/usuario.decorator';
@@ -37,7 +38,25 @@ export class VideollamadaController {
     private readonly tokens: VideoTokenService,
     private readonly archivos: ArchivosService,
     private readonly gateway: VideollamadaGateway,
+    private readonly turn: TurnService,
   ) {}
+
+  /**
+   * GET /api/videollamada/ice — servidores ICE para el despachador.
+   *
+   * La credencial del TURN se firma aquí y caduca. Antes era estática y vivía
+   * en `/config/runtime.json`, un archivo público: quien lo abriera se quedaba
+   * con usuario y clave del servidor de relevo, para siempre.
+   *
+   * Va autenticado porque el despachador siempre lo está. El ciudadano NO usa
+   * esta ruta: recibe las suyas dentro de la respuesta del enlace público, que
+   * ya comprueba que la sesión exista y siga viva.
+   */
+  @Permisos('casos.ver')
+  @Get('videollamada/ice')
+  ice(@Usuario() actor: JwtPayload) {
+    return this.turn.obtener(actor?.sub);
+  }
 
   /** POST /api/casos/:id/videollamada — abrir la llamada y mandar el enlace. */
   @Permisos('casos.ver')
@@ -183,11 +202,19 @@ export class VideollamadaController {
     // enlace del SMS sea corto. Vale lo mismo que valía el de la URL —quien
     // tiene el código entra a esta llamada y a ninguna otra— y caduca con la
     // sesión.
+    // Los servidores ICE viajan AQUÍ y no en una ruta aparte: esta ya comprobó
+    // que la sesión existe, no terminó y no expiró, así que la credencial del
+    // TURN solo se firma para alguien que tiene un enlace vivo. Una ruta
+    // pública suelta sería un dispensador de credenciales para cualquiera.
+    const ice = this.turn.obtener(sesion.id);
+
     return {
       valido: true,
       sesionId: sesion.id,
       estado: sesion.estado,
       token: this.video.tokenDe(sesion, sesion.usuarioDespachador),
+      iceServers: ice.iceServers,
+      iceVenceEn: ice.venceEn,
     };
   }
 

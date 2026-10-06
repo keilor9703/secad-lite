@@ -5,7 +5,7 @@ import { BehaviorSubject, Observable, firstValueFrom } from 'rxjs';
 import { io, Socket } from 'socket.io-client';
 import { environment } from '../../environments/environment';
 import { AuthService } from './auth.service';
-import { iceServers } from './config-runtime';
+import { iceServers, guardarIceFirmados } from './config-runtime';
 
 export type EstadoLlamada =
   | 'inactiva' | 'esperando' | 'conectando' | 'conectada' | 'finalizada' | 'error';
@@ -248,6 +248,13 @@ export class VideollamadaService {
     this.errorSubject.next('');
     this.recorridoSubject.next([]);
 
+    // Antes de abrir nada: pedirle al backend la credencial del TURN, que
+    // ahora se firma por llamada y caduca. Si el backend todavía no la emite
+    // —o la petición falla— se sigue con la credencial estática de
+    // runtime.json, que es el respaldo. Una videollamada no se cancela porque
+    // una petición auxiliar no respondió.
+    await this.cargarIceServers();
+
     const base = environment.apiBaseUrl.replace('/api', '');
     this.socket = io(`${base}/video`, {
       auth: { token: this.auth.sesion()?.token, tenant: this.auth.tenantActivo() },
@@ -319,6 +326,22 @@ export class VideollamadaService {
     this.chatDisponibleSubject.next(true);
 
     this.prepararPeerConnection();
+  }
+
+  /**
+   * Pide al backend los servidores ICE con la credencial del TURN firmada.
+   *
+   * No lanza: lo peor que puede pasar es que la llamada use el respaldo.
+   */
+  private async cargarIceServers(): Promise<void> {
+    try {
+      const r = await firstValueFrom(this.http.get<{ iceServers?: RTCIceServer[]; venceEn?: number }>(
+        `${environment.apiBaseUrl}/videollamada/ice`));
+      guardarIceFirmados(r?.iceServers, r?.venceEn);
+    } catch {
+      // Silencio a propósito: el respaldo cubre este caso y avisar aquí solo
+      // llenaría la consola del despachador en un despliegue sin TURN_SECRET.
+    }
   }
 
   /**
