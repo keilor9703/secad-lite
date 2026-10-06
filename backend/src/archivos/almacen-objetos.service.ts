@@ -4,6 +4,7 @@ import { request as pedirHttp } from 'node:http';
 import { request as pedirHttps } from 'node:https';
 import type { ClientRequest, IncomingMessage } from 'node:http';
 import { Readable } from 'node:stream';
+import { revisarUrlAlmacen } from './url-almacen';
 
 /**
  * Almacenamiento de objetos para las grabaciones archivadas.
@@ -22,6 +23,8 @@ import { Readable } from 'node:stream';
 @Injectable()
 export class AlmacenObjetosService {
   private readonly logger = new Logger(AlmacenObjetosService.name);
+  /** Por qué la URL configurada no sirve. Vacío si sirve o si no hay ninguna. */
+  private readonly motivoInvalida: string;
   private readonly base: string;
 
   /**
@@ -32,10 +35,31 @@ export class AlmacenObjetosService {
   private readonly TIEMPO_MS = 30 * 60_000;
 
   constructor(config: ConfigService) {
-    this.base = (config.get<string>('ARCHIVO_OBJETOS_URL') ?? '').trim().replace(/\/+$/, '');
+    const crudo = (config.get<string>('ARCHIVO_OBJETOS_URL') ?? '').trim().replace(/\/+$/, '');
+    // Se revisa ANTES de usarla: una URL mal formada no falla al subir, llena
+    // el cubo de objetos con nombres absurdos. Ver `url-almacen.ts`.
+    const revision = crudo ? revisarUrlAlmacen(crudo) : { ok: false, motivo: '' };
+    this.motivoInvalida = crudo && !revision.ok ? revision.motivo : '';
+    this.base = revision.ok ? crudo : '';
+    if (this.motivoInvalida) {
+      this.logger.error(
+        `ARCHIVO_OBJETOS_URL no sirve: ${this.motivoInvalida}. El archivado NO va a funcionar.`);
+    }
   }
 
   configurado(): boolean { return this.base.length > 0; }
+
+  /**
+   * Por qué no se puede archivar, para decírselo a quien pulsa el botón. Hay
+   * dos casos muy distintos: no hay URL (falta configurarla) y hay una que no
+   * sirve (está mal escrita) — y el segundo es el que cuesta encontrar.
+   */
+  get motivoNoConfigurado(): string {
+    if (this.base) return '';
+    return this.motivoInvalida
+      ? `La URL del almacén no sirve: ${this.motivoInvalida}.`
+      : 'Falta ARCHIVO_OBJETOS_URL: no hay a dónde archivar.';
+  }
 
   /**
    * Sube el objeto. `bytes` tiene que ser el tamaño EXACTO de lo que entrega

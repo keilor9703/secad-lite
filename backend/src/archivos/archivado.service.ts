@@ -77,6 +77,9 @@ export class ArchivadoService {
    */
   get almacenConfigurado(): boolean { return this.almacen.configurado(); }
 
+  /** Por qué no se puede archivar, en palabras. Vacío si sí se puede. */
+  get motivoNoConfigurado(): string { return this.almacen.motivoNoConfigurado; }
+
   /**
    * Abre una grabación archivada para servirla. Quien la pide no nota la
    * diferencia con una que sigue en la base: ese es el punto de archivar en un

@@ -214,6 +214,36 @@ comparar byte a byte, liberar la base y servir desde el bucket.
 Si el paso 3 funciona, la cadena entera está probada: subir, volver a bajar,
 comparar byte a byte, liberar la base y servir desde el bucket.
 
+### Si el cubo se llena de objetos llamados `https:/`
+
+Pasó una vez: la variable acabó con **la URL pegada dos veces**. El `PUT`
+funcionó y el `GET` de verificación también —los dos usaban la misma ruta mal
+formada— así que las grabaciones se archivaron **sin perder un byte**, pero con
+nombres como `https://objectstorage…/o/grabaciones/…`.
+
+Hoy eso ya no puede ocurrir: la URL se revisa antes de usarse y, si no tiene
+forma de PAR de cubo, el archivado no arranca y el panel dice por qué. Para
+comprobar el valor sin enseñar el secreto:
+
+```bash
+cd ~/falcon-deploy
+docker compose exec -T backend1 printenv ARCHIVO_OBJETOS_URL \
+  | sed -E 's#/p/[^/]*#/p/«secreto»#; s#/n/[^/]*#/n/«espacio»#'
+```
+
+Tiene que salir **una sola línea** así:
+
+```
+https://objectstorage.<región>.oraclecloud.com/p/«secreto»/n/«espacio»/b/falcon-grabaciones/o
+```
+
+Si aparece `https://` dos veces, está pegada dos veces.
+
+**Qué hacer con los objetos ya subidos con el nombre malo:** déjelos. Están
+íntegros y Falcon los sirve bien, porque la base guardó la misma ruta con la
+que se subieron. **No los borre del cubo**: sus bytes ya no están en la base de
+datos, así que esa copia es la única que hay.
+
 ## Lo que todavía NO está puesto
 
 - [ ] El bucket y su URL prefirmada → `ARCHIVO_OBJETOS_URL`. **Sin esto el

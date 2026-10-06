@@ -11,6 +11,11 @@ export interface ResultadoArchivado {
    * hay que descartar cuando «no archiva nada».
    */
   configurado: boolean;
+  /**
+   * Por qué no se puede archivar, en palabras. Distingue «falta la URL» de
+   * «la URL está mal escrita», que es el caso que cuesta encontrar.
+   */
+  motivo: string;
   archivadas: number;
   /** Cuántos días se quedan las grabaciones en la base antes de salir. */
   diasEnBase: number;

@@ -98,7 +98,7 @@ export class ArchivosController {
   async ejecutarArchivado(
     @PermisosVigentes() permisos: string[],
     @Body() cuerpo: { dias?: number } = {},
-  ): Promise<{ configurado: boolean; archivadas: number; diasEnBase: number; diasUsados: number }> {
+  ): Promise<{ configurado: boolean; motivo: string; archivadas: number; diasEnBase: number; diasUsados: number }> {
     if (!permisos.includes('*')) {
       throw new ForbiddenException('Solo un administrador puede disparar el archivado.');
     }
@@ -109,6 +109,7 @@ export class ArchivosController {
     const diasEnBase = this.archivado.diasRetencionEnBase;
     return {
       configurado: this.archivado.almacenConfigurado,
+      motivo: this.archivado.motivoNoConfigurado,
       archivadas: await this.archivado.archivarVencidos(dias),
       diasEnBase,
       diasUsados: dias != null ? Math.min(Math.max(Math.floor(dias), 1), diasEnBase) : diasEnBase,

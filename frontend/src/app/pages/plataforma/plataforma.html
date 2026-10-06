@@ -184,9 +184,8 @@
     @if (archivadoResultado(); as r) {
       @if (!r.configurado) {
         <p class="error">
-          <strong>No hay a dónde archivar.</strong> Falta <code>ARCHIVO_OBJETOS_URL</code>:
-          las grabaciones se quedan en la base y el disco crece. Es lo primero que hay que
-          revisar cuando no se archiva nada.
+          <strong>No se puede archivar.</strong> {{ r.motivo }}
+          <br>Mientras tanto las grabaciones se quedan en la base de datos y el disco crece.
         </p>
       } @else {
         <p class="exito">
