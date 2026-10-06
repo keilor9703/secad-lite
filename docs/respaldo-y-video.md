@@ -152,13 +152,47 @@ con un entorno casi vacío y no lee ningún `.env`, así que mientras esto depen
 de quien lo llamaba, el respaldo nocturno se hacía y **no subía nada** — y el
 aviso salía por `stderr`, a un correo que nadie lee.
 
-```cron
-15 2 * * *  /home/ubuntu/falcon-deploy/secad-lite/deploy/respaldo-falcon.sh diario    >> /var/log/falcon-respaldo.log 2>&1
-40 3 * * 0  /home/ubuntu/falcon-deploy/secad-lite/deploy/respaldo-falcon.sh verificar >> /var/log/falcon-respaldo.log 2>&1
+**Primero, un sitio donde escribir el log.** `/var/log/` pertenece a root y el
+respaldo corre como `ubuntu`:
+
+```bash
+sudo mkdir -p /var/log/falcon
+sudo chown ubuntu:ubuntu /var/log/falcon
 ```
 
-La redirección al log no es adorno: sin ella, lo único que avisa de que el
-respaldo no salió del servidor es un correo local.
+**Después, el crontab.** Se edita con `crontab -e` — estas líneas van DENTRO
+del archivo que abre ese comando, no pegadas en la terminal:
+
+```cron
+FALCON_DEPLOY_DIR=/home/ubuntu/falcon-deploy
+
+15 2 * * *  /home/ubuntu/falcon-deploy/secad-lite/deploy/respaldo-falcon.sh diario    >> /var/log/falcon/respaldo.log 2>&1
+40 3 * * 0  /home/ubuntu/falcon-deploy/secad-lite/deploy/respaldo-falcon.sh verificar >> /var/log/falcon/respaldo.log 2>&1
+```
+
+Tres detalles que no son estilo:
+
+- **Rutas absolutas, nunca `~`.** Cron no es su shell y la expansión depende
+  de quién lo ejecute.
+- **`FALCON_DEPLOY_DIR` explícito.** El script busca ahí el `.env`; dejarlo
+  escrito evita depender de que cron ponga bien `HOME`.
+- **La redirección al log.** Sin ella, lo único que avisa de que el respaldo no
+  salió del servidor es un correo local que nadie lee.
+
+**Y que el log no crezca para siempre:**
+
+```bash
+sudo tee /etc/logrotate.d/falcon >/dev/null <<'FIN'
+/var/log/falcon/*.log {
+  weekly
+  rotate 12
+  compress
+  missingok
+  notifempty
+  create 0644 ubuntu ubuntu
+}
+FIN
+```
 
 **Comprobar que el cron está haciendo su trabajo** — no que está escrito, que
 es otra cosa:
