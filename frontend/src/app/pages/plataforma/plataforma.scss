@@ -67,3 +67,6 @@
   font-size: 0.85rem;
   margin: 0.3rem 0;
 }
+
+.archivado-botones { display: flex; flex-wrap: wrap; gap: 0.5rem; }
+.archivado-botones + .exito, .archivado-botones + .error { margin-top: 0.7rem; }

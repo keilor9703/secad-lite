@@ -7,6 +7,7 @@ import { SelectorMunicipioComponent } from '../../shared/selector-municipio/sele
 import { SelectorComponent } from '../../shared/selector/selector';
 import { OpcionComponent } from '../../shared/selector/opcion';
 import { FechaComponent } from '../../shared/fecha/fecha';
+import { ArchivadoService, ResultadoArchivado } from '../../core/archivado.service';
 
 /**
  * Supervisión de la plataforma: es la vista del dueño de FALCON CAD, no la del
@@ -24,6 +25,34 @@ import { FechaComponent } from '../../shared/fecha/fecha';
 })
 export class PlataformaComponent implements OnInit {
   private admin = inject(AdminService);
+  private archivadoSvc = inject(ArchivadoService);
+
+  /**
+   * Archivado de grabaciones. Vive AQUÍ y no en Administración porque el
+   * barrido recorre TODAS las instancias: es mantenimiento de la plataforma,
+   * no configuración de un municipio. En Administración, el administrador de
+   * un tenant habría visto un botón que afecta a todos los demás.
+   */
+  readonly archivando = signal(false);
+  readonly archivadoResultado = signal<ResultadoArchivado | null>(null);
+  readonly archivadoError = signal('');
+
+  ejecutarArchivado(dias?: number): void {
+    if (this.archivando()) return;
+    this.archivando.set(true);
+    this.archivadoResultado.set(null);
+    this.archivadoError.set('');
+    this.archivadoSvc.ejecutar(dias).subscribe({
+      next: (r) => {
+        this.archivadoResultado.set(r);
+        this.archivando.set(false);
+      },
+      error: () => {
+        this.archivando.set(false);
+        this.archivadoError.set('No fue posible ejecutar el archivado.');
+      },
+    });
+  }
 
   readonly tenants = signal<Tenant[]>([]);
   readonly error = signal('');

@@ -172,8 +172,11 @@ dependen del tamaño:
 El barrido corre solo a las **3:19**. Para no esperar —al configurar el
 almacén por primera vez, o antes de una ventana de mantenimiento— hay un botón:
 
-**Administración → Integraciones → Archivado de grabaciones → «Archivar ahora»**
-(solo superadmin).
+**Plataforma → Archivado de grabaciones → «Archivar ahora»** (solo superadmin).
+
+Está en Plataforma y no en Administración porque el barrido recorre **todas
+las instancias**: es mantenimiento de la plataforma, no configuración de un
+municipio.
 
 Dice una de dos cosas:
 
@@ -191,8 +194,8 @@ archivando, esta pasada no hace nada.
 
 ### Probar la cadena completa el día que se configura
 
-En el mismo panel hay un segundo botón: **«Probar con lo de hace más de 1
-día»**. Usa ese plazo **solo para esa pasada** y no cambia nada: no hay que
+En el mismo panel de Plataforma hay un segundo botón: **«Probar con lo de hace
+más de 1 día»**. Usa ese plazo **solo para esa pasada** y no cambia nada: no hay que
 bajar `ARCHIVO_DIAS` ni acordarse de devolverlo. Acordarse no es un mecanismo
 — si se olvida, al día siguiente se archiva todo lo que tenga más de un día,
 en silencio.

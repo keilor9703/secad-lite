@@ -12,7 +12,6 @@ import { EntidadesService } from '../../core/entidades.service';
 import { CatalogosService } from '../../core/catalogos.service';
 import { CasosService } from '../../core/casos.service';
 import { ToastService } from '../../shared/toast/toast.service';
-import { ArchivadoService, ResultadoArchivado } from '../../core/archivado.service';
 import { ConfirmService } from '../../shared/confirm/confirm.service';
 import { SelectorComponent } from '../../shared/selector/selector';
 import { OpcionComponent } from '../../shared/selector/opcion';
@@ -56,38 +55,12 @@ export class AdminComponent implements OnInit {
   private casosSvc = inject(CasosService);
   private toast = inject(ToastService);
   private confirmar = inject(ConfirmService);
-  private archivadoSvc = inject(ArchivadoService);
 
   readonly esSuperadmin = this.auth.esSuperadmin;
   readonly gestionaRoles = this.auth.gestionaRoles;
   readonly gestionaEntidades = this.auth.tienePermiso('entidades.gestionar');
   readonly gestionaCatalogos = this.auth.tienePermiso('catalogos.gestionar');
   readonly configuraRemision = this.auth.tienePermiso('casos.configurar_remision');
-
-  /** Archivado de grabaciones a petición. Solo superadmin; ver el backend. */
-  readonly archivando = signal(false);
-  readonly archivadoResultado = signal<ResultadoArchivado | null>(null);
-
-  ejecutarArchivado(dias?: number): void {
-    if (this.archivando()) return;
-    this.archivando.set(true);
-    this.archivadoResultado.set(null);
-    this.archivadoSvc.ejecutar(dias).subscribe({
-      next: (r) => {
-        this.archivadoResultado.set(r);
-        this.archivando.set(false);
-        if (!r.configurado) {
-          this.toast.error('Falta ARCHIVO_OBJETOS_URL: no hay a dónde archivar.');
-        } else {
-          this.toast.exito(`Archivado ejecutado: ${r.archivadas} grabación(es).`);
-        }
-      },
-      error: () => {
-        this.archivando.set(false);
-        this.toast.error('No fue posible ejecutar el archivado.');
-      },
-    });
-  }
 
   readonly tenants = signal<Tenant[]>([]);
   readonly usuarios = signal<UsuarioAdmin[]>([]);
