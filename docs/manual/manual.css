@@ -1,0 +1,159 @@
+/* Documento formal paginado. Se imprime con Chromium (--print-to-pdf), así que
+   lo que manda es @page y los cortes; nada de alturas de viewport. */
+@page {
+  size: A4;
+  margin: 20mm 18mm 18mm 18mm;
+}
+@page :first { margin: 0; }
+
+:root {
+  --tinta:      #10243a;
+  --tinta-sueve:#4a5f73;
+  --tenue:      #7b8ea1;
+  --acento:     #0f7d8c;
+  --acento-osc: #0a5c68;
+  --linea:      #d8e1e8;
+  --fondo-caja: #f4f8fa;
+  --aviso:      #fdf4e3;
+  --aviso-bor:  #d99b2b;
+}
+
+* { box-sizing: border-box; }
+
+html { font-size: 10.5pt; }
+
+body {
+  margin: 0;
+  font-family: "Source Sans 3", "Segoe UI", system-ui, sans-serif;
+  color: var(--tinta);
+  line-height: 1.55;
+  -webkit-print-color-adjust: exact;
+  print-color-adjust: exact;
+}
+
+/* ───────────────────────── Portada ───────────────────────── */
+.portada {
+  height: 297mm;
+  padding: 38mm 24mm 22mm;
+  background: linear-gradient(160deg, #0b2033 0%, #0e3d4a 55%, #0f7d8c 100%);
+  color: #fff;
+  page-break-after: always;
+  display: flex;
+  flex-direction: column;
+}
+.portada__marca {
+  font-size: 9pt; letter-spacing: .22em; text-transform: uppercase;
+  color: #9fd8e0; margin-bottom: 4mm;
+}
+.portada h1 {
+  font-size: 34pt; line-height: 1.08; margin: 0 0 6mm;
+  font-weight: 700; letter-spacing: -.01em;
+}
+.portada__bajada {
+  font-size: 13pt; line-height: 1.5; color: #d4eaef;
+  max-width: 120mm; margin: 0 0 auto;
+}
+.portada__pie { font-size: 10pt; color: #bfe0e6; }
+.portada__pie dl { display: grid; grid-template-columns: 38mm 1fr; gap: 1.5mm 4mm; margin: 0 0 8mm; }
+.portada__pie dt { color: #8dc6d0; }
+.portada__pie dd { margin: 0; color: #fff; }
+.portada__regla { height: 2px; background: rgba(255,255,255,.3); margin: 0 0 6mm; }
+
+/* ───────────────────────── Estructura ───────────────────────── */
+.capitulo { page-break-before: always; }
+.capitulo:first-of-type { page-break-before: avoid; }
+
+h2 {
+  font-size: 18pt; margin: 0 0 1mm; color: var(--tinta);
+  letter-spacing: -.01em; font-weight: 700;
+}
+h2 .num {
+  display: block; font-size: 9pt; letter-spacing: .18em; text-transform: uppercase;
+  color: var(--acento); font-weight: 600; margin-bottom: 1.5mm;
+}
+h3 {
+  font-size: 12pt; margin: 7mm 0 2mm; color: var(--tinta); font-weight: 650;
+  page-break-after: avoid;
+}
+h2 + p { margin-top: 3mm; }
+p { margin: 0 0 3mm; }
+ul, ol { margin: 0 0 3mm; padding-left: 5mm; }
+li { margin-bottom: 1.4mm; }
+strong { font-weight: 650; }
+.sutil { color: var(--tinta-sueve); }
+
+code, .ui {
+  font-family: "IBM Plex Mono", ui-monospace, "SFMono-Regular", Consolas, monospace;
+  font-size: .88em;
+}
+.ui {
+  background: var(--fondo-caja); border: 1px solid var(--linea);
+  border-radius: 3px; padding: .5mm 1.2mm; white-space: nowrap;
+}
+
+/* ───────────────────────── Figuras ───────────────────────── */
+figure {
+  margin: 5mm 0 6mm; page-break-inside: avoid;
+}
+figure img {
+  width: 100%; display: block;
+  border: 1px solid var(--linea); border-radius: 3px;
+}
+figcaption {
+  font-size: 8.5pt; color: var(--tinta-sueve); margin-top: 2mm;
+  line-height: 1.45; border-left: 2px solid var(--acento); padding-left: 2.5mm;
+}
+figcaption b { color: var(--tinta); font-weight: 650; }
+
+/* ───────────────────────── Avisos y tablas ───────────────────────── */
+.nota, .aviso {
+  padding: 3mm 4mm; border-radius: 3px; margin: 4mm 0;
+  font-size: 9.5pt; page-break-inside: avoid;
+}
+.nota  { background: var(--fondo-caja); border-left: 3px solid var(--acento); }
+.aviso { background: var(--aviso);      border-left: 3px solid var(--aviso-bor); }
+.nota .rotulo, .aviso .rotulo {
+  display: block; font-size: 7.5pt; letter-spacing: .16em; text-transform: uppercase;
+  font-weight: 700; margin-bottom: 1mm; color: var(--acento-osc);
+}
+.aviso .rotulo { color: #8a5d12; }
+.nota p:last-child, .aviso p:last-child { margin-bottom: 0; }
+
+table {
+  width: 100%; border-collapse: collapse; margin: 4mm 0 5mm;
+  font-size: 9.5pt; page-break-inside: avoid;
+}
+th {
+  text-align: left; font-size: 7.5pt; letter-spacing: .12em; text-transform: uppercase;
+  color: var(--tinta-sueve); border-bottom: 1.5px solid var(--tinta);
+  padding: 1.5mm 2mm; font-weight: 700;
+}
+td { padding: 1.8mm 2mm; border-bottom: 1px solid var(--linea); vertical-align: top; }
+tbody tr:last-child td { border-bottom: none; }
+td:first-child { font-weight: 600; white-space: nowrap; }
+
+/* Tabla de contenido */
+.toc { page-break-after: always; }
+.toc ol { list-style: none; padding: 0; counter-reset: cap; }
+.toc li {
+  counter-increment: cap; display: flex; align-items: baseline; gap: 3mm;
+  padding: 2mm 0; border-bottom: 1px dotted var(--linea); font-size: 11pt;
+}
+.toc li::before {
+  content: counter(cap, decimal-leading-zero);
+  font-family: "IBM Plex Mono", monospace; font-size: 9pt; color: var(--acento);
+  font-weight: 600; min-width: 8mm;
+}
+.toc .desc { color: var(--tinta-sueve); font-size: 9.5pt; }
+
+/* Control de versiones */
+.control td:first-child { white-space: normal; font-weight: 400; }
+
+/* Preguntas frecuentes */
+.sintoma { page-break-inside: avoid; margin: 0 0 4mm; }
+.sintoma h4 {
+  font-size: 10.5pt; margin: 0 0 1.5mm; font-weight: 650;
+  padding-left: 4mm; border-left: 3px solid var(--acento); color: var(--tinta);
+}
+.sintoma p, .sintoma ul, .sintoma ol { padding-left: 4mm; margin-bottom: 2mm; }
+.sintoma ul, .sintoma ol { padding-left: 9mm; }

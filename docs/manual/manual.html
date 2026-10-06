@@ -1,0 +1,846 @@
+<!doctype html>
+<html lang="es-CO">
+<head>
+<meta charset="utf-8">
+<title>Manual de usuario — FALCON CAD</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;600&family=Source+Sans+3:wght@400;600;650;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="manual.css">
+</head>
+<body>
+
+<!-- ══════════════════════════ PORTADA ══════════════════════════ -->
+<section class="portada">
+  <div class="portada__marca">FALCON CAD · Documentación para el usuario</div>
+  <h1>Manual de usuario</h1>
+  <p class="portada__bajada">
+    Cómo recepcionar, despachar y consultar casos en FALCON CAD, y cómo
+    resolver usted mismo lo que suele salir mal antes de escalar a la mesa
+    de ayuda.
+  </p>
+  <div class="portada__pie">
+    <div class="portada__regla"></div>
+    <dl>
+      <dt>Documento</dt><dd>Manual de usuario del sistema</dd>
+      <dt>Dirigido a</dt><dd>Operadores, despachadores, supervisores y administradores de la central</dd>
+      <dt>Versión</dt><dd>1.0</dd>
+      <dt>Fecha</dt><dd>6 de octubre de 2026</dd>
+    </dl>
+  </div>
+</section>
+
+<!-- ══════════════════════════ CONTROL ══════════════════════════ -->
+<section class="capitulo">
+  <h2><span class="num">Preliminares</span>Sobre este documento</h2>
+
+  <h3>Para qué sirve</h3>
+  <p>
+    Este manual explica el uso diario de FALCON CAD al personal de una central
+    de emergencias. Está escrito para que usted pueda <strong>resolver por su
+    cuenta</strong> la mayoría de las dudas y de los tropiezos que aparecen en
+    el turno, y para que, cuando sí haya que llamar a soporte, la llamada
+    llegue con la información que hace falta para atenderla rápido.
+  </p>
+
+  <h3>Qué no cubre</h3>
+  <p>
+    No describe los módulos de administración de la plataforma, que son de uso
+    exclusivo del proveedor y no aparecen en el menú de los usuarios de una
+    central. Tampoco cubre la instalación, el despliegue ni la configuración
+    de servidores.
+  </p>
+
+  <div class="nota">
+    <span class="rotulo">Sobre las imágenes</span>
+    <p>
+      Todas las pantallas de este manual son capturas del sistema en
+      funcionamiento, tomadas sobre una instancia de demostración con datos
+      ficticios de un municipio llamado <b>Municipio Demo</b>. Ningún dato
+      corresponde a personas ni a casos reales. Su pantalla puede variar en
+      los nombres de agencias, canales y códigos, porque cada central
+      configura los suyos.
+    </p>
+  </div>
+
+  <h3>Control de versiones</h3>
+  <table class="control">
+    <thead><tr><th>Versión</th><th>Fecha</th><th>Cambios</th></tr></thead>
+    <tbody>
+      <tr><td>1.0</td><td>06/10/2026</td><td>Primera edición. Cubre recepción, despacho, videollamada, consulta, panel, mapa, recursos, catálogos y administración.</td></tr>
+    </tbody>
+  </table>
+
+  <h3>Convenciones</h3>
+  <table>
+    <tbody>
+      <tr><td><span class="ui">Despachar</span></td><td>Texto que aparece tal cual en la pantalla: un botón, una pestaña, el nombre de un campo.</td></tr>
+      <tr><td>Figura 3</td><td>Las imágenes están numeradas por capítulo; el texto se refiere a ellas por ese número.</td></tr>
+      <tr><td>Nota</td><td>Información útil que conviene recordar.</td></tr>
+      <tr><td>Importante</td><td>Algo que, si se pasa por alto, causa un problema real.</td></tr>
+    </tbody>
+  </table>
+</section>
+
+<!-- ══════════════════════════ CONTENIDO ══════════════════════════ -->
+<section class="capitulo toc">
+  <h2><span class="num">Índice</span>Contenido</h2>
+  <ol>
+    <li><div><strong>Antes de empezar</strong><br><span class="desc">Entrar, verificación en dos pasos, qué ve usted según su rol.</span></div></li>
+    <li><div><strong>Recepción: tomar un caso</strong><br><span class="desc">Origen, tipificación, ubicación y canales de atención.</span></div></li>
+    <li><div><strong>Despacho: atender la cola</strong><br><span class="desc">Elegir bandeja, tomar el caso y mandar unidades.</span></div></li>
+    <li><div><strong>La ficha del caso</strong><br><span class="desc">Despachar, remitir, cerrar y reabrir.</span></div></li>
+    <li><div><strong>Videollamada con el ciudadano</strong><br><span class="desc">Invitar, ver, grabar y pedir la ubicación.</span></div></li>
+    <li><div><strong>Consulta</strong><br><span class="desc">Buscar lo recepcionado y exportarlo.</span></div></li>
+    <li><div><strong>Panel y Mapa</strong><br><span class="desc">Indicadores del período y dónde ocurren los casos.</span></div></li>
+    <li><div><strong>Recursos y Catálogos</strong><br><span class="desc">La flota y las listas que alimentan la recepción.</span></div></li>
+    <li><div><strong>Administración</strong><br><span class="desc">Cuentas, roles y permisos de la central.</span></div></li>
+    <li><div><strong>Resolver sin soporte</strong><br><span class="desc">Los problemas frecuentes y qué hacer con cada uno.</span></div></li>
+    <li><div><strong>Cuándo sí llamar a la mesa de ayuda</strong><br><span class="desc">Qué datos reunir y qué reportar de inmediato.</span></div></li>
+  </ol>
+</section>
+
+<!-- ══════════════════════ 1 · ANTES DE EMPEZAR ══════════════════════ -->
+<section class="capitulo">
+  <h2><span class="num">Capítulo 1</span>Antes de empezar</h2>
+  <p>
+    FALCON CAD se usa desde el navegador. No hay nada que instalar. Funciona en
+    Chrome, Edge, Firefox y Safari; para los puestos de la central recomendamos
+    <strong>Chrome o Edge actualizados</strong>, que son los que mejor manejan
+    el audio y el video de las videollamadas.
+  </p>
+
+  <h3>Entrar al sistema</h3>
+  <ol>
+    <li>Abra la dirección que le entregó su administrador.</li>
+    <li>Escriba su <strong>usuario</strong> y su <strong>contraseña</strong>.</li>
+    <li>Pulse <span class="ui">Ingresar</span>.</li>
+  </ol>
+
+  <figure>
+    <img src="capturas/01-login.png" alt="Pantalla de inicio de sesión de FALCON CAD">
+    <figcaption><b>Figura 1.1</b> — Pantalla de entrada. Los tres botones de la esquina superior derecha de la tarjeta cambian el tema: claro, oscuro o el del sistema operativo.</figcaption>
+  </figure>
+
+  <div class="aviso">
+    <span class="rotulo">Importante</span>
+    <p>
+      Su usuario es personal. Todo lo que se hace queda registrado con su
+      nombre: quién recepcionó, quién despachó, quién cerró. Prestar la sesión
+      no es un favor: es poner su nombre en lo que haga otra persona.
+    </p>
+  </div>
+
+  <h3>Verificación en dos pasos</h3>
+  <p>
+    Si su central tiene activada la verificación en dos pasos, después de la
+    contraseña el sistema le pedirá un código de seis dígitos. La primera vez
+    tendrá que vincular una aplicación de autenticación —Google Authenticator,
+    Microsoft Authenticator, Authy o la que use su entidad— escaneando el
+    código QR que aparece en pantalla.
+  </p>
+
+  <figure>
+    <img src="capturas/13-doble-factor.png" alt="Pantalla de vinculación de la aplicación de autenticación">
+    <figcaption><b>Figura 1.2</b> — Vinculación del segundo factor. Si no puede escanear el código, el enlace <span class="ui">¿No puede escanear?</span> muestra una clave que se escribe a mano en la aplicación.</figcaption>
+  </figure>
+
+  <p>
+    De ahí en adelante, cada vez que entre, abra la aplicación y escriba los
+    seis dígitos. <strong>El código cambia cada 30 segundos.</strong> Si el
+    sistema no se lo acepta, lo más probable es que la hora de su teléfono esté
+    puesta a mano: póngala en automático y vuelva a intentarlo.
+  </p>
+
+  <h3>Lo que usted ve según su rol</h3>
+  <p>
+    La barra superior no es igual para todos. Usted ve únicamente los módulos
+    para los que tiene permiso. Si un compañero ve una opción que usted no, no
+    es un error del sistema: son permisos distintos, y los asigna el
+    administrador de su central.
+  </p>
+
+  <table>
+    <thead><tr><th>Módulo</th><th>Para qué sirve</th><th>Quién suele usarlo</th></tr></thead>
+    <tbody>
+      <tr><td>Recepción</td><td>Tomar un caso nuevo</td><td>Operador de recepción</td></tr>
+      <tr><td>Despacho</td><td>Atender la cola y mandar unidades</td><td>Despachador</td></tr>
+      <tr><td>Consulta</td><td>Buscar casos y exportar</td><td>Todos</td></tr>
+      <tr><td>Recursos</td><td>Flota y disponibilidad</td><td>Despachador, supervisor</td></tr>
+      <tr><td>Panel</td><td>Indicadores y tiempos</td><td>Supervisor</td></tr>
+      <tr><td>Mapa</td><td>Dónde ocurren los casos</td><td>Supervisor</td></tr>
+      <tr><td>Catálogos</td><td>Agencias, canales y códigos</td><td>Administrador</td></tr>
+      <tr><td>Administración</td><td>Usuarios, roles e integraciones</td><td>Administrador</td></tr>
+    </tbody>
+  </table>
+
+  <h3>Tema claro u oscuro</h3>
+  <p>
+    Junto a su nombre, arriba a la derecha, hay tres botones para elegir el
+    tema: claro, oscuro o el del sistema. En una sala con poca luz, el oscuro
+    cansa menos la vista en un turno de noche. La elección se recuerda en ese
+    equipo.
+  </p>
+</section>
+
+<!-- ══════════════════════ 2 · RECEPCIÓN ══════════════════════ -->
+<section class="capitulo">
+  <h2><span class="num">Capítulo 2</span>Recepción: tomar un caso</h2>
+  <p>
+    Es la pantalla donde empieza todo. Está pensada para rellenarse
+    <strong>mientras usted habla</strong>, no después de colgar.
+  </p>
+
+  <figure>
+    <img src="capturas/02-recepcion.png" alt="Pantalla de recepción vacía">
+    <figcaption><b>Figura 2.1</b> — Recepción. A la izquierda, las llamadas en espera, el resumen del turno y sus últimas recepciones; a la derecha, el formulario y el mapa.</figcaption>
+  </figure>
+
+  <h3>La columna izquierda</h3>
+  <ul>
+    <li><strong>Llamadas en espera</strong> — si su central tiene planta telefónica integrada, aquí caen las llamadas entrantes. Al tomar una, el formulario se llena con el número y la hora. Si no hay integración, la lista permanece vacía y usted recepciona a mano: es normal.</li>
+    <li><strong>Total / Nuevos / En gestión</strong> — cómo va el turno. Cuenta los casos de sus canales de atención y los que usted recepcionó.</li>
+    <li><strong>Sus últimas recepciones</strong> — para volver sobre un caso que acaba de tomar sin tener que buscarlo.</li>
+  </ul>
+
+  <h3>Origen y reportante</h3>
+  <ul>
+    <li><strong>Medio de comunicación</strong> — llamada, WhatsApp o chat. Si la llamada entró por la planta telefónica, esto se llena solo.</li>
+    <li><strong>Entidad de origen</strong> — la agencia desde la que usted recepciona. Sale de su usuario.</li>
+    <li><strong>Quién reporta</strong> — el nombre de quien llama. Es obligatorio.</li>
+    <li><strong>Teléfono (abonado)</strong> — se llena solo cuando la central envía el número. Si llega vacío o con un valor extraño, pregúntelo y escríbalo.</li>
+    <li><strong>Dirección de quien llama</strong> — solo si es distinta de la del caso.</li>
+  </ul>
+
+  <h3>Tipificación</h3>
+  <ul>
+    <li><strong>Código de caso</strong> — el código operativo de su central. Al escribirlo se completan la descripción y la agencia sugerida. Si no recuerda el número, escriba parte del motivo y el campo le propone los que encajan.</li>
+    <li><strong>Prioridad</strong> — <span class="ui">Alta</span>, <span class="ui">Media</span> o <span class="ui">Baja</span>. La sugiere el código y usted puede cambiarla. Determina el orden en que el despachador la ve.</li>
+    <li><strong>Comentario / relato</strong> — lo que narra el ciudadano, en sus palabras.</li>
+  </ul>
+
+  <div class="nota">
+    <span class="rotulo">Consejo</span>
+    <p>
+      Escriba el relato aunque ya haya puesto el código. Dentro de seis meses,
+      el código le dirá <em>qué</em> pasó; el relato le dirá <em>cómo</em> pasó.
+      En una investigación, eso es lo que sirve.
+    </p>
+  </div>
+
+  <h3>Ubicación del caso</h3>
+  <ol>
+    <li>Escriba la dirección en <span class="ui">Buscar dirección</span> y elija una sugerencia. La dirección, el barrio, el municipio y el punto en el mapa se completan solos.</li>
+    <li>Si la dirección no aparece, <strong>haga clic directamente sobre el sitio en el mapa</strong>. Funciona al revés: del punto saca la dirección.</li>
+    <li>Como último recurso, escriba a mano la dirección y el barrio. Un caso con dirección escrita vale más que un caso sin ubicación.</li>
+  </ol>
+
+  <p>
+    El mapa arranca centrado en el municipio de su central, pero
+    <strong>la búsqueda no está limitada a él</strong>: si el hecho ocurrió en
+    la vía a otro municipio, el buscador lo encuentra igual.
+  </p>
+
+  <h3>Canales de atención</h3>
+  <p>
+    Abajo del formulario elige <strong>a quién se le manda el caso</strong>:
+    primero la agencia responsable y después uno o varios canales de esa
+    agencia. Cada canal es una cola de despacho, y cada agencia atiende el
+    mismo caso por separado y con su propio avance.
+  </p>
+
+  <figure>
+    <img src="capturas/03-recepcion-diligenciada.png" alt="Formulario de recepción diligenciado durante una llamada">
+    <figcaption><b>Figura 2.2</b> — El mismo formulario durante una llamada: reportante, teléfono, código <span class="ui">102</span>, el relato y la dirección. Al escribir el código, la descripción y la agencia sugerida se completan solas.</figcaption>
+  </figure>
+
+  <div class="aviso">
+    <span class="rotulo">Importante</span>
+    <p>
+      Un caso sin canal de atención no le llega a nadie: queda recepcionado,
+      pero ninguna bandeja de despacho lo muestra. Si duda de a quién
+      corresponde, mándelo a la agencia que parezca más cercana; remitirlo
+      después es un clic.
+    </p>
+  </div>
+</section>
+
+<!-- ══════════════════════ 3 · DESPACHO ══════════════════════ -->
+<section class="capitulo">
+  <h2><span class="num">Capítulo 3</span>Despacho: atender la cola</h2>
+  <p>
+    Despacho es el tablero del turno. Lo primero que pide es elegir
+    <strong>la bandeja</strong>: la agencia y, dentro de ella, el canal cuya
+    cola quiere atender. El tablero muestra un canal a la vez, porque cada
+    agencia atiende el mismo caso por separado y con su propio avance.
+  </p>
+
+  <div class="nota">
+    <span class="rotulo">Si ve «Elija una bandeja»</span>
+    <p>
+      No es un error ni una pantalla vacía: es el estado inicial. Escoja arriba
+      a la derecha la agencia y el canal, y la cola aparece.
+    </p>
+  </div>
+
+  <figure>
+    <img src="capturas/04-despacho.png" alt="Bandeja de despacho con la cola de casos sin tomar">
+    <figcaption><b>Figura 3.1</b> — Bandeja de <b>Policía Nacional · PONAL</b>. Arriba, los contadores por estado y los avisos del turno; abajo, la cola ordenada por prioridad, con el tiempo que lleva cada caso, el sitio y quién reportó.</figcaption>
+  </figure>
+
+  <h3>Cómo leer la cola</h3>
+  <ul>
+    <li><strong>Sin tomar</strong> — llegaron a su canal y nadie los ha abierto. Son los que corren.</li>
+    <li><strong>En gestión</strong> — alguien ya los tomó y está trabajándolos.</li>
+    <li><strong>Con recursos</strong> — ya tienen unidad asignada.</li>
+    <li><strong>Remitidos</strong> — se enviaron a otra agencia o a otra jurisdicción.</li>
+  </ul>
+  <p>
+    La franja de color a la izquierda de cada fila y la etiqueta de la derecha
+    indican la prioridad. El número en minutos es <strong>cuánto lleva
+    esperando</strong> ese caso, no la hora en que entró.
+  </p>
+
+  <h3>El ciclo de un caso</h3>
+  <ol>
+    <li><strong>Tomarlo</strong> — al abrirlo, el caso queda a su nombre y pasa a <em>en gestión</em>. Desde ese momento los demás ven que usted lo está atendiendo.</li>
+    <li><strong>Despachar una unidad</strong> — en la pestaña <span class="ui">Despacho</span> de la ficha, elija el recurso y confirme. El caso pasa a <em>despachado</em> y el recurso deja de estar disponible.</li>
+    <li><strong>Avanzar la unidad</strong> — marque <span class="ui">En ruta</span> y <span class="ui">En sitio</span> a medida que la unidad informa. Eso es lo que después permite medir tiempos de respuesta.</li>
+    <li><strong>Cerrar</strong> — cuando la situación termina.</li>
+  </ol>
+
+  <div class="aviso">
+    <span class="rotulo">Si no aparece ninguna unidad para despachar</span>
+    <p>
+      Solo se ofrecen los recursos <strong>de la agencia del caso</strong> que
+      estén <strong>disponibles</strong>. Si la lista sale vacía, es que todas
+      las unidades de esa agencia están ocupadas o fuera de servicio: revise
+      el módulo <span class="ui">Recursos</span> antes de llamar a soporte.
+    </p>
+  </div>
+
+  <h3>Si su usuario no tiene canal asignado</h3>
+  <p>
+    Si al entrar a Despacho el sistema le dice que su usuario todavía no tiene
+    un canal asignado, no es una falla: es un permiso que falta. Pídale a su
+    administrador que lo adscriba al canal que le corresponde, en
+    <span class="ui">Administración → Usuarios</span>.
+  </p>
+</section>
+
+<!-- ══════════════════════ 4 · FICHA DEL CASO ══════════════════════ -->
+<section class="capitulo">
+  <h2><span class="num">Capítulo 4</span>La ficha del caso</h2>
+  <p>
+    Al abrir un caso se llega a su ficha: todo lo que se sabe de él y todo lo
+    que se puede hacer con él. Las pestañas de arriba separan la información
+    de la acción.
+  </p>
+
+  <figure>
+    <img src="capturas/05-detalle-caso.png" alt="Ficha de un caso despachado">
+    <figcaption><b>Figura 4.1</b> — Ficha de un caso. Arriba el medio por el que entró y el estado; abajo la tipificación, el reportante, la ubicación con sus coordenadas, los canales de atención y el relato.</figcaption>
+  </figure>
+
+  <table>
+    <thead><tr><th>Pestaña</th><th>Qué encuentra</th></tr></thead>
+    <tbody>
+      <tr><td>Ficha</td><td>Los datos del caso y los botones para remitirlo o cerrarlo.</td></tr>
+      <tr><td>Despacho</td><td>Las unidades asignadas y el botón para despachar otra. El número junto al nombre es cuántas lleva.</td></tr>
+      <tr><td>Chat interno</td><td>Conversación entre los funcionarios que atienden el caso. No la ve el ciudadano.</td></tr>
+      <tr><td>Bitácora</td><td>Todo lo que pasó, con hora y autor. Es el registro que no se puede borrar.</td></tr>
+    </tbody>
+  </table>
+
+  <h3>Cerrar el caso</h3>
+  <p>
+    El botón <span class="ui">Cerrar caso</span> pide dos cosas, y las dos son
+    obligatorias:
+  </p>
+  <ul>
+    <li><strong>Código de cierre</strong> — cómo terminó: atendido, falsa alarma, el ciudadano desiste, sin recurso disponible… La lista la define su central.</li>
+    <li><strong>Comentario de cierre</strong> — qué pasó, en sus palabras.</li>
+  </ul>
+  <p>
+    Al cerrar, las unidades asignadas al caso quedan <strong>libres
+    automáticamente</strong>: no hace falta liberarlas a mano.
+  </p>
+
+  <div class="nota">
+    <span class="rotulo">Nota</span>
+    <p>
+      Si el caso terminó siendo algo distinto de lo que se recepcionó, al
+      cerrarlo puede corregir la tipificación. Eso no es lo mismo que el código
+      de cierre: el código de cierre es el desenlace; la tipificación es de qué
+      se trataba en realidad.
+    </p>
+  </div>
+
+  <h3>Remitir</h3>
+  <ul>
+    <li><strong>Remitir a otra entidad</strong> — cuando el caso le corresponde a otra agencia de su mismo municipio.</li>
+    <li><strong>Remitir a otra jurisdicción</strong> — cuando el hecho ocurrió en otro municipio que también usa FALCON CAD. El caso le llega allá con todo su historial.</li>
+  </ul>
+
+  <h3>Reabrir</h3>
+  <p>
+    Un caso cerrado se puede reabrir si la situación continúa. Según la
+    configuración de su central, puede que usted tenga que
+    <strong>solicitar</strong> la reapertura y que un supervisor la autorice.
+    En cualquier caso, la reapertura queda en la bitácora con el motivo.
+  </p>
+</section>
+
+<!-- ══════════════════════ 5 · VIDEOLLAMADA ══════════════════════ -->
+<section class="capitulo">
+  <h2><span class="num">Capítulo 5</span>Videollamada con el ciudadano</h2>
+  <p>
+    Desde la ficha de un caso puede abrir una videollamada con quien reporta.
+    El ciudadano <strong>no necesita instalar nada</strong>: recibe un enlace,
+    lo abre en el navegador de su teléfono y la llamada arranca.
+  </p>
+
+  <h3>Cómo se inicia</h3>
+  <ol>
+    <li>Abra la videollamada desde el caso. El sistema genera un enlace corto.</li>
+    <li>Use <span class="ui">Copiar</span> y mándeselo al ciudadano por el medio que tenga a mano: WhatsApp, SMS o dictándoselo.</li>
+    <li>Mientras no entre, verá <span class="ui">Esperando al ciudadano</span>. Cuando acepta los permisos de su teléfono, aparece el video.</li>
+  </ol>
+
+  <h3>Durante la llamada</h3>
+  <table>
+    <thead><tr><th>Control</th><th>Qué hace</th></tr></thead>
+    <tbody>
+      <tr><td>Grabando</td><td>Indica que la llamada se está grabando y queda adjunta al caso.</td></tr>
+      <tr><td>Ampliar</td><td>Pone el video del ciudadano a pantalla completa.</td></tr>
+      <tr><td>Flotante</td><td>Deja la llamada en una ventana pequeña para que usted pueda seguir trabajando el caso.</td></tr>
+      <tr><td>Colgar</td><td>Termina la llamada. La grabación queda guardada.</td></tr>
+    </tbody>
+  </table>
+
+  <h3>La ubicación del ciudadano</h3>
+  <p>
+    Al entrar, el teléfono del ciudadano le pide permiso para compartir la
+    ubicación. Si lo acepta, usted ve su posición y su recorrido sobre el mapa
+    — que es, muchas veces, la única forma de ubicar a alguien que no sabe
+    dónde está.
+  </p>
+  <p>
+    Si el permiso se niega o el teléfono no responde, el sistema se lo avisa en
+    pantalla y le dice el motivo. El más frecuente en iPhone no es que el
+    ciudadano haya dicho que no, sino que <strong>el servicio de ubicación está
+    apagado para Safari</strong> y el teléfono ni siquiera muestra la pregunta.
+    En el capítulo 10 está la ruta exacta para explicársela por teléfono.
+  </p>
+
+  <div class="aviso">
+    <span class="rotulo">Importante</span>
+    <p>
+      La videollamada se graba. Dígaselo al ciudadano. Las grabaciones quedan
+      adjuntas al caso y se conservan según la política de retención de su
+      entidad; pasado ese plazo se trasladan al archivo permanente y dejan de
+      poderse reproducir desde la ficha.
+    </p>
+  </div>
+</section>
+
+<!-- ══════════════════════ 6 · CONSULTA ══════════════════════ -->
+<section class="capitulo">
+  <h2><span class="num">Capítulo 6</span>Consulta</h2>
+  <p>
+    Consulta es el buscador de todo lo recepcionado, abierto o cerrado. Es la
+    pantalla a la que se acude cuando alguien pregunta «¿qué pasó con…?».
+  </p>
+
+  <figure>
+    <img src="capturas/06-consulta.png" alt="Pantalla de consulta de casos">
+    <figcaption><b>Figura 6.1</b> — Consulta. El contador de la esquina superior derecha indica cuántos casos está viendo del total. La columna <b>Canales</b> muestra a qué agencia y canal se envió cada caso y en qué estado va cada uno.</figcaption>
+  </figure>
+
+  <h3>Cómo buscar</h3>
+  <ul>
+    <li><strong>El campo de búsqueda</strong> busca a la vez por motivo, ciudadano, dirección, código, identificador del caso y de la llamada. No hace falta elegir por cuál.</li>
+    <li><strong>Estado</strong> y <strong>prioridad</strong> acotan la lista.</li>
+    <li><strong>Del … al …</strong> limita por fecha de recepción.</li>
+  </ul>
+  <p>
+    Los filtros se combinan: estado <em>cerrado</em> + prioridad <em>alta</em> +
+    un rango de fechas responde «¿cuántos casos de alta prioridad cerramos la
+    semana pasada?» sin pasar por el Panel.
+  </p>
+
+  <h3>Exportar</h3>
+  <p>
+    <span class="ui">Exportar CSV</span> descarga <strong>lo que está viendo con
+    los filtros puestos</strong>, no la base entera. Si necesita un informe de
+    un mes, filtre primero por fechas y después exporte. El archivo abre en
+    Excel o en LibreOffice.
+  </p>
+
+  <div class="nota">
+    <span class="rotulo">Nota</span>
+    <p>
+      Si un caso que usted recepcionó no aparece, revise el filtro de estado:
+      el valor por defecto puede estar ocultando los cerrados. Y recuerde que,
+      según su rol, puede estar viendo solo los casos de sus canales.
+    </p>
+  </div>
+</section>
+
+<!-- ══════════════════════ 7 · PANEL Y MAPA ══════════════════════ -->
+<section class="capitulo">
+  <h2><span class="num">Capítulo 7</span>Panel y Mapa</h2>
+
+  <h3>Panel de gestión</h3>
+  <p>
+    El Panel responde cómo va la operación en un período. Arriba se elige el
+    rango de fechas; si no se elige nada, muestra los últimos 30 días.
+  </p>
+
+  <figure>
+    <img src="capturas/07-panel.png" alt="Panel de gestión con indicadores y tendencia">
+    <figcaption><b>Figura 7.1</b> — Panel de gestión. Los recuadros resumen el período por estado; abajo, los hallazgos automáticos y la tendencia comparada con el período anterior.</figcaption>
+  </figure>
+
+  <ul>
+    <li><strong>Los recuadros</strong> — cuántos casos del período hay en cada estado.</li>
+    <li><strong>Hallazgos automáticos</strong> — el sistema señala por su cuenta lo que se sale de lo normal: un día con el doble de casos del promedio, o un porcentaje bajo de despachos dentro de la meta. No son errores; son avisos para mirar.</li>
+    <li><strong>Tendencia de casos</strong> — la línea del período actual contra la del anterior, para ver si sube o baja.</li>
+  </ul>
+  <p>
+    <span class="ui">Exportar PDF</span> y <span class="ui">Exportar CSV</span>
+    entregan el mismo período que está viendo, listo para un informe.
+  </p>
+
+  <h3>Mapa estadístico</h3>
+  <p>
+    El Mapa responde <em>dónde</em>. Muestra la ubicación histórica de los casos
+    y permite filtrarlos por código, por agencia y por fechas.
+  </p>
+
+  <figure>
+    <img src="capturas/08-mapa.png" alt="Mapa estadístico con la capa de calor y las estadísticas del período">
+    <figcaption><b>Figura 7.2</b> — Mapa estadístico en modo <span class="ui">Calor</span>. Arriba a la derecha se cambia entre <span class="ui">Calor</span>, <span class="ui">Cluster</span> y <span class="ui">Puntos</span>. Abajo, los días de mayor afectación y los códigos de caso más frecuentes.</figcaption>
+  </figure>
+
+  <div class="nota">
+    <span class="rotulo">Sobre esta figura</span>
+    <p>
+      En la captura, el fondo cartográfico aparece en blanco porque el equipo
+      donde se tomó no tenía salida a internet hacia el servidor de mapas. En
+      su central, la misma pantalla muestra las calles del municipio debajo de
+      los puntos.
+    </p>
+  </div>
+
+  <p>
+    El contador de arriba indica cuántos casos del período tienen ubicación y
+    cuántos no. <strong>Un caso sin ubicación no aparece en el mapa</strong>, y
+    por eso vale la pena insistir en ubicar bien en la recepción: lo que no se
+    ubica, no se puede analizar después.
+  </p>
+</section>
+
+<!-- ══════════════════════ 8 · RECURSOS Y CATÁLOGOS ══════════════════════ -->
+<section class="capitulo">
+  <h2><span class="num">Capítulo 8</span>Recursos y Catálogos</h2>
+
+  <h3>Recursos: la flota</h3>
+  <p>
+    Recursos es el inventario de unidades de la central —patrullas,
+    motorizados, ambulancias, máquinas, grúas— y su disponibilidad en este
+    momento.
+  </p>
+
+  <figure>
+    <img src="capturas/09-recursos.png" alt="Listado de recursos con su estado">
+    <figcaption><b>Figura 8.1</b> — Recursos. Cada unidad tiene código, nombre, tipo, agencia y estado. El enlace bajo la agencia es el canal al que está adscrita.</figcaption>
+  </figure>
+
+  <table>
+    <thead><tr><th>Estado</th><th>Qué significa</th></tr></thead>
+    <tbody>
+      <tr><td>Disponible</td><td>Se puede despachar. Es la única que aparece al asignar.</td></tr>
+      <tr><td>Asignado</td><td>Tiene un caso, todavía no se ha movido.</td></tr>
+      <tr><td>En ruta</td><td>Va hacia el sitio.</td></tr>
+      <tr><td>En sitio</td><td>Llegó.</td></tr>
+      <tr><td>Fuera de servicio</td><td>No se puede despachar: mantenimiento, avería, fin de turno.</td></tr>
+    </tbody>
+  </table>
+
+  <p>
+    Los tres primeros los mueve el despacho por sí solo. <span class="ui">Fuera
+    de servicio</span> se marca a mano, y es el que hay que acordarse de
+    devolver a <span class="ui">Disponible</span> cuando la unidad vuelve:
+    mientras siga marcada, nadie podrá despacharla.
+  </p>
+
+  <h3>Catálogos operativos</h3>
+  <p>
+    Catálogos son las listas que alimentan la recepción y el despacho. Las
+    administra el administrador de la central, pero conviene que todos sepan de
+    dónde salen.
+  </p>
+
+  <figure>
+    <img src="capturas/10-catalogos.png" alt="Catálogos operativos: agencias y canales">
+    <figcaption><b>Figura 8.2</b> — Catálogos. Cada agencia tiene sus canales, que son las colas por las que despacha. A esos canales se adscriben los funcionarios y a ellos se envían los casos.</figcaption>
+  </figure>
+
+  <ul>
+    <li><strong>Agencias y canales</strong> — quién atiende y por qué cola.</li>
+    <li><strong>Códigos de caso</strong> — la tipificación: el número, su descripción, la prioridad por defecto y la agencia sugerida.</li>
+    <li><strong>Códigos de cierre</strong> — los desenlaces con que se cierran los casos.</li>
+  </ul>
+
+  <div class="aviso">
+    <span class="rotulo">Importante</span>
+    <p>
+      <span class="ui">Desactivar</span> y <span class="ui">Eliminar</span> no
+      son lo mismo. Desactivar saca el elemento de las listas nuevas pero
+      conserva los casos que ya lo usaron. Eliminar solo está disponible
+      cuando nada lo está usando. Ante la duda, desactive.
+    </p>
+  </div>
+</section>
+
+<!-- ══════════════════════ 9 · ADMINISTRACIÓN ══════════════════════ -->
+<section class="capitulo">
+  <h2><span class="num">Capítulo 9</span>Administración</h2>
+  <p>
+    Administración reúne las cuentas, los roles y las integraciones de su
+    central. Solo la ven los usuarios con ese permiso.
+  </p>
+
+  <figure>
+    <img src="capturas/11-administracion-roles.png" alt="Matriz de roles y permisos">
+    <figcaption><b>Figura 9.1</b> — Roles y permisos. Cada columna es un rol y cada fila un módulo o una funcionalidad. Los roles de sistema —Administrador, Operador, Supervisor— se pueden ajustar pero no eliminar; a su derecha, un rol creado a medida.</figcaption>
+  </figure>
+
+  <h3>Roles y permisos</h3>
+  <p>
+    La matriz es la respuesta a «¿por qué mi compañero ve una opción que yo
+    no?». Se marca o se desmarca lo que cada rol puede hacer y se guarda. Las
+    <strong>funcionalidades transversales</strong> de la parte de abajo —atender
+    llamadas, responder WhatsApp— se suman a cualquier módulo marcado arriba.
+  </p>
+  <p>
+    Si los roles de sistema no encajan con la organización de la central, se
+    crea uno a medida con el nombre que se quiera y se marca exactamente lo que
+    debe poder hacer.
+  </p>
+
+  <figure>
+    <img src="capturas/12-administracion-usuarios.png" alt="Pestaña de usuarios de la administración">
+    <figcaption><b>Figura 9.2</b> — Usuarios. Desde aquí se crean las cuentas, se asigna el rol, la agencia y los canales de cada funcionario, y se restablece el segundo factor cuando alguien cambia de teléfono.</figcaption>
+  </figure>
+
+  <h3>Las otras pestañas</h3>
+  <ul>
+    <li><strong>Usuarios</strong> — alta, baja y cambio de rol. Aquí se adscribe a cada funcionario a su agencia y a sus canales, que es lo que determina qué bandejas ve en Despacho.</li>
+    <li><strong>Integraciones</strong> — las conexiones con sistemas externos: planta telefónica, WhatsApp, entidades que radican casos por API.</li>
+    <li><strong>Bitácora</strong> — el registro de los cambios administrativos: quién creó un usuario, quién cambió un permiso y cuándo.</li>
+  </ul>
+
+  <div class="nota">
+    <span class="rotulo">Si alguien perdió el segundo factor</span>
+    <p>
+      Cuando un funcionario cambia de teléfono o borra la aplicación de
+      autenticación, no hay que crearle una cuenta nueva: el administrador
+      restablece su segundo factor desde la ficha del usuario, y la próxima vez
+      que entre el sistema le pedirá vincular de nuevo la aplicación.
+    </p>
+  </div>
+</section>
+
+<!-- ══════════════════════ 10 · RESOLVER SIN SOPORTE ══════════════════════ -->
+<section class="capitulo">
+  <h2><span class="num">Capítulo 10</span>Resolver sin soporte</h2>
+  <p>
+    Lo que sigue es la lista de lo que más se reporta a la mesa de ayuda y que,
+    en la mayoría de los casos, se resuelve en el puesto en menos de dos
+    minutos. Búsquelo por el síntoma.
+  </p>
+
+  <h3>Llamadas y recepción</h3>
+
+  <div class="sintoma">
+    <h4>No me aparecen las llamadas entrantes de la planta</h4>
+    <p>El panel <span class="ui">Llamadas en espera</span> queda vacío.</p>
+    <ol>
+      <li>Confirme que su central tiene integración con la planta telefónica. Si no la tiene, el panel siempre está vacío y usted recepciona a mano: no es una falla.</li>
+      <li>Si antes funcionaba y ahora no, recargue la página con <code>Ctrl + F5</code>.</li>
+      <li>Si sigue vacío, pregunte a un compañero si a él sí le llegan. Si tampoco, es la integración y hay que reportarla.</li>
+    </ol>
+  </div>
+
+  <div class="sintoma">
+    <h4>Una llamada le apareció a otro operador y no a mí</h4>
+    <p>Las llamadas se dirigen a la extensión que las contesta. Si usted no está logueado en la extensión que recibió la llamada, el caso le aparece al compañero que sí lo está. Revise con su supervisor a qué extensión está asociado su usuario.</p>
+  </div>
+
+  <div class="sintoma">
+    <h4>El teléfono llega vacío o con un valor extraño</h4>
+    <p>Cuando la llamada entra por WhatsApp, el identificador puede llegar con un prefijo técnico en lugar del número. No lo deje así: pregúntele el número al ciudadano y escríbalo en el campo <span class="ui">Teléfono</span>.</p>
+  </div>
+
+  <h3>Direcciones y mapa</h3>
+
+  <div class="sintoma">
+    <h4>La dirección que me dicta el ciudadano no aparece</h4>
+    <ol>
+      <li>Escriba menos: solo el nombre del sitio o de la vereda, sin «calle», «número» ni el municipio. El buscador es más efectivo con menos palabras.</li>
+      <li>Pruebe con una referencia conocida cercana: un parque, un colegio, un puente, una estación.</li>
+      <li>Si aun así no sale, <strong>haga clic sobre el sitio en el mapa</strong>. Es el camino más rápido y el más preciso.</li>
+      <li>Como último recurso, escriba la dirección a mano. El caso queda sin punto en el mapa, pero con la dirección escrita.</li>
+    </ol>
+  </div>
+
+  <div class="sintoma">
+    <h4>El mapa no carga o sale un aviso de error</h4>
+    <p>Casi siempre es la red del puesto, no el sistema.</p>
+    <ol>
+      <li>Recargue con <code>Ctrl + F5</code>.</li>
+      <li>Si el mapa aparece con otro diseño, no se preocupe: el sistema cambia solo a un mapa de respaldo cuando el principal no responde. Sigue sirviendo para ubicar y para hacer clic.</li>
+      <li>Si no carga ningún mapa, pruebe abrir cualquier sitio de internet. Si tampoco abre, es la red del puesto.</li>
+    </ol>
+  </div>
+
+  <h3>Videollamada</h3>
+
+  <div class="sintoma">
+    <h4>El ciudadano no me escucha</h4>
+    <p>Es el problema más frecuente, y casi siempre es un iPhone con Safari.</p>
+    <ol>
+      <li>Pídale que <strong>toque la pantalla</strong> donde dice que active el sonido. Safari no deja sonar el audio hasta que la persona toca algo: es una regla del teléfono, no una falla del sistema.</li>
+      <li>Que suba el volumen y revise que el teléfono no esté en silencio.</li>
+      <li>Si tiene audífonos conectados, que se los ponga o los desconecte.</li>
+      <li>Si nada funciona, cuelgue y vuelva a mandarle el enlace.</li>
+    </ol>
+  </div>
+
+  <div class="sintoma">
+    <h4>Yo no escucho al ciudadano</h4>
+    <ol>
+      <li>Revise que su diadema esté seleccionada como micrófono en el navegador y que no esté silenciada por el botón físico del cable.</li>
+      <li>Revise que el ciudadano haya aceptado el permiso de micrófono en su teléfono.</li>
+      <li>Pídale que hable: si usted ve que el indicador de audio no se mueve, el problema está del lado de él.</li>
+    </ol>
+  </div>
+
+  <div class="sintoma">
+    <h4>No me llega la ubicación del ciudadano</h4>
+    <p>
+      Si el sistema le dice que el permiso fue denegado en un iPhone, lo más
+      probable es que el teléfono <strong>ni siquiera haya preguntado</strong>,
+      porque el servicio de ubicación está apagado para Safari. Dicte esta ruta
+      por teléfono:
+    </p>
+    <p class="sutil">
+      <strong>Ajustes → Privacidad y seguridad → Localización → Safari</strong>,
+      y elegir <strong>Al usar la app</strong>. Después, volver a abrir el
+      enlace de la videollamada.
+    </p>
+    <p>
+      En Android la ruta equivalente es <strong>Ajustes → Ubicación</strong>, y
+      luego aceptar el permiso cuando el navegador lo pida.
+    </p>
+  </div>
+
+  <h3>Acceso y permisos</h3>
+
+  <div class="sintoma">
+    <h4>El sistema no me acepta el código de seis dígitos</h4>
+    <ol>
+      <li>El código cambia cada 30 segundos: si alcanzó a cambiar mientras lo escribía, use el siguiente.</li>
+      <li>Revise que la hora de su teléfono esté en <strong>automático</strong>. Es la causa del 90 % de estos casos: si el reloj está desfasado, los códigos nunca coinciden.</li>
+      <li>Si cambió de teléfono o borró la aplicación, no insista: su administrador tiene que restablecerle el segundo factor.</li>
+    </ol>
+  </div>
+
+  <div class="sintoma">
+    <h4>No veo un módulo que sí ve mi compañero</h4>
+    <p>No es un error: son permisos distintos. Los asigna el administrador de su central en <span class="ui">Administración → Roles y permisos</span>. Pídale que revise su rol.</p>
+  </div>
+
+  <div class="sintoma">
+    <h4>Me sacó del sistema solo</h4>
+    <p>La sesión vence por seguridad después de un tiempo sin actividad. Vuelva a entrar. <strong>No se pierde nada</strong>: lo que ya guardó está guardado. Lo único que se pierde es un formulario de recepción a medio llenar y sin guardar — por eso conviene guardar el caso apenas tenga el mínimo, y completarlo después.</p>
+  </div>
+
+  <h3>Casos, grabaciones y pantalla</h3>
+
+  <div class="sintoma">
+    <h4>No encuentro un caso en Consulta</h4>
+    <ol>
+      <li>Revise el filtro de <span class="ui">Estado</span>: puede estar ocultando los cerrados.</li>
+      <li>Revise el rango de fechas.</li>
+      <li>Busque por el nombre del ciudadano o por la dirección, no solo por el motivo.</li>
+      <li>Según su rol, puede estar viendo únicamente los casos de sus canales.</li>
+    </ol>
+  </div>
+
+  <div class="sintoma">
+    <h4>«Esta grabación está en el archivo permanente»</h4>
+    <p>No se perdió. Pasado el plazo de retención que fijó su entidad, las grabaciones salen de la base de datos y quedan resguardadas fuera de línea. Si necesita esa grabación para un requerimiento formal, solicítela a la mesa de ayuda indicando el número del caso y la fecha: se recupera, pero no es inmediato.</p>
+  </div>
+
+  <div class="sintoma">
+    <h4>La pantalla se ve apretada o se corta</h4>
+    <ol>
+      <li>Ponga el zoom del navegador en 100 % con <code>Ctrl + 0</code>.</li>
+      <li>Si trabaja en un monitor pequeño, use el navegador a pantalla completa con <code>F11</code>.</li>
+      <li>Si le cansa la vista, cambie al tema oscuro con los botones junto a su nombre.</li>
+    </ol>
+  </div>
+
+  <div class="sintoma">
+    <h4>No puedo despachar: no aparece ninguna unidad</h4>
+    <p>Solo se ofrecen los recursos de la agencia del caso que estén <strong>disponibles</strong>. Abra <span class="ui">Recursos</span> y mire: lo más común es que alguna unidad haya quedado marcada <span class="ui">Fuera de servicio</span> y nadie la devolvió a disponible al terminar el turno.</p>
+  </div>
+</section>
+
+<!-- ══════════════════════ 11 · CUÁNDO LLAMAR ══════════════════════ -->
+<section class="capitulo">
+  <h2><span class="num">Capítulo 11</span>Cuándo sí llamar a la mesa de ayuda</h2>
+  <p>
+    Llame cuando haya agotado lo del capítulo anterior, o cuando el problema
+    esté en la lista de reporte inmediato. Un reporte bien hecho se atiende en
+    una fracción del tiempo.
+  </p>
+
+  <h3>Qué incluir en el reporte</h3>
+  <table>
+    <thead><tr><th>Dato</th><th>Por qué hace falta</th></tr></thead>
+    <tbody>
+      <tr><td>Su usuario</td><td>Para reproducir lo que usted ve, con sus permisos.</td></tr>
+      <tr><td>Hora exacta</td><td>Para encontrar el registro del momento en que falló.</td></tr>
+      <tr><td>Número del caso</td><td>Si el problema es con un caso concreto.</td></tr>
+      <tr><td>Qué estaba haciendo</td><td>El paso exacto: «al pulsar Despachar», no «no sirve».</td></tr>
+      <tr><td>Qué dijo la pantalla</td><td>El texto del mensaje, completo. Una foto de la pantalla vale el doble.</td></tr>
+      <tr><td>Si le pasa a otros</td><td>Distingue un problema del puesto de uno del sistema. Pregúntele a un compañero antes de llamar.</td></tr>
+    </tbody>
+  </table>
+
+  <h3>Reporte inmediato, sin agotar los pasos previos</h3>
+  <ul>
+    <li><strong>El sistema no carga para nadie</strong> en la central.</li>
+    <li><strong>Las llamadas dejaron de entrar</strong> a todos los puestos.</li>
+    <li><strong>Un caso desapareció</strong> o muestra información que no corresponde.</li>
+    <li><strong>Sospecha de un acceso indebido</strong>: su usuario aparece haciendo algo que usted no hizo.</li>
+  </ul>
+
+  <div class="aviso">
+    <span class="rotulo">Mientras tanto, la operación no se detiene</span>
+    <p>
+      Si el sistema no está disponible, siga atendiendo por el procedimiento
+      manual de su central y anote lo esencial de cada caso: hora, quién
+      reporta, teléfono, qué pasó y dónde. Cuando el servicio vuelva, esos
+      casos se registran. Nunca deje de atender por esperar a que un sistema
+      vuelva.
+    </p>
+  </div>
+</section>
+
+</body>
+</html>
