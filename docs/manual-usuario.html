@@ -1,0 +1,767 @@
+<title>Manual de FALCON CAD</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Archivo:wght@500;600;700&family=Source+Sans+3:ital,wght@0,400;0,600;1,400&family=IBM+Plex+Mono:wght@400;600&display=swap">
+<style>
+/* Layout: índice fijo a la izquierda + columna de lectura de 68ch. En móvil el
+   índice se pliega sobre el contenido. Paleta tomada de FALCON CAD. */
+:root{
+  --bg:#f3f6f9; --surface:#ffffff; --surface-2:#edf2f7;
+  --border:#dce5ee; --border-2:#c6d3e0;
+  --ink:#102639; --ink-soft:#42566b; --muted:#6a7d90;
+  --accent:#0c7e92; --accent-deep:#0a6273; --accent-soft:#e2f1f4;
+  --alta:#c0392b; --media:#b4762a; --baja:#1f7a4d;
+  --alta-bg:#fbeae8; --media-bg:#fbf1e2; --baja-bg:#e6f4ec;
+  --display:"Archivo","Helvetica Neue",Arial,sans-serif;
+  --body:"Source Sans 3",system-ui,-apple-system,Segoe UI,sans-serif;
+  --mono:"IBM Plex Mono",ui-monospace,SFMono-Regular,Menlo,monospace;
+}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){
+  --bg:#0b1622; --surface:#10202f; --surface-2:#172b3d;
+  --border:#24394d; --border-2:#33495e;
+  --ink:#e8f1f7; --ink-soft:#afc1d0; --muted:#8397a8;
+  --accent:#3fd3e2; --accent-deep:#7fe3ee; --accent-soft:#11313d;
+  --alta:#ef8878; --media:#e0ac5e; --baja:#5ed79b;
+  --alta-bg:#2e1a18; --media-bg:#2d2416; --baja-bg:#13281f;
+  color-scheme:dark;
+}}
+:root[data-theme="dark"]{
+  --bg:#0b1622; --surface:#10202f; --surface-2:#172b3d;
+  --border:#24394d; --border-2:#33495e;
+  --ink:#e8f1f7; --ink-soft:#afc1d0; --muted:#8397a8;
+  --accent:#3fd3e2; --accent-deep:#7fe3ee; --accent-soft:#11313d;
+  --alta:#ef8878; --media:#e0ac5e; --baja:#5ed79b;
+  --alta-bg:#2e1a18; --media-bg:#2d2416; --baja-bg:#13281f;
+  color-scheme:dark;
+}
+*{box-sizing:border-box}
+body{background:var(--bg);color:var(--ink);font-family:var(--body);font-size:16px;line-height:1.6;margin:0}
+.envoltura{display:grid;grid-template-columns:260px minmax(0,1fr);gap:2.5rem;max-width:1180px;margin:0 auto;padding-inline:20px;padding-block:0 4rem}
+@media (max-width:860px){.envoltura{grid-template-columns:minmax(0,1fr);gap:0}}
+
+/* ── Encabezado ─────────────────────────────────────────── */
+.cabecera{grid-column:1/-1;border-bottom:2px solid var(--ink);padding-block:2.5rem 1.25rem;margin-bottom:2.5rem}
+.marca{font-family:var(--mono);font-size:.72rem;letter-spacing:.22em;text-transform:uppercase;color:var(--accent);margin:0 0 .5rem}
+h1{font-family:var(--display);font-weight:700;font-size:clamp(2rem,5vw,2.9rem);line-height:1.08;margin:0 0 .6rem;text-wrap:balance;letter-spacing:-.015em}
+.bajada{font-size:1.05rem;color:var(--ink-soft);max-width:60ch;margin:0}
+
+/* ── Índice ─────────────────────────────────────────────── */
+.indice{position:sticky;top:calc(env(safe-area-inset-top,0px) + 1rem);align-self:start;max-height:calc(100vh - 3rem);overflow-y:auto;padding-bottom:2rem}
+@media (max-width:860px){.indice{position:static;max-height:none;border:1px solid var(--border);border-radius:8px;background:var(--surface);padding:1rem 1.1rem;margin-bottom:2.5rem}}
+.indice h2{font-family:var(--mono);font-size:.68rem;letter-spacing:.18em;text-transform:uppercase;color:var(--muted);margin:0 0 .75rem;font-weight:600}
+.indice ol{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:.12rem;counter-reset:idx}
+.indice a{display:flex;gap:.6rem;text-decoration:none;color:var(--ink-soft);font-size:.92rem;padding:.3rem .5rem;border-radius:5px;border-left:2px solid transparent}
+.indice a::before{counter-increment:idx;content:counter(idx,decimal-leading-zero);font-family:var(--mono);font-size:.74rem;color:var(--muted);padding-top:.15rem}
+.indice a:hover{background:var(--surface-2);color:var(--ink)}
+.indice a.activo{color:var(--accent);border-left-color:var(--accent);background:var(--accent-soft);font-weight:600}
+
+/* ── Texto ──────────────────────────────────────────────── */
+main{min-width:0;max-width:72ch}
+section{scroll-margin-top:1.5rem;margin-bottom:3.25rem}
+h2{font-family:var(--display);font-weight:700;font-size:1.65rem;line-height:1.2;margin:0 0 .3rem;text-wrap:balance;letter-spacing:-.01em}
+.eyebrow{font-family:var(--mono);font-size:.68rem;letter-spacing:.18em;text-transform:uppercase;color:var(--accent);margin:0 0 .35rem;font-weight:600}
+h3{font-family:var(--display);font-weight:600;font-size:1.12rem;margin:2rem 0 .5rem;line-height:1.3}
+h4{font-family:var(--body);font-weight:600;font-size:1rem;margin:1.4rem 0 .35rem}
+p{margin:0 0 .9rem}
+ul,ol.pasos{margin:0 0 1rem;padding-left:1.3rem}
+li{margin-bottom:.4rem}
+ol.pasos{counter-reset:paso;list-style:none;padding-left:0;display:flex;flex-direction:column;gap:.7rem}
+ol.pasos>li{counter-increment:paso;position:relative;padding-left:2.65rem;margin:0;min-height:1.7rem}
+ol.pasos>li::before{content:counter(paso);position:absolute;left:0;top:0;width:1.9rem;height:1.7rem;font-family:var(--mono);font-weight:600;font-size:.8rem;color:var(--accent);background:var(--accent-soft);border-radius:5px;display:grid;place-items:center}
+strong{font-weight:600}
+code{font-family:var(--mono);font-size:.86em;background:var(--surface-2);border:1px solid var(--border);border-radius:4px;padding:.08em .35em}
+hr{border:0;border-top:1px solid var(--border);margin:2.5rem 0}
+a{color:var(--accent)}
+
+/* ── Avisos ─────────────────────────────────────────────── */
+.nota{border-left:3px solid var(--accent);background:var(--surface);padding:.85rem 1rem;border-radius:0 6px 6px 0;margin:1.2rem 0;font-size:.95rem}
+.nota.ojo{border-left-color:var(--media);background:var(--media-bg)}
+.nota.alto{border-left-color:var(--alta);background:var(--alta-bg)}
+.nota p:last-child{margin-bottom:0}
+.nota .tit{font-family:var(--mono);font-size:.68rem;letter-spacing:.14em;text-transform:uppercase;font-weight:600;display:block;margin-bottom:.3rem;color:var(--ink-soft)}
+
+/* ── Tablas ─────────────────────────────────────────────── */
+.tabla{overflow-x:auto;margin:1.2rem 0;border:1px solid var(--border);border-radius:8px;background:var(--surface)}
+table{border-collapse:collapse;width:100%;font-size:.93rem;min-width:30rem}
+th{text-align:left;font-family:var(--mono);font-size:.68rem;letter-spacing:.1em;text-transform:uppercase;color:var(--muted);font-weight:600;padding:.7rem .85rem;border-bottom:1px solid var(--border);vertical-align:bottom}
+td{padding:.7rem .85rem;border-bottom:1px solid var(--border);vertical-align:top}
+tbody tr:last-child td{border-bottom:0}
+
+/* ── Insignias ──────────────────────────────────────────── */
+.ins{display:inline-block;font-family:var(--mono);font-size:.7rem;font-weight:600;letter-spacing:.05em;padding:.12rem .5rem;border-radius:99px;white-space:nowrap}
+.ins.alta{background:var(--alta-bg);color:var(--alta)}
+.ins.media{background:var(--media-bg);color:var(--media)}
+.ins.baja{background:var(--baja-bg);color:var(--baja)}
+.ins.neu{background:var(--surface-2);color:var(--ink-soft);border:1px solid var(--border)}
+
+/* ── Fichas de problema ─────────────────────────────────── */
+.buscador{display:flex;gap:.6rem;align-items:center;margin:1.2rem 0 1.5rem;flex-wrap:wrap}
+.buscador input{flex:1 1 16rem;min-width:0;font:inherit;font-size:.95rem;padding:.6rem .8rem;border:1px solid var(--border-2);border-radius:7px;background:var(--surface);color:var(--ink)}
+.buscador input:focus-visible{outline:2px solid var(--accent);outline-offset:1px}
+.buscador .cuenta{font-family:var(--mono);font-size:.78rem;color:var(--muted)}
+.fichas{display:flex;flex-direction:column;gap:.7rem}
+.ficha{border:1px solid var(--border);border-radius:8px;background:var(--surface);overflow:hidden}
+.ficha>summary{cursor:pointer;padding:.85rem 1rem;font-weight:600;font-size:1rem;list-style:none;display:flex;gap:.7rem;align-items:flex-start}
+.ficha>summary::-webkit-details-marker{display:none}
+.ficha>summary::before{content:"+";font-family:var(--mono);color:var(--accent);font-weight:600;line-height:1.5}
+.ficha[open]>summary::before{content:"–"}
+.ficha>summary:hover{background:var(--surface-2)}
+.ficha>summary:focus-visible{outline:2px solid var(--accent);outline-offset:-2px}
+.ficha .cuerpo{padding:0 1rem 1rem 2.4rem;font-size:.95rem;border-top:1px solid var(--border);padding-top:.9rem}
+.ficha .cuerpo p:last-child,.ficha .cuerpo ol:last-child,.ficha .cuerpo ul:last-child{margin-bottom:0}
+.porque{font-size:.9rem;color:var(--ink-soft);border-left:2px solid var(--border-2);padding-left:.75rem;margin:.8rem 0}
+.vacio{color:var(--muted);font-size:.95rem;padding:1rem;text-align:center;border:1px dashed var(--border-2);border-radius:8px}
+
+/* ── Pie ────────────────────────────────────────────────── */
+.pie{grid-column:1/-1;border-top:1px solid var(--border);margin-top:2rem;padding-top:1.5rem;font-size:.88rem;color:var(--muted)}
+@media (prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important}}
+</style>
+
+<div class="envoltura">
+
+  <header class="cabecera">
+    <p class="marca">FALCON CAD · Guía del usuario</p>
+    <h1>Manual de FALCON CAD</h1>
+    <p class="bajada">Cómo recepcionar, despachar y consultar casos — y cómo resolver usted mismo
+      lo que suele salir mal, antes de llamar a la mesa de ayuda.</p>
+  </header>
+
+  <nav class="indice" aria-label="Contenido">
+    <h2>Contenido</h2>
+    <ol>
+      <li><a href="#empezar">Antes de empezar</a></li>
+      <li><a href="#recepcion">Recepción</a></li>
+      <li><a href="#despacho">Despacho</a></li>
+      <li><a href="#videollamada">Videollamada</a></li>
+      <li><a href="#consulta">Consulta</a></li>
+      <li><a href="#panel">Panel y Mapa</a></li>
+      <li><a href="#recursos">Recursos y Catálogos</a></li>
+      <li><a href="#administracion">Administración</a></li>
+      <li><a href="#problemas">Resolver sin soporte</a></li>
+      <li><a href="#soporte">Cuándo sí llamar</a></li>
+    </ol>
+  </nav>
+
+  <main>
+
+    <!-- 1 ───────────────────────────────────────────────── -->
+    <section id="empezar">
+      <p class="eyebrow">Capítulo uno</p>
+      <h2>Antes de empezar</h2>
+      <p>FALCON CAD se usa desde el navegador. No hay nada que instalar. Funciona en
+        Chrome, Edge, Firefox y Safari; para la central recomendamos <strong>Chrome o Edge
+        actualizados</strong>.</p>
+
+      <h3>Entrar al sistema</h3>
+      <ol class="pasos">
+        <li>Abra la dirección que le dio su administrador.</li>
+        <li>Escriba su <strong>usuario</strong> y su <strong>contraseña</strong>.</li>
+        <li>Si su central tiene activada la <strong>verificación en dos pasos</strong>, el
+          sistema le pedirá el código de seis dígitos de su aplicación de autenticación.
+          Ese código cambia cada 30 segundos.</li>
+      </ol>
+
+      <div class="nota ojo">
+        <span class="tit">Importante</span>
+        <p>Su usuario es personal. Todo lo que se hace queda registrado con su nombre:
+          quién recepcionó, quién despachó, quién cerró. Prestar la sesión no es un favor,
+          es poner su nombre en lo que haga otro.</p>
+      </div>
+
+      <h3>Lo que ve según su rol</h3>
+      <p>El menú superior no es igual para todos. Usted ve únicamente los módulos
+        para los que tiene permiso. Si un compañero ve una opción que usted no, no es un
+        error del sistema: son permisos distintos, y los asigna su administrador.</p>
+
+      <div class="tabla">
+        <table>
+          <thead><tr><th>Módulo</th><th>Para qué sirve</th><th>Quién suele usarlo</th></tr></thead>
+          <tbody>
+            <tr><td><strong>Recepción</strong></td><td>Tomar un caso nuevo</td><td>Operador de recepción</td></tr>
+            <tr><td><strong>Despacho</strong></td><td>Atender la cola y mandar unidades</td><td>Despachador</td></tr>
+            <tr><td><strong>Consulta</strong></td><td>Buscar casos y exportar</td><td>Todos</td></tr>
+            <tr><td><strong>Recursos</strong></td><td>Flota y disponibilidad</td><td>Despachador, supervisor</td></tr>
+            <tr><td><strong>Panel</strong></td><td>Indicadores y tiempos</td><td>Supervisor</td></tr>
+            <tr><td><strong>Mapa</strong></td><td>Dónde ocurren los casos</td><td>Supervisor</td></tr>
+            <tr><td><strong>Catálogos</strong></td><td>Agencias, canales y códigos</td><td>Administrador</td></tr>
+            <tr><td><strong>Administración</strong></td><td>Usuarios, roles, integraciones</td><td>Administrador</td></tr>
+          </tbody>
+        </table>
+      </div>
+
+      <h3>Tema claro u oscuro</h3>
+      <p>Junto a su nombre, arriba a la derecha, hay tres botones para elegir el tema:
+        claro, oscuro o el del sistema. En una sala con poca luz, el oscuro cansa menos la
+        vista en un turno de noche.</p>
+    </section>
+
+    <!-- 2 ───────────────────────────────────────────────── -->
+    <section id="recepcion">
+      <p class="eyebrow">Capítulo dos</p>
+      <h2>Recepción: tomar un caso</h2>
+      <p>Es la pantalla donde empieza todo. Está pensada para rellenarse mientras habla,
+        no después.</p>
+
+      <h3>Origen y reportante</h3>
+      <ul>
+        <li><strong>Medio de comunicación</strong> — llamada, WhatsApp, chat. Si la llamada
+          entró por la planta telefónica, esto se llena solo.</li>
+        <li><strong>Quién reporta</strong> — el nombre de quien llama. Es obligatorio.</li>
+        <li><strong>Teléfono (abonado)</strong> — se llena solo cuando la central envía el
+          número. Si llega vacío o con un valor raro, pregúntelo y escríbalo.</li>
+        <li><strong>Dirección de quien llama</strong> — solo si es distinta de la del caso.</li>
+      </ul>
+
+      <h3>Tipificación</h3>
+      <ul>
+        <li><strong>Código de caso</strong> — el código operativo (por ejemplo <code>904</code>).
+          Al escribirlo se completan la descripción y la agencia sugerida.</li>
+        <li><strong>Prioridad</strong> —
+          <span class="ins alta">ALTA</span>
+          <span class="ins media">MEDIA</span>
+          <span class="ins baja">BAJA</span>
+          Determina el orden en que se atiende.</li>
+        <li><strong>Comentario / relato</strong> — lo que narra el ciudadano, en sus palabras.
+          Mientras escribe, el sistema le sugiere códigos de caso que encajan.</li>
+      </ul>
+
+      <div class="nota">
+        <span class="tit">Consejo</span>
+        <p>Escriba el relato aunque ya haya puesto el código. Dentro de seis meses, el
+          código le dirá <em>qué</em> pasó; el relato le dirá <em>cómo</em> pasó. En una
+          investigación, eso es lo que sirve.</p>
+      </div>
+
+      <h3>Ubicación del caso</h3>
+      <ol class="pasos">
+        <li>Escriba la dirección en <strong>Buscar dirección</strong> y elija una sugerencia.
+          La dirección, el barrio, el municipio y el punto en el mapa se llenan solos.</li>
+        <li>Si no aparece, <strong>haga clic en el mapa</strong> sobre el sitio. Funciona al
+          revés: del punto saca la dirección.</li>
+        <li>Revise que el punto quedó donde corresponde. Es lo que va a leer por radio quien
+          despacha.</li>
+      </ol>
+      <p>La búsqueda es libre: no hace falta elegir el municipio antes. El mapa abre en el
+        municipio de su central y el buscador prefiere lo que está en pantalla, igual que
+        Google Maps. Si busca algo de un municipio vecino, el municipio del caso se corrige
+        solo.</p>
+
+      <h3>A quién se envía</h3>
+      <p>En <strong>Atención</strong>, marque los canales de cada entidad que deba atender.
+        Puede enviar el mismo caso a varias: todas lo verán en su cola al mismo tiempo, y
+        cada una cierra su parte por separado.</p>
+      <p>Cuando haya más de un canal en una entidad aparece <strong>Marcar todos</strong>
+        como atajo.</p>
+      <p>Al final, <strong>Enviar</strong>. El caso entra en la cola de Despacho.</p>
+    </section>
+
+    <!-- 3 ───────────────────────────────────────────────── -->
+    <section id="despacho">
+      <p class="eyebrow">Capítulo tres</p>
+      <h2>Despacho: atender y mandar unidades</h2>
+
+      <h3>Elegir su bandeja</h3>
+      <p>Arriba elige <strong>agencia</strong> y <strong>canal</strong>. Esa es su bandeja:
+        los casos que le corresponden. Si ve <em>«Su usuario todavía no tiene un canal
+        asignado»</em>, pídale a su administrador que se lo asigne en
+        Administración → Usuarios.</p>
+
+      <h3>El ciclo de un caso</h3>
+      <div class="tabla">
+        <table>
+          <thead><tr><th>Estado</th><th>Qué significa</th></tr></thead>
+          <tbody>
+            <tr><td><span class="ins neu">NUEVO</span></td><td>Recepcionado, nadie lo ha abierto</td></tr>
+            <tr><td><span class="ins neu">EN GESTIÓN</span></td><td>Alguien lo está atendiendo</td></tr>
+            <tr><td><span class="ins neu">DESPACHADO</span></td><td>Hay al menos una unidad asignada</td></tr>
+            <tr><td><span class="ins neu">DERIVADO</span></td><td>Se remitió a otra agencia o jurisdicción</td></tr>
+            <tr><td><span class="ins neu">CERRADO</span></td><td>Terminó, con código de cierre y comentario</td></tr>
+          </tbody>
+        </table>
+      </div>
+
+      <h3>Despachar una unidad</h3>
+      <ol class="pasos">
+        <li>Abra el caso.</li>
+        <li>En <strong>Recurso disponible…</strong> elija la unidad y pulse
+          <strong>Despachar</strong>.</li>
+        <li>Vaya marcando el avance: <strong>en ruta</strong> → <strong>en sitio</strong> →
+          <strong>finalizada</strong>. Esos tiempos son los que luego mide el Panel.</li>
+      </ol>
+
+      <div class="nota ojo">
+        <span class="tit">Esto importa más de lo que parece</span>
+        <p>Marcar «en sitio» cuando la unidad llega no es burocracia: es el único dato con
+          el que después se puede decir cuánto tardó la central en atender. Si no se marca,
+          el indicador queda en blanco y nadie puede defender el trabajo que sí se hizo.</p>
+      </div>
+
+      <h3>Remitir un caso</h3>
+      <ul>
+        <li><strong>Remitir el caso</strong> — pasarlo a otra agencia dentro de su municipio.</li>
+        <li><strong>Remitir a otra jurisdicción</strong> — pasarlo a otro municipio, cuando
+          el hecho no ocurrió en el suyo. Hay que escribir el motivo.</li>
+      </ul>
+
+      <h3>Cerrar un caso</h3>
+      <p>Pulse <strong>Cerrar el caso</strong> y complete el <strong>código de cierre</strong>
+        y el <strong>comentario de cierre</strong>. Los dos son obligatorios. Si se cerró por
+        error y tiene permiso, puede <strong>Reabrir</strong>.</p>
+      <p>Al cerrar, el chat interno del caso queda en solo lectura. Nada se borra.</p>
+    </section>
+
+    <!-- 4 ───────────────────────────────────────────────── -->
+    <section id="videollamada">
+      <p class="eyebrow">Capítulo cuatro</p>
+      <h2>Videollamada con el ciudadano</h2>
+      <p>Permite ver la escena con la cámara del ciudadano, hablar con él, escribirle y
+        recibir su ubicación en vivo. El ciudadano no instala nada: abre un enlace.</p>
+
+      <h3>Cómo iniciarla</h3>
+      <ol class="pasos">
+        <li>Desde el caso, inicie la videollamada. El sistema genera un enlace.</li>
+        <li><strong>Copiar</strong> y mándeselo al ciudadano por mensaje de texto o WhatsApp.</li>
+        <li>Dígale por teléfono: <em>«le acabo de enviar un enlace, ábralo y toque Permitir
+          cuando le pida la cámara»</em>. Si no se lo dice, muchos no lo abren.</li>
+      </ol>
+
+      <h3>Lo que ve usted</h3>
+      <ul>
+        <li>El video del ciudadano, con su audio. Él escucha el suyo.</li>
+        <li><strong>Grabando</strong> cuando la sesión se está grabando.</li>
+        <li>El <strong>recorrido</strong> en el mapa de al lado: el punto rojo es dónde está
+          y el círculo alrededor es el margen de error. La línea dice hacia dónde se mueve.</li>
+        <li><strong>Ampliar</strong> y <strong>Flotante</strong> para acomodar la ventana.</li>
+      </ul>
+
+      <div class="nota ojo">
+        <span class="tit">iPhone — dígaselo antes</span>
+        <p>En iPhone con Safari, el ciudadano puede no escucharle hasta que <strong>toque la
+          pantalla una vez</strong>. Si aparece una banda naranja que dice «Toque aquí para
+          escuchar al operador», pídale que la toque. Es una restricción del teléfono, no
+          una falla.</p>
+      </div>
+
+      <h3>Si no llega la ubicación</h3>
+      <p>El ciudadano verá un aviso en su pantalla explicando por qué. El más común en
+        iPhone: el teléfono tiene la ubicación bloqueada para Safari. Se arregla en
+        <strong>Ajustes › Privacidad y seguridad › Localización › Safari</strong>.</p>
+      <p>Mientras tanto, <strong>pregúntele la dirección por voz</strong>. Es más rápido que
+        guiarlo por los ajustes del teléfono con una emergencia en curso.</p>
+    </section>
+
+    <!-- 5 ───────────────────────────────────────────────── -->
+    <section id="consulta">
+      <p class="eyebrow">Capítulo cinco</p>
+      <h2>Consulta: encontrar un caso</h2>
+      <p>Busca en todo lo recepcionado. El cuadro de búsqueda acepta
+        <strong>motivo, nombre del ciudadano, dirección, código, id de caso o id de
+        llamada</strong>. Encima puede filtrar por estado, prioridad y rango de fechas.</p>
+
+      <h3>Leer la tabla</h3>
+      <ul>
+        <li><strong>Canales</strong> — cada entidad a la que se envió, con su propio estado.
+          Ahí se ve cuál ya cerró su parte y cuál sigue trabajando.</li>
+        <li><strong>Llamada</strong> — el identificador de la llamada en la planta telefónica,
+          útil para cruzar con la grabación de audio de la central.</li>
+      </ul>
+
+      <h3>Exportar</h3>
+      <p><strong>Exportar CSV</strong> baja lo que está viendo, con los filtros puestos. Se
+        abre con Excel. Si quiere un período concreto, ponga primero las fechas.</p>
+
+      <div class="nota">
+        <span class="tit">Para encontrar algo rápido</span>
+        <p>Si tiene el número de quien llamó, búsquelo tal cual. Si tiene una fecha
+          aproximada, ponga el rango y ordene por <strong>Recepcionado</strong>. Buscar por
+          el motivo exacto casi nunca funciona: la gente lo escribe distinto cada vez.</p>
+      </div>
+    </section>
+
+    <!-- 6 ───────────────────────────────────────────────── -->
+    <section id="panel">
+      <p class="eyebrow">Capítulo seis</p>
+      <h2>Panel y Mapa</h2>
+
+      <h3>Panel de gestión</h3>
+      <p>Indicadores del municipio en el período elegido. Lo que más se usa:</p>
+      <ul>
+        <li><strong>Tiempo promedio de respuesta</strong>, en tres tramos: <strong>Tomado</strong>
+          (cuánto tardó en recepcionarse), <strong>Primer recurso</strong> (hasta despachar la
+          primera unidad) y <strong>Cierre</strong>.</li>
+        <li><strong>Hallazgos automáticos</strong> — lo que el sistema nota solo: horas pico,
+          códigos que suben, agencias con más carga.</li>
+        <li><strong>Tendencia</strong> — contra el período anterior, para ver si mejora o empeora.</li>
+        <li>Casos por canal, por agencia, por prioridad y por operador.</li>
+      </ul>
+
+      <div class="nota ojo">
+        <span class="tit">Si un tiempo sale vacío</span>
+        <p>No es un fallo del Panel: es que no se marcaron los estados de la asignación. El
+          indicador se alimenta de lo que registra el despachador. Sin «en sitio», no hay
+          tiempo de llegada que calcular.</p>
+      </div>
+
+      <h3>Mapa</h3>
+      <p>Tres vistas del mismo dato:</p>
+      <ul>
+        <li><strong>Puntos</strong> — cada caso, uno a uno. Al hacer clic se abre su ficha.</li>
+        <li><strong>Agrupados</strong> — junta los cercanos en un número. Útil con muchos casos.</li>
+        <li><strong>Calor</strong> — dónde se concentran, pesado por prioridad. Es la vista
+          para decidir dónde poner un puesto fijo o un patrullaje.</li>
+      </ul>
+    </section>
+
+    <!-- 7 ───────────────────────────────────────────────── -->
+    <section id="recursos">
+      <p class="eyebrow">Capítulo siete</p>
+      <h2>Recursos y Catálogos</h2>
+
+      <h3>Recursos</h3>
+      <p>La flota operativa: patrullas, ambulancias, máquinas. Cada una con su
+        <strong>código</strong> (por ejemplo <code>P-01</code>), nombre, agencia y estado de
+        disponibilidad. Solo los recursos <strong>disponibles</strong> aparecen para despachar.</p>
+      <p>Si una unidad sale de servicio, cámbiele el estado en vez de borrarla: borrarla
+        rompe el historial de los casos que atendió.</p>
+
+      <h3>Catálogos operativos</h3>
+      <div class="tabla">
+        <table>
+          <thead><tr><th>Catálogo</th><th>Qué define</th></tr></thead>
+          <tbody>
+            <tr><td><strong>Agencias</strong></td><td>Las entidades que atienden: Policía, Bomberos, Tránsito…</td></tr>
+            <tr><td><strong>Canales</strong></td><td>Las colas dentro de cada agencia</td></tr>
+            <tr><td><strong>Códigos de caso</strong></td><td>La tipificación, con su agencia sugerida</td></tr>
+            <tr><td><strong>Códigos de cierre</strong></td><td>Cómo terminó: efectivo, falsa alarma, sin mérito…</td></tr>
+          </tbody>
+        </table>
+      </div>
+
+      <div class="nota alto">
+        <span class="tit">Cuidado al editar catálogos</span>
+        <p>Cambiar el significado de un código ya usado altera cómo se leen los casos
+          viejos. Si un código dejó de usarse, desactívelo en lugar de reutilizarlo para
+          otra cosa.</p>
+      </div>
+    </section>
+
+    <!-- 8 ───────────────────────────────────────────────── -->
+    <section id="administracion">
+      <p class="eyebrow">Capítulo ocho</p>
+      <h2>Administración</h2>
+      <p>Solo para quien administra la central de su municipio.</p>
+
+      <h3>Usuarios</h3>
+      <p>Crear cuentas, asignarles rol y asignarles los <strong>canales</strong> que atienden
+        — eso último es lo que hace que un despachador vea su bandeja.</p>
+
+      <h3>Roles y permisos</h3>
+      <p>Un rol es un conjunto de permisos. En vez de dar permisos uno a uno, se crean roles
+        (operador, despachador, supervisor) y se asignan. Permisos que conviene conocer:</p>
+      <div class="tabla">
+        <table>
+          <thead><tr><th>Permiso</th><th>Qué habilita</th></tr></thead>
+          <tbody>
+            <tr><td><code>casos.ver_todos</code></td><td>Ver la cola completa, no solo sus canales</td></tr>
+            <tr><td><code>casos.ver_grabaciones</code></td><td>Reproducir las videollamadas grabadas</td></tr>
+            <tr><td><code>casos.cerrar</code> / <code>casos.reabrir</code></td><td>Cerrar y reabrir casos</td></tr>
+            <tr><td><code>despacho.asignar</code></td><td>Mandar unidades</td></tr>
+            <tr><td><code>metricas.ver</code></td><td>Entrar al Panel</td></tr>
+          </tbody>
+        </table>
+      </div>
+
+      <div class="nota ojo">
+        <span class="tit">Las grabaciones son aparte, y con razón</span>
+        <p>Ver una videollamada grabada exige un permiso propio. Una grabación puede
+          contener a una víctima en su peor momento. Déselo solo a quien lo necesite para
+          su trabajo.</p>
+      </div>
+
+      <h3>Bitácora</h3>
+      <p>Registro de quién cambió qué en la administración. Es el primer sitio donde mirar
+        cuando algo «cambió solo».</p>
+
+      <h3>Integraciones</h3>
+      <p>Aquí se configuran la planta telefónica, la barra CTI, WhatsApp y las entidades
+        externas que envían casos por API. <strong>Si no sabe qué es una, no la toque</strong>:
+        una clave rotada por error deja de recibir llamadas hasta que alguien la vuelva a
+        configurar en la planta.</p>
+    </section>
+
+    <hr>
+
+    <!-- 9 ───────────────────────────────────────────────── -->
+    <section id="problemas">
+      <p class="eyebrow">Capítulo nueve</p>
+      <h2>Resolver sin llamar a soporte</h2>
+      <p>La mayoría de lo que se reporta como «el sistema falla» tiene una causa conocida y
+        se arregla en menos de un minuto. Busque su síntoma.</p>
+
+      <div class="nota">
+        <span class="tit">Primeros auxilios — pruebe esto antes que nada</span>
+        <ol class="pasos" style="margin-top:.6rem">
+          <li>Recargue con <strong>Ctrl + Shift + R</strong> (en Mac, <strong>Cmd + Shift + R</strong>).
+            Fuerza al navegador a traer la versión nueva.</li>
+          <li>Compruebe que tiene internet abriendo cualquier otra página.</li>
+          <li>Cierre sesión y vuelva a entrar.</li>
+          <li>Pruebe en otro navegador. Si allí funciona, el problema es de su equipo.</li>
+        </ol>
+      </div>
+
+      <div class="buscador">
+        <label for="filtro" class="sr-only" style="font-size:.9rem;color:var(--ink-soft)">Buscar un problema:</label>
+        <input id="filtro" type="search" placeholder="Escriba su síntoma: audio, mapa, llamada, permiso…" autocomplete="off">
+        <span class="cuenta" id="cuenta"></span>
+      </div>
+
+      <div class="fichas" id="fichas">
+
+        <details class="ficha"><summary>No me aparecen las llamadas entrantes de la planta</summary>
+          <div class="cuerpo">
+            <p class="porque">Suele ser que la pantalla perdió la conexión en vivo con el servidor
+              — por una microcaída de la red, o porque el equipo estuvo suspendido.</p>
+            <ol class="pasos">
+              <li>Recargue con <strong>Ctrl + Shift + R</strong>.</li>
+              <li>Si vuelven a aparecer, era eso.</li>
+              <li>Si sigue sin verlas, confirme con su administrador que su usuario tiene
+                asignada <strong>su extensión</strong>. Una llamada dirigida a una extensión solo
+                la ve quien la tiene.</li>
+            </ol>
+          </div>
+        </details>
+
+        <details class="ficha"><summary>Una llamada le apareció a otro operador y no a mí</summary>
+          <div class="cuerpo">
+            <p class="porque">Las llamadas dirigidas a una extensión concreta solo las ve el
+              usuario que tiene esa extensión. Las que llegan <em>sin</em> extensión, o a una que
+              no existe, las ven todos los operadores.</p>
+            <p>Si cree que la extensión está mal asignada, su administrador la revisa en
+              Administración → Usuarios. No es algo que se arregle recargando.</p>
+          </div>
+        </details>
+
+        <details class="ficha"><summary>El ciudadano no me escucha en la videollamada</summary>
+          <div class="cuerpo">
+            <p class="porque">Casi siempre es un iPhone con Safari: el teléfono no deja sonar el
+              audio hasta que la persona toca la pantalla.</p>
+            <ol class="pasos">
+              <li>Pídale que <strong>toque la pantalla una vez</strong>.</li>
+              <li>Si ve una banda naranja que dice «Toque aquí para escuchar al operador»,
+                que la toque.</li>
+              <li>Que suba el volumen y revise el interruptor de silencio del teléfono.</li>
+            </ol>
+            <p>Si usted sí lo escucha a él, la llamada está bien: es solo el audio de vuelta.</p>
+          </div>
+        </details>
+
+        <details class="ficha"><summary>Yo no escucho al ciudadano</summary>
+          <div class="cuerpo">
+            <ol class="pasos">
+              <li>Revise que su diadema esté seleccionada como dispositivo de salida en Windows.</li>
+              <li>Mire si el navegador tiene bloqueado el micrófono: el candado junto a la
+                dirección lo indica.</li>
+              <li>Si el ciudadano no dio permiso a su cámara y micrófono, no llega nada.
+                Pídale que recargue el enlace y toque <strong>Permitir</strong>.</li>
+            </ol>
+          </div>
+        </details>
+
+        <details class="ficha"><summary>No llega la ubicación del ciudadano</summary>
+          <div class="cuerpo">
+            <p class="porque">En el teléfono del ciudadano aparece el motivo exacto. El más común
+              en iPhone es que la localización está desactivada para Safari en los ajustes del
+              teléfono, y entonces Safari no pregunta nada.</p>
+            <p>Dígale: <strong>Ajustes › Privacidad y seguridad › Localización › Safari</strong>,
+              y que vuelva a tocar el botón de la pantalla.</p>
+            <p><strong>Pero primero pregúntele la dirección por voz.</strong> Guiar a alguien por
+              los ajustes de su teléfono durante una emergencia cuesta más tiempo del que ahorra.</p>
+          </div>
+        </details>
+
+        <details class="ficha"><summary>En el abonado aparece algo como «+CO.4552575428314811»</summary>
+          <div class="cuerpo">
+            <p class="porque">Es lo que envía WhatsApp cuando no entrega el número real del
+              ciudadano. No es un error del sistema ni un dato corrupto.</p>
+            <p>Se guarda tal cual para no perder el rastro de la llamada, y debajo aparece una
+              nota avisándolo. <strong>Pregúntele el número al ciudadano y escríbalo</strong> en el
+              campo. Así queda uno con el que se puede devolver la llamada.</p>
+          </div>
+        </details>
+
+        <details class="ficha"><summary>No encuentro la dirección / el buscador no sugiere nada</summary>
+          <div class="cuerpo">
+            <ol class="pasos">
+              <li>Escriba menos: <em>«Calle 48 con 45»</em> encuentra más que la dirección
+                completa con apartamento y conjunto.</li>
+              <li>Para veredas y corregimientos, escriba el nombre tal cual:
+                <em>«Vereda Pantanillo»</em>.</li>
+              <li>Si aun así no sale, <strong>haga clic en el mapa</strong> sobre el sitio. Del
+                punto se saca la dirección, y es lo que de verdad necesita el despachador.</li>
+            </ol>
+            <p>Mueva el mapa hacia la zona antes de escribir: el buscador prefiere lo que está
+              en pantalla.</p>
+          </div>
+        </details>
+
+        <details class="ficha"><summary>El mapa no carga o sale un recuadro de error</summary>
+          <div class="cuerpo">
+            <ol class="pasos">
+              <li>Recargue con <strong>Ctrl + Shift + R</strong>.</li>
+              <li>Si usa un bloqueador de anuncios, desactívelo para esta página: algunos
+                bloquean los mapas.</li>
+              <li>Si tras unos segundos el mapa cambia de aspecto, es normal: el sistema pasa
+                solo a un mapa de respaldo cuando el principal no responde. <strong>Sigue
+                sirviendo para fijar el punto.</strong></li>
+            </ol>
+            <p>Si no aparece ningún mapa después de recargar dos veces, repórtelo.</p>
+          </div>
+        </details>
+
+        <details class="ficha"><summary>«Esta grabación está en el archivo permanente»</summary>
+          <div class="cuerpo">
+            <p class="porque">No se perdió. Las grabaciones antiguas se trasladan a un archivo
+              fuera de línea para no llenar el sistema. El caso conserva cuál es y cómo se llama.</p>
+            <p><strong>Copie el nombre que aparece en pantalla</strong> y solicítesela al
+              administrador. Con ese nombre la localiza de inmediato; sin él, hay que buscarla.</p>
+          </div>
+        </details>
+
+        <details class="ficha"><summary>No puedo ver un caso, cerrarlo o ver una grabación</summary>
+          <div class="cuerpo">
+            <p class="porque">Es un permiso que su cuenta no tiene. No es una falla.</p>
+            <p>Hable con el administrador de su central, no con soporte técnico: los permisos
+              los asigna él en Administración → Roles. Dígale qué necesita hacer, no qué permiso
+              quiere.</p>
+          </div>
+        </details>
+
+        <details class="ficha"><summary>Se me cierra la sesión sola</summary>
+          <div class="cuerpo">
+            <p class="porque">La sesión tiene una duración limitada por seguridad. Al vencer,
+              el sistema le pide entrar de nuevo.</p>
+            <p>Si le pasa <strong>varias veces en un mismo turno</strong>, repórtelo: eso no es
+              normal y conviene revisarlo.</p>
+          </div>
+        </details>
+
+        <details class="ficha"><summary>La pantalla se ve descuadrada o apretada</summary>
+          <div class="cuerpo">
+            <ol class="pasos">
+              <li>Ponga el zoom del navegador en 100 %: <strong>Ctrl + 0</strong>.</li>
+              <li>Maximice la ventana. Recepción y Despacho están pensados para pantalla
+                completa.</li>
+              <li>Recargue con <strong>Ctrl + Shift + R</strong>.</li>
+            </ol>
+          </div>
+        </details>
+
+        <details class="ficha"><summary>Mi compañero ve opciones que yo no veo</summary>
+          <div class="cuerpo">
+            <p class="porque">Tienen roles distintos. El menú muestra solo los módulos para los
+              que cada uno tiene permiso.</p>
+            <p>Si necesita acceso para hacer su trabajo, pídaselo a su administrador
+              explicándole qué tarea no puede completar.</p>
+          </div>
+        </details>
+
+      </div>
+
+      <p class="vacio" id="sinResultados" hidden>Ningún problema coincide con esa búsqueda.
+        Pruebe con otra palabra, o vea el capítulo siguiente para reportarlo.</p>
+    </section>
+
+    <!-- 10 ──────────────────────────────────────────────── -->
+    <section id="soporte">
+      <p class="eyebrow">Capítulo diez</p>
+      <h2>Cuándo sí llamar, y qué informar</h2>
+      <p>Si probó lo del capítulo anterior y el problema sigue, repórtelo. Un reporte
+        completo se resuelve el mismo día; uno que dice «no funciona» se resuelve cuando
+        logramos reproducirlo, que puede ser una semana después.</p>
+
+      <h3>Informe siempre estos seis datos</h3>
+      <div class="tabla">
+        <table>
+          <thead><tr><th>Dato</th><th>Ejemplo</th></tr></thead>
+          <tbody>
+            <tr><td>Su usuario y su municipio</td><td><code>operador3</code>, Itagüí</td></tr>
+            <tr><td>Fecha y hora exacta</td><td>6 de octubre, 14:32</td></tr>
+            <tr><td>Qué estaba haciendo</td><td>«Cerrando el caso 904 desde Despacho»</td></tr>
+            <tr><td>Qué esperaba y qué pasó</td><td>«Esperaba que cerrara; salió un mensaje rojo»</td></tr>
+            <tr><td>El <strong>id del caso</strong></td><td>Se copia de la pantalla del caso</td></tr>
+            <tr><td>Captura de pantalla completa</td><td>Con el mensaje de error visible</td></tr>
+          </tbody>
+        </table>
+      </div>
+
+      <div class="nota">
+        <span class="tit">La captura, completa</span>
+        <p>Fotografíe la pantalla entera, no solo el mensaje. Lo que hay alrededor —qué
+          módulo, qué caso, qué filtros— suele decir más que el error mismo.</p>
+      </div>
+
+      <h3>Repórtelo de inmediato, sin intentar nada más</h3>
+      <ul>
+        <li>No se puede entrar al sistema desde <strong>ningún</strong> equipo de la central.</li>
+        <li>Se pierden casos: se recepcionan y después no aparecen en Consulta.</li>
+        <li>Un usuario ve casos de <strong>otro municipio</strong>.</li>
+        <li>Las llamadas dejaron de entrar para todos los operadores a la vez.</li>
+      </ul>
+      <p>Esos cuatro no son problemas de su equipo. Mientras tanto, <strong>siga tomando los
+        casos en papel</strong> y recepciónelos cuando el sistema vuelva: una emergencia no
+        espera a que se arregle un programa.</p>
+    </section>
+
+    <footer class="pie">
+      <p>Manual de usuario de FALCON CAD · Sistema integrado de emergencias y despacho.
+        No incluye los módulos de administración de la plataforma.</p>
+    </footer>
+
+  </main>
+</div>
+
+<script>
+(function(){
+  "use strict";
+  // Filtro de la lista de problemas: busca en el título y en el cuerpo, para que
+  // «iphone» encuentre la ficha del audio aunque el título no lo diga.
+  var entrada=document.getElementById('filtro');
+  var fichas=Array.prototype.slice.call(document.querySelectorAll('#fichas .ficha'));
+  var cuenta=document.getElementById('cuenta');
+  var vacio=document.getElementById('sinResultados');
+
+  function normalizar(t){
+    return (t||'').toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g,'');
+  }
+  function filtrar(){
+    var q=normalizar(entrada.value.trim());
+    var visibles=0;
+    fichas.forEach(function(f){
+      var hay = !q || normalizar(f.textContent).indexOf(q)!==-1;
+      f.hidden=!hay;
+      if(hay){visibles++;}
+      if(q && hay){f.open=true;} else if(!q){f.open=false;}
+    });
+    cuenta.textContent = q ? visibles+' de '+fichas.length : fichas.length+' situaciones';
+    vacio.hidden = visibles!==0;
+  }
+  entrada.addEventListener('input',filtrar);
+  filtrar();
+
+  // Resalta en el índice la sección que se está leyendo.
+  var enlaces=Array.prototype.slice.call(document.querySelectorAll('.indice a'));
+  var porId={};
+  enlaces.forEach(function(a){porId[a.getAttribute('href').slice(1)]=a;});
+  if('IntersectionObserver' in window){
+    var obs=new IntersectionObserver(function(entradas){
+      entradas.forEach(function(e){
+        var a=porId[e.target.id];
+        if(!a){return;}
+        if(e.isIntersecting){
+          enlaces.forEach(function(x){x.classList.remove('activo');});
+          a.classList.add('activo');
+        }
+      });
+    },{rootMargin:'-10% 0px -80% 0px'});
+    document.querySelectorAll('main section').forEach(function(s){obs.observe(s);});
+  }
+})();
+</script>
