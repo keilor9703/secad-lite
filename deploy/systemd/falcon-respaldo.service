@@ -1,0 +1,20 @@
+[Unit]
+Description=Respaldo diario de FALCON CAD
+Documentation=file:///home/ubuntu/falcon-deploy/secad-lite/docs/respaldo-y-video.md
+# Sin red no hay forma de sacar el respaldo del servidor, que es la mitad del
+# trabajo. Se espera a tenerla en vez de hacer una copia que se queda aquí.
+After=network-online.target docker.service
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+User=ubuntu
+Group=ubuntu
+# El script busca aquí el .env. Dejarlo escrito evita depender de que el
+# arranque ponga bien HOME.
+Environment=FALCON_DEPLOY_DIR=/home/ubuntu/falcon-deploy
+ExecStart=/home/ubuntu/falcon-deploy/secad-lite/deploy/respaldo-falcon.sh diario
+# Un respaldo que tarda más de media hora es un respaldo que se colgó.
+TimeoutStartSec=30min
+Nice=10
+IOSchedulingClass=idle

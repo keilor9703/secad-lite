@@ -1,0 +1,10 @@
+[Unit]
+Description=FALCON CAD — prueba de restauración, los domingos
+
+[Timer]
+OnCalendar=Sun *-*-* 03:40:00
+Persistent=true
+RandomizedDelaySec=10min
+
+[Install]
+WantedBy=timers.target

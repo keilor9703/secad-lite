@@ -1,0 +1,13 @@
+[Unit]
+Description=Respaldo diario de FALCON CAD, a las 02:15
+
+[Timer]
+OnCalendar=*-*-* 02:15:00
+# Si el servidor estaba apagado a esa hora, se hace al arrancar. Con cron se
+# habría saltado la noche entera sin que nadie se enterara.
+Persistent=true
+# Que varios servidores no golpeen la nube en el mismo segundo.
+RandomizedDelaySec=5min
+
+[Install]
+WantedBy=timers.target

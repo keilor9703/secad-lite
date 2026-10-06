@@ -152,54 +152,31 @@ con un entorno casi vacío y no lee ningún `.env`, así que mientras esto depen
 de quien lo llamaba, el respaldo nocturno se hacía y **no subía nada** — y el
 aviso salía por `stderr`, a un correo que nadie lee.
 
-**Primero, un sitio donde escribir el log.** `/var/log/` pertenece a root y el
-respaldo corre como `ubuntu`:
+Esta imagen de Ubuntu **no trae cron** (`crontab: command not found`). Se usan
+temporizadores de systemd, que además son mejores aquí por tres razones
+concretas:
+
+- La salida va al **diario del sistema** sola: ni rutas de log que crear con el
+  dueño correcto, ni rotación que configurar, ni un correo local que nadie lee.
+- **`Persistent=true` recupera la ejecución perdida.** Si el servidor estaba
+  apagado o reiniciándose a las 02:15, cron se salta la noche entera sin que
+  nadie se entere; esto la hace al arrancar.
+- `systemctl list-timers` dice cuándo corrió por última vez y cuándo le toca.
 
 ```bash
-sudo mkdir -p /var/log/falcon
-sudo chown ubuntu:ubuntu /var/log/falcon
+sudo /home/ubuntu/falcon-deploy/secad-lite/deploy/systemd/instalar.sh
 ```
 
-**Después, el crontab.** Se edita con `crontab -e` — estas líneas van DENTRO
-del archivo que abre ese comando, no pegadas en la terminal:
+Instala y activa dos temporizadores: el respaldo diario a las 02:15 y la
+prueba de restauración los domingos a las 03:40.
 
-```cron
-FALCON_DEPLOY_DIR=/home/ubuntu/falcon-deploy
-
-15 2 * * *  /home/ubuntu/falcon-deploy/secad-lite/deploy/respaldo-falcon.sh diario    >> /var/log/falcon/respaldo.log 2>&1
-40 3 * * 0  /home/ubuntu/falcon-deploy/secad-lite/deploy/respaldo-falcon.sh verificar >> /var/log/falcon/respaldo.log 2>&1
-```
-
-Tres detalles que no son estilo:
-
-- **Rutas absolutas, nunca `~`.** Cron no es su shell y la expansión depende
-  de quién lo ejecute.
-- **`FALCON_DEPLOY_DIR` explícito.** El script busca ahí el `.env`; dejarlo
-  escrito evita depender de que cron ponga bien `HOME`.
-- **La redirección al log.** Sin ella, lo único que avisa de que el respaldo no
-  salió del servidor es un correo local que nadie lee.
-
-**Y que el log no crezca para siempre:**
+**Comprobar que está haciendo su trabajo** — no que está instalado, que es
+otra cosa:
 
 ```bash
-sudo tee /etc/logrotate.d/falcon >/dev/null <<'FIN'
-/var/log/falcon/*.log {
-  weekly
-  rotate 12
-  compress
-  missingok
-  notifempty
-  create 0644 ubuntu ubuntu
-}
-FIN
-```
-
-**Comprobar que el cron está haciendo su trabajo** — no que está escrito, que
-es otra cosa:
-
-```bash
-tail -30 /var/log/falcon-respaldo.log          # ¿corrió, y cómo terminó?
-ls -lt /opt/falcon-backups/*.subido | head -3  # ¿SALIÓ del servidor?
+systemctl list-timers 'falcon-*' --no-pager       # ¿cuándo corrió y cuándo toca?
+journalctl -u falcon-respaldo -n 40 --no-pager    # ¿cómo terminó?
+ls -lt /opt/falcon-backups/*.subido | head -3     # ¿SALIÓ del servidor?
 ```
 
 Un `.subido` reciente es la prueba de que el respaldo de anoche está fuera. Si

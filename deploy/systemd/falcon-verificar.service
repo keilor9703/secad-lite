@@ -1,0 +1,14 @@
+[Unit]
+Description=FALCON CAD — restaurar el último respaldo y comprobar que sirve
+Documentation=file:///home/ubuntu/falcon-deploy/secad-lite/docs/respaldo-y-video.md
+
+[Service]
+Type=oneshot
+User=ubuntu
+Group=ubuntu
+Environment=FALCON_DEPLOY_DIR=/home/ubuntu/falcon-deploy
+ExecStart=/home/ubuntu/falcon-deploy/secad-lite/deploy/respaldo-falcon.sh verificar
+# Restaurar de verdad tarda más que volcar.
+TimeoutStartSec=60min
+Nice=15
+IOSchedulingClass=idle
