@@ -80,6 +80,35 @@ export class ArchivosController {
   }
 
   /**
+   * Dispara el archivado AHORA, sin esperar al barrido de las 3:19.
+   *
+   * No es una herramienta de pruebas: hace falta para poder archivar antes de
+   * una ventana de mantenimiento, y para comprobar el día que se configura el
+   * almacén que la cadena entera funciona —subir, volver a bajar, comparar y
+   * solo entonces liberar— en vez de enterarse a la mañana siguiente.
+   *
+   * Reutiliza el mismo trabajo del cron, con su advisory lock: si otra réplica
+   * está archivando, esta pasada no hace nada y lo dice.
+   *
+   * Va declarada ANTES que las rutas `archivos/:id/...`: con tres segmentos
+   * como ellas, el día que alguien añada un `archivos/:id/:accion` esta
+   * quedaría ensombrecida y el administrador vería un 404 sin saber por qué.
+   */
+  @Post('archivos/archivado/ejecutar')
+  async ejecutarArchivado(
+    @PermisosVigentes() permisos: string[],
+  ): Promise<{ configurado: boolean; archivadas: number; diasEnBase: number }> {
+    if (!permisos.includes('*')) {
+      throw new ForbiddenException('Solo un administrador puede disparar el archivado.');
+    }
+    return {
+      configurado: this.archivado.almacenConfigurado,
+      archivadas: await this.archivado.archivarVencidos(),
+      diasEnBase: this.archivado.diasRetencionEnBase,
+    };
+  }
+
+  /**
    * POST /api/archivos/:id/chunk — un trozo de una subida en curso.
    *
    * Lo llama la grabación cada pocos segundos mientras dura la videollamada.
@@ -110,31 +139,6 @@ export class ArchivosController {
   }
 
   /** GET /api/archivos/:id/contenido — descarga. */
-  /**
-   * Dispara el archivado AHORA, sin esperar al barrido de las 3:19.
-   *
-   * No es una herramienta de pruebas: hace falta para poder archivar antes de
-   * una ventana de mantenimiento, y para comprobar el día que se configura el
-   * almacén que la cadena entera funciona —subir, volver a bajar, comparar y
-   * solo entonces liberar— en vez de enterarse a la mañana siguiente.
-   *
-   * Reutiliza el mismo trabajo del cron, con su advisory lock: si otra réplica
-   * está archivando, esta pasada no hace nada y lo dice.
-   */
-  @Post('archivos/archivado/ejecutar')
-  async ejecutarArchivado(
-    @PermisosVigentes() permisos: string[],
-  ): Promise<{ configurado: boolean; archivadas: number; diasEnBase: number }> {
-    if (!permisos.includes('*')) {
-      throw new ForbiddenException('Solo un administrador puede disparar el archivado.');
-    }
-    return {
-      configurado: this.archivado.almacenConfigurado,
-      archivadas: await this.archivado.archivarVencidos(),
-      diasEnBase: this.archivado.diasRetencionEnBase,
-    };
-  }
-
   @Get('archivos/:id/contenido')
   async descargar(
     @Tenant() tenant: string,

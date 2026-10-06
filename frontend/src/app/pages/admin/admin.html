@@ -115,6 +115,42 @@
       viven todas juntas en esta misma pestaña — cada una es su propia tarjeta,
       no una pestaña aparte —, y cada tarjeta solo aparece si el tenant tiene
       esa integración habilitada por el superadmin en Plataforma. -->
+      <!-- Archivado de grabaciones. Vive aquí porque es mantenimiento, no
+      configuración: el barrido corre solo a las 3:19 y esto permite no
+      esperar — al configurar el almacén por primera vez, o antes de una
+      ventana de mantenimiento. -->
+      @if (esSuperadmin() && pestanaActiva() === 'integraciones') {
+        <div class="bloque-admin">
+          <h2>🗄️ Archivado de grabaciones</h2>
+          <p class="hint">
+            Las grabaciones salen de la base al almacenamiento de objetos cuando
+            cumplen su plazo, y Falcon las sigue mostrando igual. El barrido
+            corre solo cada noche; aquí se dispara ahora.
+          </p>
+          <button type="button" class="btn" [disabled]="archivando()" (click)="ejecutarArchivado()">
+            {{ archivando() ? 'Archivando…' : 'Archivar ahora' }}
+          </button>
+
+          @if (archivadoResultado(); as r) {
+            @if (!r.configurado) {
+              <p class="archivado-mal">
+                <strong>No hay a dónde archivar.</strong> Falta <code>ARCHIVO_OBJETOS_URL</code>:
+                las grabaciones se quedan en la base y el disco crece. Es lo primero que hay que
+                revisar cuando no se archiva nada.
+              </p>
+            } @else {
+              <p class="archivado-bien">
+                Archivadas <strong>{{ r.archivadas }}</strong> grabación(es).
+                Las grabaciones salen de la base a los <strong>{{ r.diasEnBase }}</strong> días.
+                @if (r.archivadas === 0) {
+                  <br>Cero no es un error: significa que ninguna ha cumplido ese plazo todavía.
+                }
+              </p>
+            }
+          }
+        </div>
+      }
+
       @if (pestanaActiva() === 'integraciones') {
       <div class="pestana-integraciones" role="tabpanel" id="panel-integraciones" aria-labelledby="tab-integraciones">
 

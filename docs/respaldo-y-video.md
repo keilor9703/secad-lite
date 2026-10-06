@@ -170,24 +170,21 @@ dependen del tamaño:
 ## Archivar ahora, sin esperar al barrido
 
 El barrido corre solo a las **3:19**. Para no esperar —al configurar el
-almacén por primera vez, o antes de una ventana de mantenimiento— un
-administrador puede dispararlo:
+almacén por primera vez, o antes de una ventana de mantenimiento— hay un botón:
 
-```bash
-curl -fsS -X POST https://falconcad.com.co/api/archivos/archivado/ejecutar \
-  -H "Authorization: Bearer $TOKEN"
-```
+**Administración → Integraciones → Archivado de grabaciones → «Archivar ahora»**
+(solo superadmin).
 
-Responde, por ejemplo:
+Dice una de dos cosas:
 
-```json
-{ "configurado": true, "archivadas": 3, "diasEnBase": 90 }
-```
+- **«No hay a dónde archivar»** → falta `ARCHIVO_OBJETOS_URL`. No archiva nada
+  y el disco crece. Es lo primero que hay que mirar.
+- **«Archivadas N grabación(es)»** → funcionó. Si N es cero, no es un error:
+  ninguna ha cumplido el plazo todavía.
 
-- `configurado: false` → falta `ARCHIVO_OBJETOS_URL`. **No archiva nada y el
-  disco crece.** Es lo primero que hay que mirar.
-- `archivadas: 0` con `configurado: true` → no hay grabaciones que hayan
-  cumplido los `diasEnBase`. Normal.
+Por debajo es un `POST` a `/api/archivos/archivado/ejecutar`. **No se puede
+llamar escribiendo la URL en el navegador** —la barra de direcciones hace
+`GET`, y la respuesta sería «Cannot GET»—; por eso el botón.
 
 Usa el mismo trabajo que el cron, con su mismo bloqueo: si otra réplica está
 archivando, esta pasada no hace nada.
