@@ -4,14 +4,38 @@ import { Column, CreateDateColumn, Entity, Index, PrimaryGeneratedColumn } from 
 export type OrigenArchivo = 'ADJUNTO' | 'GRABACION';
 
 /**
- * EN_CURSO   el archivo se está subiendo; todavía no está completo.
- * COMPLETO   terminó de subirse y se puede descargar.
- * FALLIDO    se abandonó a medias (ver ArchivosService.barrerAbandonados).
- * ARCHIVADO  los bytes salieron de la base al almacenamiento de objetos y se
- *            sirven desde allá (ver ArchivadoService). Sigue descargándose
- *            igual: para quien lo abre, no hay diferencia.
+ * El ciclo de vida de una grabación. NINGÚN estado implica que se haya
+ * borrado: lo que cambia es DÓNDE están los bytes, nunca si existen.
+ *
+ * EN_CURSO     se está subiendo; todavía no está completo.
+ * COMPLETO     terminó de subirse. Los bytes están en la base.
+ * FALLIDO      se abandonó a medias (ver ArchivosService.barrerAbandonados).
+ * ARCHIVADO    los bytes salieron de la base al almacenamiento de objetos y se
+ *              sirven desde allá (ver ArchivadoService). Sigue abriéndose con
+ *              un clic: para quien lo mira, no hay diferencia.
+ * EN_CUSTODIA  ya no está ni en la base ni en el bucket: está en el archivo
+ *              permanente fuera de línea (la NAS). El caso lo sigue listando,
+ *              con el nombre exacto del archivo, y dice que hay que pedirlo.
+ *              Se llega aquí SOLO después de comprobar byte a byte que la copia
+ *              de la NAS coincide con el original — nunca por antigüedad.
  */
-export type EstadoArchivo = 'EN_CURSO' | 'COMPLETO' | 'FALLIDO' | 'ARCHIVADO';
+export type EstadoArchivo = 'EN_CURSO' | 'COMPLETO' | 'FALLIDO' | 'ARCHIVADO' | 'EN_CUSTODIA';
+
+/**
+ * ¿Falcon puede entregar el contenido ahora mismo?
+ *
+ * Separado del estado porque es la pregunta que se hacen el controlador y la
+ * pantalla, y porque el día que haya un quinto sitio donde vivan los bytes,
+ * esto es lo único que hay que tocar.
+ */
+export function sePuedeDescargar(estado: EstadoArchivo): boolean {
+  return estado === 'COMPLETO' || estado === 'ARCHIVADO' || estado === 'EN_CURSO';
+}
+
+/** Existe, está íntegro, pero hay que pedírselo al administrador. */
+export function estaFueraDeLinea(estado: EstadoArchivo): boolean {
+  return estado === 'EN_CUSTODIA';
+}
 
 /** Un archivo deja de aceptar trozos en cuanto sale de EN_CURSO. */
 export function estaCerrado(estado: EstadoArchivo): boolean {
@@ -107,4 +131,15 @@ export class ArchivoEntity {
    */
   @Column({ type: 'char', length: 64, nullable: true })
   sha256?: string | null;
+
+  /**
+   * Cuándo pasó al archivo permanente fuera de línea. Null = sigue en línea.
+   *
+   * La ruta dentro de la NAS es la MISMA que `objetoRemoto`: el archivo
+   * permanente espeja la estructura del bucket. Así el administrador busca por
+   * el nombre que ve en pantalla, sin traducir nada, y un día que haya que
+   * reconstruir el bucket desde la NAS es una copia directa.
+   */
+  @Column({ type: 'timestamptz', nullable: true })
+  enCustodiaDesde?: Date | null;
 }

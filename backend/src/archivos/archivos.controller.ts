@@ -1,11 +1,12 @@
 import {
-  BadRequestException, Body, Controller, ForbiddenException, Get, Param, Post, Res,
+  BadRequestException, ConflictException, Body, Controller, ForbiddenException, Get, Param, Post, Res,
   UploadedFile, UseInterceptors,
 } from '@nestjs/common';
 import { FileInterceptor } from '@nestjs/platform-express';
 import type { Response } from 'express';
 import { ArchivosService, MAX_BYTES_CHUNK } from './archivos.service';
 import { ArchivadoService } from './archivado.service';
+import { estaFueraDeLinea } from './archivo.entity';
 import { Tenant } from '../common/tenant.decorator';
 import { Usuario } from '../common/usuario.decorator';
 import { PermisosVigentes } from '../common/permisos-vigentes.decorator';
@@ -125,6 +126,21 @@ export class ArchivosController {
 
     if (archivo.estado === 'FALLIDO')
       throw new BadRequestException('Esa subida quedó incompleta y no tiene contenido.');
+
+    // La grabación EXISTE y está íntegra; lo que pasa es que sus bytes ya no
+    // están en línea. Se responde con el nombre exacto con el que está
+    // guardada para que el administrador la encuentre sin adivinar, y con su
+    // sha256 para que quien la reciba pueda comprobar que es la buena.
+    if (estaFueraDeLinea(archivo.estado)) {
+      throw new ConflictException({
+        motivo: 'EN_CUSTODIA',
+        message: 'Esta grabación está en el archivo permanente, fuera de línea. '
+          + 'Solicítela al administrador con el nombre que aparece en el caso.',
+        archivo: archivo.objetoRemoto ?? archivo.nombre,
+        sha256: archivo.sha256 ?? null,
+        desde: archivo.enCustodiaDesde ?? null,
+      });
+    }
 
     res.setHeader('Content-Type', archivo.tipoMime);
     res.setHeader('Content-Disposition', `inline; filename="${archivo.nombre}"`);

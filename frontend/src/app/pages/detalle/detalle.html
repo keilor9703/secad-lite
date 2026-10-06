@@ -420,6 +420,19 @@
                           Esta llamada quedó grabada. Ver grabaciones requiere una autorización
                           que su cuenta no tiene.
                         </p>
+                      } @else if (grabacionesEnCustodia()[s.archivoGrabacionId]; as c) {
+                        <!-- La grabación EXISTE y está íntegra: lo que pasa es
+                        que sus bytes están en el archivo permanente. Se muestra
+                        el nombre con el que está guardada, que es lo que hay que
+                        pedirle al administrador. -->
+                        <div class="vgrab-custodia">
+                          <p><strong>Esta grabación está en el archivo permanente.</strong>
+                          Solicítela al administrador con este nombre:</p>
+                          <code>{{ c.archivo }}</code>
+                          @if (c.sha256) {
+                            <p class="vgrab-sha">Verificación: <code>{{ c.sha256 }}</code></p>
+                          }
+                        </div>
                       } @else if (videoGrabaciones()[s.archivoGrabacionId]; as url) {
                         <video class="vgrab-video" controls preload="metadata" [src]="url"></video>
                         <a class="btn mini btn--ghost" [href]="url"

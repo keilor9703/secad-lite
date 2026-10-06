@@ -296,3 +296,23 @@
   background: var(--accent-soft);
   color: var(--ink);
 }
+
+/* Una grabación que está en el archivo permanente. No es un error —el archivo
+   existe y está íntegro— así que no se pinta como tal: es una instrucción. */
+.vgrab-custodia {
+  border: 1px solid var(--border-2); border-left: 3px solid var(--accent);
+  border-radius: var(--radius-sm);
+  padding: 0.6rem 0.75rem; margin-top: 0.4rem;
+  background: var(--surface-2);
+  font-size: 0.85rem; line-height: 1.45;
+
+  p { margin: 0 0 0.4rem; }
+  code {
+    display: inline-block; font-family: var(--mono); font-size: 0.8rem;
+    background: var(--surface); border: 1px solid var(--border);
+    border-radius: 4px; padding: 0.15rem 0.4rem;
+    user-select: all;              /* un clic lo selecciona entero para copiarlo */
+    word-break: break-all;
+  }
+  .vgrab-sha { margin: 0.45rem 0 0; color: var(--muted); font-size: 0.78rem; }
+}

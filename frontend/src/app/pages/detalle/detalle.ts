@@ -1,4 +1,5 @@
 import { ChangeDetectionStrategy, Component, ElementRef, OnDestroy, OnInit, computed, effect, inject, input, output, signal, viewChild } from '@angular/core';
+import { GrabacionEnCustodia, cuerpoDeError, leerCustodia } from './custodia';
 import { CommonModule } from '@angular/common';
 import { FormControl, FormGroup, ReactiveFormsModule, Validators } from '@angular/forms';
 import { ActivatedRoute, RouterLink } from '@angular/router';
@@ -553,6 +554,9 @@ export class DetalleComponent implements OnInit, OnDestroy {
    * No se hace al abrir el caso: son megabytes por minuto de llamada y casi
    * nadie entra al detalle para ver el video. Se baja cuando alguien lo pide.
    */
+  /** Grabaciones que están en el archivo permanente, por id de archivo. */
+  readonly grabacionesEnCustodia = signal<Record<string, GrabacionEnCustodia>>({});
+
   async verGrabacion(archivoId: string): Promise<void> {
     if (this.videoGrabaciones()[archivoId] || this.videoCargando()[archivoId]) return;
 
@@ -561,8 +565,16 @@ export class DetalleComponent implements OnInit, OnDestroy {
       const blob = await this.videollamadaSvc.grabacion(archivoId);
       const url = URL.createObjectURL(blob);
       this.videoGrabaciones.update((r) => ({ ...r, [archivoId]: url }));
-    } catch {
-      this.toast.error('No fue posible descargar la grabación.');
+    } catch (e) {
+      // Que esté fuera de línea NO es un fallo: el archivo existe y se puede
+      // pedir. Confundirlo con «no se pudo descargar» le haría creer al
+      // operador que la grabación se perdió.
+      const custodia = leerCustodia(await cuerpoDeError((e as { error?: unknown })?.error));
+      if (custodia) {
+        this.grabacionesEnCustodia.update((r) => ({ ...r, [archivoId]: custodia }));
+      } else {
+        this.toast.error('No fue posible descargar la grabación.');
+      }
     } finally {
       this.videoCargando.update((r) => ({ ...r, [archivoId]: false }));
     }
