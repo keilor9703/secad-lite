@@ -282,15 +282,45 @@ Si aparece `https://` dos veces, está pegada dos veces.
 que se subieron. **No los borre del cubo**: sus bytes ya no están en la base de
 datos, así que esa copia es la única que hay.
 
+## Estado — comprobado el 6 de octubre de 2026
+
+Funcionando y **probado de extremo a extremo**:
+
+- Cubo de grabaciones con su enlace de lectura/escritura. Diez grabaciones
+  archivadas: subidas, vueltas a bajar, comparadas byte a byte y servidas desde
+  el cubo sin que el operador note la diferencia.
+- Cubo de respaldos con su enlace de solo escritura. El respaldo sale del
+  servidor (`✔ Subido`).
+- Temporizadores de systemd: diario a las 02:15, verificación los domingos.
+- **La restauración de prueba pasó**: 72 de 72 casos, 22 de 22 usuarios, 11 de
+  11 archivos, y `archivos_chunks` vacía como corresponde al respaldo diario.
+
+### Dónde caen los respaldos
+
+Si `/opt/falcon-backups` no es escribible, el script avisa y usa
+`/home/ubuntu/falcon-backups`. Funciona, pero conviene decidirlo en vez de
+heredarlo:
+
+```bash
+df -h /opt /home          # ¿son discos distintos?
+sudo mkdir -p /opt/falcon-backups
+sudo chown ubuntu:ubuntu /opt/falcon-backups
+```
+
+Si `/opt` está en un disco aparte, los respaldos deben ir ahí: un disco
+distinto del de la base es una capa más de protección. Si es el mismo disco,
+da igual y se puede dejar como está.
+
 ## Lo que todavía NO está puesto
 
-- [ ] El bucket y su URL prefirmada → `ARCHIVO_OBJETOS_URL`. **Sin esto el
-      archivado no hace nada**: las grabaciones se quedan en la base para
-      siempre y el disco crece.
-- [ ] `FALCON_RESPALDO_URL`, para que el respaldo salga del servidor.
-- [ ] Las tareas de `cron`.
-- [ ] La primera restauración de prueba (`verificar`) — **hágala con los datos
-      de prueba de ahora**, que es cuando romper no cuesta nada.
+- [ ] **La cuenta de Oracle: la prueba vence a finales de octubre.** Lo que no
+      esté dentro de Always Free se termina. Es ahora mismo el riesgo más
+      grande que tiene este sistema, y no es técnico.
+- [ ] El respaldo `completo` mensual bajado a un disco externo. Es la **única
+      copia fuera de la cuenta de Oracle**: si se pierde la cuenta, se pierden
+      el servidor y los dos cubos a la vez.
+- [ ] Presupuesto con alertas, en Oracle y en Google. Sigue sin ponerse en
+      ninguno de los dos.
 - [ ] El script que baja del bucket a la NAS y marca las grabaciones como
       `EN_CUSTODIA`. Se escribe cuando exista la NAS; el estado ya está en el
       sistema para que nada se rompa ese día.
