@@ -97,14 +97,21 @@ export class ArchivosController {
   @Post('archivos/archivado/ejecutar')
   async ejecutarArchivado(
     @PermisosVigentes() permisos: string[],
-  ): Promise<{ configurado: boolean; archivadas: number; diasEnBase: number }> {
+    @Body() cuerpo: { dias?: number } = {},
+  ): Promise<{ configurado: boolean; archivadas: number; diasEnBase: number; diasUsados: number }> {
     if (!permisos.includes('*')) {
       throw new ForbiddenException('Solo un administrador puede disparar el archivado.');
     }
+    // `dias` vale SOLO para esta pasada y nunca se guarda: es para comprobar la
+    // cadena el día que se configura el almacén, sin bajar el plazo global y
+    // tener que acordarse de devolverlo.
+    const dias = typeof cuerpo?.dias === 'number' ? cuerpo.dias : undefined;
+    const diasEnBase = this.archivado.diasRetencionEnBase;
     return {
       configurado: this.archivado.almacenConfigurado,
-      archivadas: await this.archivado.archivarVencidos(),
-      diasEnBase: this.archivado.diasRetencionEnBase,
+      archivadas: await this.archivado.archivarVencidos(dias),
+      diasEnBase,
+      diasUsados: dias != null ? Math.min(Math.max(Math.floor(dias), 1), diasEnBase) : diasEnBase,
     };
   }
 

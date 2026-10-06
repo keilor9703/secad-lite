@@ -68,11 +68,11 @@ export class AdminComponent implements OnInit {
   readonly archivando = signal(false);
   readonly archivadoResultado = signal<ResultadoArchivado | null>(null);
 
-  ejecutarArchivado(): void {
+  ejecutarArchivado(dias?: number): void {
     if (this.archivando()) return;
     this.archivando.set(true);
     this.archivadoResultado.set(null);
-    this.archivadoSvc.ejecutar().subscribe({
+    this.archivadoSvc.ejecutar(dias).subscribe({
       next: (r) => {
         this.archivadoResultado.set(r);
         this.archivando.set(false);

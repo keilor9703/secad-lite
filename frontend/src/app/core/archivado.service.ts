@@ -14,6 +14,8 @@ export interface ResultadoArchivado {
   archivadas: number;
   /** Cuántos días se quedan las grabaciones en la base antes de salir. */
   diasEnBase: number;
+  /** El plazo que se usó en ESTA pasada. Distinto de `diasEnBase` solo al probar. */
+  diasUsados: number;
 }
 
 /**
@@ -27,8 +29,14 @@ export interface ResultadoArchivado {
 export class ArchivadoService {
   private http = inject(HttpClient);
 
-  ejecutar(): Observable<ResultadoArchivado> {
+  /**
+   * @param dias Plazo solo para ESTA pasada. Sirve para comprobar la cadena el
+   * día que se configura el almacén sin bajar el plazo global —y tener que
+   * acordarse de devolverlo, que es como se archiva todo por error—. No se
+   * guarda, y no puede alargar el plazo configurado.
+   */
+  ejecutar(dias?: number): Observable<ResultadoArchivado> {
     return this.http.post<ResultadoArchivado>(
-      `${environment.apiBaseUrl}/archivos/archivado/ejecutar`, {});
+      `${environment.apiBaseUrl}/archivos/archivado/ejecutar`, dias != null ? { dias } : {});
   }
 }

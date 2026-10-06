@@ -10,6 +10,7 @@ import { TenantEntity } from '../tenants/tenant.entity';
 import { TenantRlsService } from '../common/tenant-rls.service';
 import { ArchivosService } from './archivos.service';
 import { AlmacenObjetosService } from './almacen-objetos.service';
+import { diasEfectivos } from './dias-efectivos';
 
 /** A los cuántos días una grabación sale de la base. */
 const DIAS_POR_OMISION = 90;
@@ -96,7 +97,7 @@ export class ArchivadoService {
    * vuelve a intentar mañana y no hay prisa —lo que no se puede es dejar de
    * archivar las demás por una—.
    */
-  async archivarVencidos(): Promise<number> {
+  async archivarVencidos(diasSoloEstaVez?: number): Promise<number> {
     if (!this.almacen.configurado()) {
       this.logger.warn(
         'ARCHIVO_OBJETOS_URL no está configurada: las grabaciones se quedan en la base y el disco crece.');
@@ -117,7 +118,7 @@ export class ArchivadoService {
       }
 
       try {
-        return await this.recorrer();
+        return await this.recorrer(diasEfectivos(this.dias, diasSoloEstaVez));
       } finally {
         await runner.query('SELECT pg_advisory_unlock($1)', [LOCK_ARCHIVADO]);
       }
@@ -126,12 +127,12 @@ export class ArchivadoService {
     }
   }
 
-  private async recorrer(): Promise<number> {
+  private async recorrer(dias: number): Promise<number> {
     const instancias = await this.tenants.find({ select: { codigo: true } });
     let total = 0;
 
     for (const { codigo } of instancias) {
-      const candidatos = await this.candidatos(codigo);
+      const candidatos = await this.candidatos(codigo, dias);
       for (const c of candidatos) {
         try {
           await this.archivarUno(codigo, c);
@@ -156,8 +157,8 @@ export class ArchivadoService {
    * NINGUNA fila —no falla, devuelve vacío— y el barrido habría parecido
    * funcionar sin archivar nunca nada.
    */
-  private candidatos(tenant: string): Promise<ArchivoEntity[]> {
-    const limite = new Date(Date.now() - this.dias * 86_400_000);
+  private candidatos(tenant: string, dias: number): Promise<ArchivoEntity[]> {
+    const limite = new Date(Date.now() - dias * 86_400_000);
     return this.rls.conTenant(tenant, (manager) =>
       manager.getRepository(ArchivoEntity)
         .createQueryBuilder('a')

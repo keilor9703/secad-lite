@@ -127,9 +127,20 @@
             cumplen su plazo, y Falcon las sigue mostrando igual. El barrido
             corre solo cada noche; aquí se dispara ahora.
           </p>
-          <button type="button" class="btn" [disabled]="archivando()" (click)="ejecutarArchivado()">
-            {{ archivando() ? 'Archivando…' : 'Archivar ahora' }}
-          </button>
+          <div class="archivado-botones">
+            <button type="button" class="btn" [disabled]="archivando()" (click)="ejecutarArchivado()">
+              {{ archivando() ? 'Archivando…' : 'Archivar ahora' }}
+            </button>
+            <!-- Para comprobar la cadena el día que se configura el almacén.
+            El plazo vale SOLO para esa pasada y no se guarda: bajar el plazo
+            global y olvidar devolverlo haría que todo se archivara al día
+            siguiente, que es un fallo silencioso y caro. -->
+            <button type="button" class="btn btn--ghost" [disabled]="archivando()"
+                    (click)="ejecutarArchivado(1)"
+                    title="Archiva lo que tenga más de un día, solo esta vez. No cambia la configuración.">
+              Probar con lo de hace más de 1 día
+            </button>
+          </div>
 
           @if (archivadoResultado(); as r) {
             @if (!r.configurado) {
@@ -142,6 +153,10 @@
               <p class="archivado-bien">
                 Archivadas <strong>{{ r.archivadas }}</strong> grabación(es).
                 Las grabaciones salen de la base a los <strong>{{ r.diasEnBase }}</strong> días.
+                @if (r.diasUsados !== r.diasEnBase) {
+                  <br>Esta pasada se hizo con un plazo de <strong>{{ r.diasUsados }}</strong> día(s),
+                  solo para probar. La configuración no cambió.
+                }
                 @if (r.archivadas === 0) {
                   <br>Cero no es un error: significa que ninguna ha cumplido ese plazo todavía.
                 }

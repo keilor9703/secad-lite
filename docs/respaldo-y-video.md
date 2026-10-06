@@ -191,16 +191,22 @@ archivando, esta pasada no hace nada.
 
 ### Probar la cadena completa el día que se configura
 
-Con datos de prueba, que es cuando no cuesta nada:
+En el mismo panel hay un segundo botón: **«Probar con lo de hace más de 1
+día»**. Usa ese plazo **solo para esa pasada** y no cambia nada: no hay que
+bajar `ARCHIVO_DIAS` ni acordarse de devolverlo. Acordarse no es un mecanismo
+— si se olvida, al día siguiente se archiva todo lo que tenga más de un día,
+en silencio.
 
-1. Baje el plazo a un día: `ARCHIVO_DIAS=1` en el `.env`, declararla en el
-   compose y recrear las réplicas.
-2. Dispare el archivado con el `curl` de arriba. Debe responder `archivadas`
-   mayor que cero.
-3. Abra ese caso en Falcon y **reproduzca la grabación**. Tiene que verse
+El plazo suelto solo puede **acortar**, nunca alargar, y no se guarda.
+
+1. Pulse **«Probar con lo de hace más de 1 día»**. Debe decir que archivó más
+   de cero, y avisar de que esa pasada usó un plazo distinto.
+2. Abra ese caso en Falcon y **reproduzca la grabación**. Tiene que verse
    igual: ya se está sirviendo desde el bucket.
-4. Mire el bucket en la consola de Oracle: ahí están los objetos.
-5. Vuelva a dejar `ARCHIVO_DIAS` en 90.
+3. Mire el bucket en la consola de Oracle: ahí están los objetos.
+
+Si el paso 2 funciona, la cadena entera está probada: subir, volver a bajar,
+comparar byte a byte, liberar la base y servir desde el bucket.
 
 Si el paso 3 funciona, la cadena entera está probada: subir, volver a bajar,
 comparar byte a byte, liberar la base y servir desde el bucket.
