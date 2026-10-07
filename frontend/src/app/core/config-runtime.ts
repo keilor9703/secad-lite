@@ -80,9 +80,25 @@ let firmadosVencenEn = 0;
  * credencial que coturn ya rechaza.
  */
 export function guardarIceFirmados(servers: RTCIceServer[] | undefined, venceEn?: number): void {
-  if (!servers?.length) return;
-  firmados = servers;
+  // Solo se adoptan si traen un TURN autenticado.
+  //
+  // Un backend sin TURN_SECRET responde con una lista que NO está vacía: trae
+  // el STUN. Mirar solo la longitud hacía que esa lista se adoptara como si
+  // fueran credenciales firmadas, y el TURN desaparecía de la llamada. En
+  // cualquier red con NAT cerrado eso es video en negro y sin audio — y no se
+  // nota en WiFi, que es donde se prueba.
+  if (!traeTurnAutenticado(servers)) return;
+  firmados = servers!;
   firmadosVencenEn = venceEn ? venceEn * 1000 : Date.now() + 5 * 60_000;
+}
+
+/** ¿La lista trae un TURN con credencial, o es solo STUN? */
+function traeTurnAutenticado(servers: RTCIceServer[] | undefined): boolean {
+  return (servers ?? []).some((s) => {
+    if (!s?.username || !s?.credential) return false;
+    const urls = Array.isArray(s.urls) ? s.urls : [s.urls];
+    return urls.some((u) => /^turns?:/i.test(String(u ?? '')));
+  });
 }
 
 /** Para la prueba y para el cierre de sesión: no dejar credenciales colgando. */
