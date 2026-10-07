@@ -177,8 +177,16 @@ actualizar_frontend() {
   # sino del servidor (lleva la credencial del TURN). Sin esta exclusión,
   # `--delete` lo borraría en cada despliegue y la videollamada se quedaría sin
   # TURN —falla solo en datos móviles, que es donde nadie prueba—.
+  #
+  # `--exclude=/.well-known/` protege el directorio que certbot usa para
+  # validar el certificado de turn.falconcad.com.co. Lo crea root, así que
+  # `--delete` corriendo como ubuntu no puede borrarlo: rsync aborta con
+  # «Permission denied» y el despliegue NO publica nada. Reaparece en cada
+  # renovación, cada 60 días.
   mkdir -p "$DIST_DIR"
-  rsync -a --delete --checksum --exclude='/config/' "$salida/" "$DIST_DIR/"
+  rsync -a --delete --checksum \
+    --exclude='/config/' --exclude='/.well-known/' \
+    "$salida/" "$DIST_DIR/"
   echo "    $(find "$DIST_DIR" -path "$DIST_DIR/config" -prune -o -type f -print | wc -l) archivos publicados"
 
   publicar_runtime
