@@ -25,6 +25,8 @@ interface Edicion {
  * eliminar. El borrado definitivo lo autoriza el backend: si el registro ya
  * dejó rastro en casos o despachos, responde 409 y aquí se muestra su motivo.
  */
+export type PestanaCatalogos = 'agencias' | 'casos' | 'cierres';
+
 @Component({
   selector: 'app-catalogos',
   standalone: true,
@@ -34,6 +36,21 @@ interface Edicion {
   changeDetection: ChangeDetectionStrategy.OnPush,
 })
 export class CatalogosComponent {
+  /**
+   * Tres catálogos independientes que vivían apilados en una sola página muy
+   * larga. Quien viene a corregir un código de cierre no tiene por qué pasar
+   * por la lista completa de agencias y de códigos de caso para llegar.
+   *
+   * El orden sigue al del caso: primero quién atiende, luego cómo se tipifica
+   * lo que entra, y al final cómo se cierra.
+   */
+  readonly pestanas: ReadonlyArray<{ id: PestanaCatalogos; etiqueta: string; icono: string }> = [
+    { id: 'agencias', etiqueta: 'Agencias y canales', icono: '🏢' },
+    { id: 'casos', etiqueta: 'Códigos de caso', icono: '🏷️' },
+    { id: 'cierres', etiqueta: 'Códigos de cierre', icono: '✅' },
+  ];
+  readonly pestanaActiva = signal<PestanaCatalogos>('agencias');
+
   private catalogos = inject(CatalogosService);
   private auth = inject(AuthService);
   private toast = inject(ToastService);

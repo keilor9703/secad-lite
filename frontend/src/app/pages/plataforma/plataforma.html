@@ -8,344 +8,369 @@
     <p class="error">{{ error() }}</p>
   }
 
-  <div class="kpis">
-    <div class="kpi"><span class="n">{{ tenants().length }}</span><span class="l">Instancias</span></div>
-    <div class="kpi"><span class="n">{{ totalCuentas() }}</span><span class="l">Cuentas</span></div>
-  </div>
-
-  <div class="panel card">
-    <h2>Nueva instancia</h2>
-    <p class="hint">Arranca con 30 días de prueba y todas las integraciones habilitadas.</p>
-    <form class="crear-inline" [formGroup]="nuevoTenantForm" (ngSubmit)="crearTenant()">
-      <input formControlName="codigo" placeholder="código (p. ej. envigado)" />
-      <input formControlName="nombre" placeholder="Nombre del municipio u organización" />
-      <button type="submit" class="btn btn--primary" [disabled]="nuevoTenantForm.invalid">Crear</button>
-    </form>
-    <!-- División político-administrativa (DIVIPOLA/DANE): opcional al crear, se completa luego si hace falta. -->
-    <form class="crear-inline sub" [formGroup]="nuevoTenantForm">
-      <app-selector-municipio formControlName="codigoDane" />
-    </form>
-  </div>
-
-  <div class="filtros">
-    <input [ngModel]="filtroTexto()" (ngModelChange)="filtroTexto.set($event)"
-      placeholder="Buscar por nombre, código o código DANE…" aria-label="Buscar instancia" />
-    <app-selector [valorActual]="filtroDepartamento()" (cambio)="cambiarFiltroDepartamento($any($event))"
-      [ariaLabel]="'Filtrar por departamento'">
-      <app-opcion [valor]="null">Todos los departamentos</app-opcion>
-      @for (d of departamentosDisponibles(); track d) {
-        <app-opcion [valor]="d">{{ d }}</app-opcion>
-      }
-    </app-selector>
-    <app-selector [valorActual]="filtroSubregion()" (cambio)="filtroSubregion.set($any($event))"
-      [ariaLabel]="'Filtrar por subregión'" [disabled]="!subregionesDisponibles().length">
-      <app-opcion [valor]="null">Toda subregión</app-opcion>
-      @for (s of subregionesDisponibles(); track s) {
-        <app-opcion [valor]="s">{{ s }}</app-opcion>
-      }
-    </app-selector>
-    <span class="conteo">{{ tenantsFiltrados().length }} de {{ tenants().length }}</span>
-    @if (filtroTexto() || filtroDepartamento() || filtroSubregion()) {
-      <button type="button" class="btn btn--ghost mini" (click)="limpiarFiltros()">Quitar filtros</button>
-    }
-  </div>
-
-  <!-- Configuración global de SMS — una sola para toda la plataforma -->
-  <div class="panel card sms-global">
-    <h2>🔐 Doble factor de autenticación</h2>
-    <p class="hint">Exige a cada usuario un código temporal de su aplicación de autenticación,
-      además de la contraseña. El superadministrador queda exento a propósito: es quien tiene
-      que poder entrar a desactivarlo si algo falla.</p>
-
-    @if (mfaError()) {
-      <p class="error">{{ mfaError() }}</p>
-    }
-    @if (mfaExito()) {
-      <p class="exito">{{ mfaExito() }}</p>
-    }
-
-    @if (mfaConfig(); as cfg) {
-      @if (cfg.forzadoPorEntorno) {
-        <p class="error">⚠ La variable de entorno <code>MFA_OBLIGATORIO=false</code> tiene el doble
-          factor APAGADO en el servidor, y manda sobre este interruptor. Mientras siga puesta,
-          nadie tendrá que presentar código aunque aquí diga «Exigido».</p>
-      }
-      <div class="t-grid">
-        <label class="campo">
-          <span>Estado</span>
-          <app-selector [valorActual]="cfg.exigido" (cambio)="guardarMfa($any($event))">
-            <app-opcion [valor]="true">Exigido a todos</app-opcion>
-            <app-opcion [valor]="false">Desactivado</app-opcion>
-          </app-selector>
-        </label>
-      </div>
-      <p class="hint">Al desactivarlo, los usuarios ya enrolados conservan su vinculación: si
-        vuelve a activarlo, no tendrán que escanear otra vez.</p>
-      @if (cfg.actualizadoPor) {
-        <p class="hint">Última actualización por {{ cfg.actualizadoPor }}
-          @if (cfg.actualizadoEn) { el {{ cfg.actualizadoEn | date: 'dd/MM/yyyy HH:mm' }} }
-        </p>
-      }
-    } @else {
-      <p class="hint">Cargando política…</p>
-    }
-  </div>
-
-  <div class="panel card sms-global">
-    <h2>📱 Mensajería SMS</h2>
-    <p class="hint">Proveedor de SMS para el envío de enlaces de videollamada. Esta configuración
-      aplica para todas las instancias que tengan la integración de videollamada habilitada.</p>
-
-    @if (smsError()) {
-      <p class="error">{{ smsError() }}</p>
-    }
-    @if (smsExito()) {
-      <p class="exito">{{ smsExito() }}</p>
-    }
-
-    @if (smsConfig(); as cfg) {
-      <div class="t-grid">
-        <label class="campo">
-          <span>Proveedor</span>
-          <app-selector [valorActual]="cfg.proveedor" (cambio)="guardarSms({ proveedor: $any($event) })">
-            <app-opcion valor="INFOBIP">Infobip</app-opcion>
-            <app-opcion valor="INALAMBRIA_EXPRESS">Inalambria Express</app-opcion>
-          </app-selector>
-        </label>
-        <label class="campo">
-          <span>Host / Base URL</span>
-          <input type="text" [value]="cfg.baseUrl ?? ''" placeholder="xxxxx.api.infobip.com"
-                 (change)="guardarSms({ baseUrl: $any($event.target).value })" />
-        </label>
-        <label class="campo">
-          <span>Sender (remitente)</span>
-          <input type="text" [value]="cfg.sender ?? ''" placeholder="FALCON"
-                 (change)="guardarSms({ sender: $any($event.target).value })" />
-        </label>
-      </div>
-      <div class="t-grid">
-        <label class="campo">
-          <span>API Key {{ cfg.tieneApiKey ? '(configurada ✓)' : '(sin configurar)' }}</span>
-          <input type="password" placeholder="Pegue la nueva API key aquí"
-                 (change)="guardarSms({ apiKey: $any($event.target).value }); $any($event.target).value = ''" />
-        </label>
-        <label class="campo">
-          <span>Estado</span>
-          <app-selector [valorActual]="cfg.activo" (cambio)="guardarSms({ activo: $any($event) })">
-            <app-opcion [valor]="true">Activo</app-opcion>
-            <app-opcion [valor]="false">Desactivado</app-opcion>
-          </app-selector>
-        </label>
-      </div>
-      @if (cfg.actualizadoPor) {
-        <p class="hint">Última actualización por {{ cfg.actualizadoPor }}
-          @if (cfg.actualizadoEn) { el {{ cfg.actualizadoEn | date: 'dd/MM/yyyy HH:mm' }} }
-        </p>
-      }
-      <div class="sms-probar">
-        <input type="tel" inputmode="tel" placeholder="Número para probar (ej. 3001234567)"
-               [ngModel]="smsProbandoNumero()" (ngModelChange)="smsProbandoNumero.set($event)" />
-        <button type="button" class="btn btn--ghost" [disabled]="smsProbando() || !smsProbandoNumero().trim()"
-                (click)="probarSms()">
-          {{ smsProbando() ? 'Enviando…' : 'Enviar SMS de prueba' }}
-        </button>
-      </div>
-    } @else {
-      <p class="hint">Cargando configuración…</p>
-    }
-  </div>
-
-  <!-- Archivado de grabaciones. El barrido recorre TODAS las instancias, así
-       que es mantenimiento de la plataforma y no de un municipio. -->
-  <div class="panel card sms-global">
-    <h2>🗄️ Archivado de grabaciones</h2>
-    <p class="hint">Las grabaciones salen de la base de datos al almacenamiento de objetos
-      cuando cumplen su plazo, y Falcon las sigue mostrando igual. Afecta a todas las
-      instancias. El barrido corre solo cada noche; aquí se dispara ahora.</p>
-
-    @if (archivadoError()) {
-      <p class="error">{{ archivadoError() }}</p>
-    }
-
-    <div class="archivado-botones">
-      <button type="button" class="btn" [disabled]="archivando()" (click)="ejecutarArchivado()">
-        {{ archivando() ? 'Archivando…' : 'Archivar ahora' }}
+  <nav class="plat-tabs" role="tablist" aria-label="Secciones de Plataforma">
+    @for (p of pestanas; track p.id) {
+      <button type="button" role="tab" [id]="'tab-' + p.id"
+        [attr.aria-selected]="pestanaActiva() === p.id"
+        [attr.aria-controls]="'panel-' + p.id"
+        [class.activa]="pestanaActiva() === p.id"
+        (click)="pestanaActiva.set(p.id)">
+        <span class="ico">{{ p.icono }}</span> {{ p.etiqueta }}
       </button>
-      <!-- Para comprobar la cadena el día que se configura el almacén. El plazo
-      vale SOLO para esa pasada y no se guarda: bajar el plazo global y olvidar
-      devolverlo haría que todo se archivara al día siguiente, en silencio. -->
-      <button type="button" class="btn btn--ghost" [disabled]="archivando()"
-              (click)="ejecutarArchivado(1)"
-              title="Archiva lo que tenga más de un día, solo esta vez. No cambia la configuración.">
-        Probar con lo de hace más de 1 día
-      </button>
+    }
+  </nav>
+
+  @if (pestanaActiva() === 'tenants') {
+    <div role="tabpanel" id="panel-tenants" aria-labelledby="tab-tenants">
+    <div class="kpis">
+      <div class="kpi"><span class="n">{{ tenants().length }}</span><span class="l">Instancias</span></div>
+      <div class="kpi"><span class="n">{{ totalCuentas() }}</span><span class="l">Cuentas</span></div>
     </div>
 
-    @if (archivadoResultado(); as r) {
-      @if (!r.configurado) {
-        <p class="error">
-          <strong>No se puede archivar.</strong> {{ r.motivo }}
-          <br>Mientras tanto las grabaciones se quedan en la base de datos y el disco crece.
-        </p>
-      } @else {
-        <p class="exito">
-          Archivadas <strong>{{ r.archivadas }}</strong> grabación(es).
-          Las grabaciones salen de la base a los <strong>{{ r.diasEnBase }}</strong> días.
-          @if (r.diasUsados !== r.diasEnBase) {
-            <br>Esta pasada se hizo con un plazo de <strong>{{ r.diasUsados }}</strong> día(s),
-            solo para probar. La configuración no cambió.
-          }
-          @if (r.archivadas === 0) {
-            <br>Cero no es un error: significa que ninguna ha cumplido ese plazo todavía.
-          }
-        </p>
-      }
-    }
-  </div>
+    <div class="panel card">
+      <h2>Nueva instancia</h2>
+      <p class="hint">Arranca con 30 días de prueba y todas las integraciones habilitadas.</p>
+      <form class="crear-inline" [formGroup]="nuevoTenantForm" (ngSubmit)="crearTenant()">
+        <input formControlName="codigo" placeholder="código (p. ej. envigado)" />
+        <input formControlName="nombre" placeholder="Nombre del municipio u organización" />
+        <button type="submit" class="btn btn--primary" [disabled]="nuevoTenantForm.invalid">Crear</button>
+      </form>
+      <!-- División político-administrativa (DIVIPOLA/DANE): opcional al crear, se completa luego si hace falta. -->
+      <form class="crear-inline sub" [formGroup]="nuevoTenantForm">
+        <app-selector-municipio formControlName="codigoDane" />
+      </form>
+    </div>
 
-  <div class="panel card sms-global">
-    <h2>📍 Geolocalización del llamante (Android ELS)</h2>
-    <p class="hint">Proveedor que entrega las coordenadas del teléfono desde el que se llama.
-      Esta configuración aplica para todas las instancias que tengan habilitada la
-      integración de geolocalización; qué instancias la tienen se decide abajo, en cada una.</p>
-
-    @if (elsError()) {
-      <p class="error">{{ elsError() }}</p>
-    }
-    @if (elsExito()) {
-      <p class="exito">{{ elsExito() }}</p>
-    }
-
-    @if (elsConfig(); as cfg) {
-      <div class="t-grid">
-        <label class="campo">
-          <span>Host / Base URL</span>
-          <input type="text" [value]="cfg.baseUrl ?? ''" placeholder="https://api-sandbox.rapidsos.com"
-                 (change)="guardarEls({ baseUrl: $any($event.target).value })" />
-        </label>
-        <label class="campo">
-          <span>Agencia</span>
-          <input type="text" [value]="cfg.agencia ?? ''" placeholder="antioquia"
-                 (change)="guardarEls({ agencia: $any($event.target).value })" />
-        </label>
-        <label class="campo">
-          <span>Caso por defecto</span>
-          <input type="text" [value]="cfg.casoPorDefecto ?? ''" placeholder="abc123"
-                 (change)="guardarEls({ casoPorDefecto: $any($event.target).value })" />
-        </label>
-      </div>
-      <div class="t-grid">
-        <label class="campo">
-          <span>Usuario (id)</span>
-          <input type="text" [value]="cfg.clienteId ?? ''" placeholder="Identificador que dio el proveedor"
-                 (change)="guardarEls({ clienteId: $any($event.target).value })" />
-        </label>
-        <label class="campo">
-          <span>Secreto {{ cfg.tieneSecreto ? '(configurado ✓)' : '(sin configurar)' }}</span>
-          <input type="password" placeholder="Pegue el nuevo secreto aquí"
-                 (change)="guardarEls({ clienteSecreto: $any($event.target).value }); $any($event.target).value = ''" />
-        </label>
-        <label class="campo">
-          <span>Estado</span>
-          <app-selector [valorActual]="cfg.activo" (cambio)="guardarEls({ activo: $any($event) })">
-            <app-opcion [valor]="true">Activo</app-opcion>
-            <app-opcion [valor]="false">Desactivado</app-opcion>
-          </app-selector>
-        </label>
-      </div>
-      @if (cfg.actualizadoPor) {
-        <p class="hint">Última actualización por {{ cfg.actualizadoPor }}
-          @if (cfg.actualizadoEn) { el {{ cfg.actualizadoEn | date: 'dd/MM/yyyy HH:mm' }} }
-        </p>
-      }
-      <div class="sms-probar">
-        <input type="tel" inputmode="tel" placeholder="Número para consultar (ej. 3224445555)"
-               [ngModel]="elsProbandoNumero()" (ngModelChange)="elsProbandoNumero.set($event)" />
-        <button type="button" class="btn btn--ghost" [disabled]="elsProbando() || !elsProbandoNumero().trim()"
-                (click)="probarEls()">
-          {{ elsProbando() ? 'Consultando…' : 'Consultar ubicación de prueba' }}
-        </button>
-      </div>
-    } @else {
-      <p class="hint">Cargando configuración…</p>
-    }
-  </div>
-
-  @if (tenants().length && !tenantsFiltrados().length) {
-    <p class="vacio-inline">Ninguna instancia coincide con la búsqueda.</p>
-  }
-
-  @for (t of tenantsFiltrados(); track t) {
-    <div class="tenant card">
-      <div class="t-head">
-        @if (t.logoDataUrl) {
-          <img class="t-logo" [src]="t.logoDataUrl" alt="" />
+    <div class="filtros">
+      <input [ngModel]="filtroTexto()" (ngModelChange)="filtroTexto.set($event)"
+        placeholder="Buscar por nombre, código o código DANE…" aria-label="Buscar instancia" />
+      <app-selector [valorActual]="filtroDepartamento()" (cambio)="cambiarFiltroDepartamento($any($event))"
+        [ariaLabel]="'Filtrar por departamento'">
+        <app-opcion [valor]="null">Todos los departamentos</app-opcion>
+        @for (d of departamentosDisponibles(); track d) {
+          <app-opcion [valor]="d">{{ d }}</app-opcion>
         }
-        <div>
-          <h2>{{ t.nombre }} <span class="mono cod">{{ t.codigo }}</span></h2>
-          <p class="t-sub">{{ t.totalUsuarios ?? 0 }} cuentas · creada {{ t.creadoEn | date: 'dd/MM/yyyy' }}</p>
+      </app-selector>
+      <app-selector [valorActual]="filtroSubregion()" (cambio)="filtroSubregion.set($any($event))"
+        [ariaLabel]="'Filtrar por subregión'" [disabled]="!subregionesDisponibles().length">
+        <app-opcion [valor]="null">Toda subregión</app-opcion>
+        @for (s of subregionesDisponibles(); track s) {
+          <app-opcion [valor]="s">{{ s }}</app-opcion>
+        }
+      </app-selector>
+      <span class="conteo">{{ tenantsFiltrados().length }} de {{ tenants().length }}</span>
+      @if (filtroTexto() || filtroDepartamento() || filtroSubregion()) {
+        <button type="button" class="btn btn--ghost mini" (click)="limpiarFiltros()">Quitar filtros</button>
+      }
+    </div>
+
+    @if (tenants().length && !tenantsFiltrados().length) {
+      <p class="vacio-inline">Ninguna instancia coincide con la búsqueda.</p>
+    }
+
+    @for (t of tenantsFiltrados(); track t) {
+      <div class="tenant card">
+        <div class="t-head">
+          @if (t.logoDataUrl) {
+            <img class="t-logo" [src]="t.logoDataUrl" alt="" />
+          }
+          <div>
+            <h2>{{ t.nombre }} <span class="mono cod">{{ t.codigo }}</span></h2>
+            <p class="t-sub">{{ t.totalUsuarios ?? 0 }} cuentas · creada {{ t.creadoEn | date: 'dd/MM/yyyy' }}</p>
+          </div>
+          <span class="situacion" [attr.data-estado]="situacion(t).clase">{{ situacion(t).texto }}</span>
         </div>
-        <span class="situacion" [attr.data-estado]="situacion(t).clase">{{ situacion(t).texto }}</span>
-      </div>
-      <div class="t-logo-fila">
-        <label class="btn btn--ghost mini">
-          {{ subiendoLogo() === t.id ? 'Subiendo…' : (t.logoDataUrl ? 'Cambiar bandera/logo' : 'Subir bandera/logo') }}
-          <input type="file" accept="image/*" hidden #logoInput (change)="subirLogo(t, logoInput)" />
-        </label>
-        @if (t.logoDataUrl) {
-          <button type="button" class="btn btn--ghost mini" (click)="quitarLogo(t)">Quitar</button>
-        }
-      </div>
-      <div class="t-grid">
-        <label class="campo campo-ancho">
-          <span>Departamento y municipio</span>
-          <app-selector-municipio [ngModel]="t.codigoDane" (ngModelChange)="cambiarUbicacion(t, $event)" />
-        </label>
-      </div>
-      @if (t.motivoBloqueo) {
-        <p class="motivo">🔒 {{ t.motivoBloqueo }}</p>
-      }
-      <div class="t-grid">
-        <label class="campo">
-          <span>Plan</span>
-          <app-selector [valorActual]="t.plan" (cambio)="actualizar(t, { plan: $any($event) })">
-            @for (p of planes; track p) {
-              <app-opcion [valor]="p">{{ p }}</app-opcion>
-            }
-          </app-selector>
-        </label>
-        <label class="campo">
-          <span>Suscripción</span>
-          <app-selector [valorActual]="t.suscripcion" (cambio)="actualizar(t, { suscripcion: $any($event) })">
-            @for (e of estados; track e) {
-              <app-opcion [valor]="e">{{ e }}</app-opcion>
-            }
-          </app-selector>
-        </label>
-        <label class="campo">
-          <span>Vence</span>
-          <app-fecha [valorActual]="t.vence" (cambio)="actualizar(t, { vence: $event })" />
-        </label>
-      </div>
-      <div class="integraciones">
-        <span class="lbl">Integraciones habilitadas</span>
-        @for (i of integracionesPosibles; track i) {
-          <label class="chip">
-            <input type="checkbox" [checked]="tieneIntegracion(t, i.clave)" (change)="alternarIntegracion(t, i.clave)" />
-            <span>{{ i.nombre }}</span>
+        <div class="t-logo-fila">
+          <label class="btn btn--ghost mini">
+            {{ subiendoLogo() === t.id ? 'Subiendo…' : (t.logoDataUrl ? 'Cambiar bandera/logo' : 'Subir bandera/logo') }}
+            <input type="file" accept="image/*" hidden #logoInput (change)="subirLogo(t, logoInput)" />
           </label>
+          @if (t.logoDataUrl) {
+            <button type="button" class="btn btn--ghost mini" (click)="quitarLogo(t)">Quitar</button>
+          }
+        </div>
+        <div class="t-grid">
+          <label class="campo campo-ancho">
+            <span>Departamento y municipio</span>
+            <app-selector-municipio [ngModel]="t.codigoDane" (ngModelChange)="cambiarUbicacion(t, $event)" />
+          </label>
+        </div>
+        @if (t.motivoBloqueo) {
+          <p class="motivo">🔒 {{ t.motivoBloqueo }}</p>
         }
+        <div class="t-grid">
+          <label class="campo">
+            <span>Plan</span>
+            <app-selector [valorActual]="t.plan" (cambio)="actualizar(t, { plan: $any($event) })">
+              @for (p of planes; track p) {
+                <app-opcion [valor]="p">{{ p }}</app-opcion>
+              }
+            </app-selector>
+          </label>
+          <label class="campo">
+            <span>Suscripción</span>
+            <app-selector [valorActual]="t.suscripcion" (cambio)="actualizar(t, { suscripcion: $any($event) })">
+              @for (e of estados; track e) {
+                <app-opcion [valor]="e">{{ e }}</app-opcion>
+              }
+            </app-selector>
+          </label>
+          <label class="campo">
+            <span>Vence</span>
+            <app-fecha [valorActual]="t.vence" (cambio)="actualizar(t, { vence: $event })" />
+          </label>
+        </div>
+        <div class="integraciones">
+          <span class="lbl">Integraciones habilitadas</span>
+          @for (i of integracionesPosibles; track i) {
+            <label class="chip">
+              <input type="checkbox" [checked]="tieneIntegracion(t, i.clave)" (change)="alternarIntegracion(t, i.clave)" />
+              <span>{{ i.nombre }}</span>
+            </label>
+          }
+        </div>
+        <div class="t-acciones">
+          @if (t.suscripcion !== 'suspendida' && t.activo) {
+            <button type="button" class="btn btn--ghost"
+            (click)="suspender(t)">Suspender servicio</button>
+          }
+          @if (t.suscripcion === 'suspendida' || !t.activo) {
+            <button type="button" class="btn btn--primary"
+            (click)="reactivar(t)">Reactivar</button>
+          }
+        </div>
       </div>
-      <div class="t-acciones">
-        @if (t.suscripcion !== 'suspendida' && t.activo) {
-          <button type="button" class="btn btn--ghost"
-          (click)="suspender(t)">Suspender servicio</button>
-        }
-        @if (t.suscripcion === 'suspendida' || !t.activo) {
-          <button type="button" class="btn btn--primary"
-          (click)="reactivar(t)">Reactivar</button>
-        }
-      </div>
+    }
     </div>
   }
+
+  @if (pestanaActiva() === 'operacion') {
+    <div role="tabpanel" id="panel-operacion" aria-labelledby="tab-operacion">
+      <p class="plat-intro">Ajustes que valen para <strong>todas</strong> las instancias:
+        se configuran una vez aquí y cada municipio los hereda.</p>
+
+    <!-- Configuración global de SMS — una sola para toda la plataforma -->
+    <div class="panel card sms-global">
+      <h2>🔐 Doble factor de autenticación</h2>
+      <p class="hint">Exige a cada usuario un código temporal de su aplicación de autenticación,
+        además de la contraseña. El superadministrador queda exento a propósito: es quien tiene
+        que poder entrar a desactivarlo si algo falla.</p>
+
+      @if (mfaError()) {
+        <p class="error">{{ mfaError() }}</p>
+      }
+      @if (mfaExito()) {
+        <p class="exito">{{ mfaExito() }}</p>
+      }
+
+      @if (mfaConfig(); as cfg) {
+        @if (cfg.forzadoPorEntorno) {
+          <p class="error">⚠ La variable de entorno <code>MFA_OBLIGATORIO=false</code> tiene el doble
+            factor APAGADO en el servidor, y manda sobre este interruptor. Mientras siga puesta,
+            nadie tendrá que presentar código aunque aquí diga «Exigido».</p>
+        }
+        <div class="t-grid">
+          <label class="campo">
+            <span>Estado</span>
+            <app-selector [valorActual]="cfg.exigido" (cambio)="guardarMfa($any($event))">
+              <app-opcion [valor]="true">Exigido a todos</app-opcion>
+              <app-opcion [valor]="false">Desactivado</app-opcion>
+            </app-selector>
+          </label>
+        </div>
+        <p class="hint">Al desactivarlo, los usuarios ya enrolados conservan su vinculación: si
+          vuelve a activarlo, no tendrán que escanear otra vez.</p>
+        @if (cfg.actualizadoPor) {
+          <p class="hint">Última actualización por {{ cfg.actualizadoPor }}
+            @if (cfg.actualizadoEn) { el {{ cfg.actualizadoEn | date: 'dd/MM/yyyy HH:mm' }} }
+          </p>
+        }
+      } @else {
+        <p class="hint">Cargando política…</p>
+      }
+    </div>
+
+    <div class="panel card sms-global">
+      <h2>📱 Mensajería SMS</h2>
+      <p class="hint">Proveedor de SMS para el envío de enlaces de videollamada. Esta configuración
+        aplica para todas las instancias que tengan la integración de videollamada habilitada.</p>
+
+      @if (smsError()) {
+        <p class="error">{{ smsError() }}</p>
+      }
+      @if (smsExito()) {
+        <p class="exito">{{ smsExito() }}</p>
+      }
+
+      @if (smsConfig(); as cfg) {
+        <div class="t-grid">
+          <label class="campo">
+            <span>Proveedor</span>
+            <app-selector [valorActual]="cfg.proveedor" (cambio)="guardarSms({ proveedor: $any($event) })">
+              <app-opcion valor="INFOBIP">Infobip</app-opcion>
+              <app-opcion valor="INALAMBRIA_EXPRESS">Inalambria Express</app-opcion>
+            </app-selector>
+          </label>
+          <label class="campo">
+            <span>Host / Base URL</span>
+            <input type="text" [value]="cfg.baseUrl ?? ''" placeholder="xxxxx.api.infobip.com"
+                   (change)="guardarSms({ baseUrl: $any($event.target).value })" />
+          </label>
+          <label class="campo">
+            <span>Sender (remitente)</span>
+            <input type="text" [value]="cfg.sender ?? ''" placeholder="FALCON"
+                   (change)="guardarSms({ sender: $any($event.target).value })" />
+          </label>
+        </div>
+        <div class="t-grid">
+          <label class="campo">
+            <span>API Key {{ cfg.tieneApiKey ? '(configurada ✓)' : '(sin configurar)' }}</span>
+            <input type="password" placeholder="Pegue la nueva API key aquí"
+                   (change)="guardarSms({ apiKey: $any($event.target).value }); $any($event.target).value = ''" />
+          </label>
+          <label class="campo">
+            <span>Estado</span>
+            <app-selector [valorActual]="cfg.activo" (cambio)="guardarSms({ activo: $any($event) })">
+              <app-opcion [valor]="true">Activo</app-opcion>
+              <app-opcion [valor]="false">Desactivado</app-opcion>
+            </app-selector>
+          </label>
+        </div>
+        @if (cfg.actualizadoPor) {
+          <p class="hint">Última actualización por {{ cfg.actualizadoPor }}
+            @if (cfg.actualizadoEn) { el {{ cfg.actualizadoEn | date: 'dd/MM/yyyy HH:mm' }} }
+          </p>
+        }
+        <div class="sms-probar">
+          <input type="tel" inputmode="tel" placeholder="Número para probar (ej. 3001234567)"
+                 [ngModel]="smsProbandoNumero()" (ngModelChange)="smsProbandoNumero.set($event)" />
+          <button type="button" class="btn btn--ghost" [disabled]="smsProbando() || !smsProbandoNumero().trim()"
+                  (click)="probarSms()">
+            {{ smsProbando() ? 'Enviando…' : 'Enviar SMS de prueba' }}
+          </button>
+        </div>
+      } @else {
+        <p class="hint">Cargando configuración…</p>
+      }
+    </div>
+
+    <!-- Archivado de grabaciones. El barrido recorre TODAS las instancias, así
+         que es mantenimiento de la plataforma y no de un municipio. -->
+    <div class="panel card sms-global">
+      <h2>🗄️ Archivado de grabaciones</h2>
+      <p class="hint">Las grabaciones salen de la base de datos al almacenamiento de objetos
+        cuando cumplen su plazo, y Falcon las sigue mostrando igual. Afecta a todas las
+        instancias. El barrido corre solo cada noche; aquí se dispara ahora.</p>
+
+      @if (archivadoError()) {
+        <p class="error">{{ archivadoError() }}</p>
+      }
+
+      <div class="archivado-botones">
+        <button type="button" class="btn" [disabled]="archivando()" (click)="ejecutarArchivado()">
+          {{ archivando() ? 'Archivando…' : 'Archivar ahora' }}
+        </button>
+        <!-- Para comprobar la cadena el día que se configura el almacén. El plazo
+        vale SOLO para esa pasada y no se guarda: bajar el plazo global y olvidar
+        devolverlo haría que todo se archivara al día siguiente, en silencio. -->
+        <button type="button" class="btn btn--ghost" [disabled]="archivando()"
+                (click)="ejecutarArchivado(1)"
+                title="Archiva lo que tenga más de un día, solo esta vez. No cambia la configuración.">
+          Probar con lo de hace más de 1 día
+        </button>
+      </div>
+
+      @if (archivadoResultado(); as r) {
+        @if (!r.configurado) {
+          <p class="error">
+            <strong>No se puede archivar.</strong> {{ r.motivo }}
+            <br>Mientras tanto las grabaciones se quedan en la base de datos y el disco crece.
+          </p>
+        } @else {
+          <p class="exito">
+            Archivadas <strong>{{ r.archivadas }}</strong> grabación(es).
+            Las grabaciones salen de la base a los <strong>{{ r.diasEnBase }}</strong> días.
+            @if (r.diasUsados !== r.diasEnBase) {
+              <br>Esta pasada se hizo con un plazo de <strong>{{ r.diasUsados }}</strong> día(s),
+              solo para probar. La configuración no cambió.
+            }
+            @if (r.archivadas === 0) {
+              <br>Cero no es un error: significa que ninguna ha cumplido ese plazo todavía.
+            }
+          </p>
+        }
+      }
+    </div>
+
+    <div class="panel card sms-global">
+      <h2>📍 Geolocalización del llamante (Android ELS)</h2>
+      <p class="hint">Proveedor que entrega las coordenadas del teléfono desde el que se llama.
+        Esta configuración aplica para todas las instancias que tengan habilitada la
+        integración de geolocalización; qué instancias la tienen se decide abajo, en cada una.</p>
+
+      @if (elsError()) {
+        <p class="error">{{ elsError() }}</p>
+      }
+      @if (elsExito()) {
+        <p class="exito">{{ elsExito() }}</p>
+      }
+
+      @if (elsConfig(); as cfg) {
+        <div class="t-grid">
+          <label class="campo">
+            <span>Host / Base URL</span>
+            <input type="text" [value]="cfg.baseUrl ?? ''" placeholder="https://api-sandbox.rapidsos.com"
+                   (change)="guardarEls({ baseUrl: $any($event.target).value })" />
+          </label>
+          <label class="campo">
+            <span>Agencia</span>
+            <input type="text" [value]="cfg.agencia ?? ''" placeholder="antioquia"
+                   (change)="guardarEls({ agencia: $any($event.target).value })" />
+          </label>
+          <label class="campo">
+            <span>Caso por defecto</span>
+            <input type="text" [value]="cfg.casoPorDefecto ?? ''" placeholder="abc123"
+                   (change)="guardarEls({ casoPorDefecto: $any($event.target).value })" />
+          </label>
+        </div>
+        <div class="t-grid">
+          <label class="campo">
+            <span>Usuario (id)</span>
+            <input type="text" [value]="cfg.clienteId ?? ''" placeholder="Identificador que dio el proveedor"
+                   (change)="guardarEls({ clienteId: $any($event.target).value })" />
+          </label>
+          <label class="campo">
+            <span>Secreto {{ cfg.tieneSecreto ? '(configurado ✓)' : '(sin configurar)' }}</span>
+            <input type="password" placeholder="Pegue el nuevo secreto aquí"
+                   (change)="guardarEls({ clienteSecreto: $any($event.target).value }); $any($event.target).value = ''" />
+          </label>
+          <label class="campo">
+            <span>Estado</span>
+            <app-selector [valorActual]="cfg.activo" (cambio)="guardarEls({ activo: $any($event) })">
+              <app-opcion [valor]="true">Activo</app-opcion>
+              <app-opcion [valor]="false">Desactivado</app-opcion>
+            </app-selector>
+          </label>
+        </div>
+        @if (cfg.actualizadoPor) {
+          <p class="hint">Última actualización por {{ cfg.actualizadoPor }}
+            @if (cfg.actualizadoEn) { el {{ cfg.actualizadoEn | date: 'dd/MM/yyyy HH:mm' }} }
+          </p>
+        }
+        <div class="sms-probar">
+          <input type="tel" inputmode="tel" placeholder="Número para consultar (ej. 3224445555)"
+                 [ngModel]="elsProbandoNumero()" (ngModelChange)="elsProbandoNumero.set($event)" />
+          <button type="button" class="btn btn--ghost" [disabled]="elsProbando() || !elsProbandoNumero().trim()"
+                  (click)="probarEls()">
+            {{ elsProbando() ? 'Consultando…' : 'Consultar ubicación de prueba' }}
+          </button>
+        </div>
+      } @else {
+        <p class="hint">Cargando configuración…</p>
+      }
+    </div>
+
+    </div>
+  }
+
 </section>

@@ -9,6 +9,9 @@ import { OpcionComponent } from '../../shared/selector/opcion';
 import { FechaComponent } from '../../shared/fecha/fecha';
 import { ArchivadoService, ResultadoArchivado } from '../../core/archivado.service';
 
+/** Las dos mitades del módulo. Ver `PESTANAS` para por qué están separadas. */
+export type PestanaPlataforma = 'tenants' | 'operacion';
+
 /**
  * Supervisión de la plataforma: es la vista del dueño de FALCON CAD, no la del
  * municipio. Desde aquí se dan de alta las instancias, se gobierna su
@@ -53,6 +56,23 @@ export class PlataformaComponent implements OnInit {
       },
     });
   }
+
+  /**
+   * Dos trabajos distintos que vivían en la misma página, uno debajo del otro.
+   *
+   * Dar de alta un municipio y revisar su suscripción es una tarea; configurar
+   * el proveedor de SMS o el archivado de grabaciones es otra, se hace una vez
+   * y no se vuelve a mirar en meses. Mezcladas, los cuatro paneles de
+   * configuración quedaban entre el buscador de instancias y la lista que ese
+   * buscador filtra, así que había que pasarlos de largo en cada visita.
+   *
+   * «Instancias» va primero porque es lo del día a día.
+   */
+  readonly pestanas: ReadonlyArray<{ id: PestanaPlataforma; etiqueta: string; icono: string }> = [
+    { id: 'tenants', etiqueta: 'Instancias', icono: '🏛️' },
+    { id: 'operacion', etiqueta: 'Configuración e integraciones', icono: '🔗' },
+  ];
+  readonly pestanaActiva = signal<PestanaPlataforma>('tenants');
 
   readonly tenants = signal<Tenant[]>([]);
   readonly error = signal('');

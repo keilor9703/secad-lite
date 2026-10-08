@@ -16,333 +16,357 @@
       <p class="aviso">{{ aviso() }}</p>
     }
 
-    <div class="panel card">
-      <h2>🏢 Agencias y canales de atención</h2>
-      <p class="hint">Cada agencia tiene sus canales, que son las colas por las que despacha.
-      A esos canales se adscriben los funcionarios y a ellos se envían los casos.</p>
+  <nav class="cat-tabs" role="tablist" aria-label="Catálogos">
+    @for (p of pestanas; track p.id) {
+      <button type="button" role="tab" [id]="'tab-' + p.id"
+        [attr.aria-selected]="pestanaActiva() === p.id"
+        [attr.aria-controls]="'panel-' + p.id"
+        [class.activa]="pestanaActiva() === p.id"
+        (click)="pestanaActiva.set(p.id)">
+        <span class="ico">{{ p.icono }}</span> {{ p.etiqueta }}
+      </button>
+    }
+  </nav>
 
-      @if (puedeEditar()) {
-        <form class="crear-inline" [formGroup]="agenciaForm" (ngSubmit)="crearAgencia()">
-          <input formControlName="codigo" placeholder="código (p. ej. POLICIA)" />
-          <input formControlName="nombre" placeholder="Nombre de la agencia" />
-          <app-selector formControlName="tipo">
-            @for (t of tiposAgencia; track t) {
-              <app-opcion [valor]="t">{{ t }}</app-opcion>
-            }
-          </app-selector>
-          <input class="orden" type="number" formControlName="orden"
-            placeholder="orden" title="Posición en Recepción, de izquierda a derecha (vacío = al final)" />
-          <button type="submit" class="btn btn--primary" [disabled]="agenciaForm.invalid">Crear agencia</button>
-        </form>
-      }
+  @if (pestanaActiva() === 'agencias') {
+    <div role="tabpanel" id="panel-agencias" aria-labelledby="tab-agencias">
+      <div class="panel card">
+        <p class="hint">Cada agencia tiene sus canales, que son las colas por las que despacha.
+        A esos canales se adscriben los funcionarios y a ellos se envían los casos.</p>
 
-      @for (a of agencias(); track a.id; let i = $index) {
-        <div class="agencia" [class.off]="!a.activo">
-          <!-- Cabecera en lectura -->
-          @if (!edita('agencia', a.id)) {
-            <div class="agencia-head">
-              <span class="ag-orden" title="Posición en Recepción, de izquierda a derecha">{{ i + 1 }}</span>
-              <span class="ag-cod mono">{{ a.codigo }}</span>
-              <strong>{{ a.nombre }}</strong>
-              <span class="rol">{{ a.tipo }}</span>
-              @if (puedeEditar()) {
-                <span class="acciones">
-                  <button type="button" class="btn btn--ghost mini"
-                  (click)="abrirAgencia(a)">Editar</button>
-                  <button type="button" class="btn btn--ghost mini" (click)="alternarAgencia(a)">
-                    {{ a.activo ? 'Desactivar' : 'Activar' }}
-                  </button>
-                  <button type="button" class="btn btn--ghost mini peligro" (click)="eliminarAgencia(a)">Eliminar</button>
-                </span>
+        @if (puedeEditar()) {
+          <form class="crear-inline" [formGroup]="agenciaForm" (ngSubmit)="crearAgencia()">
+            <input formControlName="codigo" placeholder="código (p. ej. POLICIA)" />
+            <input formControlName="nombre" placeholder="Nombre de la agencia" />
+            <app-selector formControlName="tipo">
+              @for (t of tiposAgencia; track t) {
+                <app-opcion [valor]="t">{{ t }}</app-opcion>
               }
-            </div>
-          }
-          <!-- Cabecera en edición -->
-          @if (edita('agencia', a.id)) {
-            <div class="agencia-head editando" [formGroup]="agenciaEdicionForm">
-              <input class="mono corto" formControlName="codigo"
-                aria-label="Código de la agencia" />
-              <input formControlName="nombre"
-                aria-label="Nombre de la agencia" />
-              <app-selector formControlName="tipo" [ariaLabel]="'Tipo'">
-                @for (t of tiposAgencia; track t) {
-                  <app-opcion [valor]="t">{{ t }}</app-opcion>
-                }
-              </app-selector>
-              <input class="orden" type="number" formControlName="orden" aria-label="Orden en Recepción"
-                title="Posición en Recepción, de izquierda a derecha" />
-              <span class="acciones">
-                <button type="button" class="btn btn--primary mini" [disabled]="agenciaEdicionForm.invalid" (click)="guardarAgencia(a)">Guardar</button>
-                <button type="button" class="btn btn--ghost mini" (click)="cerrarEdicion()">Cancelar</button>
-              </span>
-            </div>
-          }
-          <ul class="canal-list">
-            @for (c of canalesDe(a.id); track c) {
-              <li [class.off]="!c.activo">
-                @if (!edita('canal', c.id)) {
-                  <span class="mono">{{ c.codigo }}</span> · {{ c.nombre }}
-                  @if (puedeEditar()) {
-                    <span class="acciones">
-                      <button type="button" class="btn btn--ghost mini"
-                      (click)="abrirCanal(c)">Editar</button>
-                      <button type="button" class="btn btn--ghost mini" (click)="alternarCanal(c)">
-                        {{ c.activo ? 'Desactivar' : 'Activar' }}
-                      </button>
-                      <button type="button" class="btn btn--ghost mini peligro" (click)="eliminarCanal(c)">Eliminar</button>
-                    </span>
-                  }
-                }
-                @if (edita('canal', c.id)) {
-                  <span [formGroup]="canalEdicionForm">
-                    <input class="mono corto" formControlName="codigo"
-                      aria-label="Código del canal" />
-                    <input formControlName="nombre"
-                      aria-label="Nombre del canal" />
-                    <span class="acciones">
-                      <button type="button" class="btn btn--primary mini" [disabled]="canalEdicionForm.invalid" (click)="guardarCanal(c)">Guardar</button>
-                      <button type="button" class="btn btn--ghost mini" (click)="cerrarEdicion()">Cancelar</button>
-                    </span>
+            </app-selector>
+            <input class="orden" type="number" formControlName="orden"
+              placeholder="orden" title="Posición en Recepción, de izquierda a derecha (vacío = al final)" />
+            <button type="submit" class="btn btn--primary" [disabled]="agenciaForm.invalid">Crear agencia</button>
+          </form>
+        }
+
+        @for (a of agencias(); track a.id; let i = $index) {
+          <div class="agencia" [class.off]="!a.activo">
+            <!-- Cabecera en lectura -->
+            @if (!edita('agencia', a.id)) {
+              <div class="agencia-head">
+                <span class="ag-orden" title="Posición en Recepción, de izquierda a derecha">{{ i + 1 }}</span>
+                <span class="ag-cod mono">{{ a.codigo }}</span>
+                <strong>{{ a.nombre }}</strong>
+                <span class="rol">{{ a.tipo }}</span>
+                @if (puedeEditar()) {
+                  <span class="acciones">
+                    <button type="button" class="btn btn--ghost mini"
+                    (click)="abrirAgencia(a)">Editar</button>
+                    <button type="button" class="btn btn--ghost mini" (click)="alternarAgencia(a)">
+                      {{ a.activo ? 'Desactivar' : 'Activar' }}
+                    </button>
+                    <button type="button" class="btn btn--ghost mini peligro" (click)="eliminarAgencia(a)">Eliminar</button>
                   </span>
                 }
-              </li>
+              </div>
             }
-            @if (!canalesDe(a.id).length) {
-              <li class="vacio-inline">Sin canales todavía.</li>
+            <!-- Cabecera en edición -->
+            @if (edita('agencia', a.id)) {
+              <div class="agencia-head editando" [formGroup]="agenciaEdicionForm">
+                <input class="mono corto" formControlName="codigo"
+                  aria-label="Código de la agencia" />
+                <input formControlName="nombre"
+                  aria-label="Nombre de la agencia" />
+                <app-selector formControlName="tipo" [ariaLabel]="'Tipo'">
+                  @for (t of tiposAgencia; track t) {
+                    <app-opcion [valor]="t">{{ t }}</app-opcion>
+                  }
+                </app-selector>
+                <input class="orden" type="number" formControlName="orden" aria-label="Orden en Recepción"
+                  title="Posición en Recepción, de izquierda a derecha" />
+                <span class="acciones">
+                  <button type="button" class="btn btn--primary mini" [disabled]="agenciaEdicionForm.invalid" (click)="guardarAgencia(a)">Guardar</button>
+                  <button type="button" class="btn btn--ghost mini" (click)="cerrarEdicion()">Cancelar</button>
+                </span>
+              </div>
             }
-          </ul>
-          @if (puedeEditar()) {
-            <form class="crear-inline sub" [formGroup]="formCanal(a.id)" (ngSubmit)="crearCanal(a)">
-              <input formControlName="codigo" placeholder="código canal" />
-              <input formControlName="nombre" placeholder="Nombre del canal" />
-              <button type="submit" class="btn btn--ghost mini">Agregar canal</button>
-            </form>
-          }
-        </div>
-      }
-    </div>
-
-    <div class="panel card">
-      <h2>🏷️ Códigos de caso</h2>
-      <p class="hint">La tipificación que el operador digita al recepcionar. Cada código trae su
-      prioridad y la agencia que suele atenderlo, para preseleccionarlas en el formulario.</p>
-
-      <!-- Carga masiva: exportar, corregir en una hoja de cálculo y volver a cargar -->
-      @if (puedeEditar()) {
-        <div class="masiva">
-          <div class="masiva-botones">
-            <button type="button" class="btn btn--ghost" (click)="descargarPlantilla()">⬇ Descargar plantilla</button>
-            <button type="button" class="btn btn--ghost" (click)="exportar()">⬇ Exportar catálogo</button>
-            <label class="btn btn--ghost archivo">
-              ⬆ Importar CSV
-              <input type="file" accept=".csv,text/csv" (change)="elegirArchivo($event)" hidden />
-            </label>
-            <label class="opcion">
-              <span>Si el código ya existe</span>
-              <app-selector [formControl]="existentesCtrl">
-                <app-opcion [valor]="'omitir'">dejarlo como está</app-opcion>
-                <app-opcion [valor]="'actualizar'">actualizarlo</app-opcion>
-              </app-selector>
-            </label>
+            <ul class="canal-list">
+              @for (c of canalesDe(a.id); track c) {
+                <li [class.off]="!c.activo">
+                  @if (!edita('canal', c.id)) {
+                    <span class="mono">{{ c.codigo }}</span> · {{ c.nombre }}
+                    @if (puedeEditar()) {
+                      <span class="acciones">
+                        <button type="button" class="btn btn--ghost mini"
+                        (click)="abrirCanal(c)">Editar</button>
+                        <button type="button" class="btn btn--ghost mini" (click)="alternarCanal(c)">
+                          {{ c.activo ? 'Desactivar' : 'Activar' }}
+                        </button>
+                        <button type="button" class="btn btn--ghost mini peligro" (click)="eliminarCanal(c)">Eliminar</button>
+                      </span>
+                    }
+                  }
+                  @if (edita('canal', c.id)) {
+                    <span [formGroup]="canalEdicionForm">
+                      <input class="mono corto" formControlName="codigo"
+                        aria-label="Código del canal" />
+                      <input formControlName="nombre"
+                        aria-label="Nombre del canal" />
+                      <span class="acciones">
+                        <button type="button" class="btn btn--primary mini" [disabled]="canalEdicionForm.invalid" (click)="guardarCanal(c)">Guardar</button>
+                        <button type="button" class="btn btn--ghost mini" (click)="cerrarEdicion()">Cancelar</button>
+                      </span>
+                    </span>
+                  }
+                </li>
+              }
+              @if (!canalesDe(a.id).length) {
+                <li class="vacio-inline">Sin canales todavía.</li>
+              }
+            </ul>
+            @if (puedeEditar()) {
+              <form class="crear-inline sub" [formGroup]="formCanal(a.id)" (ngSubmit)="crearCanal(a)">
+                <input formControlName="codigo" placeholder="código canal" />
+                <input formControlName="nombre" placeholder="Nombre del canal" />
+                <button type="submit" class="btn btn--ghost mini">Agregar canal</button>
+              </form>
+            }
           </div>
-          <p class="hint">El archivo exportado tiene el mismo formato de la plantilla, así que puede
-            descargarlo, corregirlo en una hoja de cálculo y volver a subirlo. No se acepta el mismo
-          código dos veces, ni dos descripciones iguales para la misma agencia.</p>
-          @if (importando()) {
-            <p class="masiva-estado">Procesando {{ archivoNombre() }}…</p>
-          }
-          <!-- Vista previa: nada se escribe hasta confirmar -->
-          @if (resultado(); as r) {
-            <div class="previa">
-              <p class="previa-titulo">
-                <strong>{{ r.simulacion ? 'Vista previa' : 'Resultado' }}</strong> de {{ archivoNombre() || 'la carga' }}:
-                {{ r.leidas }} filas leídas · {{ aceptadas(r) }} aplicables
-                @if (r.omitidos) {
-                  <span>· {{ r.omitidos }} ya existían</span>
-                }
-                @if (r.rechazos.length) {
-                  <span class="rechazadas">· {{ r.rechazos.length }} rechazadas</span>
-                }
-              </p>
-              @if (r.rechazos.length) {
-                <div class="tbl-wrap">
-                  <table class="rechazos">
-                    <thead><tr><th>Línea</th><th>Código</th><th>Motivo</th></tr></thead>
-                    <tbody>
-                      @for (f of r.rechazos.slice(0, 50); track f) {
-                        <tr>
-                          <td class="mono">{{ f.linea }}</td>
-                          <td class="mono">{{ f.codigo || '—' }}</td>
-                          <td>{{ f.motivo }}</td>
-                        </tr>
-                      }
-                    </tbody>
-                  </table>
-                  @if (r.rechazos.length > 50) {
-                    <p class="tope">
-                      Mostrando las primeras 50 de {{ r.rechazos.length }} filas rechazadas.
-                    </p>
-                  }
-                </div>
-              }
-              @if (r.simulacion) {
-                <div class="previa-acciones">
-                  <button type="button" class="btn btn--primary" [disabled]="importando() || !aceptadas(r)"
-                    (click)="confirmarImportacion()">
-                    Aplicar {{ aceptadas(r) }} {{ aceptadas(r) === 1 ? 'registro' : 'registros' }}
-                  </button>
-                  <button type="button" class="btn btn--ghost" (click)="descartarImportacion()">Descartar</button>
-                </div>
-              }
-            </div>
-          }
-        </div>
-      }
-
-      @if (puedeEditar()) {
-        <form class="crear-inline" [formGroup]="codigoForm" (ngSubmit)="crearCodigo()">
-          <input formControlName="codigo" placeholder="código (p. ej. 105)" />
-          <input formControlName="descripcion" placeholder="Descripción del caso" />
-          <app-selector formControlName="prioridad">
-            @for (p of prioridades; track p) {
-              <app-opcion [valor]="p">{{ p }}</app-opcion>
-            }
-          </app-selector>
-          <app-selector formControlName="agenciaSugeridaId">
-            <app-opcion [valor]="''">— agencia sugerida —</app-opcion>
-            @for (a of agencias(); track a.id) {
-              <app-opcion [valor]="a.id">{{ a.nombre }}</app-opcion>
-            }
-          </app-selector>
-          <button type="submit" class="btn btn--primary" [disabled]="codigoForm.invalid">Crear código</button>
-        </form>
-      }
-
-      <div class="buscador">
-        <input [formControl]="filtroCtrl"
-          placeholder="Buscar por código o descripción…" aria-label="Buscar código de caso" />
-        <span class="conteo">{{ codigosCoincidentes() }} de {{ codigos().length }}</span>
-      </div>
-
-      <div class="tbl-wrap">
-        <table>
-          <thead><tr><th>Código</th><th>Descripción</th><th>Prioridad</th><th>Agencia sugerida</th><th>Estado</th><th></th></tr></thead>
-          <tbody>
-            @for (c of codigosFiltrados(); track c) {
-              @if (!edita('codigo', c.id)) {
-                <tr>
-                  <td class="mono">{{ c.codigo }}</td>
-                  <td>{{ c.descripcion }}</td>
-                  <td><span class="prio" [attr.data-prio]="c.prioridad">{{ c.prioridad }}</span></td>
-                  <td>{{ nombreAgencia(c.agenciaSugeridaId) }}</td>
-                  <td><span class="badge" [class.on]="c.activo">{{ c.activo ? 'Activo' : 'Inactivo' }}</span></td>
-                  @if (puedeEditar()) {
-                    <td class="acciones">
-                      <button type="button" class="btn btn--ghost mini"
-                      (click)="abrirCodigo(c)">Editar</button>
-                      <button type="button" class="btn btn--ghost mini" (click)="alternarCodigo(c)">
-                        {{ c.activo ? 'Desactivar' : 'Activar' }}
-                      </button>
-                      <button type="button" class="btn btn--ghost mini peligro" (click)="eliminarCodigo(c)">Eliminar</button>
-                    </td>
-                  }
-                </tr>
-              }
-              @if (edita('codigo', c.id)) {
-                <tr class="fila-edicion" [formGroup]="codigoEdicionForm">
-                  <td><input class="mono" formControlName="codigo"
-                  aria-label="Código" /></td>
-                  <td><input formControlName="descripcion"
-                  aria-label="Descripción" /></td>
-                  <td>
-                    <app-selector formControlName="prioridad" [ariaLabel]="'Prioridad'">
-                      @for (p of prioridades; track p) {
-                        <app-opcion [valor]="p">{{ p }}</app-opcion>
-                      }
-                    </app-selector>
-                  </td>
-                  <td>
-                    <app-selector formControlName="agenciaSugeridaId"
-                      [ariaLabel]="'Agencia sugerida'">
-                      <app-opcion [valor]="''">— ninguna —</app-opcion>
-                      @for (a of agencias(); track a.id) {
-                        <app-opcion [valor]="a.id">{{ a.nombre }}</app-opcion>
-                      }
-                    </app-selector>
-                  </td>
-                  <td><span class="badge" [class.on]="c.activo">{{ c.activo ? 'Activo' : 'Inactivo' }}</span></td>
-                  <td class="acciones">
-                    <button type="button" class="btn btn--primary mini" [disabled]="codigoEdicionForm.invalid" (click)="guardarCodigo(c)">Guardar</button>
-                    <button type="button" class="btn btn--ghost mini" (click)="cerrarEdicion()">Cancelar</button>
-                  </td>
-                </tr>
-              }
-            }
-          </tbody>
-        </table>
-        @if (codigosCoincidentes() > codigosFiltrados().length) {
-          <p class="tope">
-            Mostrando {{ codigosFiltrados().length }} de {{ codigosCoincidentes() }} — afine la búsqueda para ver el resto.
-          </p>
         }
       </div>
+
     </div>
+  }
 
-    <div class="panel card">
-      <h2>✅ Códigos de cierre</h2>
-      <p class="hint">Cómo terminó el caso. El despachador elige uno al cerrar y es lo que permite
-        contar después cuántos fueron efectivos, cuántos falsa alarma y cuántos se perdieron sin unidad.
-      La clave solo se puede cambiar mientras ningún caso se haya cerrado con ella.</p>
+  @if (pestanaActiva() === 'casos') {
+    <div role="tabpanel" id="panel-casos" aria-labelledby="tab-casos">
+      <div class="panel card">
+        <p class="hint">La tipificación que el operador digita al recepcionar. Cada código trae su
+        prioridad y la agencia que suele atenderlo, para preseleccionarlas en el formulario.</p>
 
-      @if (puedeEditar()) {
-        <form class="crear-inline" [formGroup]="cierreForm" (ngSubmit)="crearCierre()">
-          <input formControlName="codigo" placeholder="clave (p. ej. sin_recurso)" />
-          <input formControlName="etiqueta" placeholder="Lo que ve el despachador" />
-          <button type="submit" class="btn btn--primary" [disabled]="cierreForm.invalid">Crear cierre</button>
-        </form>
-      }
-
-      <div class="tbl-wrap">
-        <table>
-          <thead><tr><th>Clave</th><th>Etiqueta</th><th>Estado</th><th></th></tr></thead>
-          <tbody>
-            @for (c of cierres(); track c) {
-              @if (!edita('cierre', c.id)) {
-                <tr>
-                  <td class="mono">{{ c.codigo }}</td>
-                  <td>{{ c.etiqueta }}</td>
-                  <td><span class="badge" [class.on]="c.activo">{{ c.activo ? 'Vigente' : 'Retirado' }}</span></td>
-                  @if (puedeEditar()) {
-                    <td class="acciones">
-                      <button type="button" class="btn btn--ghost mini"
-                      (click)="abrirCierre(c)">Editar</button>
-                      <button type="button" class="btn btn--ghost mini" (click)="alternarCierre(c)">
-                        {{ c.activo ? 'Retirar' : 'Reactivar' }}
-                      </button>
-                      <button type="button" class="btn btn--ghost mini peligro" (click)="eliminarCierre(c)">Eliminar</button>
-                    </td>
+        <!-- Carga masiva: exportar, corregir en una hoja de cálculo y volver a cargar -->
+        @if (puedeEditar()) {
+          <div class="masiva">
+            <div class="masiva-botones">
+              <button type="button" class="btn btn--ghost" (click)="descargarPlantilla()">⬇ Descargar plantilla</button>
+              <button type="button" class="btn btn--ghost" (click)="exportar()">⬇ Exportar catálogo</button>
+              <label class="btn btn--ghost archivo">
+                ⬆ Importar CSV
+                <input type="file" accept=".csv,text/csv" (change)="elegirArchivo($event)" hidden />
+              </label>
+              <label class="opcion">
+                <span>Si el código ya existe</span>
+                <app-selector [formControl]="existentesCtrl">
+                  <app-opcion [valor]="'omitir'">dejarlo como está</app-opcion>
+                  <app-opcion [valor]="'actualizar'">actualizarlo</app-opcion>
+                </app-selector>
+              </label>
+            </div>
+            <p class="hint">El archivo exportado tiene el mismo formato de la plantilla, así que puede
+              descargarlo, corregirlo en una hoja de cálculo y volver a subirlo. No se acepta el mismo
+            código dos veces, ni dos descripciones iguales para la misma agencia.</p>
+            @if (importando()) {
+              <p class="masiva-estado">Procesando {{ archivoNombre() }}…</p>
+            }
+            <!-- Vista previa: nada se escribe hasta confirmar -->
+            @if (resultado(); as r) {
+              <div class="previa">
+                <p class="previa-titulo">
+                  <strong>{{ r.simulacion ? 'Vista previa' : 'Resultado' }}</strong> de {{ archivoNombre() || 'la carga' }}:
+                  {{ r.leidas }} filas leídas · {{ aceptadas(r) }} aplicables
+                  @if (r.omitidos) {
+                    <span>· {{ r.omitidos }} ya existían</span>
                   }
-                </tr>
-              }
-              @if (edita('cierre', c.id)) {
-                <tr class="fila-edicion" [formGroup]="cierreEdicionForm">
-                  <td><input class="mono" formControlName="codigo"
-                  aria-label="Clave" /></td>
-                  <td><input formControlName="etiqueta"
-                  aria-label="Etiqueta" /></td>
-                  <td><span class="badge" [class.on]="c.activo">{{ c.activo ? 'Vigente' : 'Retirado' }}</span></td>
-                  <td class="acciones">
-                    <button type="button" class="btn btn--primary mini" [disabled]="cierreEdicionForm.invalid" (click)="guardarCierre(c)">Guardar</button>
-                    <button type="button" class="btn btn--ghost mini" (click)="cerrarEdicion()">Cancelar</button>
-                  </td>
-                </tr>
-              }
+                  @if (r.rechazos.length) {
+                    <span class="rechazadas">· {{ r.rechazos.length }} rechazadas</span>
+                  }
+                </p>
+                @if (r.rechazos.length) {
+                  <div class="tbl-wrap">
+                    <table class="rechazos">
+                      <thead><tr><th>Línea</th><th>Código</th><th>Motivo</th></tr></thead>
+                      <tbody>
+                        @for (f of r.rechazos.slice(0, 50); track f) {
+                          <tr>
+                            <td class="mono">{{ f.linea }}</td>
+                            <td class="mono">{{ f.codigo || '—' }}</td>
+                            <td>{{ f.motivo }}</td>
+                          </tr>
+                        }
+                      </tbody>
+                    </table>
+                    @if (r.rechazos.length > 50) {
+                      <p class="tope">
+                        Mostrando las primeras 50 de {{ r.rechazos.length }} filas rechazadas.
+                      </p>
+                    }
+                  </div>
+                }
+                @if (r.simulacion) {
+                  <div class="previa-acciones">
+                    <button type="button" class="btn btn--primary" [disabled]="importando() || !aceptadas(r)"
+                      (click)="confirmarImportacion()">
+                      Aplicar {{ aceptadas(r) }} {{ aceptadas(r) === 1 ? 'registro' : 'registros' }}
+                    </button>
+                    <button type="button" class="btn btn--ghost" (click)="descartarImportacion()">Descartar</button>
+                  </div>
+                }
+              </div>
             }
-            @if (!cierres().length) {
-              <tr><td colspan="4" class="vacio-inline">Sin códigos de cierre todavía.</td></tr>
-            }
-          </tbody>
-        </table>
+          </div>
+        }
+
+        @if (puedeEditar()) {
+          <form class="crear-inline" [formGroup]="codigoForm" (ngSubmit)="crearCodigo()">
+            <input formControlName="codigo" placeholder="código (p. ej. 105)" />
+            <input formControlName="descripcion" placeholder="Descripción del caso" />
+            <app-selector formControlName="prioridad">
+              @for (p of prioridades; track p) {
+                <app-opcion [valor]="p">{{ p }}</app-opcion>
+              }
+            </app-selector>
+            <app-selector formControlName="agenciaSugeridaId">
+              <app-opcion [valor]="''">— agencia sugerida —</app-opcion>
+              @for (a of agencias(); track a.id) {
+                <app-opcion [valor]="a.id">{{ a.nombre }}</app-opcion>
+              }
+            </app-selector>
+            <button type="submit" class="btn btn--primary" [disabled]="codigoForm.invalid">Crear código</button>
+          </form>
+        }
+
+        <div class="buscador">
+          <input [formControl]="filtroCtrl"
+            placeholder="Buscar por código o descripción…" aria-label="Buscar código de caso" />
+          <span class="conteo">{{ codigosCoincidentes() }} de {{ codigos().length }}</span>
+        </div>
+
+        <div class="tbl-wrap">
+          <table>
+            <thead><tr><th>Código</th><th>Descripción</th><th>Prioridad</th><th>Agencia sugerida</th><th>Estado</th><th></th></tr></thead>
+            <tbody>
+              @for (c of codigosFiltrados(); track c) {
+                @if (!edita('codigo', c.id)) {
+                  <tr>
+                    <td class="mono">{{ c.codigo }}</td>
+                    <td>{{ c.descripcion }}</td>
+                    <td><span class="prio" [attr.data-prio]="c.prioridad">{{ c.prioridad }}</span></td>
+                    <td>{{ nombreAgencia(c.agenciaSugeridaId) }}</td>
+                    <td><span class="badge" [class.on]="c.activo">{{ c.activo ? 'Activo' : 'Inactivo' }}</span></td>
+                    @if (puedeEditar()) {
+                      <td class="acciones">
+                        <button type="button" class="btn btn--ghost mini"
+                        (click)="abrirCodigo(c)">Editar</button>
+                        <button type="button" class="btn btn--ghost mini" (click)="alternarCodigo(c)">
+                          {{ c.activo ? 'Desactivar' : 'Activar' }}
+                        </button>
+                        <button type="button" class="btn btn--ghost mini peligro" (click)="eliminarCodigo(c)">Eliminar</button>
+                      </td>
+                    }
+                  </tr>
+                }
+                @if (edita('codigo', c.id)) {
+                  <tr class="fila-edicion" [formGroup]="codigoEdicionForm">
+                    <td><input class="mono" formControlName="codigo"
+                    aria-label="Código" /></td>
+                    <td><input formControlName="descripcion"
+                    aria-label="Descripción" /></td>
+                    <td>
+                      <app-selector formControlName="prioridad" [ariaLabel]="'Prioridad'">
+                        @for (p of prioridades; track p) {
+                          <app-opcion [valor]="p">{{ p }}</app-opcion>
+                        }
+                      </app-selector>
+                    </td>
+                    <td>
+                      <app-selector formControlName="agenciaSugeridaId"
+                        [ariaLabel]="'Agencia sugerida'">
+                        <app-opcion [valor]="''">— ninguna —</app-opcion>
+                        @for (a of agencias(); track a.id) {
+                          <app-opcion [valor]="a.id">{{ a.nombre }}</app-opcion>
+                        }
+                      </app-selector>
+                    </td>
+                    <td><span class="badge" [class.on]="c.activo">{{ c.activo ? 'Activo' : 'Inactivo' }}</span></td>
+                    <td class="acciones">
+                      <button type="button" class="btn btn--primary mini" [disabled]="codigoEdicionForm.invalid" (click)="guardarCodigo(c)">Guardar</button>
+                      <button type="button" class="btn btn--ghost mini" (click)="cerrarEdicion()">Cancelar</button>
+                    </td>
+                  </tr>
+                }
+              }
+            </tbody>
+          </table>
+          @if (codigosCoincidentes() > codigosFiltrados().length) {
+            <p class="tope">
+              Mostrando {{ codigosFiltrados().length }} de {{ codigosCoincidentes() }} — afine la búsqueda para ver el resto.
+            </p>
+          }
+        </div>
+      </div>
+
+    </div>
+  }
+
+  @if (pestanaActiva() === 'cierres') {
+    <div role="tabpanel" id="panel-cierres" aria-labelledby="tab-cierres">
+      <div class="panel card">
+        <p class="hint">Cómo terminó el caso. El despachador elige uno al cerrar y es lo que permite
+          contar después cuántos fueron efectivos, cuántos falsa alarma y cuántos se perdieron sin unidad.
+        La clave solo se puede cambiar mientras ningún caso se haya cerrado con ella.</p>
+
+        @if (puedeEditar()) {
+          <form class="crear-inline" [formGroup]="cierreForm" (ngSubmit)="crearCierre()">
+            <input formControlName="codigo" placeholder="clave (p. ej. sin_recurso)" />
+            <input formControlName="etiqueta" placeholder="Lo que ve el despachador" />
+            <button type="submit" class="btn btn--primary" [disabled]="cierreForm.invalid">Crear cierre</button>
+          </form>
+        }
+
+        <div class="tbl-wrap">
+          <table>
+            <thead><tr><th>Clave</th><th>Etiqueta</th><th>Estado</th><th></th></tr></thead>
+            <tbody>
+              @for (c of cierres(); track c) {
+                @if (!edita('cierre', c.id)) {
+                  <tr>
+                    <td class="mono">{{ c.codigo }}</td>
+                    <td>{{ c.etiqueta }}</td>
+                    <td><span class="badge" [class.on]="c.activo">{{ c.activo ? 'Vigente' : 'Retirado' }}</span></td>
+                    @if (puedeEditar()) {
+                      <td class="acciones">
+                        <button type="button" class="btn btn--ghost mini"
+                        (click)="abrirCierre(c)">Editar</button>
+                        <button type="button" class="btn btn--ghost mini" (click)="alternarCierre(c)">
+                          {{ c.activo ? 'Retirar' : 'Reactivar' }}
+                        </button>
+                        <button type="button" class="btn btn--ghost mini peligro" (click)="eliminarCierre(c)">Eliminar</button>
+                      </td>
+                    }
+                  </tr>
+                }
+                @if (edita('cierre', c.id)) {
+                  <tr class="fila-edicion" [formGroup]="cierreEdicionForm">
+                    <td><input class="mono" formControlName="codigo"
+                    aria-label="Clave" /></td>
+                    <td><input formControlName="etiqueta"
+                    aria-label="Etiqueta" /></td>
+                    <td><span class="badge" [class.on]="c.activo">{{ c.activo ? 'Vigente' : 'Retirado' }}</span></td>
+                    <td class="acciones">
+                      <button type="button" class="btn btn--primary mini" [disabled]="cierreEdicionForm.invalid" (click)="guardarCierre(c)">Guardar</button>
+                      <button type="button" class="btn btn--ghost mini" (click)="cerrarEdicion()">Cancelar</button>
+                    </td>
+                  </tr>
+                }
+              }
+              @if (!cierres().length) {
+                <tr><td colspan="4" class="vacio-inline">Sin códigos de cierre todavía.</td></tr>
+              }
+            </tbody>
+          </table>
+        </div>
       </div>
     </div>
+  }
+
   </section>
