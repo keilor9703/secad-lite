@@ -78,6 +78,8 @@ export class RecepcionComponent implements OnInit {
   readonly sonidoActivo = this.pbx.sonidoActivo;
   /** Si el canal en vivo está caído, una cola vacía no significa «no hay llamadas». */
   readonly enVivo = this.pbx.enVivo;
+  /** Solo se avisa de un canal caído si se esperaba que existiera. */
+  readonly canalEsperado = this.pbx.canalEsperado;
   /** ¿Es de este puesto? Las de otro puesto se ven más apagadas (solo las ve la supervisión). */
   esMia(l: Llamada): boolean { return this.pbx.esMia(l); }
   /** ¿Lo que mandó la central es un abonado, o un identificador suyo? */

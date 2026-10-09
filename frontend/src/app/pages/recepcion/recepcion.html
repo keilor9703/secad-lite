@@ -74,8 +74,12 @@
         }
         <!-- Una cola vacía con el canal caído no quiere decir «no hay llamadas»,
         quiere decir «dejé de enterarme». El operador tiene que poder
-        distinguirlas sin refrescar para averiguarlo. -->
-        @if (!enVivo()) {
+        distinguirlas sin refrescar para averiguarlo.
+
+        Se exige `canalEsperado()`: una instancia sin planta telefónica no tiene
+        canal que se caiga, y anunciarle «reconectando» para siempre es avisar
+        de una avería inexistente. -->
+        @if (canalEsperado() && !enVivo()) {
           <p class="sin-vivo" role="status">
             ⚠️ Sin conexión en vivo: reconectando. Puede que una llamada entrante tarde en aparecer.
           </p>

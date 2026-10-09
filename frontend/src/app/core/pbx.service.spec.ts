@@ -295,6 +295,57 @@ describe('PbxService — ver no es sonar', () => {
  * Abonado haría que el operador marcara un número que no existe, o que quedara
  * guardado en el caso como el teléfono del ciudadano.
  */
+/**
+ * «Sin conexión en vivo: reconectando» apareció de forma permanente en una
+ * central cuya instancia no tiene contratada la planta telefónica: el shell
+ * nunca llama a `conectar()`, así que `enVivo` se queda en falso para siempre
+ * y Recepción anunciaba una avería que no existía.
+ *
+ * La señal que decide es `canalEsperado`: solo se avisa de un canal caído si
+ * se esperaba que hubiera canal.
+ */
+describe('PbxService — avisar de un canal caído, no de uno inexistente', () => {
+  let pbx: PbxServicePrueba;
+  let http: HttpTestingController;
+
+  beforeEach(() => {
+    TestBed.configureTestingModule({
+      providers: [
+        provideHttpClient(), provideHttpClientTesting(),
+        { provide: PbxService, useClass: PbxServicePrueba },
+      ],
+    });
+    pbx = TestBed.inject(PbxService) as PbxServicePrueba;
+    http = TestBed.inject(HttpTestingController);
+  });
+
+  afterEach(() => http.verify({ ignoreCancelled: true }));
+
+  it('sin contratar la planta, no se espera canal y no hay nada que anunciar', () => {
+    // Nadie llamó a conectar(): es el caso de la instancia sin PBX.
+    expect(pbx.canalEsperado()).toBe(false);
+    expect(pbx.enVivo()).toBe(false);
+  });
+
+  it('al conectar se espera canal, aunque todavía no esté arriba', () => {
+    pbx.conectar();
+    http.expectOne((r) => r.url.endsWith('/pbx/llamadas')).flush([]);
+    // Esta es la combinación que SÍ debe mostrar el aviso: se esperaba canal
+    // y no está.
+    expect(pbx.canalEsperado()).toBe(true);
+    expect(pbx.enVivo()).toBe(false);
+  });
+
+  it('un apagado a propósito deja de esperar canal', () => {
+    pbx.conectar();
+    http.expectOne((r) => r.url.endsWith('/pbx/llamadas')).flush([]);
+    pbx.desconectar();
+    // Cerrar sesión o cambiar a una instancia sin planta no es una avería.
+    expect(pbx.canalEsperado()).toBe(false);
+    expect(pbx.enVivo()).toBe(false);
+  });
+});
+
 describe('PbxService.esNumeroMarcable', () => {
   it('acepta lo que es un abonado', () => {
     expect(PbxService.esNumeroMarcable('3175882321')).toBe(true);

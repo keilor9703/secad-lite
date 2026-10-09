@@ -66,6 +66,17 @@ export class PbxService {
   readonly enVivo = signal(false);
 
   /**
+   * ¿Se espera que exista canal en vivo?
+   *
+   * Falso mientras nadie haya llamado a `conectar()`, que es lo que pasa
+   * cuando la instancia no tiene contratada la planta telefónica: el shell ni
+   * lo intenta. Sin esto, `enVivo` en falso se interpretaba como «se cayó», y
+   * Recepción anunciaba «reconectando» de forma permanente a centrales que
+   * nunca tuvieron canal — un aviso de avería donde no hay avería.
+   */
+  readonly canalEsperado = signal(false);
+
+  /**
    * Reintentos tras un cierre DEL SERVIDOR. Acotados: si el servidor rechaza el
    * saludo porque la sesión ya no vale, insistir para siempre no la revive y
    * solo gasta red. Al agotarlos, `enVivo` queda en falso y la pantalla lo dice.
@@ -165,6 +176,7 @@ export class PbxService {
   /** Carga la cola y abre el canal en vivo (idempotente). */
   conectar(): void {
     this.apagadoAProposito = false;
+    this.canalEsperado.set(true);
     this.recargar();
     if (this.socket?.connected) return;
     this.socket = this.crearSocket();
@@ -264,6 +276,10 @@ export class PbxService {
     this.socket?.disconnect();
     this.socket = undefined;
     this.enVivo.set(false);
+    // Un apagado a propósito —cerrar sesión, cambiar a una instancia sin
+    // planta telefónica— no es una avería: deja de esperarse canal, y por
+    // tanto no hay nada que anunciar como caído.
+    this.canalEsperado.set(false);
   }
 
   recargar(): void {
