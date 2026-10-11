@@ -1,0 +1,88 @@
+/* Mismos valores que el diálogo de la barra superior (shell.scss): el velo y la
+   tarjeta son el mismo objeto visual, y la encapsulación de vistas impide
+   heredarlos. */
+.velo {
+  position: fixed; inset: 0; z-index: 900;
+  background: rgba(6, 16, 24, 0.45);
+  display: flex; align-items: center; justify-content: center; padding: 1rem;
+  overflow-y: auto;
+}
+.dialogo {
+  width: min(560px, 100%); padding: 1.2rem 1.4rem;
+  display: flex; flex-direction: column; gap: 0.9rem;
+  max-height: calc(100dvh - 2rem); overflow-y: auto;
+}
+.dialogo h2 { margin: 0; font-size: 1.05rem; font-weight: 600; }
+.sub { margin: 0.25rem 0 0; font-size: 0.8rem; color: var(--ink-soft); }
+.dialogo-acciones {
+  display: flex; justify-content: flex-end; gap: 0.6rem; margin-top: 0.3rem;
+  flex-wrap: wrap;
+}
+
+/* Severidad: cada opción muestra el compromiso que implica elegirla. */
+.sev { border: 0; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 0.4rem; }
+.sev legend {
+  padding: 0; margin-bottom: 0.15rem;
+  font-size: 0.8rem; font-weight: 500; color: var(--ink-soft);
+}
+.sev-op {
+  display: flex; gap: 0.6rem; align-items: flex-start;
+  padding: 0.55rem 0.7rem; cursor: pointer;
+  border: 1px solid var(--border); border-radius: 10px;
+  transition: border-color 0.15s ease, background 0.15s ease;
+}
+.sev-op:hover { background: var(--surface-2); }
+.sev-op.elegida { border-color: var(--accent); background: var(--surface-2); }
+/* `styles.scss` estila TODO `input` como campo de texto: ancho completo,
+   relleno, borde y radio. Aplicado a un radio lo convierte en una caja vacía
+   que se come la fila entera y expulsa el texto fuera del diálogo. Hay que
+   deshacerlo aquí, en el único sitio donde el proyecto usa radios. */
+.sev-op input[type='radio'] {
+  appearance: auto;
+  width: auto; height: auto; flex: none;
+  margin: 0.2rem 0 0; padding: 0;
+  border: 0; border-radius: 0; background: none; box-shadow: none;
+  accent-color: var(--accent);
+}
+.sev-op input[type='radio']:focus { box-shadow: none; }
+.sev-op:focus-within { outline: 2px solid var(--accent); outline-offset: 1px; }
+.sev-cuerpo { display: flex; flex-direction: column; gap: 0.1rem; min-width: 0; }
+.sev-tit { font-size: 0.86rem; }
+.sev-tit strong { margin-right: 0.35rem; color: var(--accent); }
+.sev-ej { font-size: 0.76rem; color: var(--ink-soft); }
+.sev-sla { font-size: 0.74rem; font-weight: 500; color: var(--ink-soft); font-variant-numeric: tabular-nums; }
+
+.aviso {
+  margin: 0; padding: 0.55rem 0.7rem;
+  font-size: 0.78rem; line-height: 1.45;
+  border-radius: 10px;
+  background: var(--tag-danger-bg); color: var(--tag-danger-fg);
+}
+
+textarea {
+  font: inherit; font-size: 0.86rem;
+  padding: 0.5rem 0.6rem; border-radius: 10px;
+  border: 1px solid var(--border); background: var(--surface); color: var(--ink);
+  resize: vertical;
+}
+textarea:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
+.pista { margin: 0.1rem 0 0; font-size: 0.74rem; color: var(--ink-soft); }
+
+/* Contexto técnico: a la vista si se pide, nunca oculto por diseño. */
+.ctx { display: flex; flex-direction: column; gap: 0.45rem; }
+.ctx-btn {
+  align-self: flex-start;
+  font: inherit; font-size: 0.78rem; font-weight: 500;
+  color: var(--accent); background: transparent; border: 0; padding: 0;
+  cursor: pointer; text-decoration: underline;
+}
+.ctx-texto {
+  margin: 0; padding: 0.6rem 0.7rem;
+  max-height: 11rem; overflow: auto;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  font-size: 0.7rem; line-height: 1.5;
+  white-space: pre; tab-size: 2;
+  background: var(--surface-2); color: var(--ink-soft);
+  border: 1px solid var(--border); border-radius: 10px;
+  user-select: all;
+}

@@ -10,7 +10,7 @@ import { ChangeDetectionStrategy, Component, input } from '@angular/core';
  * hereda el color del texto (`currentColor`), se alinea con la línea base y
  * mantiene el mismo peso visual en toda la barra.
  *
- * Tampoco se trae una librería completa: son quince iconos, y una dependencia
+ * Tampoco se trae una librería completa: son dieciséis iconos, y una dependencia
  * nueva costaría más —peso, versiones, licencias— que los trazos que caben
  * aquí. Todos comparten rejilla de 24, trazo de 1.75 y remates redondos, que
  * es lo que hace que un conjunto de iconos se vea como un conjunto.
@@ -22,7 +22,7 @@ import { ChangeDetectionStrategy, Component, input } from '@angular/core';
 export type NombreIcono =
   | 'recepcion' | 'despacho' | 'consulta' | 'recursos' | 'panel' | 'mapa'
   | 'catalogos' | 'admin' | 'plataforma' | 'monitor' | 'sala'
-  | 'llave' | 'salir' | 'telefono';
+  | 'llave' | 'salir' | 'telefono' | 'soporte';
 
 @Component({
   selector: 'app-icono',
@@ -87,6 +87,12 @@ export type NombreIcono =
         @case ('salir') {
           <path d="M15 4h3.5A1.5 1.5 0 0 1 20 5.5v13a1.5 1.5 0 0 1-1.5 1.5H15" />
           <path d="M10 16l-4-4 4-4" /><path d="M6 12h10" />
+        }
+        @case ('soporte') {
+          <!-- Aro de salvamento: pedir ayuda. -->
+          <circle cx="12" cy="12" r="9" /><circle cx="12" cy="12" r="3.8" />
+          <path d="M5.6 5.6l3.7 3.7" /><path d="M14.7 14.7l3.7 3.7" />
+          <path d="M18.4 5.6l-3.7 3.7" /><path d="M9.3 14.7l-3.7 3.7" />
         }
         @case ('telefono') {
           <path d="M6.5 3.5h2.2l1.6 4-2 1.3a12.5 12.5 0 0 0 5.9 5.9l1.3-2 4 1.6v2.2a2 2 0 0 1-2.2 2A16.5 16.5 0 0 1 4.5 5.7a2 2 0 0 1 2-2.2z" />

@@ -47,6 +47,17 @@ export class CasosWsService implements OnDestroy {
   }
 
   /**
+   * En qué va el canal, para el reporte de soporte. Distingue tres cosas que
+   * se confunden en los reportes: que nadie lo haya abierto (una página que no
+   * necesita casos en vivo), que esté abierto y hablando, y que se haya
+   * abierto y esté caído — que es el único de los tres que es un problema.
+   */
+  get estado(): 'sin iniciar' | 'conectado' | 'caido' {
+    if (!this.socket) return 'sin iniciar';
+    return this.socket.connected ? 'conectado' : 'caido';
+  }
+
+  /**
    * Se une a la sala de chat de UN caso — solo mientras su detalle está en
    * pantalla, para no recibir el chat de casos que nadie tiene abiertos aquí.
    */

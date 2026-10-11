@@ -4,6 +4,7 @@ import { Router } from '@angular/router';
 import { catchError, throwError } from 'rxjs';
 import { ToastService } from '../shared/toast/toast.service';
 import { AuthService } from './auth.service';
+import { registrarErrorHttp } from './registro-errores';
 
 /**
  * Peticiones que NO deben disparar el toast genérico.
@@ -34,6 +35,11 @@ export const errorToastInterceptor: HttpInterceptorFn = (req, next) => {
   return next(req).pipe(
     catchError((err: HttpErrorResponse) => {
       const silenciosa = SILENCIOSAS.some((s) => req.url.includes(s));
+      // Se anota SIEMPRE, incluso lo silencioso: que un rechazo no merezca un
+      // aviso en pantalla no quiere decir que no sirva para diagnosticar. Los
+      // trozos de la grabación que se caen son justamente la pista de por qué
+      // la videollamada salió mal, y son los que no muestran toast.
+      registrarErrorHttp(req.method, req.url, err?.status, err?.error);
       if (err?.status === 401 && !silenciosa && auth.sesion()) {
         const volverA = router.url;
         auth.logout();

@@ -4,6 +4,7 @@ import { HttpClient } from '@angular/common/http';
 import { Observable, tap } from 'rxjs';
 import { environment } from '../../environments/environment';
 import { Sesion } from './models';
+import { olvidarErrores } from './registro-errores';
 
 const STORAGE_KEY = 'falconcad_sesion';
 const TENANT_KEY = 'falconcad_tenant_ctx';
@@ -128,6 +129,10 @@ export class AuthService {
     localStorage.removeItem(STORAGE_KEY);
     this.setTenantCtx('');
     this._sesion.set(null);
+    // El puesto de despacho se comparte entre turnos: el reporte de soporte
+    // del relevo no debe llevar los errores —ni las rutas, ni las horas— de
+    // quien estuvo antes en esta misma pantalla.
+    olvidarErrores();
   }
 
   get token(): string | null {

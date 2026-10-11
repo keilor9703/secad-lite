@@ -15,11 +15,12 @@ import { ToastComponent } from '../../shared/toast/toast';
 import { ConfirmComponent } from '../../shared/confirm/confirm';
 import { SelectorComponent } from '../../shared/selector/selector';
 import { OpcionComponent } from '../../shared/selector/opcion';
+import { SoporteComponent } from '../../shared/soporte/soporte';
 
 @Component({
   selector: 'app-shell',
   standalone: true,
-  imports: [ReactiveFormsModule, RouterOutlet, RouterLink, RouterLinkActive, TemaToggleComponent, LogoComponent, IconoComponent, ToastComponent, ConfirmComponent, SelectorComponent, OpcionComponent],
+  imports: [ReactiveFormsModule, RouterOutlet, RouterLink, RouterLinkActive, TemaToggleComponent, LogoComponent, IconoComponent, ToastComponent, ConfirmComponent, SelectorComponent, OpcionComponent, SoporteComponent],
   templateUrl: './shell.html',
   styleUrl: './shell.scss',
   changeDetection: ChangeDetectionStrategy.OnPush,
@@ -130,6 +131,14 @@ export class ShellComponent implements OnInit {
     // ahí se vuelve a la bandeja.
     if (/^\/recepcion\/.+/.test(this.router.url)) this.router.navigateByUrl('/recepcion');
   }
+
+  /**
+   * Diálogo de reporte a la mesa de ayuda. Se monta solo cuando se abre: así
+   * el contexto técnico se recoge en el momento del problema, no al cargar la
+   * aplicación, y el informe no envejece dentro de una pestaña abierta todo el
+   * turno.
+   */
+  readonly soporteAbierto = signal(false);
 
   // --- Cambiar MI contraseña (autoservicio) --------------------------------
   readonly cambioClaveAbierto = signal(false);

@@ -99,6 +99,18 @@
            cuenta: van juntas en un mismo grupo, no separadas por el resto de
            la barra como estaban. -->
       <div class="acciones-cuenta">
+        <!-- Reportar a la mesa de ayuda. Va aquí, en la barra superior, porque
+             tiene que alcanzarse desde CUALQUIER pantalla: el problema que se
+             reporta suele estar en la pantalla donde se está parado, y mandar
+             al usuario a otra página para reportarlo pierde justamente el
+             contexto que hace útil al reporte. -->
+        @if (s.tipo === 'institucional') {
+          <button type="button" class="accion" (click)="soporteAbierto.set(true)"
+            title="Reportar un problema a la mesa de ayuda"
+            aria-label="Reportar un problema a la mesa de ayuda">
+            <app-icono nombre="soporte" [tam]="17" />
+          </button>
+        }
         @if (s.tipo === 'institucional') {
           <button type="button" class="accion" (click)="abrirCambioClave()"
             title="Cambiar mi contraseña" aria-label="Cambiar mi contraseña">
@@ -148,6 +160,10 @@
       </div>
     </form>
   </div>
+}
+
+@if (soporteAbierto()) {
+  <app-soporte (cerrar)="soporteAbierto.set(false)" />
 }
 
 <app-toast />

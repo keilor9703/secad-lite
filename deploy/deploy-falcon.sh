@@ -190,6 +190,7 @@ actualizar_frontend() {
   echo "    $(find "$DIST_DIR" -path "$DIST_DIR/config" -prune -o -type f -print | wc -l) archivos publicados"
 
   publicar_runtime
+  publicar_version
   verificar_montaje
 }
 
@@ -224,6 +225,26 @@ publicar_runtime() {
   cp "$origen" "$DIST_DIR/config/runtime.json"
   chmod 644 "$DIST_DIR/config/runtime.json"
   echo "    ✔ runtime.json publicado (configuración del TURN)"
+}
+
+# Sello de la versión publicada, para el reporte de soporte.
+#
+# Sin esto, un reporte de la mesa de ayuda dice qué pasó pero no CONTRA QUÉ
+# CÓDIGO pasó, que es la primera pregunta cuando el fallo ya se corrigió: no se
+# puede distinguir "sigue roto" de "ese puesto todavía tiene la versión vieja
+# en caché". El commit no es un secreto: el repositorio es del dueño y lo que
+# se publica es un identificador, no el código.
+#
+# Va en config/ porque es el único directorio que el rsync `--delete` no borra;
+# en la raíz del paquete lo barrería el siguiente despliegue del frontend.
+publicar_version() {
+  mkdir -p "$DIST_DIR/config"
+  local commit
+  commit=$(git -C "$REPO_DIR" rev-parse --short HEAD 2>/dev/null || echo desconocido)
+  printf '{"commit":"%s","publicado":"%s"}\n' \
+    "$commit" "$(date -u +%Y-%m-%dT%H:%M:%SZ)" > "$DIST_DIR/config/version.json"
+  chmod 644 "$DIST_DIR/config/version.json"
+  echo "    ✔ version.json publicado (commit $commit)"
 }
 
 # Publicar en el host no prueba nada: lo que importa es qué ve nginx. Si el

@@ -1,0 +1,61 @@
+<div class="velo" (click)="cerrar.emit()">
+  <section class="dialogo card" (click)="$event.stopPropagation()"
+    role="dialog" aria-modal="true" aria-labelledby="sop-titulo">
+    <header>
+      <h2 id="sop-titulo">Reportar a la mesa de ayuda</h2>
+      <p class="sub">
+        El reporte lleva adjunto el contexto técnico de esta pantalla. Puede verlo
+        antes de enviarlo.
+      </p>
+    </header>
+
+    <fieldset class="sev">
+      <legend>¿Qué tan grave es?</legend>
+      @for (s of severidades; track s.id) {
+        <label class="sev-op" [class.elegida]="severidad() === s.id">
+          <input type="radio" name="severidad" [value]="s.id"
+            [checked]="severidad() === s.id" (change)="severidad.set(s.id)" />
+          <span class="sev-cuerpo">
+            <span class="sev-tit"><strong>{{ s.id }}</strong> {{ s.titulo }}</span>
+            <span class="sev-ej">{{ s.ejemplo }}</span>
+            <span class="sev-sla">{{ s.respuesta }}</span>
+          </span>
+        </label>
+      }
+    </fieldset>
+
+    @if (esCritico()) {
+      <p class="aviso" role="status">
+        Un reporte crítico se atiende 24/7, pero <strong>por teléfono</strong>: un
+        texto que nadie leyó todavía no es un aviso. Llame además a la línea de
+        soporte.
+      </p>
+    }
+
+    <div class="field">
+      <label for="sop-relato">¿Qué pasó?</label>
+      <textarea id="sop-relato" rows="4" [value]="relato()"
+        (input)="relato.set($any($event.target).value)"
+        placeholder="Qué estaba haciendo, qué esperaba que pasara y qué pasó en su lugar."></textarea>
+      <p class="pista">Mínimo una frase. Un dato concreto —el número del caso, la hora— ahorra una ida y vuelta.</p>
+    </div>
+
+    <div class="ctx">
+      <button type="button" class="ctx-btn" (click)="contextoVisible.set(!contextoVisible())"
+        [attr.aria-expanded]="contextoVisible()" aria-controls="sop-ctx">
+        {{ contextoVisible() ? 'Ocultar' : 'Ver' }} el contexto técnico que se adjunta
+      </button>
+      @if (contextoVisible()) {
+        <pre id="sop-ctx" class="ctx-texto">{{ contexto() || 'Recogiendo el contexto…' }}</pre>
+      }
+    </div>
+
+    <div class="dialogo-acciones">
+      <button type="button" class="btn btn--ghost" (click)="cerrar.emit()">Cancelar</button>
+      <button type="button" class="btn" [disabled]="!listo()" (click)="descargar()">Descargar</button>
+      <button type="button" class="btn btn--primary" [disabled]="!listo()" (click)="copiar()">
+        Copiar reporte
+      </button>
+    </div>
+  </section>
+</div>
