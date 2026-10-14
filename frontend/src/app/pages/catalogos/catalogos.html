@@ -250,7 +250,7 @@
                   <tr>
                     <td class="mono">{{ c.codigo }}</td>
                     <td>{{ c.descripcion }}</td>
-                    <td><span class="prio" [attr.data-prio]="c.prioridad">{{ c.prioridad }}</span></td>
+                    <td><span class="badge" [attr.data-prio]="c.prioridad">{{ c.prioridad }}</span></td>
                     <td>{{ nombreAgencia(c.agenciaSugeridaId) }}</td>
                     <td><span class="badge" [class.on]="c.activo">{{ c.activo ? 'Activo' : 'Inactivo' }}</span></td>
                     @if (puedeEditar()) {

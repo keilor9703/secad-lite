@@ -95,7 +95,7 @@
             @for (p of c.porPrioridad; track p.prioridad) {
               <div class="fila-cump clicable" title="Doble clic para ver los casos despachados de esta prioridad" (dblclick)="abrirDetalle({prioridad: p.prioridad, hito: 'despacho'}, 'Despachados — ' + prioridadLabel(p.prioridad))">
                 <span class="cap">
-                  <span class="prio" [attr.data-prio]="p.prioridad">{{ prioridadLabel(p.prioridad) }}</span>
+                  <span class="badge" [attr.data-prio]="p.prioridad">{{ prioridadLabel(p.prioridad) }}</span>
                   meta {{ p.metaMin }} min
                 </span>
                 <div class="track">
@@ -169,7 +169,7 @@
                 <tbody>
                   @for (f of t.porPrioridad; track f) {
                     <tr class="clicable" title="Doble clic para ver estos casos" (dblclick)="abrirDetalle({prioridad: f.prioridad}, 'Casos — ' + prioridadLabel(f.prioridad))">
-                      <td><span class="prio" [attr.data-prio]="f.prioridad">{{ prioridadLabel(f.prioridad) }}</span></td>
+                      <td><span class="badge" [attr.data-prio]="f.prioridad">{{ prioridadLabel(f.prioridad) }}</span></td>
                       <td class="num">{{ f.total }}</td>
                       <td class="num">{{ duracion(f.tomaMin) }}</td>
                       <td class="num">{{ duracion(f.despachoMin) }}</td>

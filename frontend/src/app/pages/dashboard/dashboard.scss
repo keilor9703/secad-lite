@@ -75,10 +75,6 @@ tr.clicable:hover td { background: var(--surface-2); }
 .t-tabla thead th { font-size: 0.7rem; text-transform: uppercase; letter-spacing: 0.06em; color: var(--muted); }
 .t-tabla tbody tr:last-child td { border-bottom: none; }
 .t-tabla .num { font-variant-numeric: tabular-nums; }
-.prio { display: inline-block; padding: 0.12rem 0.55rem; border-radius: 999px; font-size: 0.76rem; font-weight: 700; }
-.prio[data-prio='alta']  { background: var(--tag-danger-bg); color: var(--tag-danger-fg); }
-.prio[data-prio='media'] { background: var(--tag-warn-bg);   color: var(--tag-warn-fg); }
-.prio[data-prio='baja']  { background: var(--tag-info-bg);   color: var(--tag-info-fg); }
 
 /* Hallazgos automáticos: una lectura de texto, el color solo marca urgencia. */
 .lista-hallazgos { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 0.55rem; }

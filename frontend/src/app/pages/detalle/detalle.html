@@ -71,7 +71,7 @@
                     </dd>
                   </div>
                 }
-                <div><dt>Prioridad</dt><dd><span class="prio" [attr.data-prio]="c.prioridad">{{ c.prioridad || 'media' }}</span></dd></div>
+                <div><dt>Prioridad</dt><dd><span class="badge" [attr.data-prio]="c.prioridad">{{ c.prioridad || 'media' }}</span></dd></div>
                 <div><dt>Quien reporta</dt><dd>{{ c.ciudadano }}</dd></div>
                 <div><dt>Teléfono</dt><dd>{{ c.telefono || '—' }}</dd></div>
                 @if (c.direccionLlamante) {
@@ -108,7 +108,7 @@
                     <span class="chip-canal">
                       {{ nombreCanal(id) }}
                       @if (estadoDeCanal(id); as e) {
-                        <span class="badge mini" [attr.data-estado]="e">{{ estadoLabel(e) }}</span>
+                        <span class="badge badge--mini" [attr.data-estado]="e">{{ estadoLabel(e) }}</span>
                       }
                     </span>
                   }
@@ -325,7 +325,7 @@
                   <li>
                     <div class="asig-head">
                       <span class="mono">{{ a.recursoCodigo }} · {{ a.recursoNombre }}</span>
-                      <span class="asig-badge" [attr.data-estado]="a.estado">{{ estadoAsigLabel(a.estado) }}</span>
+                      <span class="badge" [attr.data-estado]="a.estado">{{ estadoAsigLabel(a.estado) }}</span>
                     </div>
                     @if (activa(a)) {
                       <div class="asig-acc">

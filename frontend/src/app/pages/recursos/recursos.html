@@ -71,7 +71,7 @@
                     </div>
                   }
                 </td>
-                <td><span class="rbadge" [attr.data-estado]="r.estado">{{ estadoLabel(r.estado) }}</span></td>
+                <td><span class="badge" [attr.data-estado]="r.estado">{{ estadoLabel(r.estado) }}</span></td>
                 @if (gestiona()) {
                   <td class="acciones-col">
                     <button type="button" class="btn btn--ghost mini" (click)="abrirEdicion(r)">Editar</button>
@@ -109,7 +109,7 @@
                     {{ r.agencia }}
                   }
                 </td>
-                <td><span class="rbadge" [attr.data-estado]="r.estado">{{ estadoLabel(r.estado) }}</span></td>
+                <td><span class="badge" [attr.data-estado]="r.estado">{{ estadoLabel(r.estado) }}</span></td>
                 <td class="acciones-col">
                   <button type="button" class="btn btn--primary mini" [disabled]="edicionForm.invalid" (click)="guardarEdicion(r)">Guardar</button>
                   <button type="button" class="btn btn--ghost mini" (click)="cancelarEdicion()">Cancelar</button>

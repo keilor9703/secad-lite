@@ -47,15 +47,6 @@ td { padding: 0.5rem 0.6rem; border-bottom: 1px solid var(--border); }
 .editable:hover { border-color: var(--border); }
 .editable:focus { border-color: var(--accent); background: var(--surface-2); outline: none; }
 
-.badge { font-size: 0.74rem; padding: 0.1rem 0.5rem; border-radius: 999px;
-         background: var(--surface-2); color: var(--muted); }
-.badge.on { background: var(--accent-soft); color: var(--accent); }
-.prio { font-size: 0.74rem; font-weight: 600; padding: 0.1rem 0.45rem; border-radius: 999px;
-        background: var(--surface-2); color: var(--muted); text-transform: capitalize; }
-.prio[data-prio="alta"]  { background: var(--tag-danger-bg); color: var(--tag-danger-fg); }
-.prio[data-prio="media"] { background: var(--tag-warn-bg);   color: var(--tag-warn-fg); }
-.prio[data-prio="baja"]  { background: var(--tag-ok-bg);     color: var(--tag-ok-fg); }
-
 .aviso { color: var(--accent); margin: 0; font-size: 0.9rem; }
 
 /* Acciones de cada registro: editar, desactivar, eliminar. */

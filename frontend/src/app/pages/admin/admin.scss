@@ -136,9 +136,6 @@ tbody tr:last-child td { border-bottom: none; }
 .mono { font-family: var(--mono); color: var(--ink-soft); }
 .rol { font-size: 0.78rem; font-weight: 600; text-transform: capitalize; }
 
-.badge { display: inline-block; padding: 0.2rem 0.55rem; border-radius: 999px; font-size: 0.72rem; font-weight: 600; background: var(--surface-2); color: var(--muted); }
-.badge.on { background: var(--accent-soft); color: var(--accent); }
-
 .mini { padding: 0.3rem 0.6rem; font-size: 0.78rem; }
 
 .clave-edicion { display: flex; gap: 0.3rem; align-items: center; }
@@ -226,12 +223,6 @@ tbody tr:last-child td { border-bottom: none; }
 .canales-pick.mini .chip { font-size: 0.74rem; padding: 0.1rem 0.4rem; }
 .chip input { width: auto; }
 .chip.off { opacity: 0.5; }
-
-.prio { font-size: 0.74rem; font-weight: 600; padding: 0.1rem 0.45rem; border-radius: 999px;
-        background: var(--surface-2); color: var(--muted); text-transform: capitalize; }
-.prio[data-prio="alta"]  { background: var(--tag-danger-bg); color: var(--tag-danger-fg); }
-.prio[data-prio="media"] { background: var(--tag-warn-bg);   color: var(--tag-warn-fg); }
-.prio[data-prio="baja"]  { background: var(--tag-ok-bg);     color: var(--tag-ok-fg); }
 
 /* Búsqueda dentro de catálogos largos (códigos de caso). */
 .buscador { display: flex; align-items: center; gap: 0.6rem; margin: 0.6rem 0 0.2rem; }

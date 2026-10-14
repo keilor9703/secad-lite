@@ -283,13 +283,44 @@ input:focus, textarea:focus {
 }
 .card-hover:hover { box-shadow: 0 4px 24px rgba(0,0,0,0.12); border-color: var(--border-2); }
 
-/* Etiqueta de estado (reutilizable en toda la app) */
+/* Etiqueta de estado (reutilizable en toda la app).
+ *
+ * Lleva un punto del color de su familia, y no es adorno: los fondos de las
+ * cinco familias son muy pálidos y están demasiado cerca entre sí para cargar
+ * el significado ellos solos. Medido en CIELab, la distancia entre los fondos
+ * va de ΔE 4,8 a 20,5 —y entre `accent-soft` y `tag-teal-bg` era 0,0, o sea
+ * EL MISMO COLOR, que es por lo que «nuevo» y «despachado» se veían iguales en
+ * Consulta y en el detalle—. Los colores de texto, en cambio, se separan de
+ * ΔE 15,5 a 108. El punto toma ese color con `currentColor`, así que cada
+ * variante lo hereda sin declarar nada. */
 .badge {
-  display: inline-flex; align-items: center; gap: 0.25rem;
+  display: inline-flex; align-items: center; gap: 0.3rem;
   font-size: 0.72rem; font-weight: 600;
-  padding: 0.12rem 0.55rem; border-radius: 999px;
+  padding: 0.12rem 0.6rem 0.12rem 0.5rem; border-radius: 999px;
   text-transform: uppercase; letter-spacing: 0.04em;
   white-space: nowrap;
+}
+.badge::before {
+  content: ''; flex: none;
+  width: 6px; height: 6px; border-radius: 50%;
+  background: currentColor;
+}
+/* Cuando la píldora no dice un estado sino un dato (un conteo, una sigla), el
+   punto sobra: no hay familia que señalar. */
+.badge--liso::before { display: none; }
+
+/* Más pequeña, para listas densas donde la píldora acompaña a otro dato (el
+   estado de cada canal dentro de la fila de un caso). */
+.badge--mini { font-size: var(--texto-2xs); padding: 0.08rem 0.45rem 0.08rem 0.35rem; gap: 0.25rem; }
+.badge--mini::before { width: 5px; height: 5px; }
+
+/* El punto respira. Lo usa la cola de Despacho en la prioridad alta: llama la
+   atención sin competir con el semáforo de espera ni gritar, porque el
+   movimiento está contenido en 6px y no en el fondo de la fila. */
+.badge--pulso::before { animation: badge-respiro 2s ease-in-out infinite; }
+@keyframes badge-respiro {
+  0%, 100% { box-shadow: 0 0 0 0 color-mix(in srgb, currentColor 55%, transparent); }
+  50%      { box-shadow: 0 0 0 4px color-mix(in srgb, currentColor 0%, transparent); }
 }
 .badge--danger  { background: var(--tag-danger-bg); color: var(--tag-danger-fg); }
 .badge--warn    { background: var(--tag-warn-bg);   color: var(--tag-warn-fg); }
@@ -489,9 +520,38 @@ body.desp-ancho .content { max-width: none; }
    el color de un estado ES información. Un solo mapa, aquí, y las pantallas
    solo eligen la clase. */
 .badge--info { background: var(--tag-info-bg); color: var(--tag-info-fg); }
-/* Estado del caso. Quien pinte uno usa estas, no inventa el color. */
+/* --- Estado del CASO. Una progresión, no cinco colores sueltos:
+       llegó (teal) -> alguien lo trabaja (ámbar) -> hay unidad en camino
+       (azul) -> terminó (verde). Gris es el único que no es un paso del
+       ciclo: «derivado» salió de esta bandeja y ya no es de uno. */
 .badge[data-estado='nuevo']      { background: var(--tag-teal-bg);   color: var(--tag-teal-fg); }
 .badge[data-estado='en_gestion'] { background: var(--tag-warn-bg);   color: var(--tag-warn-fg); }
 .badge[data-estado='despachado'] { background: var(--tag-info-bg);   color: var(--tag-info-fg); }
 .badge[data-estado='derivado']   { background: var(--surface-2);     color: var(--ink-soft); }
 .badge[data-estado='cerrado']    { background: var(--tag-ok-bg);     color: var(--tag-ok-fg); }
+
+/* --- Estado de un RECURSO. Verde es «disponible» y no «terminado»: aquí el
+       verde sí significa que se puede usar. Antes `disponible` y `en_sitio`
+       compartían fondo (ΔE 0,0) y no se distinguían. */
+.badge[data-estado='disponible']     { background: var(--tag-ok-bg);    color: var(--tag-ok-fg); }
+.badge[data-estado='asignado']       { background: var(--tag-info-bg);  color: var(--tag-info-fg); }
+.badge[data-estado='en_ruta']        { background: var(--tag-warn-bg);  color: var(--tag-warn-fg); }
+.badge[data-estado='en_sitio']       { background: var(--tag-teal-bg);  color: var(--tag-teal-fg); }
+.badge[data-estado='fuera_servicio'] { background: var(--surface-2);    color: var(--ink-soft); }
+
+/* --- Estado de una LLAMADA. */
+.badge[data-estado='sonando']    { background: var(--tag-warn-bg);   color: var(--tag-warn-fg); }
+.badge[data-estado='atendida']   { background: var(--tag-ok-bg);     color: var(--tag-ok-fg); }
+.badge[data-estado='perdida']    { background: var(--tag-danger-bg); color: var(--tag-danger-fg); }
+.badge[data-estado='finalizada'] { background: var(--surface-2);     color: var(--ink-soft); }
+.badge[data-estado='cancelada']  { background: var(--tag-danger-bg); color: var(--tag-danger-fg); }
+
+/* --- PRIORIDAD. Azul para «baja» y no verde: el verde ya significa
+       «terminado» en el ciclo del caso y «disponible» en el del recurso, y una
+       prioridad baja no es ninguna de las dos cosas. */
+.badge[data-prio='alta']  { background: var(--tag-danger-bg); color: var(--tag-danger-fg); }
+.badge[data-prio='media'] { background: var(--tag-warn-bg);   color: var(--tag-warn-fg); }
+.badge[data-prio='baja']  { background: var(--tag-info-bg);   color: var(--tag-info-fg); }
+
+/* --- Activo / inactivo, para catálogos y usuarios. */
+.badge.on { background: var(--tag-ok-bg); color: var(--tag-ok-fg); }

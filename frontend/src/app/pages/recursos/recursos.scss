@@ -17,13 +17,6 @@ tbody tr:last-child td { border-bottom: none; }
 .cap { text-transform: capitalize; }
 .mini { padding: 0.3rem 0.6rem; font-size: 0.78rem; }
 
-.rbadge { display: inline-block; padding: 0.2rem 0.55rem; border-radius: 999px; font-size: 0.72rem; font-weight: 600; background: var(--surface-2); color: var(--ink-soft); }
-.rbadge[data-estado="disponible"]     { background: var(--accent-soft); color: var(--accent); }
-.rbadge[data-estado="asignado"]       { background: var(--tag-info-bg); color: var(--tag-info-fg); }
-.rbadge[data-estado="en_ruta"]        { background: var(--tag-warn-bg); color: var(--tag-warn-fg); }
-.rbadge[data-estado="en_sitio"]       { background: var(--tag-teal-bg); color: var(--tag-teal-fg); }
-.rbadge[data-estado="fuera_servicio"] { background: var(--surface-2); color: var(--muted); }
-
 /* Acciones de la fila: se apilan si no caben, sin desbordar la tabla. */
 .acciones-col { white-space: nowrap; }
 .acciones-col .btn + .btn { margin-left: 0.35rem; }
