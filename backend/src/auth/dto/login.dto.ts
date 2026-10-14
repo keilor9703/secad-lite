@@ -99,12 +99,28 @@ export class InscripcionMfaDto {
   reto!: string;
 }
 
-/** «Olvidé mi contraseña»: se pide por usuario, nunca por correo. */
+/**
+ * «Olvidé mi contraseña»: se pide por usuario, nunca por correo.
+ *
+ * Los decoradores NO son adorno: el ValidationPipe global corre con
+ * `whitelist: true`, que BORRA del cuerpo toda propiedad que no tenga uno. Sin
+ * ellos, `usuario` llegaba `undefined` y la recuperación no hacía nada —
+ * en silencio, porque este endpoint responde 204 siempre a propósito.
+ */
 export class RecuperarDto {
+  @IsString() @MaxLength(120)
   usuario!: string;
 }
 
-/** El dueño del enlace elige su contraseña. */
+/**
+ * El dueño del enlace elige su contraseña.
+ *
+ * Mismo motivo que arriba, y aquí costó más caro: sin decorador, `contrasena`
+ * llegaba vacía, el backend respondía «mínimo 8 caracteres» aunque se hubieran
+ * escrito veinte, y la cuenta se quedaba con el hash aleatorio con el que
+ * nació — es decir, sin forma de entrar.
+ */
 export class EstablecerContrasenaDto {
+  @IsString() @MaxLength(200)
   contrasena!: string;
 }
