@@ -310,16 +310,31 @@ Los relojes de Sala, Monitor y Recepción hacen que esas capturas nunca sean
 idénticas entre dos corridas: una corrida de control (mismo código, dos
 capturas) dice cuánto ruido hay antes de culpar al cambio.
 
-### En qué orden
+### Qué se migró ya
 
-Siguiendo el punto 5 de `auditoria-diseno.md`:
+Los nueve módulos y los componentes compartidos están migrados. Lo que
+cambió, medido antes y después:
 
-1. **Píldora de estado** — es lo más repetido y lo único con un error de
-   significado, no de estética.
-2. **Iconos** — veinte glifos Unicode sueltos a `app-icono`.
-3. **Estados vacíos** — es la pantalla que se ve cuando algo no sale.
-4. **Escala tipográfica** — mecánico, pero hay que mirarlo módulo a módulo.
-5. **Encabezado, tarjeta, pestañas, tabla y diálogo** — borrar las copias.
+| | Antes | Ahora |
+|---|---|---|
+| Tamaños de texto en pantalla | 24 | **10** (y 3 de esos son de Sala) |
+| Píldora de estado | 8 redefiniciones + 8 alias | una, con mapa estado→color |
+| Emoji en el frontend | 50 glifos en 14 plantillas, más los del TypeScript | **cero** |
+| Encabezado de página | 13 copias | una |
+| Pestañas | 3 copias + 1 distinta | una |
+| Título de sección | 6 tamaños | uno |
+| Tablas | 8 implementaciones, 7 cabeceras | una |
+| Estados vacíos | 12 frases grises | 6 estados vacíos + `.sin-dato` |
+| Diálogos | 6, con dos velos distintos | 3 migrados; 3 pendientes |
+| Desplazamiento del anillo de foco | 4 valores | uno (más el −2px de fila) |
+
+### Lo que falta por migrar
+
+- **Tres diálogos**: `confirm`, `detalle-llamadas` y `detalle-reporte` tienen
+  marcado propio y no se tocaron.
+- **Monitor** sigue con su título de sección a 12,8px, más pequeño que el
+  texto corrido, y con dos tratamientos de sección en la misma página.
+- **Recepción** conserva un `h2` a 18,4px que no está en la escala.
 
 ---
 
@@ -328,6 +343,7 @@ Siguiendo el punto 5 de `auditoria-diseno.md`:
 Para que no se lea como terminado:
 
 - **No hay escala de sombras.** Hay `--shadow` y literales sueltos.
+- **Quedan tres diálogos sin migrar** (ver «Lo que falta por migrar»).
 - **No hay estados de carga.** Cada módulo resuelve «cargando…» a su manera;
   no hay esqueleto ni spinner del sistema.
 - **No hay reglas de formulario más allá de `.field`**: la validación, el error

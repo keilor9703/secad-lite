@@ -2,12 +2,13 @@
 
 Qué se ve distinto en cada módulo, medido sobre el código y sobre la pantalla.
 
-> Estado: **auditoría terminada, nada arreglado todavía**. Este documento es el
-> inventario; el paso siguiente es arreglar el sistema de diseño (`styles.scss`)
-> y después aplicarlo módulo por módulo. Cada hallazgo dice dónde está y qué
-> cuesta.
+> Estado: **auditoría terminada y aplicada**. Este documento se deja como el
+> inventario de lo que había y la medición que lo probó; lo que se hizo con
+> cada hallazgo está en la tabla del punto 5 y en
+> [`sistema-de-diseno.md`](./sistema-de-diseno.md).
 >
 > Fecha de la medición: 14 de octubre de 2026, sobre `1669909`.
+> Los trece hallazgos quedaron resueltos ese mismo día (`4ebfc62` … `aec9dbf`).
 
 ---
 
@@ -456,27 +457,23 @@ terminar de sistematizar**. Lo que ya funciona y no hay que tocar:
 
 ## 5. En qué orden conviene arreglarlo
 
-Ordenado por lo que cambia la percepción por hora invertida, no por gravedad
-técnica:
+Se hizo en este orden, por lo que cambia la percepción por hora invertida y no
+por gravedad técnica. Todos quedaron resueltos:
 
-| | Hallazgo | Coste | Por qué ahí |
+| | Hallazgo | Commit | Qué quedó |
 |---|---|---|---|
-| 1 | **H12** contraste de `--muted` | 15 min | un token, arregla los diez módulos |
-| 2 | **H0** barra de navegación | ½ jornada | no es diseño, es un módulo inalcanzable |
-| 3 | **H2** píldora de estado | 1 jornada | el elemento más repetido, y hay conflicto semántico |
-| 4 | **H10** iconos | 2 jornadas | lo que el cliente ya señaló dos veces |
-| 5 | **H9** estados vacíos | 1 jornada | es la pantalla que se ve cuando algo no sale |
-| 6 | **H1** escala tipográfica | 2 jornadas | mecánico, pero hay que mirarlo módulo a módulo |
-| 7 | **H3 · H5 · H6 · H7 · H8** componentes repetidos | 3 jornadas | tarjeta, pestaña, modal, tabla y título a un solo sitio |
-| 8 | **H4** encabezado de página | ½ jornada | sale casi solo al hacer el 7 |
-| 9 | **H11** foco | ½ jornada | accesibilidad, poco visible pero barato |
-| 10 | **H13** literales sueltos | 2 h | solo los cuatro que están sobre superficies del tema |
+| 1 | **H12** contraste | `4ebfc62` | cuatro tokens al borde que cumple AA, más `scripts/contraste.mjs` que lo verifica |
+| 2 | **H0** barra de navegación | `4252510` | menú «Más» medido; nada inalcanzable de 1920 a 390px |
+| 3 | — | `45c0e0e` | **el sistema escrito**: tres escalas y las piezas que faltaban, sin mover un píxel |
+| 4 | **H2** píldora de estado | `f9ab482` | una sola, con punto de color y un mapa estado→color |
+| 5 | **H10** iconos | `0f2daa6` + `f810a1a` | 65 trazos; **cero emoji** en todo el frontend |
+| 6 | **H9** estados vacíos | `9766fe5` | seis dicen qué pasa y qué hacer; el resto es `.sin-dato` |
+| 7 | **H3·H4·H5·H6·H7·H8** copias | `59b00bb` | encabezado, pestañas, tarjeta, tabla y diálogo: −324 líneas |
+| 8 | **H1** escala tipográfica | `50a3c60` | 297 declaraciones a ocho peldaños; de 24 tamaños en pantalla a 10 |
+| 9 | **H11 · H13** foco y literales | `aec9dbf` | un solo desplazamiento; token `--on-danger` |
 
-Antes del punto 3 hay que hacer el trabajo que no está en la tabla: **escribir lo
-que falta del sistema** en `styles.scss` —escala tipográfica, escala de
-espaciado, escala de `z-index`, el interior de la tarjeta, la cabecera de página,
-la tabla, la pestaña, el modal y el estado vacío— porque sin eso cada arreglo
-vuelve a ser una decisión suelta y en seis meses estamos igual.
+El punto 3 era la condición de los demás: sin escribir primero lo que faltaba
+del sistema, cada arreglo habría vuelto a ser una decisión suelta.
 
 ---
 
