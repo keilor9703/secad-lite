@@ -270,3 +270,72 @@ Mi sospecha, y es solo eso: YACO probablemente también compra el transporte a
 un mayorista. Si es así, el margen que usted recupera cambiando de
 transportista es real, pero el trabajo que YACO hace encima también es real, y
 hay que presupuestarlo antes de decidir que sale más barato.
+
+---
+
+## 9. Zadarma, y por qué la comparación por precio del DID engaña
+
+Apareció en una tabla comparativa como «planta gratis hasta 30 extensiones, DID
+Colombia ~2–3 USD/mes». Lo primero, el dato está mal: **Zadarma publica 12 USD
+de conexión y entre 12 y 18 USD al mes** para los fijos de Bogotá o Medellín
+(Pereira y el nacional 030, 14 USD/mes). Son cuatro a seis veces lo que decía la
+tabla. Sigue siendo barato; lo que importa es que la cifra no estaba verificada.
+
+Lo segundo, y más importante: **comparar proveedores por el precio del DID es
+comparar por el eslabón equivocado**. Los que deciden son otros tres.
+
+### Qué cubre de verdad, contra la cadena del punto 1
+
+Aquí Zadarma gana a Infobip, y hay que decirlo:
+
+| Eslabón | Infobip | Zadarma |
+|---|---|---|
+| 3–4 · número y canales | sí | sí |
+| 5 · SBC/PBX | **no**, lo pone usted | **sí, es su producto** |
+| 6 · ACD y colas | se construye con Calls API | **sí, incluido** |
+| 8 · grabación | no evidente | sí, con API de descarga |
+| 9 · CTI hacia FALCON | — | API propia |
+
+Esa es su virtud real: es «la planta lista», y evita el proyecto de montar y
+operar un SBC más un ACD, que es lo que hoy justifica la factura de YACO. Para
+una empresa de veinte personas es una opción excelente.
+
+### Las tres razones por las que no la pondría en un 123
+
+**Sin residencia de datos en Colombia.** Zadarma tiene oficinas en Bulgaria,
+Reino Unido, Polonia y España, y seis centros de datos en tres continentes; el
+más reciente, en Madrid. Ninguno en Colombia. Eso significa que el audio de cada
+llamada al 123 —y su grabación— saldría del país. Es exactamente la objeción que
+usted mismo planteó para la mesa de ayuda, y una grabación del 123 es bastante
+más sensible que un ticket de soporte. Súmele la latencia: un audio que va y
+vuelve a Europa no es gratis en una emergencia.
+
+**El plan gratuito no es gratuito para este caso.** Las 30 extensiones sí son
+gratis, pero la grabación lo es solo para tres o cinco extensiones —las fuentes
+oficiales se contradicen— y después cuesta unos 2 USD por extensión al mes. En un
+123 **toda** llamada se graba, así que con 20 o 30 operadores eso es un costo por
+puesto, no una función incluida. Y el espacio gratuito que se menciona (unos 200
+MB) no sostiene ni un día de grabaciones con la retención que pide un municipio.
+Que las propias páginas de ayuda se contradigan sobre qué trae el plan gratuito
+ya es, por sí solo, un motivo para no construir un contrato municipal encima.
+
+**Sin compromiso de disponibilidad.** Un plan gratuito no trae SLA. Que se caiga
+el CAD molesta; que se caiga el 123 es otra cosa, y es la pregunta que un
+municipio hace por escrito.
+
+### Lo que no verifiqué, y decide
+
+Si una numeración de Zadarma en Bogotá **puede ser el número E.164 al que los
+operadores enrutan el 123**. No es una pregunta técnica sino regulatoria, y la
+contesta el Administrador de los Recursos de Identificación, no una página de
+tarifas. Mientras no esté contestada, todo lo demás es teórico.
+
+### Para qué sí la usaría
+
+Como **banco de pruebas**, y es un uso muy bueno: por 12 USD al mes y una planta
+gratuita se puede montar el paso 2 del plan —probar el softphone WebRTC dentro de
+FALCON, el webhook de CTI, la grabación y su descarga por API— sin construir nada
+ni comprometer nada. También para la línea propia de FALCON como empresa, o para
+una línea administrativa secundaria del municipio.
+
+Lo que no haría es pasar de ahí al 123 saltándose los pasos 3 y 4.
