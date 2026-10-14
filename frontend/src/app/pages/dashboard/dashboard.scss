@@ -37,7 +37,6 @@
 .tbl-wrap { overflow-x: auto; min-width: 0; }
 
 .barras { display: flex; flex-direction: column; gap: 0.6rem; }
-.vacio { color: var(--muted); margin: 0; }
 .fila { display: grid; grid-template-columns: 90px 1fr 34px; align-items: center; gap: 0.6rem; }
 .cap { font-size: 0.82rem; color: var(--ink-soft); }
 .track { height: 12px; background: var(--surface-2); border-radius: 999px; overflow: hidden; }

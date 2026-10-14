@@ -148,7 +148,7 @@
                           </label>
                         }
                         @if (!canalesDestino().length) {
-                          <span class="vacio-inline">Esa agencia no tiene canales activos.</span>
+                          <span class="sin-dato">Esa agencia no tiene canales activos.</span>
                         }
                       </div>
                     }
@@ -195,7 +195,7 @@
                           }
                         </app-selector>
                         @if (!tenantsDestino().length) {
-                          <span class="vacio-inline">No hay otras instancias disponibles.</span>
+                          <span class="sin-dato">No hay otras instancias disponibles.</span>
                         }
                       </div>
                       <div class="field">
@@ -318,7 +318,7 @@
                 </div>
               }
               @if (asignaciones().length === 0) {
-                <p class="vacio">Sin recursos despachados.</p>
+                <p class="sin-dato">Sin recursos despachados.</p>
               }
               <ul class="asig-list">
                 @for (a of asignaciones(); track a) {
@@ -353,7 +353,7 @@
                 }
                 <div class="chat-msgs">
                   @if (waMensajes().length === 0) {
-                    <p class="vacio">Sin mensajes aún.</p>
+                    <p class="sin-dato">Sin mensajes aún.</p>
                   }
                   @for (m of waMensajes(); track m) {
                     <div class="cmsg" [class.propio]="m.autorTipo === 'operador'">
@@ -381,7 +381,7 @@
               }
               <div class="chat-msgs" #chatInternoMsgs>
                 @if (chatMensajes().length === 0) {
-                  <p class="vacio">Sin mensajes aún. Coordine aquí con quien más atienda este caso.</p>
+                  <p class="sin-dato">Sin mensajes aún. Coordine aquí con quien más atienda este caso.</p>
                 }
                 @for (m of chatMensajes(); track m.id) {
                   <div class="cmsg" [class.propio]="esPropio(m)">
@@ -397,7 +397,7 @@
                   <button type="submit" class="btn btn--primary" [disabled]="chatEnviando() || !chatForm.controls.texto.value.trim()">Enviar</button>
                 </form>
               } @else {
-                <p class="vacio">Caso cerrado: el chat quedó en solo lectura.</p>
+                <p class="sin-dato">Caso cerrado: el chat quedó en solo lectura.</p>
               }
             </div>
           }

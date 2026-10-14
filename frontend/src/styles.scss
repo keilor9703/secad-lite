@@ -473,6 +473,13 @@ body.desp-ancho .content { max-width: none; }
 }
 .estado-vacio strong { font-size: var(--texto-md); font-weight: 600; color: var(--ink-soft); }
 .estado-vacio p { margin: 0; max-width: 42ch; color: var(--muted); font-size: var(--texto-sm); }
+.estado-vacio .btn { margin-top: var(--esp-1); }
+
+/* Hueco en línea: NO es un estado vacío, es un dato que falta dentro de una
+   fila o una celda («sin canal asignado», «Sin restricción»). Se queda corto y
+   atenuado a propósito: si creciera, competiría con los datos que sí están.
+   Había once declaraciones de esto con seis tamaños distintos. */
+.sin-dato { color: var(--muted); font-size: var(--texto-sm); }
 
 /* --- Diálogo (había 6 implementaciones, con DOS velos distintos) ------------
    El velo es azul marino, no negro: tres módulos usaban uno y tres el otro, y

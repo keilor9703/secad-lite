@@ -121,7 +121,7 @@
                 </li>
               }
               @if (!canalesDe(a.id).length) {
-                <li class="vacio-inline">Sin canales todavía.</li>
+                <li class="sin-dato">Sin canales todavía.</li>
               }
             </ul>
             @if (puedeEditar()) {
@@ -360,7 +360,13 @@
                 }
               }
               @if (!cierres().length) {
-                <tr><td colspan="4" class="vacio-inline">Sin códigos de cierre todavía.</td></tr>
+                <tr><td colspan="4">
+                  <div class="estado-vacio">
+                    <strong>Sin códigos de cierre</strong>
+                    <p>Son las razones con las que un caso termina. Sin ellos, quien cierra
+                       tiene que escribir el motivo a mano cada vez.</p>
+                  </div>
+                </td></tr>
               }
             </tbody>
           </table>

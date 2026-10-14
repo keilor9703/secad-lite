@@ -86,9 +86,19 @@
       </tbody>
     </table>
     @if (!filtrados().length && !cargando()) {
-      <p class="vacio">
-        {{ casos().length ? 'Ningún caso coincide con la búsqueda.' : 'Todavía no hay casos.' }}
-      </p>
+      <div class="estado-vacio">
+        @if (casos().length) {
+          <strong>Ningún caso coincide con los filtros</strong>
+          <p>Pruebe ampliando el rango de fechas, o quitando el filtro de estado o de prioridad.</p>
+          <button type="button" class="btn" (click)="limpiarFiltros()">
+            <app-icono nombre="recargar" [tam]="15" /> Quitar filtros
+          </button>
+        } @else {
+          <strong>Todavía no hay casos</strong>
+          <p>Aquí aparecerá todo lo que se recepcione en esta instancia, venga de una
+             llamada, del WhatsApp o del formulario de Recepción.</p>
+        }
+      </div>
     }
   </div>
 </section>

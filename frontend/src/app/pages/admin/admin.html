@@ -395,7 +395,7 @@
                   </label>
                 }
                 @if (!canalesDe(entidadAgenciaId).length) {
-                  <span class="vacio-inline">
+                  <span class="sin-dato">
                     Esa agencia todavía no tiene canales.
                   </span>
                 }
@@ -428,7 +428,7 @@
                               <span class="mono"> ({{ nombresCanales(e.canales!) }})</span>
                             }
                             @if (!e.agenciaResponsableId) {
-                              <span class="vacio-inline"> — sin canal asignado</span>
+                              <span class="sin-dato"> — sin canal asignado</span>
                             }
                           </td>
                           <td class="mono ent-key">
@@ -452,19 +452,19 @@
                             @if (e.ipsPermitidas?.length) {
                               <span>{{ e.ipsPermitidas!.join(', ') }}</span>
                             } @else {
-                              <span class="vacio-inline" title="La key funciona desde cualquier IP">Sin restricción</span>
+                              <span class="sin-dato" title="La key funciona desde cualquier IP">Sin restricción</span>
                             }
                           </td>
                           <td>
                             @if (e.ultimoUso) {
                               <span>{{ e.ultimoUso | date: 'dd/MM HH:mm' }} · {{ e.ultimaIp }}</span>
                               @if ((e.ipsVistas?.length ?? 0) > 1) {
-                                <span class="vacio-inline" [title]="'IPs vistas: ' + e.ipsVistas!.join(', ')">
+                                <span class="sin-dato" [title]="'IPs vistas: ' + e.ipsVistas!.join(', ')">
                                   · {{ e.ipsVistas!.length }} IPs distintas <app-icono nombre="alerta" [tam]="14" />
                                 </span>
                               }
                             } @else {
-                              <span class="vacio-inline">Sin uso aún</span>
+                              <span class="sin-dato">Sin uso aún</span>
                             }
                           </td>
                           <td><span class="badge" [class.on]="e.activa">{{ e.activa ? 'Activa' : 'Inactiva' }}</span></td>
@@ -510,7 +510,11 @@
               </div>
             }
             @if (!entidades().length) {
-              <p class="vacio">Aún no hay entidades registradas.</p>
+              <div class="estado-vacio">
+                <strong>Ninguna entidad externa registrada</strong>
+                <p>Una entidad externa es un sistema de otra institución que entrega casos a
+                   FALCON por la API. Cada una recibe su propia llave.</p>
+              </div>
             }
           </div>
         }
@@ -592,11 +596,11 @@
                               </label>
                             }
                             @if (!canalesDe(edicionAgenciaId).length) {
-                              <span class="vacio-inline">Sin canales.</span>
+                              <span class="sin-dato">Sin canales.</span>
                             }
                           </div>
                         } @else {
-                          <span class="vacio-inline">Elija agencia.</span>
+                          <span class="sin-dato">Elija agencia.</span>
                         }
                       } @else {
                         {{ nombresCanales(u.canales) }}
@@ -735,7 +739,7 @@
                   </table>
                 </div>
               } @else {
-                <p class="vacio-inline">Aún no hay movimientos registrados en esta instancia.</p>
+                <p class="sin-dato">Aún no hay movimientos registrados en esta instancia.</p>
               }
             }
           </div>
@@ -845,7 +849,7 @@
               </label>
             }
             @if (!canalesDe(usuarioAgenciaId).length) {
-              <span class="vacio-inline">Esa agencia todavía no tiene canales.</span>
+              <span class="sin-dato">Esa agencia todavía no tiene canales.</span>
             }
           </div>
         </div>

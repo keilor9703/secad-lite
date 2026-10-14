@@ -65,7 +65,7 @@
     </div>
 
     @if (tenants().length && !tenantsFiltrados().length) {
-      <p class="vacio-inline">Ninguna instancia coincide con la búsqueda.</p>
+      <p class="sin-dato">Ninguna instancia coincide con la búsqueda.</p>
     }
 
     @for (t of tenantsFiltrados(); track t) {

@@ -181,7 +181,11 @@
             </div>
           }
         } @else {
-          <p class="vacio">Aún no hay casos en este período para medir tiempos.</p>
+          <div class="estado-vacio">
+            <strong>Sin casos en el período</strong>
+            <p>Los tiempos se calculan sobre los casos recepcionados entre las fechas
+               elegidas. Amplíe el rango para ver más.</p>
+          </div>
         }
       </div>
     }
@@ -213,7 +217,11 @@
             }
           </div>
         } @else {
-          <p class="vacio">Aún no hay llamadas registradas en los últimos 30 días.</p>
+          <div class="estado-vacio">
+            <strong>Sin llamadas en los últimos 30 días</strong>
+            <p>Este panel se alimenta de la planta telefónica. Si debería haber llamadas,
+               revise la integración en Administración.</p>
+          </div>
         }
       </div>
     }
@@ -237,7 +245,7 @@
         <h2>Casos por agencia</h2>
         <div class="barras">
           @if (r.porAgencia.length === 0) {
-            <p class="vacio">Sin datos.</p>
+            <p class="sin-dato">Sin datos.</p>
           }
           @for (a of r.porAgencia; track a) {
             <div class="fila clicable" title="Doble clic para ver el detalle" (dblclick)="abrirDetalle({agencia: a.agencia}, 'Casos — ' + a.agencia)">
@@ -272,7 +280,10 @@
             </table>
           </div>
         } @else {
-          <p class="vacio">Sin gestiones registradas en este período.</p>
+          <div class="estado-vacio">
+            <strong>Sin gestiones en el período</strong>
+            <p>Aquí se cuenta lo que cada operador tomó, despachó o cerró.</p>
+          </div>
         }
       </div>
     }

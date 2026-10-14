@@ -42,7 +42,6 @@
 .ayuda-top { margin: 0 0 0.7rem; font-size: 0.8rem; color: var(--muted); }
 
 .barras { display: flex; flex-direction: column; gap: 0.5rem; }
-.vacio { color: var(--muted); margin: 0; }
 .fila { display: grid; grid-template-columns: 110px 1fr 34px; align-items: center; gap: 0.6rem; }
 .fila-codigo { grid-template-columns: 160px 1fr 34px; }
 .cap { font-size: 0.8rem; color: var(--ink-soft); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }

@@ -119,7 +119,13 @@
           }
           @if (!recursos().length) {
             <tr>
-              <td colspan="6" class="vacio-inline">Sin recursos en la flota todavía.</td>
+              <td colspan="6">
+                <div class="estado-vacio">
+                  <strong>La flota está vacía</strong>
+                  <p>Registre las patrullas, ambulancias y máquinas disponibles para poder
+                     despacharlas a un caso.</p>
+                </div>
+              </td>
             </tr>
           }
         </tbody>

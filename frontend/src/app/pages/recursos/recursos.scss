@@ -24,7 +24,6 @@ tbody tr:last-child td { border-bottom: none; }
 .btn.peligro:hover { border-color: var(--danger); }
 .fila-edicion { background: var(--surface-2); }
 .fila-edicion input, .fila-edicion app-selector { width: 100%; min-width: 110px; }
-.vacio-inline { color: var(--muted); font-size: 0.85rem; }
 .hint { margin: 0.5rem 0 0; color: var(--muted); font-size: 0.82rem; }
 
 /* Canal(es) de la agencia que el recurso está atendiendo, cuando está en

@@ -71,7 +71,7 @@
       }
       <div class="barras">
         @if (porDiaSemana().length === 0) {
-          <p class="vacio">Sin datos.</p>
+          <p class="sin-dato">Sin datos.</p>
         }
         @for (b of porDiaSemana(); track b) {
           <div class="fila">
@@ -97,7 +97,7 @@
       </div>
       <div class="barras">
         @if (topCodigos().length === 0) {
-          <p class="vacio">Sin datos.</p>
+          <p class="sin-dato">Sin datos.</p>
         }
         @for (c of topCodigos(); track c) {
           <div class="fila fila-codigo clicable" title="Doble clic para ver el detalle" (dblclick)="abrirDetalle({codigo: c.codigo}, 'Casos — ' + c.codigo)">
@@ -116,7 +116,7 @@
     <h2>Casos por agencia</h2>
     <div class="barras">
       @if (porAgencia().length === 0) {
-        <p class="vacio">Sin datos.</p>
+        <p class="sin-dato">Sin datos.</p>
       }
       @for (a of porAgencia(); track a) {
         <div class="fila clicable" title="Doble clic para ver el detalle" (dblclick)="abrirDetalle({agencia: a.agencia}, 'Casos — ' + a.agencia)">
@@ -143,7 +143,7 @@
     <p class="ayuda-top">Dónde se concentran los casos — la pista más directa de qué barrios necesitan más atención en delincuencia o convivencia ciudadana.</p>
     <div class="barras">
       @if (topBarrios().length === 0) {
-        <p class="vacio">Sin datos.</p>
+        <p class="sin-dato">Sin datos.</p>
       }
       @for (b of topBarrios(); track b) {
         <div class="fila clicable" title="Doble clic para ver el detalle" (dblclick)="abrirDetalle({barrio: b.barrio}, 'Casos — ' + b.barrio)">

@@ -90,6 +90,16 @@ export class CasosComponent {
     this.cargar();
   }
 
+  /**
+   * Deja la consulta como recién abierta. Lo ofrece el estado vacío: cuando no
+   * sale nada, lo más probable es que sobre un filtro, y hasta ahora había que
+   * adivinar cuál de los cinco era y limpiarlo a mano.
+   */
+  limpiarFiltros(): void {
+    this.filtroForm.patchValue({ texto: '', estadoSel: '', prioridadSel: '', desde: '', hasta: '' });
+    this.cargar();
+  }
+
   cargar(): void {
     this.cargando.set(true);
     this.error.set('');

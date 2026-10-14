@@ -31,7 +31,6 @@ tbody tr:last-child td { border-bottom: none; }
 .ubic { color: var(--ink-soft); }
 .mono { font-family: var(--mono); }
 .fecha { font-size: 0.8rem; color: var(--muted); }
-.vacio { margin: 1rem 0; text-align: center; color: var(--muted); font-size: 0.88rem; }
 
 /* Columna "Canales": una fila por entidad a la que se envió el caso, con su
    propio estado — para que el supervisor vea, sin abrir el detalle, cuál ya
