@@ -79,11 +79,42 @@ echo "    Ahora en: $(git log --oneline -1)"
 # No hay riesgo de bucle: en la segunda vuelta el merge no mueve nada, así que
 # ANTES == DESPUES y esta rama no se vuelve a tomar. La variable de entorno
 # está por si acaso.
+#
+# Hacen falta DOS redes, porque atrapan cosas distintas y una sin la otra deja
+# pasar justo el caso que costó el último despliegue:
+#
+#   1. «el merge acaba de cambiar este archivo» — hay que comparar ANTES con
+#      DESPUES, porque en disco el archivo YA es el nuevo y cualquier
+#      comparación contra HEAD diría que todo está bien mientras bash sigue
+#      ejecutando el inodo viejo.
+#   2. «el archivo que se está ejecutando no es el del repositorio» — una copia
+#      guardada aparte, un checkout atrasado, una edición a mano. Esto NO lo ve
+#      la red 1, porque sin merge no hay diferencia entre ANTES y DESPUES.
 if [[ "$ANTES" != "$DESPUES" && -z "${FALCON_RELANZADO:-}" ]] \
    && ! git diff --quiet "$ANTES" "$DESPUES" -- deploy/deploy-falcon.sh; then
   echo "    El script de despliegue cambió en este merge; relanzando con la versión nueva"
   export FALCON_RELANZADO=1
   exec "$REPO_DIR/deploy/deploy-falcon.sh" "$@"
+fi
+
+ESTE=$(readlink -f "${BASH_SOURCE[0]}")
+DEL_REPO="$REPO_DIR/deploy/deploy-falcon.sh"
+
+if [[ "$ESTE" != "$(readlink -f "$DEL_REPO")" ]]; then
+  echo "Está ejecutando $ESTE, que no es el script del repositorio." >&2
+  echo "Use: $DEL_REPO" >&2
+  echo "(Una copia fuera del repositorio no recibe los arreglos y repite errores ya corregidos.)" >&2
+  exit 1
+fi
+
+if ! git show HEAD:deploy/deploy-falcon.sh 2>/dev/null | cmp -s - "$ESTE"; then
+  if [[ -n "${FALCON_RELANZADO:-}" ]]; then
+    echo "El script sigue sin coincidir con HEAD tras relanzarse. Revise $DEL_REPO." >&2
+    exit 1
+  fi
+  echo "    El script en ejecución no coincide con el del commit actual; relanzando"
+  export FALCON_RELANZADO=1
+  exec "$DEL_REPO" "$@"
 fi
 
 if [[ "$ANTES" != "$DESPUES" ]]; then
@@ -195,20 +226,50 @@ actualizar_frontend() {
   # versión anterior—. Son unos pocos MB: leerlos cuesta milisegundos y quita
   # de encima toda esa clase de sorpresa.
   #
-  # `--exclude=/config/` protege a runtime.json, que NO sale de la compilación
-  # sino del servidor (lleva la credencial del TURN). Sin esta exclusión,
-  # `--delete` lo borraría en cada despliegue y la videollamada se quedaría sin
-  # TURN —falla solo en datos móviles, que es donde nadie prueba—.
+  # Dos cosas viven en este directorio y NO salen de la compilación, así que
+  # `--delete` las borraría en cada despliegue:
   #
-  # `--exclude=/.well-known/` protege el directorio que certbot usa para
-  # validar el certificado de turn.falconcad.com.co. Lo crea root, así que
-  # `--delete` corriendo como ubuntu no puede borrarlo: rsync aborta con
-  # «Permission denied» y el despliegue NO publica nada. Reaparece en cada
-  # renovación, cada 60 días.
+  #   /config/       runtime.json, que lo pone el servidor y lleva la credencial
+  #                  del TURN. Sin él la videollamada se queda sin TURN, y eso
+  #                  falla solo en datos móviles, que es donde nadie prueba.
+  #   /.well-known/  el reto que certbot usa para renovar el certificado de
+  #                  turn.falconcad.com.co. Lo crea root; `--delete` corriendo
+  #                  como ubuntu no puede borrarlo, así que rsync aborta con
+  #                  «Permission denied» y NO PUBLICA NADA. Reaparece en cada
+  #                  renovación, cada 60 días.
+  #
+  # Van como `--filter='P ...'` (protect) y no como `--exclude`: «protect» dice
+  # exactamente lo que se quiere —no lo borres del destino— mientras que
+  # «exclude» lo dice de lado, como efecto secundario de no copiarlo, y deja de
+  # cumplirse en cuanto alguien agrega `--delete-excluded`.
+  local protegidos=(--filter='P /config/' --filter='P /.well-known/')
+
   mkdir -p "$DIST_DIR"
-  rsync -a --delete --checksum \
-    --exclude='/config/' --exclude='/.well-known/' \
-    "$salida/" "$DIST_DIR/"
+
+  # Ensayo antes de destruir: si el borrado fuera a tocar algo que no se puede
+  # borrar, es mejor no haber empezado. Un rsync que aborta a mitad deja el
+  # directorio con parte del paquete nuevo y parte del viejo, sirviendo una
+  # mezcla; esto convierte ese estado en una negativa limpia.
+  local a_borrar
+  a_borrar=$(rsync -a --delete --checksum --dry-run --out-format='%o %n' \
+    "${protegidos[@]}" "$salida/" "$DIST_DIR/" 2>/dev/null | awk '$1=="del." {print $2}')
+  local intocables=""
+  while IFS= read -r ruta; do
+    [[ -z "$ruta" ]] && continue
+    local destino="$DIST_DIR/$ruta"
+    [[ -e "$destino" || -L "$destino" ]] || continue
+    # Para borrar una entrada hace falta permiso de escritura en SU directorio.
+    [[ -w "$(dirname "$destino")" ]] || intocables+="       $ruta"$'\n'
+  done <<< "$a_borrar"
+
+  if [[ -n "$intocables" ]]; then
+    echo "No puedo publicar: el borrado tocaría rutas que este usuario no puede borrar." >&2
+    echo "$intocables" >&2
+    echo "       Si son de otro proceso (certbot, nginx), protéjalas con --filter='P ...'." >&2
+    exit 1
+  fi
+
+  rsync -a --delete --checksum "${protegidos[@]}" "$salida/" "$DIST_DIR/"
   echo "    $(find "$DIST_DIR" -path "$DIST_DIR/config" -prune -o -type f -print | wc -l) archivos publicados"
 
   publicar_runtime

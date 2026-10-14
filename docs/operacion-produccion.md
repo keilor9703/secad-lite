@@ -1236,3 +1236,49 @@ internet.
 - **Datos reales en `falcon-test`.** Ese servidor tiene una copia de los casos
   de 31 municipios, con nombres y teléfonos. Si se le da a alguien para probar,
   conviene anonimizarlo.
+
+---
+
+## Si el despliegue falla al publicar el frontend
+
+Síntoma: el backend queda desplegado y sano, el frontend compila, y al final:
+
+```
+rsync: [generator] delete_file: rmdir(.well-known/acme-challenge) failed: Permission denied (13)
+cannot delete non-empty directory: .well-known
+```
+
+Significa que **el frontend NO se publicó**: en ese momento el servidor está
+sirviendo el paquete anterior con el backend nuevo. No es grave —las dos
+versiones suelen convivir— pero hay que volver a publicar.
+
+La causa es siempre la misma: el rsync de publicación corrió sin la protección
+de `/.well-known/`, que es donde certbot deja el reto para renovar el
+certificado. Lo crea root, así que `--delete` corriendo como `ubuntu` no puede
+borrarlo y rsync aborta. Reaparece en cada renovación, cada 60 días.
+
+El script ya lo protege. Si el error sale igual, es que **se ejecutó una
+versión vieja del script**. Para confirmarlo:
+
+```bash
+# ¿Qué script se está ejecutando, y coincide con el del repositorio?
+cd ~/falcon-deploy/secad-lite
+git log --oneline -1
+grep -c "P /.well-known/" deploy/deploy-falcon.sh    # debe decir 1
+git show HEAD:deploy/deploy-falcon.sh | cmp - deploy/deploy-falcon.sh && echo "coincide con HEAD"
+```
+
+El script comprueba esto solo desde `aec9dbf`: se niega a correr si lo invocan
+desde una copia fuera del repositorio, y se relanza si el archivo en disco no
+coincide con el commit actual. Además hace un ensayo (`--dry-run`) antes de
+borrar nada: si el borrado fuera a tocar una ruta que el usuario no puede
+borrar, aborta ANTES de empezar en vez de dejar el directorio a medio publicar.
+
+Si hubiera que publicar a mano en una emergencia:
+
+```bash
+cd ~/falcon-deploy/secad-lite/frontend
+rsync -a --delete --checksum \
+  --filter='P /config/' --filter='P /.well-known/' \
+  dist/frontend/browser/ ~/falcon-deploy/frontend-dist/
+```
