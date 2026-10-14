@@ -8,6 +8,7 @@ import { SelectorComponent } from '../../shared/selector/selector';
 import { OpcionComponent } from '../../shared/selector/opcion';
 import { FechaComponent } from '../../shared/fecha/fecha';
 import { ArchivadoService, ResultadoArchivado } from '../../core/archivado.service';
+import { IconoComponent } from '../../shared/icono/icono';
 
 /** Las dos mitades del módulo. Ver `PESTANAS` para por qué están separadas. */
 export type PestanaPlataforma = 'tenants' | 'operacion';
@@ -21,7 +22,7 @@ export type PestanaPlataforma = 'tenants' | 'operacion';
 @Component({
   selector: 'app-plataforma',
   standalone: true,
-  imports: [CommonModule, ReactiveFormsModule, FormsModule, SelectorMunicipioComponent, SelectorComponent, OpcionComponent, FechaComponent],
+  imports: [CommonModule, ReactiveFormsModule, FormsModule, SelectorMunicipioComponent, SelectorComponent, OpcionComponent, FechaComponent, IconoComponent],
   templateUrl: './plataforma.html',
   styleUrl: './plataforma.scss',
   changeDetection: ChangeDetectionStrategy.OnPush,

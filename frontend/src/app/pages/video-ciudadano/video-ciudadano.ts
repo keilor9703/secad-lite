@@ -8,6 +8,7 @@ import { environment } from '../../../environments/environment';
 import { iceServers, guardarIceFirmados } from '../../core/config-runtime';
 import { intentarSonar } from './audio-operador';
 import { PLAZO_UBICACION_MS, explicarFalloUbicacion, hayQuePedirToque, textoDelToque } from './permisos-ciudadano';
+import { IconoComponent } from '../../shared/icono/icono';
 
 type EstadoPagina =
   | 'validando' | 'invalido' | 'pidiendo-permiso' | 'permiso-denegado'
@@ -51,7 +52,7 @@ interface ChatMensaje { texto: string; propio: boolean; hora: string }
 @Component({
   selector: 'app-video-ciudadano',
   standalone: true,
-  imports: [CommonModule, FormsModule],
+  imports: [CommonModule, FormsModule, IconoComponent],
   templateUrl: './video-ciudadano.html',
   styleUrl: './video-ciudadano.scss',
 })

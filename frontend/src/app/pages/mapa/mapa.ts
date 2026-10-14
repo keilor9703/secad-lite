@@ -12,6 +12,7 @@ import { SelectorComponent } from '../../shared/selector/selector';
 import { OpcionComponent } from '../../shared/selector/opcion';
 import { FechaComponent } from '../../shared/fecha/fecha';
 import { DetalleReporteModalComponent } from '../../shared/detalle-reporte/detalle-reporte';
+import { IconoComponent } from '../../shared/icono/icono';
 
 type ModoVista = 'calor' | 'cluster' | 'puntos';
 
@@ -27,7 +28,7 @@ interface Barra { etiqueta: string; valor: number; }
 @Component({
   selector: 'app-mapa',
   standalone: true,
-  imports: [ReactiveFormsModule, SelectorComponent, OpcionComponent, FechaComponent, DetalleReporteModalComponent],
+  imports: [ReactiveFormsModule, SelectorComponent, OpcionComponent, FechaComponent, DetalleReporteModalComponent, IconoComponent],
   templateUrl: './mapa.html',
   styleUrl: './mapa.scss',
   changeDetection: ChangeDetectionStrategy.OnPush,

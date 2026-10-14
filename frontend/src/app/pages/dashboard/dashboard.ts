@@ -13,6 +13,7 @@ import { FechaComponent } from '../../shared/fecha/fecha';
 import { DetalleReporteModalComponent } from '../../shared/detalle-reporte/detalle-reporte';
 import { DetalleLlamadasModalComponent } from '../../shared/detalle-llamadas/detalle-llamadas';
 import { AyudaComponent } from '../../shared/ayuda/ayuda';
+import { IconoComponent } from '../../shared/icono/icono';
 
 interface Barra { etiqueta: string; valor: number; clave: string; }
 
@@ -22,7 +23,7 @@ interface Variacion { pct: number; direccion: 'sube' | 'baja' | 'igual'; bueno: 
 @Component({
   selector: 'app-dashboard',
   standalone: true,
-  imports: [ReactiveFormsModule, FechaComponent, DetalleReporteModalComponent, DetalleLlamadasModalComponent, AyudaComponent],
+  imports: [ReactiveFormsModule, FechaComponent, DetalleReporteModalComponent, DetalleLlamadasModalComponent, AyudaComponent, IconoComponent],
   templateUrl: './dashboard.html',
   styleUrl: './dashboard.scss',
   changeDetection: ChangeDetectionStrategy.OnPush,

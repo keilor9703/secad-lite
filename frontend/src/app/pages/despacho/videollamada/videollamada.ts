@@ -9,6 +9,7 @@ import {
 } from '../../../core/videollamada.service';
 import { ToastService } from '../../../shared/toast/toast.service';
 import { MapaRecorridoComponent } from './mapa-recorrido';
+import { IconoComponent } from '../../../shared/icono/icono';
 
 /**
  * Videollamada con el ciudadano, dentro del panel del caso en Despacho.
@@ -19,7 +20,7 @@ import { MapaRecorridoComponent } from './mapa-recorrido';
 @Component({
   selector: 'app-videollamada',
   standalone: true,
-  imports: [FormsModule, MapaRecorridoComponent],
+  imports: [FormsModule, MapaRecorridoComponent, IconoComponent],
   changeDetection: ChangeDetectionStrategy.OnPush,
   templateUrl: './videollamada.html',
   styleUrl: './videollamada.scss',

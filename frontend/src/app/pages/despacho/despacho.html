@@ -15,13 +15,13 @@
       </div>
       <div class="desp-acciones">
         <a routerLink="/wallboard" class="btn btn--ghost btn-icono" title="Pantalla grande para la sala">
-          <span aria-hidden="true">📺</span> Sala
+          <app-icono nombre="pantalla" [tam]="15" /> Sala
         </a>
         <button type="button" class="btn btn--ghost btn-icono timbre" (click)="alternarSonido()"
           [title]="sonidoActivo() ? 'Silenciar el aviso de casos nuevos' : 'Activar el aviso sonoro de casos nuevos'"
           [attr.aria-label]="sonidoActivo() ? 'Silenciar aviso de casos nuevos' : 'Activar aviso sonoro de casos nuevos'"
           [attr.aria-pressed]="sonidoActivo()">
-          <span aria-hidden="true">{{ sonidoActivo() ? '🔔' : '🔕' }}</span>
+          @if (sonidoActivo()) { <app-icono nombre="campana" [tam]="15" /> } @else { <app-icono nombre="campana-off" [tam]="15" /> }
         </button>
       </div>
     </header>
@@ -147,7 +147,7 @@
                   <span class="f-l2">
                     @if (c.direccion || c.barrio) {
                       <span class="f-dato f-dir">
-                        <span aria-hidden="true">📍</span>
+                        <app-icono nombre="ubicacion" [tam]="14" />
                         {{ c.direccion }}@if (c.direccion && c.barrio) {<span> · </span>}{{ c.barrio }}
                       </span>
                     }
@@ -182,7 +182,7 @@
   <!-- Gestión del caso, sin salir del módulo: despacho de recursos, anotaciones, remisión -->
   @if (seleccionado(); as id) {
     <aside class="panel-caso" [class.panel-caso--con-video]="tieneVideollamada()">
-      <button type="button" class="cerrar" (click)="cerrarPanel()" aria-label="Cerrar el caso">✕</button>
+      <button type="button" class="cerrar" (click)="cerrarPanel()" aria-label="Cerrar el caso"><app-icono nombre="cerrar" [tam]="15" /></button>
       @if (tieneVideollamada()) {
         <!-- Video y ficha van EN PARALELO, no uno encima del otro: así la
              videollamada nunca le tapa al despachador el resto del caso —

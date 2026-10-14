@@ -42,7 +42,7 @@
     </div>
     <button type="button" class="btn btn--ghost" (click)="exportarCsv()" [disabled]="!filtrados().length"
       title="Descarga lo que se está viendo, con los filtros aplicados">
-      ⬇ Exportar CSV
+      <app-icono nombre="descargar" [tam]="15" /> Exportar CSV
     </button>
   </div>
 

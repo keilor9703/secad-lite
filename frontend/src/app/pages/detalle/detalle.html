@@ -1,6 +1,6 @@
 <section class="det" [class.det--incrustado]="incrustado()">
   @if (!incrustado()) {
-    <a routerLink="/" class="volver">← Volver</a>
+    <a routerLink="/" class="volver"><app-icono nombre="flecha-izq" [tam]="15" /> Volver</a>
   }
 
   @if (error()) {
@@ -19,30 +19,30 @@
         </button>
         <button type="button" role="tab" class="tab-btn" [class.activa]="tab() === 'despacho'"
           [attr.aria-selected]="tab() === 'despacho'" (click)="tab.set('despacho')">
-          🚓 Despacho
+          <app-icono nombre="patrulla" [tam]="16" /> Despacho
           @if (asignaciones().length) { <span class="tab-badge">{{ asignaciones().length }}</span> }
         </button>
         @if (c.canal === 'whatsapp') {
           <button type="button" role="tab" class="tab-btn" [class.activa]="tab() === 'whatsapp'"
             [attr.aria-selected]="tab() === 'whatsapp'" (click)="tab.set('whatsapp')">
-            🟢 WhatsApp
+            <app-icono nombre="chat" [tam]="16" /> WhatsApp
           </button>
         }
         <button type="button" role="tab" class="tab-btn" [class.activa]="tab() === 'chat'"
           [attr.aria-selected]="tab() === 'chat'" (click)="tab.set('chat')">
-          💬 Chat interno
+          <app-icono nombre="chat" [tam]="16" /> Chat interno
           @if (chatMensajes().length) { <span class="tab-badge">{{ chatMensajes().length }}</span> }
         </button>
         @if (videoSesiones().length > 0) {
           <button type="button" role="tab" class="tab-btn" [class.activa]="tab() === 'videollamadas'"
             [attr.aria-selected]="tab() === 'videollamadas'" (click)="tab.set('videollamadas')">
-            📹 Videollamadas
+            <app-icono nombre="video" [tam]="16" /> Videollamadas
             <span class="tab-badge">{{ videoSesiones().length }}</span>
           </button>
         }
         <button type="button" role="tab" class="tab-btn" [class.activa]="tab() === 'bitacora'"
           [attr.aria-selected]="tab() === 'bitacora'" (click)="tab.set('bitacora')">
-          📝 Bitácora
+          <app-icono nombre="documento" [tam]="16" /> Bitácora
           @if (eventos().length) { <span class="tab-badge">{{ eventos().length }}</span> }
         </button>
       </div>
@@ -92,7 +92,7 @@
               <!-- Ubicación y canales: lo que se capturó en recepción. -->
               @if (c.direccion || c.barrio || c.ciudad || c.lat) {
                 <div class="ubic">
-                  <span class="ubic-lbl">📍 Ubicación</span>
+                  <span class="ubic-lbl"><app-icono nombre="ubicacion" [tam]="14" /> Ubicación</span>
                   <span>{{ ubicacionTexto(c) }}</span>
                   @if (c.lat && c.lng) {
                     <a class="mono coord"
@@ -122,7 +122,7 @@
               <div class="remitir-caja">
                 @if (!mostrarRemitir()) {
                   <button type="button" class="btn btn--ghost" (click)="abrirRemitir()">
-                    ↪ Remitir a otra entidad
+                    <app-icono nombre="remitir" [tam]="15" /> Remitir a otra entidad
                   </button>
                 }
                 @if (mostrarRemitir()) {
@@ -176,7 +176,7 @@
                 <div class="remitir-caja">
                   @if (!mostrarRemitirTenant()) {
                     <button type="button" class="btn btn--ghost" (click)="abrirRemitirTenant()">
-                      🌐 Remitir a otra jurisdicción
+                      <app-icono nombre="globo" [tam]="15" /> Remitir a otra jurisdicción
                     </button>
                   }
                   @if (mostrarRemitirTenant()) {
@@ -218,14 +218,14 @@
                 <div class="reapertura">
                   @if (c.reaperturaSolicitada) {
                     <p class="pendiente">
-                      ⏳ Reapertura solicitada por <strong>{{ c.reaperturaSolicitadaPor }}</strong>:
+                      <app-icono nombre="reloj" [tam]="15" /> Reapertura solicitada por <strong>{{ c.reaperturaSolicitadaPor }}</strong>:
                       «{{ c.reaperturaMotivo }}»
                     </p>
                   }
                   @if (!mostrarReapertura()) {
                     <button type="button" class="btn btn--ghost"
                       (click)="abrirReapertura()">
-                      {{ puedeReabrir() ? '↩ Reabrir el caso' : '✋ Solicitar reapertura' }}
+                      @if (puedeReabrir()) { <app-icono nombre="volver" [tam]="15" /> Reabrir el caso } @else { <app-icono nombre="pausa" [tam]="15" /> Solicitar reapertura }
                     </button>
                   }
                   @if (mostrarReapertura()) {
@@ -253,7 +253,7 @@
                 <div class="acciones">
                   @if (puedeCerrar() && !mostrarCierre()) {
                     <button type="button" class="btn btn--primary"
-                    (click)="abrirCierre()">✓ Cerrar caso</button>
+                    (click)="abrirCierre()"><app-icono nombre="check" [tam]="15" /> Cerrar caso</button>
                   }
                   <p class="auto-nota">El estado avanza solo según lo que haga con el caso.</p>
                   @if (mostrarCierre()) {

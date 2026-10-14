@@ -31,7 +31,7 @@
           </app-selector>
         } @else {
           <span class="agencia-fija" [title]="'Los recursos que cree quedan en su agencia: ' + miAgenciaNombre()">
-            🏢 {{ miAgenciaNombre() }}
+            <app-icono nombre="edificio" [tam]="15" /> {{ miAgenciaNombre() }}
           </span>
         }
         <button type="submit" class="btn btn--primary" [disabled]="nuevoForm.invalid">Crear</button>
@@ -67,7 +67,7 @@
                   {{ r.agencia }}
                   @if (nombresCanalesActivos(r)) {
                     <div class="canal-activo" [title]="'Atendiendo por: ' + nombresCanalesActivos(r)">
-                      🔗 {{ nombresCanalesActivos(r) }}
+                      <app-icono nombre="enlace" [tam]="14" /> {{ nombresCanalesActivos(r) }}
                     </div>
                   }
                 </td>

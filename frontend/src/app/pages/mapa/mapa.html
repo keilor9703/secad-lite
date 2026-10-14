@@ -47,8 +47,8 @@
     }
 
     <div class="modos" role="group" aria-label="Modo de visualización">
-      <button type="button" class="btn mini" [class.activo]="modoVista() === 'calor'" (click)="cambiarVista('calor')">🔥 Calor</button>
-      <button type="button" class="btn mini" [class.activo]="modoVista() === 'cluster'" (click)="cambiarVista('cluster')">◎ Cluster</button>
+      <button type="button" class="btn mini" [class.activo]="modoVista() === 'calor'" (click)="cambiarVista('calor')"><app-icono nombre="calor" [tam]="14" /> Calor</button>
+      <button type="button" class="btn mini" [class.activo]="modoVista() === 'cluster'" (click)="cambiarVista('cluster')"><app-icono nombre="cluster" [tam]="14" /> Cluster</button>
       <button type="button" class="btn mini" [class.activo]="modoVista() === 'puntos'" (click)="cambiarVista('puntos')">• Puntos</button>
     </div>
   </div>

@@ -6,10 +6,10 @@
     </div>
     <div class="dash-head-der">
       <button class="btn btn--ghost" type="button" (click)="exportarInformePdf()" aria-label="Exportar informe de gestión a PDF">
-        ⬇ Exportar PDF
+        <app-icono nombre="descargar" [tam]="15" /> Exportar PDF
       </button>
       <button class="btn btn--ghost" type="button" (click)="exportarCsv()" aria-label="Exportar casos a CSV">
-        ⬇ Exportar CSV
+        <app-icono nombre="descargar" [tam]="15" /> Exportar CSV
       </button>
     </div>
   </header>
@@ -43,7 +43,7 @@
         <span class="l">Casos del período</span>
         @if (variacionTotal(); as v) {
           <span class="delta" [class.bueno]="v.bueno === true" [class.malo]="v.bueno === false">
-            @if (v.direccion === 'sube') { ▲ } @else if (v.direccion === 'baja') { ▼ } @else { → }
+            @if (v.direccion === 'sube') { <app-icono nombre="flecha-arriba" [tam]="13" /> } @else if (v.direccion === 'baja') { <app-icono nombre="flecha-abajo" [tam]="13" /> } @else { <app-icono nombre="flecha-der" [tam]="13" /> }
             {{ v.pct }}% vs. período anterior
           </span>
         }
@@ -63,7 +63,7 @@
           @for (item of h.items; track item.titulo) {
             <li [attr.data-sev]="item.severidad">
               <span class="sev-icono" aria-hidden="true">
-                @if (item.severidad === 'critico') { ⛔ } @else if (item.severidad === 'atencion') { ⚠ } @else { ℹ }
+                @if (item.severidad === 'critico') { <app-icono nombre="bloqueado" [tam]="15" /> } @else if (item.severidad === 'atencion') { <app-icono nombre="alerta" [tam]="15" /> } @else { <app-icono nombre="check" [tam]="15" /> }
               </span>
               <div>
                 <p class="h-titulo">{{ item.titulo }}</p>
@@ -130,7 +130,7 @@
               </span>
               @if (variacionToma(); as v) {
                 <span class="delta" [class.bueno]="v.bueno === true" [class.malo]="v.bueno === false">
-                  @if (v.direccion === 'sube') { ▲ } @else if (v.direccion === 'baja') { ▼ } @else { → }
+                  @if (v.direccion === 'sube') { <app-icono nombre="flecha-arriba" [tam]="13" /> } @else if (v.direccion === 'baja') { <app-icono nombre="flecha-abajo" [tam]="13" /> } @else { <app-icono nombre="flecha-der" [tam]="13" /> }
                   {{ v.pct }}%
                 </span>
               }

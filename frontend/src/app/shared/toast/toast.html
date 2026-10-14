@@ -4,7 +4,7 @@
       (mouseenter)="pausar(t.id)" (mouseleave)="reanudar(t.id)">
       <span class="toast-icono" aria-hidden="true">{{ icono(t.tipo) }}</span>
       <p class="toast-msg">{{ t.mensaje }}</p>
-      <button type="button" class="toast-cerrar" (click)="cerrar(t.id)" aria-label="Cerrar aviso">✕</button>
+      <button type="button" class="toast-cerrar" (click)="cerrar(t.id)" aria-label="Cerrar aviso"><app-icono nombre="cerrar" [tam]="14" /></button>
       <span class="toast-barra" [style.animation-duration.ms]="t.duracionMs"></span>
     </div>
   }

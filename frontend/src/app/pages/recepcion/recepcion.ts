@@ -36,14 +36,13 @@ import {
   Agencia, Canal, CanalAtencion, Caso, CodigoCaso, CrearCaso, EstadoCaso, Llamada, OrigenLlamada, PrioridadCaso,
 } from '../../core/models';
 import { PIN_ALTO, PIN_ANCHO, pinCasoSvg } from '../../shared/mapa/pin-caso';
+import { IconoComponent } from '../../shared/icono/icono';
 
 @Component({
   selector: 'app-recepcion',
   standalone: true,
-  imports: [
-    CommonModule, ReactiveFormsModule, RouterLink, AutocompletarComponent, SelectorComponent, OpcionComponent,
-    DictadoComponent, AnclajeVideollamadaDirective,
-  ],
+  imports: [CommonModule, ReactiveFormsModule, RouterLink, AutocompletarComponent, SelectorComponent, OpcionComponent,
+    DictadoComponent, AnclajeVideollamadaDirective, IconoComponent],
   templateUrl: './recepcion.html',
   styleUrl: './recepcion.scss',
   changeDetection: ChangeDetectionStrategy.OnPush,

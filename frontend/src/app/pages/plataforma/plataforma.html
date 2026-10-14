@@ -96,7 +96,7 @@
           </label>
         </div>
         @if (t.motivoBloqueo) {
-          <p class="motivo">🔒 {{ t.motivoBloqueo }}</p>
+          <p class="motivo"><app-icono nombre="candado" [tam]="14" /> {{ t.motivoBloqueo }}</p>
         }
         <div class="t-grid">
           <label class="campo">
@@ -151,7 +151,7 @@
 
     <!-- Configuración global de SMS — una sola para toda la plataforma -->
     <div class="panel card sms-global">
-      <h2>🔐 Doble factor de autenticación</h2>
+      <h2><app-icono nombre="candado-ok" [tam]="17" /> Doble factor de autenticación</h2>
       <p class="hint">Exige a cada usuario un código temporal de su aplicación de autenticación,
         además de la contraseña. El superadministrador queda exento a propósito: es quien tiene
         que poder entrar a desactivarlo si algo falla.</p>
@@ -165,7 +165,7 @@
 
       @if (mfaConfig(); as cfg) {
         @if (cfg.forzadoPorEntorno) {
-          <p class="error">⚠ La variable de entorno <code>MFA_OBLIGATORIO=false</code> tiene el doble
+          <p class="error"><app-icono nombre="alerta" [tam]="15" /> La variable de entorno <code>MFA_OBLIGATORIO=false</code> tiene el doble
             factor APAGADO en el servidor, y manda sobre este interruptor. Mientras siga puesta,
             nadie tendrá que presentar código aunque aquí diga «Exigido».</p>
         }
@@ -191,7 +191,7 @@
     </div>
 
     <div class="panel card sms-global">
-      <h2>📱 Mensajería SMS</h2>
+      <h2><app-icono nombre="movil" [tam]="17" /> Mensajería SMS</h2>
       <p class="hint">Proveedor de SMS para el envío de enlaces de videollamada. Esta configuración
         aplica para todas las instancias que tengan la integración de videollamada habilitada.</p>
 
@@ -257,7 +257,7 @@
     <!-- Archivado de grabaciones. El barrido recorre TODAS las instancias, así
          que es mantenimiento de la plataforma y no de un municipio. -->
     <div class="panel card sms-global">
-      <h2>🗄️ Archivado de grabaciones</h2>
+      <h2><app-icono nombre="base-datos" [tam]="17" /> Archivado de grabaciones</h2>
       <p class="hint">Las grabaciones salen de la base de datos al almacenamiento de objetos
         cuando cumplen su plazo, y Falcon las sigue mostrando igual. Afecta a todas las
         instancias. El barrido corre solo cada noche; aquí se dispara ahora.</p>
@@ -303,7 +303,7 @@
     </div>
 
     <div class="panel card sms-global">
-      <h2>📍 Geolocalización del llamante (Android ELS)</h2>
+      <h2><app-icono nombre="ubicacion" [tam]="17" /> Geolocalización del llamante (Android ELS)</h2>
       <p class="hint">Proveedor que entrega las coordenadas del teléfono desde el que se llama.
         Esta configuración aplica para todas las instancias que tengan habilitada la
         integración de geolocalización; qué instancias la tienen se decide abajo, en cada una.</p>

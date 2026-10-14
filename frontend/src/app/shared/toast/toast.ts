@@ -1,12 +1,13 @@
 import { ChangeDetectionStrategy, Component, inject } from '@angular/core';
 
 import { Toast, ToastService } from './toast.service';
+import { IconoComponent } from '../icono/icono';
 
 /** Pila de notificaciones popup, montada una sola vez en el shell (y en Login, sin sesión aún). */
 @Component({
   selector: 'app-toast',
   standalone: true,
-  imports: [],
+  imports: [IconoComponent],
   templateUrl: './toast.html',
   styleUrl: './toast.scss',
   changeDetection: ChangeDetectionStrategy.OnPush,

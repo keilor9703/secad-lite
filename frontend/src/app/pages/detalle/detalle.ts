@@ -16,6 +16,7 @@ import { ConfirmService } from '../../shared/confirm/confirm.service';
 import { SelectorComponent } from '../../shared/selector/selector';
 import { OpcionComponent } from '../../shared/selector/opcion';
 import { DictadoComponent } from '../../shared/dictado/dictado';
+import { IconoComponent } from '../../shared/icono/icono';
 import {
   Agencia, Asignacion, Canal, CanalAtencion, Caso, CodigoCaso, CodigoCierre, EstadoAsignacion, EstadoCaso,
   EventoCaso, MensajeChat, MensajeChatInterno, Recurso, TenantDirectorio, TipoEvento,
@@ -27,7 +28,7 @@ export type TabDetalle = 'ficha' | 'despacho' | 'whatsapp' | 'chat' | 'videollam
 @Component({
   selector: 'app-detalle',
   standalone: true,
-  imports: [CommonModule, ReactiveFormsModule, RouterLink, SelectorComponent, OpcionComponent, DictadoComponent],
+  imports: [CommonModule, ReactiveFormsModule, RouterLink, SelectorComponent, OpcionComponent, DictadoComponent, IconoComponent],
   templateUrl: './detalle.html',
   styleUrl: './detalle.scss',
   changeDetection: ChangeDetectionStrategy.OnPush,

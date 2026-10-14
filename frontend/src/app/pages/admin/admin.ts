@@ -15,6 +15,7 @@ import { ToastService } from '../../shared/toast/toast.service';
 import { ConfirmService } from '../../shared/confirm/confirm.service';
 import { SelectorComponent } from '../../shared/selector/selector';
 import { OpcionComponent } from '../../shared/selector/opcion';
+import { IconoComponent } from '../../shared/icono/icono';
 import {
   Agencia, CanalAtencion, CodigoCaso, CtiConfig, EntidadExterna, ModuloPermisos, PbxConfig, PermisoDef, PrioridadCaso,
   RemisionConfig, RolTenant, Tenant, TipoAgencia, UsuarioAdmin, WhatsappConfig,
@@ -38,7 +39,7 @@ interface PestanaAdmin {
 @Component({
   selector: 'app-admin',
   standalone: true,
-  imports: [DatePipe, ReactiveFormsModule, FormsModule, SelectorComponent, OpcionComponent],
+  imports: [DatePipe, ReactiveFormsModule, FormsModule, SelectorComponent, OpcionComponent, IconoComponent],
   templateUrl: './admin.html',
   styleUrl: './admin.scss',
   changeDetection: ChangeDetectionStrategy.OnPush,

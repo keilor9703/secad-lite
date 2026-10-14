@@ -10,6 +10,7 @@ import { Agencia, Canal, CanalAtencion, Caso, EstadoCaso, PrioridadCaso } from '
 import { SelectorComponent } from '../../shared/selector/selector';
 import { OpcionComponent } from '../../shared/selector/opcion';
 import { FechaComponent } from '../../shared/fecha/fecha';
+import { IconoComponent } from '../../shared/icono/icono';
 
 /**
  * Consulta y seguimiento: la bandeja completa con búsqueda. Es la vista de
@@ -19,7 +20,7 @@ import { FechaComponent } from '../../shared/fecha/fecha';
 @Component({
   selector: 'app-casos',
   standalone: true,
-  imports: [CommonModule, ReactiveFormsModule, RouterLink, SelectorComponent, OpcionComponent, FechaComponent],
+  imports: [CommonModule, ReactiveFormsModule, RouterLink, SelectorComponent, OpcionComponent, FechaComponent, IconoComponent],
   templateUrl: './casos.html',
   styleUrl: './casos.scss',
   changeDetection: ChangeDetectionStrategy.OnPush,

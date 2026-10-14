@@ -8,6 +8,7 @@ import { ToastService } from '../../shared/toast/toast.service';
 import { ConfirmService } from '../../shared/confirm/confirm.service';
 import { SelectorComponent } from '../../shared/selector/selector';
 import { OpcionComponent } from '../../shared/selector/opcion';
+import { IconoComponent } from '../../shared/icono/icono';
 
 /** Qué registro se está editando: su sección y su id. */
 interface Edicion {
@@ -30,7 +31,7 @@ export type PestanaCatalogos = 'agencias' | 'casos' | 'cierres';
 @Component({
   selector: 'app-catalogos',
   standalone: true,
-  imports: [ReactiveFormsModule, SelectorComponent, OpcionComponent],
+  imports: [ReactiveFormsModule, SelectorComponent, OpcionComponent, IconoComponent],
   templateUrl: './catalogos.html',
   styleUrl: './catalogos.scss',
   changeDetection: ChangeDetectionStrategy.OnPush,

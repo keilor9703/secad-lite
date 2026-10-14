@@ -148,10 +148,10 @@
         @if (puedeEditar()) {
           <div class="masiva">
             <div class="masiva-botones">
-              <button type="button" class="btn btn--ghost" (click)="descargarPlantilla()">⬇ Descargar plantilla</button>
-              <button type="button" class="btn btn--ghost" (click)="exportar()">⬇ Exportar catálogo</button>
+              <button type="button" class="btn btn--ghost" (click)="descargarPlantilla()"><app-icono nombre="descargar" [tam]="15" /> Descargar plantilla</button>
+              <button type="button" class="btn btn--ghost" (click)="exportar()"><app-icono nombre="descargar" [tam]="15" /> Exportar catálogo</button>
               <label class="btn btn--ghost archivo">
-                ⬆ Importar CSV
+                <app-icono nombre="subir" [tam]="15" /> Importar CSV
                 <input type="file" accept=".csv,text/csv" (change)="elegirArchivo($event)" hidden />
               </label>
               <label class="opcion">

@@ -29,7 +29,7 @@
     <!-- Roles y permisos (RBAC dinámico) -->
     @if (puedeVerMatriz() && pestanaActiva() === 'roles') {
       <div class="panel card" role="tabpanel" id="panel-roles" aria-labelledby="tab-roles">
-        <h2>🛡️ Roles y permisos@if (esSuperadmin()) {
+        <h2><app-icono nombre="escudo" [tam]="17" /> Roles y permisos@if (esSuperadmin()) {
           <span class="ctx-tag">{{ tenantCtx() }}</span>
         }</h2>
         <p class="pbx-hint">Cree roles a medida y marque en la matriz qué puede hacer cada uno.
@@ -57,7 +57,7 @@
                           }
                           @if (!r.esSistema) {
                             <button type="button" class="btn btn--ghost mini"
-                            title="Eliminar rol" (click)="eliminarRol(r)">✕</button>
+                            title="Eliminar rol" (click)="eliminarRol(r)"><app-icono nombre="cerrar" [tam]="15" /></button>
                           }
                         </div>
                       </th>
@@ -121,7 +121,7 @@
       <!-- Integración: planta telefónica (PBX) -->
       @if (pbxConfig(); as cfg) {
         <div class="panel card">
-          <h2>📞 Integración — Planta telefónica (PBX)</h2>
+          <h2><app-icono nombre="telefono" [tam]="17" /> Integración — Planta telefónica (PBX)</h2>
           <p class="pbx-hint">Configure su central para que envíe un <code>POST</code> a la URL de abajo, con el
           header <code>x-api-key</code> y el body en <code>Content-Type: application/json</code> — sin ese header
           exacto, la petición no se reconoce como JSON y el webhook la rechaza.</p>
@@ -196,7 +196,7 @@
       <!-- Integración: CTI/YACO (barra embebida) -->
       @if (ctiConfig(); as ccfg) {
         <div class="panel card">
-          <h2>🖥️ Integración — CTI / YACO (barra embebida)</h2>
+          <h2><app-icono nombre="pantalla" [tam]="17" /> Integración — CTI / YACO (barra embebida)</h2>
           <p class="pbx-hint">Entregue esta URL y esta clave al proveedor de la integración CTI: las usa
           para identificar esta instancia en cada evento que le entregue a FALCON CAD. El embebido de la
           barra y el inicio de sesión automático del operador se configuran aparte, una vez el proveedor
@@ -244,7 +244,7 @@
       <!-- Integración: WhatsApp -->
       @if (waConfig(); as wcfg) {
         <div class="panel card">
-          <h2>🟢 Integración — WhatsApp (Cloud API)</h2>
+          <h2><app-icono nombre="chat" [tam]="17" /> Integración — WhatsApp (Cloud API)</h2>
           <p class="pbx-hint">Configure el webhook de su app de Meta con la URL y el <em>verify token</em>
           de abajo, y registre aquí el <code>phone_number_id</code> del número y su token de acceso.</p>
           <div class="pbx-field">
@@ -318,7 +318,7 @@
       <!-- Remisiones entre jurisdicciones: a dónde llega un caso que otro tenant nos remite -->
       @if (configuraRemision && remisionConfig(); as rcfg) {
         <div class="panel card">
-          <h2>↩ Remisiones entre jurisdicciones</h2>
+          <h2><app-icono nombre="remitir" [tam]="17" /> Remisiones entre jurisdicciones</h2>
           <p class="pbx-hint">Cuando otra instancia de FALCON CAD remite un caso a esta (la llamada entró
           donde no correspondía), así se sabe a qué agencia y canales llega aquí. Sin esto, esos casos
           quedan sin asignar y solo los ve quien tenga «Ver todos los casos» — nadie más se entera hasta
@@ -358,7 +358,7 @@
       <!-- Entidades externas (API entrante): solo si el tenant la contrató -->
       @if (gestionaEntidades && !!tenantActivo() && tieneIntegracion('api')) {
         <div class="panel card">
-          <h2>🔌 Entidades externas — API entrante</h2>
+          <h2><app-icono nombre="enchufe" [tam]="17" /> Entidades externas — API entrante</h2>
           <p class="pbx-hint">Registre las entidades (bomberos, salud, alarmas, apps...) autorizadas a
             <strong>radicar casos</strong>. Cada una recibe su propia API key y envía un
             <code>POST</code> con header <code>x-api-key</code> a:
@@ -460,7 +460,7 @@
                               <span>{{ e.ultimoUso | date: 'dd/MM HH:mm' }} · {{ e.ultimaIp }}</span>
                               @if ((e.ipsVistas?.length ?? 0) > 1) {
                                 <span class="vacio-inline" [title]="'IPs vistas: ' + e.ipsVistas!.join(', ')">
-                                  · {{ e.ipsVistas!.length }} IPs distintas ⚠
+                                  · {{ e.ipsVistas!.length }} IPs distintas <app-icono nombre="alerta" [tam]="14" />
                                 </span>
                               }
                             } @else {
@@ -522,7 +522,7 @@
         @if (pestanaActiva() === 'usuarios') {
         <div class="panel card" role="tabpanel" id="panel-usuarios" aria-labelledby="tab-usuarios">
           <div class="seccion-cab">
-            <h2>👤 Usuarios</h2>
+            <h2><app-icono nombre="usuario" [tam]="17" /> Usuarios</h2>
             <button type="button" class="btn btn--primary" (click)="abrirAlta()">Nuevo usuario</button>
           </div>
 
@@ -705,7 +705,7 @@
         @if ((!esSuperadmin() || tenantCtx()) && pestanaActiva() === 'bitacora') {
           <div class="panel card" role="tabpanel" id="panel-bitacora" aria-labelledby="tab-bitacora">
             <h2>
-              🧾 Bitácora de administración
+              <app-icono nombre="documento" [tam]="17" /> Bitácora de administración
               <button type="button" class="btn btn--ghost mini" (click)="alternarBitacora()">
                 {{ bitacoraAbierta() ? 'Ocultar' : 'Ver' }}
               </button>

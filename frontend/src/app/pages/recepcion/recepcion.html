@@ -23,7 +23,7 @@
           <button type="button" class="btn btn--ghost mini timbre" (click)="alternarSonido()"
             [title]="sonidoActivo() ? 'Silenciar el aviso de llamada entrante' : 'Activar el aviso sonoro de llamada entrante'"
             [attr.aria-label]="sonidoActivo() ? 'Silenciar aviso de llamada entrante' : 'Activar aviso sonoro de llamada entrante'">
-            {{ sonidoActivo() ? '🔔' : '🔕' }}
+            @if (sonidoActivo()) { <app-icono nombre="campana" [tam]="15" /> } @else { <app-icono nombre="campana-off" [tam]="15" /> }
           </button>
         </h2>
         <!-- Apilada, no en una sola fila: el destinatario que manda la central
@@ -81,7 +81,7 @@
         de una avería inexistente. -->
         @if (canalEsperado() && !enVivo()) {
           <p class="sin-vivo" role="status">
-            ⚠️ Sin conexión en vivo: reconectando. Puede que una llamada entrante tarde en aparecer.
+            <app-icono nombre="alerta" [tam]="14" /> Sin conexión en vivo: reconectando. Puede que una llamada entrante tarde en aparecer.
           </p>
         }
         @if (!sonando().length) {
@@ -138,7 +138,7 @@
           @if (!casoVideoId()) {
             <button type="button" class="btn btn--primary" [disabled]="lanzandoVideo()"
               (click)="lanzarVideollamada()">
-              📹 {{ lanzandoVideo() ? 'Iniciando videollamada…' : 'Videollamada con el ciudadano' }}
+              <app-icono nombre="video" [tam]="15" /> {{ lanzandoVideo() ? 'Iniciando videollamada…' : 'Videollamada con el ciudadano' }}
             </button>
           } @else {
             <div class="video-rec-hueco" [appAnclajeVideollamada]="casoVideoId()!"

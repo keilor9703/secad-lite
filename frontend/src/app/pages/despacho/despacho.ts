@@ -12,6 +12,7 @@ import { Agencia, CanalAtencion, Caso, EstadoCaso } from '../../core/models';
 import { ToastService } from '../../shared/toast/toast.service';
 import { SelectorComponent } from '../../shared/selector/selector';
 import { OpcionComponent } from '../../shared/selector/opcion';
+import { IconoComponent } from '../../shared/icono/icono';
 
 /** Un paso del ciclo de vida y los casos que están en él. */
 interface Grupo {
@@ -42,7 +43,7 @@ const PASOS: ReadonlyArray<[EstadoCaso, string, string]> = [
 @Component({
   selector: 'app-despacho',
   standalone: true,
-  imports: [RouterLink, DetalleComponent, AnclajeVideollamadaDirective, FormsModule, SelectorComponent, OpcionComponent],
+  imports: [RouterLink, DetalleComponent, AnclajeVideollamadaDirective, FormsModule, SelectorComponent, OpcionComponent, IconoComponent],
   templateUrl: './despacho.html',
   styleUrl: './despacho.scss',
   changeDetection: ChangeDetectionStrategy.OnPush,

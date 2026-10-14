@@ -64,7 +64,7 @@
                 [attr.aria-pressed]="!microfono()"
                 [title]="microfono() ? 'Silenciar mi micrófono' : 'Activar mi micrófono'"
                 (click)="alternarMicrofono()">
-          {{ microfono() ? '🎙' : '🔇' }}
+          @if (microfono()) { <app-icono nombre="micro" [tam]="16" /> } @else { <app-icono nombre="micro-off" [tam]="16" /> }
           <span class="vll-mando-txt">{{ microfono() ? 'Micrófono' : 'Silenciado' }}</span>
         </button>
 
@@ -73,24 +73,24 @@
                 [disabled]="estado() !== 'conectada' && !grabando()"
                 [title]="grabando() ? 'Detener la grabación' : 'Grabar la llamada'"
                 (click)="grabar()">
-          {{ grabando() ? '⏹' : '⏺' }}
+          @if (grabando()) { <app-icono nombre="detener" [tam]="16" /> } @else { <app-icono nombre="grabar" [tam]="16" /> }
           <span class="vll-mando-txt">{{ grabando() ? 'Detener' : 'Grabar' }}</span>
         </button>
 
         <button type="button" class="vll-mando" title="Ver a pantalla completa"
                 [disabled]="estado() !== 'conectada'" (click)="pantallaCompleta()">
-          ⛶ <span class="vll-mando-txt">Ampliar</span>
+          <app-icono nombre="pantalla-completa" [tam]="16" /> <span class="vll-mando-txt">Ampliar</span>
         </button>
 
         <button type="button" class="vll-mando"
                 title="Ver en una ventana flotante mientras trabaja el caso"
                 [disabled]="estado() !== 'conectada'" (click)="desacoplar()">
-          🗗 <span class="vll-mando-txt">Flotante</span>
+          <app-icono nombre="minimizar" [tam]="16" /> <span class="vll-mando-txt">Flotante</span>
         </button>
 
         <button type="button" class="vll-mando vll-mando--colgar" title="Colgar"
                 (click)="colgar()">
-          ✕ <span class="vll-mando-txt">Colgar</span>
+          <app-icono nombre="cerrar" [tam]="16" /> <span class="vll-mando-txt">Colgar</span>
         </button>
       </div>
     </div>
@@ -115,7 +115,7 @@
         <span>Chat</span>
         @if (sinLeer()) { <b class="vll-sinleer">{{ sinLeer() }}</b> }
         @else if (chat().length) { <span class="vll-cuenta">{{ chat().length }}</span> }
-        <span class="vll-chevron" aria-hidden="true">{{ chatAbierto() ? '▾' : '▸' }}</span>
+        <span class="vll-chevron" aria-hidden="true">@if (chatAbierto()) { <app-icono nombre="contraer" [tam]="14" /> } @else { <app-icono nombre="expandir" [tam]="14" /> }</span>
       </button>
 
       @if (chatAbierto()) {
