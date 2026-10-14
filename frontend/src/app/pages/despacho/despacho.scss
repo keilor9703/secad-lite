@@ -45,14 +45,14 @@
 
 .desp-tit h1 {
   margin: 0;
-  font-size: 1.35rem;
+  font-size: var(--texto-xl);
   font-weight: 600;
   letter-spacing: -0.02em;
 }
 
 .desp-ctx {
   margin: 0.15rem 0 0;
-  font-size: 0.82rem;
+  font-size: var(--texto-sm);
   color: var(--muted);
 }
 
@@ -69,20 +69,20 @@
 
 .btn-icono {
   padding: 0.35rem 0.7rem;
-  font-size: 0.85rem;
+  font-size: var(--texto-base);
   border-radius: 999px;
 }
 
 .timbre {
   padding: 0.35rem 0.55rem;
-  font-size: 1rem;
+  font-size: var(--texto-md);
   line-height: 1;
 }
 
 .error {
   margin: 0;
   color: var(--danger);
-  font-size: 0.85rem;
+  font-size: var(--texto-base);
 }
 
 // 3. Barra de pasos: panorama y filtro a la vez ----------------------------
@@ -133,14 +133,14 @@
 
 .paso-n {
   font-family: var(--mono);
-  font-size: 0.95rem;
+  font-size: var(--texto-md);
   font-weight: 600;
   font-variant-numeric: tabular-nums;
   color: var(--ink);
 }
 
 .paso-l {
-  font-size: 0.78rem;
+  font-size: var(--texto-sm);
   white-space: nowrap;
 }
 
@@ -162,14 +162,14 @@
   display: flex;
   align-items: center;
   gap: 0.4rem;
-  font-size: 0.8rem;
+  font-size: var(--texto-sm);
   color: var(--muted);
   min-width: 0;
 }
 
 .alcance app-selector {
   width: auto;
-  font-size: 0.8rem;
+  font-size: var(--texto-sm);
 }
 .alcance app-selector ::ng-deep .sel-disparador {
   padding: 0.25rem 1.7rem 0.25rem 0.6rem;
@@ -205,7 +205,7 @@
 }
 
 .aviso-etq {
-  font-size: 0.62rem;
+  font-size: var(--texto-2xs);
   font-weight: 700;
   text-transform: uppercase;
   letter-spacing: 0.08em;
@@ -214,7 +214,7 @@
 }
 
 .aviso-txt {
-  font-size: 0.85rem;
+  font-size: var(--texto-base);
   min-width: 0;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -223,7 +223,7 @@
 
 .aviso-dato {
   font-family: var(--mono);
-  font-size: 0.72rem;
+  font-size: var(--texto-xs);
   color: var(--muted);
   white-space: nowrap;
 }
@@ -273,7 +273,7 @@
 }
 
 .grupo-tit {
-  font-size: 0.78rem;
+  font-size: var(--texto-sm);
   font-weight: 700;
   text-transform: uppercase;
   letter-spacing: 0.07em;
@@ -297,13 +297,13 @@
 
 .grupo-n {
   font-family: var(--mono);
-  font-size: 0.75rem;
+  font-size: var(--texto-xs);
   font-weight: 600;
   color: var(--muted);
 }
 
 .grupo-pista {
-  font-size: 0.72rem;
+  font-size: var(--texto-xs);
   color: var(--muted);
   margin-left: auto;
   overflow: hidden;
@@ -380,7 +380,7 @@
 
 .f-espera {
   font-family: var(--mono);
-  font-size: 0.78rem;
+  font-size: var(--texto-sm);
   font-variant-numeric: tabular-nums;
   color: var(--muted);
   padding-top: 0.1rem;
@@ -405,7 +405,7 @@
 }
 
 .f-titulo {
-  font-size: 0.92rem;
+  font-size: var(--texto-base);
   font-weight: 500;
   line-height: 1.3;
   overflow: hidden;
@@ -428,7 +428,7 @@
   align-items: baseline;
   gap: 0.15rem 0.8rem;
   flex-wrap: wrap;
-  font-size: 0.76rem;
+  font-size: var(--texto-xs);
   color: var(--muted);
   min-width: 0;
 }
@@ -446,7 +446,7 @@
 
 .f-canal {
   font-family: var(--mono);
-  font-size: 0.7rem;
+  font-size: var(--texto-xs);
   letter-spacing: 0.02em;
   margin-left: auto;
   white-space: nowrap;
@@ -457,7 +457,7 @@
   margin: 0;
   padding: 2rem 1rem;
   text-align: center;
-  font-size: 0.85rem;
+  font-size: var(--texto-base);
   color: var(--muted);
 }
 
@@ -469,13 +469,13 @@
 }
 .guia h2 {
   margin: 0 0 0.5rem;
-  font-size: 1.05rem;
+  font-size: var(--texto-md);
 }
 .guia p {
   margin: 0 auto;
   max-width: 420px;
   color: var(--muted);
-  font-size: 0.88rem;
+  font-size: var(--texto-base);
 }
 
 // 8. Panel del caso -------------------------------------------------------
@@ -556,7 +556,7 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  font-size: 0.8rem;
+  font-size: var(--texto-sm);
   transition: background 0.15s ease, color 0.15s ease, border-color 0.15s ease;
 }
 

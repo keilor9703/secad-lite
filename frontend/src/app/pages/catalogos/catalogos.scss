@@ -1,7 +1,7 @@
 .cat { display: flex; flex-direction: column; gap: 1rem; }
 .ctx-nota strong { color: var(--accent); font-family: var(--mono); }
 .error { color: var(--danger); margin: 0; }
-.hint { margin: 0; color: var(--muted); font-size: 0.85rem; }
+.hint { margin: 0; color: var(--muted); font-size: var(--texto-base); }
 
 .crear-inline { display: flex; gap: 0.5rem; flex-wrap: wrap; }
 .crear-inline input, .crear-inline app-selector { width: auto; flex: 1; min-width: 140px; }
@@ -15,27 +15,27 @@
   display: inline-flex; align-items: center; justify-content: center;
   min-width: 1.3rem; height: 1.3rem; padding: 0 0.3rem;
   border-radius: 999px; background: var(--surface-2); color: var(--muted);
-  font-size: 0.74rem; font-weight: 700; font-variant-numeric: tabular-nums;
+  font-size: var(--texto-xs); font-weight: 700; font-variant-numeric: tabular-nums;
 }
-.ag-cod { font-size: 0.78rem; color: var(--accent); }
-.rol { font-size: 0.74rem; color: var(--muted); text-transform: uppercase; letter-spacing: 0.04em; }
+.ag-cod { font-size: var(--texto-sm); color: var(--accent); }
+.rol { font-size: var(--texto-xs); color: var(--muted); text-transform: uppercase; letter-spacing: 0.04em; }
 .canal-list { list-style: none; margin: 0.5rem 0 0; padding: 0; display: flex; flex-direction: column; gap: 0.25rem; }
-.canal-list li { display: flex; align-items: center; gap: 0.5rem; font-size: 0.88rem; }
+.canal-list li { display: flex; align-items: center; gap: 0.5rem; font-size: var(--texto-base); }
 .canal-list li.off { opacity: 0.5; text-decoration: line-through; }
 
 .buscador { display: flex; align-items: center; gap: 0.6rem; }
 .buscador input { flex: 1; max-width: 420px; }
-.buscador .conteo { font-size: 0.8rem; color: var(--muted); font-family: var(--mono); }
-.tope { margin: 0.5rem 0 0; font-size: 0.8rem; color: var(--muted); }
+.buscador .conteo { font-size: var(--texto-sm); color: var(--muted); font-family: var(--mono); }
+.tope { margin: 0.5rem 0 0; font-size: var(--texto-sm); color: var(--muted); }
 .mono { font-family: var(--mono); }
-.mini { padding: 0.2rem 0.5rem; font-size: 0.76rem; }
+.mini { padding: 0.2rem 0.5rem; font-size: var(--texto-xs); }
 /* Etiqueta editable en sitio: se ve como texto hasta que recibe el foco. */
 .editable { width: 100%; max-width: 340px; background: transparent; border: 1px solid transparent;
             padding: 0.2rem 0.35rem; border-radius: var(--radius-sm); color: inherit; font: inherit; }
 .editable:hover { border-color: var(--border); }
 .editable:focus { border-color: var(--accent); background: var(--surface-2); outline: none; }
 
-.aviso { color: var(--accent); margin: 0; font-size: 0.9rem; }
+.aviso { color: var(--accent); margin: 0; font-size: var(--texto-base); }
 
 /* Acciones de cada registro: editar, desactivar, eliminar. */
 .acciones { display: inline-flex; gap: 0.3rem; flex-wrap: wrap; margin-left: auto; }
@@ -54,12 +54,12 @@
 .masiva-botones { display: flex; gap: 0.5rem; flex-wrap: wrap; align-items: center; }
 .masiva .archivo { cursor: pointer; margin: 0; }
 .masiva .opcion { display: inline-flex; align-items: center; gap: 0.4rem; margin-left: auto;
-                  font-size: 0.8rem; color: var(--muted); }
+                  font-size: var(--texto-sm); color: var(--muted); }
 .masiva .opcion app-selector { width: auto; }
-.masiva-estado { margin: 0.6rem 0 0; font-size: 0.85rem; color: var(--muted); }
+.masiva-estado { margin: 0.6rem 0 0; font-size: var(--texto-base); color: var(--muted); }
 
 .previa { margin-top: 0.8rem; padding-top: 0.7rem; border-top: 1px solid var(--border); }
-.previa-titulo { margin: 0 0 0.5rem; font-size: 0.88rem; }
+.previa-titulo { margin: 0 0 0.5rem; font-size: var(--texto-base); }
 .previa-titulo .rechazadas { color: var(--danger); font-weight: 600; }
 .previa-acciones { display: flex; gap: 0.5rem; margin-top: 0.7rem; }
 

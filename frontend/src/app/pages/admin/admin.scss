@@ -11,7 +11,7 @@
 .crear-inline { display: flex; flex-wrap: wrap; gap: 0.5rem; align-items: center; }
 .crear-inline input { flex: 1; min-width: 160px; }
 
-.username-hint { font-size: 0.72rem; color: var(--muted); }
+.username-hint { font-size: var(--texto-xs); color: var(--muted); }
 .username-hint.ok { color: var(--tag-ok-fg); }
 .username-hint.mala { color: var(--tag-danger-fg); }
 
@@ -34,7 +34,7 @@
    que es exactamente lo que se veía en la fila anterior. */
 .pie-campo {
   margin: 0; min-height: 1.05rem;
-  font-size: 0.72rem; line-height: 1.05rem;
+  font-size: var(--texto-xs); line-height: 1.05rem;
 }
 .pie-campo .tenue { color: var(--muted); }
 .pie-campo .ok { color: var(--tag-ok-fg); }
@@ -45,7 +45,7 @@
 /* «o» centrado sobre una línea: deja ver que son excluyentes. */
 .o-bien {
   display: flex; align-items: center; gap: 0.7rem;
-  margin: 0.1rem 0; font-size: 0.74rem; color: var(--muted);
+  margin: 0.1rem 0; font-size: var(--texto-xs); color: var(--muted);
 }
 .o-bien::before, .o-bien::after {
   content: ''; flex: 1; height: 1px; background: var(--border);
@@ -53,7 +53,7 @@
 
 .error-alta {
   margin: 0; padding: 0.55rem 0.7rem; border-radius: 8px;
-  font-size: 0.82rem;
+  font-size: var(--texto-sm);
   background: var(--tag-danger-bg); color: var(--tag-danger-fg);
 }
 
@@ -61,16 +61,16 @@
    se achicara por debajo de su ancho (aunque tenga overflow-x: auto), y
    terminaba desbordando toda la página en vez de solo scrollear aquí. */
 .mono { font-family: var(--mono); color: var(--ink-soft); }
-.rol { font-size: 0.78rem; font-weight: 600; text-transform: capitalize; }
+.rol { font-size: var(--texto-sm); font-weight: 600; text-transform: capitalize; }
 
-.mini { padding: 0.3rem 0.6rem; font-size: 0.78rem; }
+.mini { padding: 0.3rem 0.6rem; font-size: var(--texto-sm); }
 
 .clave-edicion { display: flex; gap: 0.3rem; align-items: center; }
-.clave-edicion input { width: 140px; padding: 0.3rem 0.5rem; font-size: 0.8rem; }
+.clave-edicion input { width: 140px; padding: 0.3rem 0.5rem; font-size: var(--texto-sm); }
 .pbx-warn.mini { display: inline; margin: 0 0 0 0.4rem; }
 
 /* Integración PBX */
-.pbx-hint { color: var(--muted); font-size: 0.85rem; margin: 0 0 0.8rem; line-height: 1.5; }
+.pbx-hint { color: var(--muted); font-size: var(--texto-base); margin: 0 0 0.8rem; line-height: 1.5; }
 /* overflow-wrap — estos <code> traen ejemplos de JSON/URL de una sola
    palabra (sin espacios); sin esto no envuelven y desbordan la página
    entera en una pantalla angosta, en vez de partirse dentro de su párrafo. */
@@ -87,44 +87,44 @@
   margin: 0 0 0.8rem;
   overflow-x: auto;
   font-family: var(--mono);
-  font-size: 0.78rem;
+  font-size: var(--texto-sm);
   line-height: 1.5;
 }
 .pbx-json code { background: none; padding: 0; white-space: pre; }
 .pbx-field { margin-top: 0.7rem; }
-.pbx-field > label { font-size: 0.72rem; text-transform: uppercase; letter-spacing: 0.04em; color: var(--muted); }
+.pbx-field > label { font-size: var(--texto-xs); text-transform: uppercase; letter-spacing: 0.04em; color: var(--muted); }
 .pbx-row { display: flex; gap: 0.4rem; margin-top: 0.3rem; flex-wrap: wrap; }
 .pbx-row input { flex: 1; min-width: 220px; }
-.pbx-warn { color: var(--muted); font-size: 0.76rem; margin: 0.35rem 0 0; }
+.pbx-warn { color: var(--muted); font-size: var(--texto-xs); margin: 0.35rem 0 0; }
 
 /* Matriz de roles y permisos */
 .matriz-wrap { overflow-x: auto; min-width: 0; margin-top: 0.8rem; }
 .matriz { width: 100%; border-collapse: collapse; }
-.matriz th, .matriz td { padding: 0.45rem 0.6rem; border-bottom: 1px solid var(--border-2); font-size: 0.86rem; }
+.matriz th, .matriz td { padding: 0.45rem 0.6rem; border-bottom: 1px solid var(--border-2); font-size: var(--texto-base); }
 .matriz .permiso-col { text-align: left; min-width: 220px; }
 .matriz .rol-col { text-align: center; min-width: 110px; }
 .matriz .check-col { text-align: center; }
 .matriz .check-col input { width: 16px; height: 16px; accent-color: var(--accent); cursor: pointer; }
 .matriz .grupo-row td {
-  background: var(--surface-2); font-weight: 700; font-size: 0.72rem;
+  background: var(--surface-2); font-weight: 700; font-size: var(--texto-xs);
   text-transform: uppercase; letter-spacing: 0.05em; color: var(--muted);
 }
 .ayuda-inline { font-weight: 400; text-transform: none; letter-spacing: normal; }
 .rol-head { display: inline-flex; align-items: center; gap: 0.35rem; }
 .rol-tag {
-  font-size: 0.62rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.04em;
+  font-size: var(--texto-2xs); font-weight: 700; text-transform: uppercase; letter-spacing: 0.04em;
   background: var(--accent-soft); color: var(--accent); border-radius: 999px; padding: 0.1rem 0.4rem;
 }
 .matriz-acciones { display: flex; justify-content: flex-end; align-items: center; gap: 0.8rem; margin-top: 0.7rem; }
 
 /* Entidades externas (API entrante) */
 .ent-key { display: flex; align-items: center; gap: 0.35rem; flex-wrap: wrap; }
-.ent-key span { font-size: 0.8rem; }
-.ctx-nota { margin: 0; font-size: 0.82rem; color: var(--muted); }
+.ent-key span { font-size: var(--texto-sm); }
+.ctx-nota { margin: 0; font-size: var(--texto-sm); color: var(--muted); }
 .ctx-nota strong { color: var(--accent); font-family: var(--mono); }
 .ctx-tag {
   margin-left: 0.5rem; padding: 0.15rem 0.5rem; border-radius: 999px;
-  font-family: var(--mono); font-size: 0.72rem; font-weight: 600;
+  font-family: var(--mono); font-size: var(--texto-xs); font-weight: 600;
   background: var(--accent-soft); color: var(--accent); vertical-align: middle;
 }
 
@@ -133,25 +133,25 @@
 .agencia { border: 1px solid var(--border); border-radius: var(--radius-sm); padding: 0.7rem 0.9rem; margin-top: 0.7rem; }
 .agencia.off { opacity: 0.55; }
 .agencia-head { display: flex; align-items: center; gap: 0.6rem; flex-wrap: wrap; }
-.ag-cod { font-size: 0.78rem; color: var(--accent); }
+.ag-cod { font-size: var(--texto-sm); color: var(--accent); }
 .canal-list { list-style: none; margin: 0.5rem 0 0; padding: 0; display: flex; flex-direction: column; gap: 0.25rem; }
-.canal-list li { display: flex; align-items: center; gap: 0.5rem; font-size: 0.88rem; }
+.canal-list li { display: flex; align-items: center; gap: 0.5rem; font-size: var(--texto-base); }
 .canal-list li.off { opacity: 0.5; text-decoration: line-through; }
 
 .canales-pick { display: flex; align-items: center; gap: 0.5rem; flex-wrap: wrap; margin-top: 0.5rem; }
 .canales-pick.mini { margin-top: 0; gap: 0.3rem; max-width: 220px; }
-.canales-lbl { font-size: 0.8rem; color: var(--ink-soft); font-weight: 600; }
-.chip { display: inline-flex; align-items: center; gap: 0.35rem; font-size: 0.82rem;
+.canales-lbl { font-size: var(--texto-sm); color: var(--ink-soft); font-weight: 600; }
+.chip { display: inline-flex; align-items: center; gap: 0.35rem; font-size: var(--texto-sm);
         border: 1px solid var(--border-2); border-radius: 999px; padding: 0.2rem 0.6rem; cursor: pointer; }
-.canales-pick.mini .chip { font-size: 0.74rem; padding: 0.1rem 0.4rem; }
+.canales-pick.mini .chip { font-size: var(--texto-xs); padding: 0.1rem 0.4rem; }
 .chip input { width: auto; }
 .chip.off { opacity: 0.5; }
 
 /* Búsqueda dentro de catálogos largos (códigos de caso). */
 .buscador { display: flex; align-items: center; gap: 0.6rem; margin: 0.6rem 0 0.2rem; }
 .buscador input { flex: 1; max-width: 420px; }
-.buscador .conteo { font-size: 0.8rem; color: var(--muted); font-family: var(--mono); }
-.tope { margin: 0.5rem 0 0; font-size: 0.8rem; color: var(--muted); }
+.buscador .conteo { font-size: var(--texto-sm); color: var(--muted); font-family: var(--mono); }
+.tope { margin: 0.5rem 0 0; font-size: var(--texto-sm); color: var(--muted); }
 
 /* Extensión de la PBX: se ve como texto hasta recibir el foco. */
 .ext { width: 100%; max-width: 110px; background: transparent; border: 1px solid transparent;
@@ -179,7 +179,7 @@
   align-items: center;
   gap: 0.35rem;
   margin-right: 0.4rem;
-  font-size: 0.78rem;
+  font-size: var(--texto-sm);
   color: var(--ink-soft);
 
   &--sin { color: var(--muted); font-style: italic; }
@@ -198,7 +198,7 @@
   display: inline-flex;
   align-items: center;
   gap: 0.35rem;
-  font-size: 0.78rem;
+  font-size: var(--texto-sm);
   color: var(--ink-soft);
 }
 
@@ -207,11 +207,11 @@
 .correo-dir {
   display: inline-block; max-width: 15rem; overflow: hidden;
   text-overflow: ellipsis; vertical-align: middle;
-  font-size: 0.8rem; color: var(--ink-soft);
+  font-size: var(--texto-sm); color: var(--ink-soft);
 }
 .correo-estado {
   display: inline-block; margin-left: 0.4rem; padding: 0.1rem 0.45rem;
-  border-radius: 999px; font-size: 0.72rem; font-weight: 500;
+  border-radius: 999px; font-size: var(--texto-xs); font-weight: 500;
   background: var(--surface-2); color: var(--ink-soft);
 }
 .correo-estado--bien { background: var(--tag-ok-bg, var(--accent-soft)); color: var(--accent-deep); }
@@ -228,10 +228,10 @@
   background: var(--accent-soft);
   display: flex; flex-direction: column; gap: 0.55rem;
 }
-.enlace-invitacion p { margin: 0; font-size: 0.82rem; line-height: 1.5; }
+.enlace-invitacion p { margin: 0; font-size: var(--texto-sm); line-height: 1.5; }
 .enlace-invitacion code {
   display: block; padding: 0.5rem 0.6rem; border-radius: 8px;
   background: var(--surface); border: 1px solid var(--border);
-  font-size: 0.74rem; word-break: break-all; user-select: all;
+  font-size: var(--texto-xs); word-break: break-all; user-select: all;
 }
 .enlace-acciones { display: flex; gap: 0.5rem; }

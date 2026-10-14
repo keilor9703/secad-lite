@@ -45,7 +45,7 @@
   align-items: center;
   justify-content: center;
   border-radius: 999px;
-  font-size: 0.75rem;
+  font-size: var(--texto-xs);
   font-weight: 700;
   background: var(--surface-2);
   color: var(--ink-soft);
@@ -54,7 +54,7 @@
 .toast-msg {
   margin: 0;
   flex: 1;
-  font-size: 0.87rem;
+  font-size: var(--texto-base);
   line-height: 1.4;
   color: var(--ink);
   padding-top: 0.1rem;
@@ -71,7 +71,7 @@
   background: transparent;
   color: var(--muted);
   cursor: pointer;
-  font-size: 0.7rem;
+  font-size: var(--texto-xs);
   line-height: 1;
   padding: 0.25rem;
   border-radius: 999px;

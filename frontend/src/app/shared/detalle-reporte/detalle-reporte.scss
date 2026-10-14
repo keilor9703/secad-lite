@@ -37,19 +37,19 @@
   padding: 1rem 1.2rem;
   border-bottom: 1px solid var(--border-2);
 }
-.dr-head h2 { margin: 0; font-size: 1rem; font-weight: 600; }
+.dr-head h2 { margin: 0; font-size: var(--texto-md); font-weight: 600; }
 
 .dr-msg { padding: 2rem; text-align: center; color: var(--muted); margin: 0; }
 .dr-error { color: var(--danger); }
 
-.dr-cuenta { margin: 0.9rem 1.2rem 0.4rem; font-size: 0.8rem; color: var(--muted); }
+.dr-cuenta { margin: 0.9rem 1.2rem 0.4rem; font-size: var(--texto-sm); color: var(--muted); }
 
 .dr-tabla-wrap { overflow: auto; padding: 0 1.2rem 1.2rem; }
 
-.dr-tabla { width: 100%; border-collapse: collapse; font-size: 0.82rem; }
+.dr-tabla { width: 100%; border-collapse: collapse; font-size: var(--texto-sm); }
 .dr-tabla th {
   text-align: left;
-  font-size: 0.68rem;
+  font-size: var(--texto-2xs);
   text-transform: uppercase;
   letter-spacing: 0.04em;
   color: var(--muted);

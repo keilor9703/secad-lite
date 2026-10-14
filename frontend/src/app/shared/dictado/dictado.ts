@@ -68,7 +68,7 @@ declare global {
       position: absolute; top: 0.4rem; right: 0.4rem;
       width: 1.9rem; height: 1.9rem; border-radius: 50%;
       border: 1px solid var(--border, #d8dee6); background: var(--surface-2, #f1f3f5);
-      cursor: pointer; font-size: 0.95rem; line-height: 1;
+      cursor: pointer; font-size: var(--texto-md); line-height: 1;
       display: flex; align-items: center; justify-content: center;
       transition: background 0.15s, transform 0.15s;
     }

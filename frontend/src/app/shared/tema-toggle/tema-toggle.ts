@@ -28,7 +28,7 @@ import { Tema, TemaService } from '../../core/tema.service';
   styles: [`
     .tema {
       display: inline-flex; align-items: center; gap: 0.4rem;
-      font: inherit; font-size: 0.82rem; font-weight: 500;
+      font: inherit; font-size: var(--texto-sm); font-weight: 500;
       color: var(--ink-soft); cursor: pointer;
       background: transparent;
       border: 1px solid var(--border); border-radius: 999px;

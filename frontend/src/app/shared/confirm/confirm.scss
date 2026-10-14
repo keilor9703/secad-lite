@@ -28,8 +28,8 @@
   animation: confirm-entra 0.18s cubic-bezier(0.16, 1, 0.3, 1);
 }
 
-.confirm-titulo { margin: 0; font-size: 1.05rem; font-weight: 600; }
-.confirm-mensaje { margin: 0; font-size: 0.9rem; line-height: 1.5; color: var(--ink-soft); white-space: pre-line; }
+.confirm-titulo { margin: 0; font-size: var(--texto-md); font-weight: 600; }
+.confirm-mensaje { margin: 0; font-size: var(--texto-base); line-height: 1.5; color: var(--ink-soft); white-space: pre-line; }
 
 .confirm-acciones {
   display: flex;

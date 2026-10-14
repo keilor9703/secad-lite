@@ -15,20 +15,20 @@
 
 .mon-ctx {
   margin: 0.15rem 0 0;
-  font-size: 0.82rem;
+  font-size: var(--texto-sm);
   color: var(--muted);
 }
 
 .sello {
   font-family: var(--mono);
-  font-size: 0.72rem;
+  font-size: var(--texto-xs);
   color: var(--muted);
 }
 
 .error {
   margin: 0;
   color: var(--danger);
-  font-size: 0.85rem;
+  font-size: var(--texto-base);
 }
 
 // --- Bloques ---------------------------------------------------------------
@@ -47,7 +47,7 @@
   margin: 0;
   padding-bottom: 0.35rem;
   border-bottom: 1px solid var(--border);
-  font-size: 0.78rem;
+  font-size: var(--texto-sm);
   font-weight: 700;
   text-transform: uppercase;
   letter-spacing: 0.07em;
@@ -55,7 +55,7 @@
 }
 
 .bloque-nota {
-  font-size: 0.72rem;
+  font-size: var(--texto-xs);
   font-weight: 400;
   text-transform: none;
   letter-spacing: 0;
@@ -64,7 +64,7 @@
 
 .aclaracion {
   margin: 0;
-  font-size: 0.74rem;
+  font-size: var(--texto-xs);
   line-height: 1.45;
   color: var(--muted);
   max-width: 68ch;
@@ -91,7 +91,7 @@
 }
 
 .t-lbl {
-  font-size: 0.68rem;
+  font-size: var(--texto-2xs);
   font-weight: 700;
   text-transform: uppercase;
   letter-spacing: 0.07em;
@@ -99,25 +99,25 @@
 }
 
 .t-val {
-  font-size: 1.15rem;
+  font-size: var(--texto-lg);
   font-weight: 600;
   line-height: 1.2;
   font-variant-numeric: tabular-nums;
 }
 
 .t-de {
-  font-size: 0.8rem;
+  font-size: var(--texto-sm);
   font-weight: 400;
   color: var(--muted);
 }
 
 .t-nd {
-  font-size: 0.95rem;
+  font-size: var(--texto-md);
   color: var(--muted);
 }
 
 .t-pie {
-  font-size: 0.72rem;
+  font-size: var(--texto-xs);
   color: var(--muted);
   line-height: 1.35;
 }
@@ -148,7 +148,7 @@
 }
 
 .m-lbl {
-  font-size: 0.72rem;
+  font-size: var(--texto-xs);
   font-weight: 600;
   text-transform: uppercase;
   letter-spacing: 0.06em;
@@ -156,18 +156,18 @@
 }
 
 .m-val {
-  font-size: 1.05rem;
+  font-size: var(--texto-md);
   font-weight: 600;
   font-variant-numeric: tabular-nums;
 }
 
 .m-nd {
-  font-size: 0.85rem;
+  font-size: var(--texto-base);
   color: var(--muted);
 }
 
 .m-pie {
-  font-size: 0.7rem;
+  font-size: var(--texto-xs);
   color: var(--muted);
   line-height: 1.35;
 }
@@ -219,7 +219,7 @@
 }
 
 .c-n {
-  font-size: 1.4rem;
+  font-size: var(--texto-xl);
   font-weight: 600;
   line-height: 1.1;
   font-variant-numeric: tabular-nums;
@@ -227,14 +227,14 @@
 }
 
 .c-l {
-  font-size: 0.68rem;
+  font-size: var(--texto-2xs);
   text-transform: uppercase;
   letter-spacing: 0.06em;
   color: var(--muted);
 }
 
 .cifra--plan .c-n {
-  font-size: 1.05rem;
+  font-size: var(--texto-md);
   color: var(--ink-soft);
 }
 
@@ -261,7 +261,7 @@
 }
 
 .f-etq {
-  font-size: 0.68rem;
+  font-size: var(--texto-2xs);
   font-weight: 700;
   text-transform: uppercase;
   letter-spacing: 0.06em;
@@ -277,13 +277,13 @@
 }
 
 .f-tit {
-  font-size: 0.88rem;
+  font-size: var(--texto-base);
   font-weight: 500;
   line-height: 1.3;
 }
 
 .f-sub {
-  font-size: 0.75rem;
+  font-size: var(--texto-xs);
   color: var(--muted);
   line-height: 1.4;
 }
@@ -296,7 +296,7 @@
 .f-cod,
 .f-hora {
   font-family: var(--mono);
-  font-size: 0.7rem;
+  font-size: var(--texto-xs);
   color: var(--muted);
   white-space: nowrap;
   padding-top: 0.2rem;
@@ -316,7 +316,7 @@
 
 .accion {
   font-family: var(--mono);
-  font-size: 0.78rem;
+  font-size: var(--texto-sm);
   color: var(--accent-deep);
 }
 
@@ -330,7 +330,7 @@
 
 .cod {
   font-family: var(--mono);
-  font-size: 0.7rem;
+  font-size: var(--texto-xs);
   color: var(--muted);
   margin-left: 0.35rem;
 }

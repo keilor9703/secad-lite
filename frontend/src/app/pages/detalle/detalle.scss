@@ -1,5 +1,5 @@
 .det { display: flex; flex-direction: column; gap: 1rem; }
-.volver { color: var(--accent); text-decoration: none; font-weight: 600; font-size: 0.88rem; width: fit-content; }
+.volver { color: var(--accent); text-decoration: none; font-weight: 600; font-size: var(--texto-base); width: fit-content; }
 .volver:hover { text-decoration: underline; }
 .error { color: var(--danger); margin: 0; }
 .cargando { color: var(--muted); margin: 0; }
@@ -42,7 +42,7 @@
   border-radius: var(--radius-sm);
   background: none;
   color: var(--muted);
-  font-size: 0.85rem;
+  font-size: var(--texto-base);
   font-weight: 500;
   transition: background 0.15s ease, color 0.15s ease, border-color 0.15s ease;
 }
@@ -58,7 +58,7 @@
 
 .tab-badge {
   font-family: var(--mono);
-  font-size: 0.68rem;
+  font-size: var(--texto-2xs);
   font-weight: 700;
   padding: 0.05rem 0.4rem;
   border-radius: 999px;
@@ -72,18 +72,18 @@
 .ficha { padding: 1.2rem 1.3rem; display: flex; flex-direction: column; gap: 0.7rem; }
 .ficha-head { display: flex; align-items: center; justify-content: space-between; }
 .ficha .canal { font-weight: 600; color: var(--ink-soft); }
-.ficha h1 { margin: 0; font-size: 1.35rem; font-weight: 600; letter-spacing: -0.02em; }
-.ficha .id { color: var(--muted); font-size: 0.76rem; margin: 0; }
+.ficha h1 { margin: 0; font-size: var(--texto-xl); font-weight: 600; letter-spacing: -0.02em; }
+.ficha .id { color: var(--muted); font-size: var(--texto-xs); margin: 0; }
 
 .datos { display: grid; grid-template-columns: 1fr 1fr; gap: 0.6rem 1rem; margin: 0.4rem 0 0; }
-.datos dt { font-size: 0.72rem; text-transform: uppercase; letter-spacing: 0.04em; color: var(--muted); }
+.datos dt { font-size: var(--texto-xs); text-transform: uppercase; letter-spacing: 0.04em; color: var(--muted); }
 .datos dd { margin: 0.1rem 0 0; font-weight: 500; }
 .desc { background: var(--surface-2); border-radius: var(--radius-sm); padding: 0.6rem 0.8rem; margin: 0.3rem 0 0; }
 
 .acciones { margin-top: 0.5rem; }
-.acciones > label { font-size: 0.75rem; text-transform: uppercase; letter-spacing: 0.04em; color: var(--muted); }
+.acciones > label { font-size: var(--texto-xs); text-transform: uppercase; letter-spacing: 0.04em; color: var(--muted); }
 .botones { display: flex; flex-wrap: wrap; gap: 0.4rem; margin-top: 0.4rem; }
-.rol-nota { font-size: 0.75rem; color: var(--muted); margin: 0.4rem 0 0; }
+.rol-nota { font-size: var(--texto-xs); color: var(--muted); margin: 0.4rem 0 0; }
 
 .despacho-panel { padding: 1.2rem 1.3rem; display: flex; flex-direction: column; gap: 0.7rem; }
 .despachar-form { display: flex; gap: 0.5rem; }
@@ -93,17 +93,17 @@
 .asig-list li { border: 1px solid var(--border); border-radius: var(--radius-sm); padding: 0.5rem 0.7rem; }
 .asig-head { display: flex; align-items: center; justify-content: space-between; gap: 0.5rem; }
 .asig-acc { display: flex; flex-wrap: wrap; gap: 0.35rem; margin-top: 0.45rem; }
-.asig-acc .mini { padding: 0.28rem 0.55rem; font-size: 0.78rem; }
-.asig-motivo { margin: 0.4rem 0 0; font-size: 0.78rem; color: var(--muted); }
+.asig-acc .mini { padding: 0.28rem 0.55rem; font-size: var(--texto-sm); }
+.asig-motivo { margin: 0.4rem 0 0; font-size: var(--texto-sm); color: var(--muted); }
 .chat-panel { padding: 1.2rem 1.3rem; display: flex; flex-direction: column; gap: 0.7rem; }
 .chat-msgs { display: flex; flex-direction: column; gap: 0.5rem; max-height: 40vh; overflow-y: auto; }
 .chat-msgs .vacio { color: var(--muted); margin: 0.4rem 0; }
 .cmsg { max-width: 82%; align-self: flex-start; display: flex; flex-direction: column; }
 .cmsg.propio { align-self: flex-end; align-items: flex-end; }
-.cmsg .autor { font-size: 0.7rem; color: var(--muted); }
+.cmsg .autor { font-size: var(--texto-xs); color: var(--muted); }
 .cmsg .texto { margin: 0.1rem 0; padding: 0.45rem 0.7rem; border-radius: 12px; background: var(--surface-2); }
 .cmsg.propio .texto { background: var(--accent); color: var(--on-accent); }
-.cmsg .hora { font-size: 0.66rem; color: var(--muted); }
+.cmsg .hora { font-size: var(--texto-2xs); color: var(--muted); }
 .chat-entrada { display: flex; gap: 0.5rem; }
 .chat-entrada input { flex: 1; }
 
@@ -115,7 +115,7 @@
 .timeline li { display: flex; gap: 0.7rem; padding: 0.1rem 0; }
 .timeline li .dot {
   flex: none; width: 28px; height: 28px; display: grid; place-items: center;
-  background: var(--surface-2); border-radius: 50%; font-size: 0.85rem; z-index: 1;
+  background: var(--surface-2); border-radius: 50%; font-size: var(--texto-base); z-index: 1;
 }
 .timeline li:not(:last-child) .dot { position: relative; }
 .timeline li:not(:last-child) .dot::after {
@@ -124,23 +124,23 @@
 }
 .timeline .ev { padding-bottom: 0.7rem; }
 .timeline .ev-desc { margin: 0.25rem 0 0; }
-.timeline .ev-meta { margin: 0.1rem 0 0; font-size: 0.75rem; color: var(--muted); }
+.timeline .ev-meta { margin: 0.1rem 0 0; font-size: var(--texto-xs); color: var(--muted); }
 .timeline .empty { color: var(--muted); padding: 0.5rem 0; }
 
 /* Ubicación y canales capturados en recepción. */
 .ubic, .canales-caso {
   display: flex; align-items: center; gap: 0.5rem; flex-wrap: wrap;
-  margin-top: 0.7rem; font-size: 0.88rem;
+  margin-top: 0.7rem; font-size: var(--texto-base);
 }
-.ubic-lbl { font-size: 0.78rem; font-weight: 700; text-transform: uppercase;
+.ubic-lbl { font-size: var(--texto-sm); font-weight: 700; text-transform: uppercase;
             letter-spacing: 0.05em; color: var(--muted); }
-.ubic .coord { font-size: 0.78rem; color: var(--accent); text-decoration: none; }
+.ubic .coord { font-size: var(--texto-sm); color: var(--accent); text-decoration: none; }
 .ubic .coord:hover { text-decoration: underline; }
-.chip-ro { font-size: 0.78rem; border: 1px solid var(--border-2); border-radius: 999px;
+.chip-ro { font-size: var(--texto-sm); border: 1px solid var(--border-2); border-radius: 999px;
            padding: 0.12rem 0.55rem; background: var(--surface-2); }
 /* Canal de atención + el estado de ESA entidad frente al caso (ver casos_canales). */
 .chip-canal {
-  display: inline-flex; align-items: center; gap: 0.4rem; font-size: 0.78rem;
+  display: inline-flex; align-items: center; gap: 0.4rem; font-size: var(--texto-sm);
   border: 1px solid var(--border-2); border-radius: 999px;
   padding: 0.12rem 0.3rem 0.12rem 0.55rem; background: var(--surface-2);
 }
@@ -151,27 +151,27 @@
   border: 1px solid var(--border-2); border-radius: var(--radius-sm);
   padding: 0.9rem 1rem; display: flex; flex-direction: column; gap: 0.7rem;
 }
-.remitir-form h3 { margin: 0; font-size: 0.95rem; }
-.remitir-form .ayuda { margin: 0; font-size: 0.8rem; color: var(--muted); }
+.remitir-form h3 { margin: 0; font-size: var(--texto-md); }
+.remitir-form .ayuda { margin: 0; font-size: var(--texto-sm); color: var(--muted); }
 .canales-box { display: flex; align-items: center; gap: 0.5rem; flex-wrap: wrap; }
-.chip { display: inline-flex; align-items: center; gap: 0.35rem; font-size: 0.82rem; cursor: pointer;
+.chip { display: inline-flex; align-items: center; gap: 0.35rem; font-size: var(--texto-sm); cursor: pointer;
         border: 1px solid var(--border-2); border-radius: 999px; padding: 0.2rem 0.6rem; }
 .chip input { width: auto; }
-.chk { display: flex; align-items: flex-start; gap: 0.45rem; font-size: 0.84rem; color: var(--ink-soft); }
+.chk { display: flex; align-items: flex-start; gap: 0.45rem; font-size: var(--texto-base); color: var(--ink-soft); }
 .chk input { width: auto; margin-top: 0.2rem; }
 .acciones-remitir { display: flex; justify-content: flex-end; gap: 0.5rem; }
 
 /* Reapertura de un caso cerrado (solicitud o autorización). */
 .reapertura { margin-top: 1rem; }
 .reapertura .pendiente {
-  margin: 0 0 0.5rem; padding: 0.5rem 0.7rem; font-size: 0.85rem;
+  margin: 0 0 0.5rem; padding: 0.5rem 0.7rem; font-size: var(--texto-base);
   background: var(--tag-warn-bg); color: var(--tag-warn-fg); border-radius: var(--radius-sm);
 }
 .reapertura-form {
   display: flex; flex-direction: column; gap: 0.5rem; margin-top: 0.5rem;
   border: 1px solid var(--border-2); border-radius: var(--radius-sm); padding: 0.8rem;
 }
-.reapertura-form label { font-size: 0.82rem; font-weight: 600; color: var(--ink-soft); }
+.reapertura-form label { font-size: var(--texto-sm); font-weight: 600; color: var(--ink-soft); }
 
 /* La nota es donde el despachador escribe todo lo que informa el recurso en
    campo: necesita espacio para escribir, no una ranura de dos renglones. */
@@ -180,11 +180,11 @@
 .linea { max-height: 46vh; overflow-y: auto; }
 
 /* Cierre clasificado: es la única transición que decide una persona. */
-.auto-nota { margin: 0.4rem 0 0; font-size: 0.78rem; color: var(--muted); }
+.auto-nota { margin: 0.4rem 0 0; font-size: var(--texto-sm); color: var(--muted); }
 .cierre-form { display: flex; flex-direction: column; gap: 0.6rem; margin-top: 0.6rem;
                border: 1px solid var(--border-2); border-radius: var(--radius-sm); padding: 0.8rem; }
-.cierre-form h3 { margin: 0; font-size: 0.95rem; }
-.cierre-form .ayuda { margin: 0; font-size: 0.8rem; color: var(--muted); }
+.cierre-form h3 { margin: 0; font-size: var(--texto-md); }
+.cierre-form .ayuda { margin: 0; font-size: var(--texto-sm); color: var(--muted); }
 
 // ==========================================================================
 // VIDEOLLAMADAS DEL CASO
@@ -215,14 +215,14 @@
   align-items: center;
   gap: 0.45rem;
   flex-wrap: wrap;
-  font-size: 0.82rem;
+  font-size: var(--texto-sm);
 }
 
 .vgrab-desp { color: var(--muted); }
 
 .vgrab-nota {
   margin: 0;
-  font-size: 0.78rem;
+  font-size: var(--texto-sm);
   color: var(--muted);
 }
 
@@ -254,13 +254,13 @@
   padding: 0.35rem 0.55rem;
   border-radius: var(--radius-sm);
   background: var(--surface-2);
-  font-size: 0.8rem;
+  font-size: var(--texto-sm);
   line-height: 1.3;
   word-break: break-word;
 
   small {
     align-self: flex-end;
-    font-size: 0.66rem;
+    font-size: var(--texto-2xs);
     color: var(--muted);
   }
 }
@@ -278,15 +278,15 @@
   border-radius: var(--radius-sm);
   padding: 0.6rem 0.75rem; margin-top: 0.4rem;
   background: var(--surface-2);
-  font-size: 0.85rem; line-height: 1.45;
+  font-size: var(--texto-base); line-height: 1.45;
 
   p { margin: 0 0 0.4rem; }
   code {
-    display: inline-block; font-family: var(--mono); font-size: 0.8rem;
+    display: inline-block; font-family: var(--mono); font-size: var(--texto-sm);
     background: var(--surface); border: 1px solid var(--border);
     border-radius: 4px; padding: 0.15rem 0.4rem;
     user-select: all;              /* un clic lo selecciona entero para copiarlo */
     word-break: break-all;
   }
-  .vgrab-sha { margin: 0.45rem 0 0; color: var(--muted); font-size: 0.78rem; }
+  .vgrab-sha { margin: 0.45rem 0 0; color: var(--muted); font-size: var(--texto-sm); }
 }

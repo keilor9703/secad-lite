@@ -60,7 +60,7 @@
   display: flex;
   align-items: center;
   gap: 0.4rem;
-  font-size: 0.82rem;
+  font-size: var(--texto-sm);
   font-weight: 600;
   color: var(--ink-soft);
 }

@@ -4,7 +4,7 @@
 .crear input, .crear app-selector { flex: 1; min-width: 120px; width: auto; }
 .mono { font-family: var(--mono); color: var(--ink-soft); }
 .cap { text-transform: capitalize; }
-.mini { padding: 0.3rem 0.6rem; font-size: 0.78rem; }
+.mini { padding: 0.3rem 0.6rem; font-size: var(--texto-sm); }
 
 /* Acciones de la fila: se apilan si no caben, sin desbordar la tabla. */
 .acciones-col { white-space: nowrap; }
@@ -13,16 +13,16 @@
 .btn.peligro:hover { border-color: var(--danger); }
 .fila-edicion { background: var(--surface-2); }
 .fila-edicion input, .fila-edicion app-selector { width: 100%; min-width: 110px; }
-.hint { margin: 0.5rem 0 0; color: var(--muted); font-size: 0.82rem; }
+.hint { margin: 0.5rem 0 0; color: var(--muted); font-size: var(--texto-sm); }
 
 /* Canal(es) de la agencia que el recurso está atendiendo, cuando está en
    atención (asignado/en ruta/en sitio) — para que el supervisor lo vea sin
    entrar al caso. white-space: normal porque el nombre del canal puede ser
    más largo que el de la celda. */
-.canal-activo { white-space: normal; font-size: 0.78rem; color: var(--muted); margin-top: 0.15rem; }
+.canal-activo { white-space: normal; font-size: var(--texto-sm); color: var(--muted); margin-top: 0.15rem; }
 
 /* Quien no administra el secad ve su agencia fija, no un selector. */
 .agencia-fija {
   padding: 0.45rem 0.7rem; border-radius: var(--radius-sm); background: var(--surface-2);
-  color: var(--ink-soft); font-size: 0.85rem; white-space: nowrap;
+  color: var(--ink-soft); font-size: var(--texto-base); white-space: nowrap;
 }

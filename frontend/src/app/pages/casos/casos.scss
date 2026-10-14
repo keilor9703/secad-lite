@@ -1,6 +1,6 @@
 .casos { display: flex; flex-direction: column; gap: 0.9rem; }
-.conteo { font-family: var(--mono); font-size: 0.8rem; color: var(--muted); }
-.alcance, .error { margin: 0; font-size: 0.82rem; }
+.conteo { font-family: var(--mono); font-size: var(--texto-sm); color: var(--muted); }
+.alcance, .error { margin: 0; font-size: var(--texto-sm); }
 .alcance { color: var(--muted); }
 .error { color: var(--danger); }
 
@@ -20,7 +20,7 @@
 .titulo a:hover { text-decoration: underline; }
 .ubic { color: var(--ink-soft); }
 .mono { font-family: var(--mono); }
-.fecha { font-size: 0.8rem; color: var(--muted); }
+.fecha { font-size: var(--texto-sm); color: var(--muted); }
 
 /* Columna "Canales": una fila por entidad a la que se envió el caso, con su
    propio estado — para que el supervisor vea, sin abrir el detalle, cuál ya
@@ -41,11 +41,11 @@
   display: grid; grid-template-columns: minmax(0, 1fr) auto;
   align-items: start; gap: 0.3rem 0.4rem;
 }
-.canal-nombre { font-size: 0.78rem; color: var(--ink-soft); line-height: 1.35; }
+.canal-nombre { font-size: var(--texto-sm); color: var(--ink-soft); line-height: 1.35; }
 .sin-canales { color: var(--muted); }
 
 /* Rango de fechas dentro de la barra de filtros. */
 .filtros { flex-wrap: wrap; }
 .rango { display: inline-flex; align-items: center; gap: 0.4rem; flex-wrap: wrap; }
-.rango label { font-size: 0.8rem; color: var(--muted); }
+.rango label { font-size: var(--texto-sm); color: var(--muted); }
 .rango app-fecha { width: 145px; flex: none; }

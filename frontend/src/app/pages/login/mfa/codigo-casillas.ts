@@ -44,7 +44,7 @@ export const DIGITOS = 6;
       background: var(--surface);
       color: var(--ink);
       font-family: var(--mono);
-      font-size: 1.3rem;
+      font-size: var(--texto-xl);
       font-weight: 600;
       text-align: center;
       /* Las transiciones son cortas a propósito: esto se teclea rápido y una
@@ -68,7 +68,7 @@ export const DIGITOS = 6;
 
     @media (max-width: 400px) {
       .cc { gap: 0.3rem; }
-      input { font-size: 1.1rem; padding: 0.5rem 0; }
+      input { font-size: var(--texto-lg); padding: 0.5rem 0; }
     }
   `,
 })

@@ -1,13 +1,13 @@
 /* Mismos valores que el diálogo de la barra superior (shell.scss): el velo y la
    tarjeta son el mismo objeto visual, y la encapsulación de vistas impide
    heredarlos. */
-.sub { margin: 0.25rem 0 0; font-size: 0.8rem; color: var(--ink-soft); }
+.sub { margin: 0.25rem 0 0; font-size: var(--texto-sm); color: var(--ink-soft); }
 
 /* Severidad: cada opción muestra el compromiso que implica elegirla. */
 .sev { border: 0; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 0.4rem; }
 .sev legend {
   padding: 0; margin-bottom: 0.15rem;
-  font-size: 0.8rem; font-weight: 500; color: var(--ink-soft);
+  font-size: var(--texto-sm); font-weight: 500; color: var(--ink-soft);
 }
 .sev-op {
   display: flex; gap: 0.6rem; align-items: flex-start;
@@ -31,32 +31,32 @@
 .sev-op input[type='radio']:focus { box-shadow: none; }
 .sev-op:focus-within { outline: 2px solid var(--accent); outline-offset: 1px; }
 .sev-cuerpo { display: flex; flex-direction: column; gap: 0.1rem; min-width: 0; }
-.sev-tit { font-size: 0.86rem; }
+.sev-tit { font-size: var(--texto-base); }
 .sev-tit strong { margin-right: 0.35rem; color: var(--accent); }
-.sev-ej { font-size: 0.76rem; color: var(--ink-soft); }
-.sev-sla { font-size: 0.74rem; font-weight: 500; color: var(--ink-soft); font-variant-numeric: tabular-nums; }
+.sev-ej { font-size: var(--texto-xs); color: var(--ink-soft); }
+.sev-sla { font-size: var(--texto-xs); font-weight: 500; color: var(--ink-soft); font-variant-numeric: tabular-nums; }
 
 .aviso {
   margin: 0; padding: 0.55rem 0.7rem;
-  font-size: 0.78rem; line-height: 1.45;
+  font-size: var(--texto-sm); line-height: 1.45;
   border-radius: 10px;
   background: var(--tag-danger-bg); color: var(--tag-danger-fg);
 }
 
 textarea {
-  font: inherit; font-size: 0.86rem;
+  font: inherit; font-size: var(--texto-base);
   padding: 0.5rem 0.6rem; border-radius: 10px;
   border: 1px solid var(--border); background: var(--surface); color: var(--ink);
   resize: vertical;
 }
 textarea:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
-.pista { margin: 0.1rem 0 0; font-size: 0.74rem; color: var(--ink-soft); }
+.pista { margin: 0.1rem 0 0; font-size: var(--texto-xs); color: var(--ink-soft); }
 
 /* Contexto técnico: a la vista si se pide, nunca oculto por diseño. */
 .ctx { display: flex; flex-direction: column; gap: 0.45rem; }
 .ctx-btn {
   align-self: flex-start;
-  font: inherit; font-size: 0.78rem; font-weight: 500;
+  font: inherit; font-size: var(--texto-sm); font-weight: 500;
   color: var(--accent); background: transparent; border: 0; padding: 0;
   cursor: pointer; text-decoration: underline;
 }
@@ -64,7 +64,7 @@ textarea:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; 
   margin: 0; padding: 0.6rem 0.7rem;
   max-height: 11rem; overflow: auto;
   font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
-  font-size: 0.7rem; line-height: 1.5;
+  font-size: var(--texto-xs); line-height: 1.5;
   white-space: pre; tab-size: 2;
   background: var(--surface-2); color: var(--ink-soft);
   border: 1px solid var(--border); border-radius: 10px;

@@ -35,15 +35,15 @@
   min-height: calc(2 * 1.25em);
 }
 
-.error { color: var(--danger); font-size: 0.87rem; margin: 0; }
+.error { color: var(--danger); font-size: var(--texto-base); margin: 0; }
 
 .mono { font-family: var(--mono); color: var(--ink-soft); }
 
 /* --- Formulario de recepción (estilo CAD) --------------------------------- */
 .form-panel { padding: 1.5rem 1.8rem; display: flex; flex-direction: column; gap: 0.9rem; }
 .fp-head { display: flex; align-items: baseline; justify-content: space-between; gap: 1rem; flex-wrap: wrap; }
-.fp-head h2 { font-size: 1.15rem; font-weight: 600; margin: 0; }
-.fp-meta { font-size: 0.78rem; font-family: var(--mono); background: var(--surface-2); border-radius: var(--radius-sm); padding: 0.2rem 0.6rem; color: var(--muted); }
+.fp-head h2 { font-size: var(--texto-lg); font-weight: 600; margin: 0; }
+.fp-meta { font-size: var(--texto-sm); font-family: var(--mono); background: var(--surface-2); border-radius: var(--radius-sm); padding: 0.2rem 0.6rem; color: var(--muted); }
 
 /* `app-videollamada` ya trae su propia tarjeta (.vll.card); este wrapper solo
    da el botón de lanzarla su propio renglón, sin pelear por ancho con el
@@ -57,7 +57,7 @@
   border-radius: var(--radius-sm);
   background: color-mix(in srgb, var(--warn) 14%, transparent);
   color: var(--ink);
-  font-size: 0.78rem;
+  font-size: var(--texto-sm);
   line-height: 1.35;
 }
 
@@ -86,7 +86,7 @@
   position: absolute; top: -0.65rem; left: 0;
   padding: 0 0.5rem 0 0;
   background: var(--surface);
-  font-size: 0.72rem; font-weight: 600;
+  font-size: var(--texto-xs); font-weight: 600;
   text-transform: uppercase; letter-spacing: 0.08em;
   color: var(--accent);
 }
@@ -134,7 +134,7 @@
 /* Rótulo de un campo que NO es un control nativo (el buscador de Google, el
    selector de municipio): un <label> sin `for` no etiqueta nada, y esos dos se
    nombran por `aria-label`. Mismo aspecto que `.field > label`. */
-.lbl-campo { font-size: 0.8rem; font-weight: 500; color: var(--ink-soft); }
+.lbl-campo { font-size: var(--texto-sm); font-weight: 500; color: var(--ink-soft); }
 
 .oculto { display: none; }
 
@@ -153,7 +153,7 @@
   border-radius: var(--radius-sm);
   background: var(--surface-2);
   padding: 0.5rem 0.4rem;
-  font: inherit; font-size: 0.8rem;
+  font: inherit; font-size: var(--texto-sm);
   color: var(--ink-soft); cursor: pointer;
   transition: all 0.15s ease;
 }
@@ -185,14 +185,14 @@
 }
 
 /* 9. Mapa */
-.mapa-hint { font-size: 0.8rem; color: var(--muted); padding: 0.4rem 0.5rem; background: var(--surface-2); border-radius: var(--radius-sm); margin: 0.6rem 0 0.4rem; }
+.mapa-hint { font-size: var(--texto-sm); color: var(--muted); padding: 0.4rem 0.5rem; background: var(--surface-2); border-radius: var(--radius-sm); margin: 0.6rem 0 0.4rem; }
 /* El mapa es el elemento con el que más se trabaja de esta sección —se hace
    clic en él para fijar el punto— y era el más pequeño. La columna derecha
    tiene sitio de sobra: la izquierda llega mucho más abajo. */
 .mapa { height: clamp(300px, 44vh, 560px); border-radius: var(--radius-sm); border: 1px solid var(--border-2); overflow: hidden; box-shadow: inset 0 0 0 1px var(--border-2); }
 @media (max-width: 767px) { .mapa { height: 260px; } }
 /* El pin lo dibuja shared/mapa/pin-caso.ts; no necesita estilos. */
-:host ::ng-deep .leaflet-control-attribution { font-size: 0.65rem; }
+:host ::ng-deep .leaflet-control-attribution { font-size: var(--texto-2xs); }
 
 /* 10. Panel de Atención / Destinos */
 /* `align-items: start`: sin esto todas las tarjetas de una fila se estiran a
@@ -217,7 +217,7 @@
   display: flex; align-items: center; flex-wrap: wrap;
   gap: 0.35rem; margin-bottom: 0.5rem;
 }
-.destino-head strong { font-size: 0.9rem; line-height: 1.3; }
+.destino-head strong { font-size: var(--texto-base); line-height: 1.3; }
 
 /* «Marcar todos» como un chip más, el primero de la fila: es un atajo a los
    que tiene al lado, y así se lee como lo que es. En punteado para que no se
@@ -228,17 +228,17 @@
    la tipografía por omisión del navegador. */
 .chip--todos {
   background: transparent;
-  font: inherit; font-size: 0.8rem; font-weight: 600;
+  font: inherit; font-size: var(--texto-sm); font-weight: 600;
   border-style: dashed;
   color: var(--ink-soft);
   cursor: pointer;
 }
 .chip--todos:hover { border-color: var(--accent); color: var(--accent); }
 .chip--todos.on { border-style: solid; border-color: var(--accent); color: var(--accent); }
-.cuenta { font-size: 0.7rem; font-weight: 700; background: var(--accent); color: var(--on-accent, #fff); border-radius: 999px; padding: 0.05rem 0.4rem; }
+.cuenta { font-size: var(--texto-xs); font-weight: 700; background: var(--accent); color: var(--on-accent, #fff); border-radius: 999px; padding: 0.05rem 0.4rem; }
 
 .sug {
-  font-size: 0.68rem;
+  font-size: var(--texto-2xs);
   background: var(--tag-teal-bg);
   color: var(--tag-teal-fg);
   border-radius: 999px;
@@ -259,15 +259,15 @@
   border-radius: var(--radius-sm);
   display: flex; align-items: center; gap: 0.6rem;
 }
-.resumen-lbl { font-size: 0.72rem; text-transform: uppercase; letter-spacing: 0.05em; color: var(--accent); font-weight: 700; }
-.resumen-txt { font-size: 0.92rem; font-weight: 600; color: var(--ink); }
+.resumen-lbl { font-size: var(--texto-xs); text-transform: uppercase; letter-spacing: 0.05em; color: var(--accent); font-weight: 700; }
+.resumen-txt { font-size: var(--texto-base); font-weight: 600; color: var(--ink); }
 
-.ayuda { font-size: 0.75rem; color: var(--muted); }
+.ayuda { font-size: var(--texto-xs); color: var(--muted); }
 
 /* 13. Chips de canal en destinos */
 .chip {
   display: inline-flex; align-items: center; gap: 0.35rem;
-  font-size: 0.8rem; cursor: pointer;
+  font-size: var(--texto-sm); cursor: pointer;
   border: 1.5px solid var(--border-2);
   border-radius: 999px; padding: 0.2rem 0.7rem;
   transition: all 0.15s;
@@ -291,11 +291,11 @@
 }
 .acciones .btn--primary {
   padding: 0.7rem 2rem;
-  font-size: 1rem;
+  font-size: var(--texto-md);
   letter-spacing: 0.02em;
 }
 
-.alcance { margin: 0; font-size: 0.82rem; color: var(--muted); }
+.alcance { margin: 0; font-size: var(--texto-sm); color: var(--muted); }
 
 /* 3. Panel "Llamadas en espera" */
 .entrantes { padding: 1rem 1.1rem; display: flex; flex-direction: column; gap: 0.55rem; }
@@ -306,7 +306,7 @@
    origen, repetirlo arriba no decía nada— y con eso cabe entero. */
 .entrantes h2 {
   display: flex; align-items: center; gap: 0.45rem;
-  margin: 0; font-size: 0.95rem; font-weight: 700;
+  margin: 0; font-size: var(--texto-md); font-weight: 700;
 }
 .entrantes h2 .titulo { flex: 1 1 auto; min-width: 0; white-space: nowrap; }
 
@@ -314,10 +314,10 @@
 .entrantes .n {
   flex: 0 0 auto;
   font-family: var(--mono); background: var(--tag-danger-bg); color: var(--tag-danger-fg);
-  border-radius: 999px; padding: 0.1rem 0.55rem; font-weight: 700; font-size: 0.8rem;
+  border-radius: 999px; padding: 0.1rem 0.55rem; font-weight: 700; font-size: var(--texto-sm);
   animation: pulse-danger 1.5s infinite;
 }
-.entrantes .timbre { flex: 0 0 auto; font-size: 1rem; padding: 0.25rem 0.45rem; }
+.entrantes .timbre { flex: 0 0 auto; font-size: var(--texto-md); padding: 0.25rem 0.45rem; }
 
 /* Cada llamada, una tarjeta dentro de la tarjeta: se lee como una unidad y el
    contenido se apila en vez de pelear por una sola fila. La franja de acento a
@@ -339,9 +339,9 @@
 /* Sin abonado: el hueco se nombra en vez de rellenarse con el identificador de
    la central, que no se puede marcar. El identificador va debajo, en pequeño,
    porque sigue sirviendo para rastrear la llamada en la central. */
-.llam .num--sin { color: var(--muted); font-weight: 600; font-size: 0.95rem; }
+.llam .num--sin { color: var(--muted); font-weight: 600; font-size: var(--texto-md); }
 .llam-id {
-  margin: 0; font-size: 0.68rem; color: var(--muted);
+  margin: 0; font-size: var(--texto-2xs); color: var(--muted);
   white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
 }
 
@@ -351,7 +351,7 @@
   display: block; margin-top: 0.35rem;
   padding: 0.35rem 0.5rem; border-radius: var(--radius-sm);
   background: color-mix(in srgb, var(--warn) 14%, transparent);
-  color: var(--ink); font-size: 0.74rem; line-height: 1.35;
+  color: var(--ink); font-size: var(--texto-xs); line-height: 1.35;
 }
 
 /* Las dos ubicaciones propuestas, cuando las fuentes no concuerdan. Dos
@@ -367,9 +367,9 @@
   font: inherit;
 
   &:hover { border-color: var(--accent); }
-  .fuente { font-size: 0.68rem; letter-spacing: 0.06em; text-transform: uppercase; color: var(--accent); }
-  .etiqueta { font-size: 0.84rem; font-weight: 600; }
-  .detalle { font-size: 0.72rem; color: var(--muted); }
+  .fuente { font-size: var(--texto-2xs); letter-spacing: 0.06em; text-transform: uppercase; color: var(--accent); }
+  .etiqueta { font-size: var(--texto-base); font-weight: 600; }
+  .detalle { font-size: var(--texto-xs); color: var(--muted); }
 }
 
 /* El aviso de «la central no mandó el número»: una advertencia, no una pista
@@ -378,44 +378,44 @@
   display: block; margin-top: 0.3rem;
   padding: 0.35rem 0.5rem; border-radius: var(--radius-sm);
   background: color-mix(in srgb, var(--warn) 14%, transparent);
-  color: var(--ink); font-size: 0.74rem; line-height: 1.35;
+  color: var(--ink); font-size: var(--texto-xs); line-height: 1.35;
 }
 
 .llam-cab { display: flex; align-items: center; gap: 0.45rem; min-width: 0; }
-.llam-icono { flex: 0 0 auto; font-size: 0.95rem; line-height: 1; }
+.llam-icono { flex: 0 0 auto; font-size: var(--texto-md); line-height: 1; }
 
 /* `anywhere`: un identificador largo parte de línea en vez de desbordar. */
 .llam .num {
   flex: 1 1 auto; min-width: 0;
-  font-size: 1.08rem; font-weight: 700; letter-spacing: 0.02em;
+  font-size: var(--texto-lg); font-weight: 700; letter-spacing: 0.02em;
   overflow-wrap: anywhere;
 }
 
 /* Recortada con elipsis; el valor completo queda en el `title`. */
 .llam .para {
   margin: 0;
-  font-size: 0.72rem; color: var(--muted);
+  font-size: var(--texto-xs); color: var(--muted);
   white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
 }
 
 /* A lo ancho: con un teléfono timbrando, el blanco grande gana al botón bonito. */
-.llam-tomar { width: 100%; padding: 0.4rem 0.6rem; font-size: 0.84rem; }
+.llam-tomar { width: 100%; padding: 0.4rem 0.6rem; font-size: var(--texto-base); }
 .llam-tomar:active { transform: scale(0.98); }
 
 .en-form {
   align-self: flex-start;
-  font-size: 0.7rem; font-weight: 600;
+  font-size: var(--texto-xs); font-weight: 600;
   color: var(--tag-ok-fg, var(--ok)); background: var(--tag-ok-bg, transparent);
   border-radius: 999px; padding: 0.15rem 0.55rem;
 }
-.sin-llamadas { margin: 0; font-size: 0.84rem; color: var(--muted); }
+.sin-llamadas { margin: 0; font-size: var(--texto-base); color: var(--muted); }
 
 /* 5. Últimas recepciones (.mias) */
 .mias { padding: 0.8rem 1rem; display: flex; flex-direction: column; gap: 0.3rem; }
-.mias h2 { margin: 0 0 0.3rem; font-size: 1rem; }
+.mias h2 { margin: 0 0 0.3rem; font-size: var(--texto-md); }
 .mia { 
   display: flex; gap: 0.6rem; align-items: baseline; text-decoration: none; color: inherit;
-  font-size: 0.86rem; padding: 0.3rem 0.4rem; border-radius: var(--radius-sm);
+  font-size: var(--texto-base); padding: 0.3rem 0.4rem; border-radius: var(--radius-sm);
   transition: background 0.15s;
 }
 .mia:hover { background: var(--surface-2); }
@@ -424,12 +424,12 @@
   background: var(--surface-2); 
   padding: 0.1rem 0.4rem; 
   border-radius: var(--radius-sm); 
-  font-size: 0.76rem; 
+  font-size: var(--texto-xs); 
   color: var(--muted); 
 }
 .mia .mtitulo { flex: 1; }
-.mia .magencia { font-size: 0.78rem; color: var(--accent); }
-.ver-todo { font-size: 0.8rem; color: var(--accent); text-decoration: none; margin-top: 0.3rem; }
+.mia .magencia { font-size: var(--texto-sm); color: var(--accent); }
+.ver-todo { font-size: var(--texto-sm); color: var(--accent); text-decoration: none; margin-top: 0.3rem; }
 
 /* 1. Layout general */
 .rec-body { display: flex; flex-direction: column; gap: 1.1rem; }
@@ -446,9 +446,9 @@
 
 /* Asistente de tipificación */
 .sugerencias { display: flex; align-items: center; flex-wrap: wrap; gap: 0.4rem; margin-top: 0.45rem; }
-.sug-lbl { font-size: 0.74rem; font-weight: 700; color: var(--accent); text-transform: uppercase; letter-spacing: 0.05em; }
+.sug-lbl { font-size: var(--texto-xs); font-weight: 700; color: var(--accent); text-transform: uppercase; letter-spacing: 0.05em; }
 .sug-chip {
-  font: inherit; font-size: 0.8rem; cursor: pointer;
+  font: inherit; font-size: var(--texto-sm); cursor: pointer;
   border: 1px dashed var(--accent); border-radius: 999px;
   background: var(--accent-soft); color: var(--accent-deep);
   padding: 0.18rem 0.65rem; max-width: 100%; overflow: hidden;
@@ -462,6 +462,6 @@
   display: block;
   margin-top: 0.2rem;
   color: var(--muted);
-  font-size: 0.78rem;
+  font-size: var(--texto-sm);
   line-height: 1.3;
 }

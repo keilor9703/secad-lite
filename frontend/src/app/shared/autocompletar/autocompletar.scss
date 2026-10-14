@@ -40,18 +40,18 @@
 }
 
 .ac-etq {
-  font-size: 0.86rem;
+  font-size: var(--texto-base);
   font-weight: 600;
   color: var(--ink);
 }
 
 .ac-det {
-  font-size: 0.76rem;
+  font-size: var(--texto-xs);
   color: var(--muted);
 }
 
 .ac-vacio {
   padding: 0.5rem 0.6rem;
-  font-size: 0.82rem;
+  font-size: var(--texto-sm);
   color: var(--muted);
 }

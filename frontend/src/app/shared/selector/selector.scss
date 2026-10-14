@@ -98,7 +98,7 @@
 .sel-buscar {
   width: 100%;
   font: inherit;
-  font-size: 0.82rem;
+  font-size: var(--texto-sm);
   color: var(--ink);
   background: var(--surface-2);
   border: 1px solid var(--border-2);
@@ -123,7 +123,7 @@
 }
 .sel-vacio {
   padding: 0.45rem 0.6rem;
-  font-size: 0.82rem;
+  font-size: var(--texto-sm);
   color: var(--muted);
 }
 
@@ -134,7 +134,7 @@
   padding: 0.45rem 0.6rem;
   border-radius: 6px;
   cursor: pointer;
-  font-size: 0.86rem;
+  font-size: var(--texto-base);
   color: var(--ink);
   /* Más allá del tope de ancho se recorta con puntos suspensivos: se pierde
      el final de un nombre larguísimo, pero no se rompe la caja ni vuelve la
