@@ -64,6 +64,28 @@ git merge --ff-only origin/main
 DESPUES=$(git rev-parse HEAD)
 echo "    Ahora en: $(git log --oneline -1)"
 
+# ── Volver a lanzarse si ESTE script cambió ──────────────────────────────
+#
+# El merge de arriba puede haber traído una versión nueva de este mismo
+# archivo. Bash no la va a ejecutar: git escribe un temporal y lo renombra,
+# así que el intérprete sigue leyendo el inodo anterior —que ya no tiene
+# nombre— y termina el despliegue entero con el script VIEJO. El cambio solo
+# surte efecto en la corrida siguiente.
+#
+# Eso ya costó dos despliegues abortados: el arreglo venía en el commit que se
+# estaba trayendo, y por eso el mismo error volvía a aparecer después de
+# haberlo corregido. Relanzarse es lo único que lo cierra.
+#
+# No hay riesgo de bucle: en la segunda vuelta el merge no mueve nada, así que
+# ANTES == DESPUES y esta rama no se vuelve a tomar. La variable de entorno
+# está por si acaso.
+if [[ "$ANTES" != "$DESPUES" && -z "${FALCON_RELANZADO:-}" ]] \
+   && ! git diff --quiet "$ANTES" "$DESPUES" -- deploy/deploy-falcon.sh; then
+  echo "    El script de despliegue cambió en este merge; relanzando con la versión nueva"
+  export FALCON_RELANZADO=1
+  exec "$REPO_DIR/deploy/deploy-falcon.sh" "$@"
+fi
+
 if [[ "$ANTES" != "$DESPUES" ]]; then
   MIGRACIONES=$(git diff --name-only "$ANTES..$DESPUES" -- backend/src/migrations/ | wc -l)
   if [[ "$MIGRACIONES" -gt 0 && "$RESPALDAR" -eq 0 ]]; then
