@@ -49,6 +49,9 @@
   --mod-monitor:    #a3e635;
   --mod-chat:       #22d3ee;
 
+  --baliza-a: #ff6b63;
+  --baliza-b: #6c9bff;
+
   --serie-teal:  #1fa3b3;
   --serie-azul:  #8f7ae8;
   --serie-ambar: #c47328;
@@ -116,6 +119,14 @@
   --mod-plataforma: #8d2668;
   --mod-monitor:    #3f6212;
   --mod-chat:       #155e75;
+
+  /* Baliza de la barra superior: avisa de que algo acaba de llegar a una
+     bandeja. Rojo y azul porque es el código que cualquiera reconoce sin que
+     se lo expliquen, pero rebajados: van en una tira de 3px en el borde de la
+     barra, nunca sobre el texto. Son los mismos en los dos temas — la tira se
+     pinta sobre el borde de la barra, no sobre una superficie del tema. */
+  --baliza-a: #d6453f;
+  --baliza-b: #2f6fd9;
 
   --serie-teal:  #0891a8;
   --serie-azul:  #2f5fd9;

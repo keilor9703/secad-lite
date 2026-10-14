@@ -1,4 +1,12 @@
 <header class="topbar">
+  <!-- Baliza: algo acaba de llegar a una bandeja y nadie lo ha tomado. Va en
+       el borde inferior de la barra, nunca sobre los nombres de los módulos
+       (ver el comentario de `.baliza` en shell.scss). -->
+  @if (baliza.activa()) {
+    <div class="baliza" aria-hidden="true"></div>
+  }
+  <p class="solo-lectores" role="status" aria-live="polite">{{ baliza.anuncio() }}</p>
+
   <div class="brand">
     <app-logo [tam]="28" fondo="var(--surface)" />
     <strong>FALCON <span>CAD</span></strong>
@@ -12,47 +20,39 @@
   }
 
   @if (sesion(); as s) {
-    <nav class="nav" [class.abierto]="menuAbierto()">
+    <nav #navBarra class="nav" [class.abierto]="menuAbierto()">
       @if (s.tipo === 'institucional') {
-        @if (operativoVisible()) {
-          @if (puedeRecepcionar()) {
-            <a routerLink="/recepcion" routerLinkActive="active" data-mod="recepcion" title="Recepción"><app-icono nombre="recepcion" /><span>Recepción</span></a>
-          }
-          @if (puedeVerDespacho()) {
-            <a routerLink="/despacho" routerLinkActive="active" data-mod="despacho" title="Despacho"><app-icono nombre="despacho" /><span>Despacho</span></a>
-          }
-          @if (puedeConsultar()) {
-            <a routerLink="/casos" routerLinkActive="active" data-mod="consulta" title="Consulta"><app-icono nombre="consulta" /><span>Consulta</span></a>
-          }
-          @if (puedeVerRecursos()) {
-            <a routerLink="/recursos" routerLinkActive="active" data-mod="recursos" title="Recursos"><app-icono nombre="recursos" /><span>Recursos</span></a>
-          }
-          <!-- Mapa y Panel son las dos vistas de análisis (metricas.ver): van juntas. -->
-          @if (puedeVerPanel()) {
-            <a routerLink="/dashboard" routerLinkActive="active" data-mod="panel" title="Panel"><app-icono nombre="panel" /><span>Panel</span></a>
-          }
-          @if (puedeVerPanel()) {
-            <a routerLink="/mapa" routerLinkActive="active" data-mod="mapa" title="Mapa"><app-icono nombre="mapa" /><span>Mapa</span></a>
-          }
+        <!-- Las pestañas salen de `modulos()` en shell.ts, no escritas a mano:
+             para repartirlas entre la barra y el menú «Más» hay que poder
+             medirlas, y para eso tienen que ser datos. Se pintan TODAS siempre
+             —las que no caben llevan la clase `fuera`, que las oculta— porque
+             medir el ancho natural de algo que no está en el DOM no se puede. -->
+        @for (m of modulos(); track m.ruta) {
+          <a [routerLink]="m.ruta" routerLinkActive="active" [attr.data-mod]="m.mod"
+            data-nav-modulo [class.fuera]="!enBarra().includes(m)" [title]="m.etiqueta">
+            <app-icono [nombre]="m.icono" /><span>{{ m.etiqueta }}</span>
+          </a>
         }
+
         <!-- Indicador global de llamadas timbrando sin tomar: visible en cualquier
-        página, no solo dentro de Recepción, para que nadie deje de verlo. -->
+        página, no solo dentro de Recepción, para que nadie deje de verlo. Queda
+        fuera del reparto a propósito — es el único que nunca se esconde. -->
         @if (puedeVerLlamadas() && sonando().length > 0) {
           <a routerLink="/recepcion" class="nav-llamadas"
             title="Hay llamadas en espera sin tomar" aria-label="Ir a recepción, hay llamadas en espera sin tomar">
             <app-icono nombre="telefono" /> <span class="ring-badge" aria-label="Cantidad de llamadas">{{ sonando().length }}</span>
           </a>
         }
-        @if (puedeVerCatalogos()) {
-          <a routerLink="/catalogos" routerLinkActive="active" data-mod="catalogos" title="Catálogos"><app-icono nombre="catalogos" /><span>Catálogos</span></a>
-        }
-        @if (esAdmin()) {
-          <a routerLink="/admin" routerLinkActive="active" data-mod="admin" title="Administración"><app-icono nombre="admin" /><span>Administración</span></a>
-        }
-        <!-- Solo el dueño de la plataforma: instancias, suscripciones y módulos. -->
-        @if (esSuperadmin()) {
-          <a routerLink="/plataforma" routerLinkActive="active" data-mod="plataforma" title="Plataforma"><app-icono nombre="plataforma" /><span>Plataforma</span></a>
-          <a routerLink="/monitor" routerLinkActive="active" data-mod="monitor" title="Monitor"><app-icono nombre="monitor" /><span>Monitor</span></a>
+
+        <!-- Lo que no cupo. Aparece solo cuando sobra algo, y el punto rojo
+             avisa si el módulo activo está ahí dentro. -->
+        @if (enMenu().length) {
+          <button #botonMas type="button" class="nav-mas" (click)="alternarMenuMas()"
+            [class.abierto]="menuMasAbierto()" [attr.aria-expanded]="menuMasAbierto()"
+            [title]="'Otros módulos: ' + etiquetasEnMenu()"
+            [attr.aria-label]="'Otros módulos: ' + etiquetasEnMenu()">
+            <app-icono nombre="mas" [tam]="18" />
+          </button>
         }
       }
     </nav>
@@ -126,8 +126,18 @@
     </div>
   }
 
-  @if (menuAbierto()) {
-    <div class="nav-velo" (click)="menuAbierto.set(false)"></div>
+  @if (menuMasAbierto()) {
+    <div class="nav-mas-panel" role="menu" [style.left.px]="izquierdaMenuMas()">
+      @for (m of enMenu(); track m.ruta) {
+        <a [routerLink]="m.ruta" routerLinkActive="active" [attr.data-mod]="m.mod" role="menuitem">
+          <app-icono [nombre]="m.icono" /><span>{{ m.etiqueta }}</span>
+        </a>
+      }
+    </div>
+  }
+
+  @if (menuAbierto() || menuMasAbierto()) {
+    <div class="nav-velo" (click)="menuAbierto.set(false); menuMasAbierto.set(false)"></div>
   }
 </header>
 

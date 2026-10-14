@@ -8,6 +8,69 @@
   border-bottom: 1px solid var(--border);
 }
 
+/* --- Baliza: algo acaba de llegar a una bandeja --------------------------
+ *
+ * Una tira de 3px en el borde inferior de la barra, con dos luces que la
+ * recorren en sentidos contrarios. Rojo y azul porque es el código que
+ * cualquiera reconoce sin que se lo expliquen.
+ *
+ * Tres decisiones que hacen que sea un aviso y no un estorbo:
+ *
+ * 1. NO toca el texto. Va en el borde, debajo de la línea base de los nombres
+ *    de los módulos, y el resplandor sube hacia adentro pero se apaga antes de
+ *    llegar a ellos. El contraste de la barra no cambia: lo comprueba
+ *    `scripts/contraste.mjs`, que mide los mismos pares con y sin baliza.
+ * 2. Ciclo de 1,8s, o sea 0,55 destellos por segundo. El criterio 2.3.1 de
+ *    WCAG prohíbe pasar de TRES por segundo por riesgo de convulsiones; esto
+ *    queda cinco veces por debajo. No es un número elegido por gusto.
+ * 3. Con `prefers-reduced-motion` las luces se quedan quietas y la tira se
+ *    pinta fija en los dos colores: quien pidió menos movimiento sigue viendo
+ *    que hay algo esperando, que es lo que importa.
+ *
+ * Se apaga sola: la enciende `BalizaService.activa`, que sigue las llamadas
+ * timbrando sin tomar y los casos que llegaron a la bandeja propia y nadie ha
+ * tomado. Mientras siga ahí, sigue encendida.
+ */
+.baliza {
+  position: absolute; left: 0; right: 0; bottom: -1px; height: 4px;
+  overflow: hidden; pointer-events: none;
+  // Encima del borde de la barra, por debajo de cualquier desplegable.
+  z-index: 1;
+}
+.baliza::before,
+.baliza::after {
+  content: ''; position: absolute; top: 0; bottom: 0; width: 34%;
+}
+.baliza::before {
+  background: linear-gradient(90deg, transparent, var(--baliza-a) 45%, var(--baliza-a) 55%, transparent);
+  // El resplandor sube 8px dentro de la barra y ahí se apaga. El texto de los
+  // módulos termina 12px más arriba, así que nunca se lo come.
+  box-shadow: 0 -4px 8px 0 var(--baliza-a);
+  animation: baliza-ida 1.8s ease-in-out infinite;
+}
+.baliza::after {
+  background: linear-gradient(90deg, transparent, var(--baliza-b) 45%, var(--baliza-b) 55%, transparent);
+  box-shadow: 0 -4px 8px 0 var(--baliza-b);
+  animation: baliza-vuelta 1.8s ease-in-out infinite;
+}
+@keyframes baliza-ida    { 0% { left: -34%; } 100% { left: 100%; } }
+@keyframes baliza-vuelta { 0% { left: 100%; } 100% { left: -34%; } }
+
+/* Sin movimiento: la tira se queda fija, partida en los dos colores. El aviso
+   sigue estando; lo que desaparece es el destello. */
+@media (prefers-reduced-motion: reduce) {
+  .baliza::before, .baliza::after { animation: none; box-shadow: none; width: 50%; }
+  .baliza::before { left: 0;   background: var(--baliza-a); }
+  .baliza::after  { left: 50%; background: var(--baliza-b); }
+}
+
+/** Texto solo para lectores de pantalla: la baliza es una señal visual y sin
+    esto no existiría para quien no la ve. */
+.solo-lectores {
+  position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px;
+  overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; border: 0;
+}
+
 // `flex: none` + `nowrap`: el nombre nunca se parte. La barra envuelve sus
 // pestañas cuando el ancho aprieta (ver el comentario del .nav), y sin esto la
 // marca era lo primero que cedía — «CAD» terminaba cayendo debajo de «FALCON».
@@ -20,34 +83,43 @@
 .brand span { color: var(--accent); font-weight: 600; }
 
 /**
- * UNA sola fila, siempre.
+ * UNA sola fila, siempre, y nada inalcanzable.
  *
- * Antes envolvía: con hasta 10 pestañas (según rol) no caben en una fila entre
- * ~900 y ~1700px, y envolver evitaba que los últimos módulos quedaran
- * recortados sin aviso (el `overflow-x: hidden` global los ocultaba en vez de
- * sacar scroll). Resolvía ese problema y creaba otro peor: la barra se partía
- * en tres renglones, crecía hasta 200px de alto y el sistema parecía roto.
+ * Historia, porque las dos soluciones anteriores fallaron por motivos
+ * distintos y conviene no repetirlas:
  *
- * Lo que aprieta cuando falta ancho no es el número de pestañas, son las
- * ETIQUETAS. Así que por debajo de 1150px se ocultan y queda el icono, que ya
- * lleva el color de su módulo —la barra está pensada para escanearse por color
- * antes que por texto, ver el comentario de abajo—. El nombre sigue a un
- * `title` de distancia.
+ * 1. Envolvía. Con hasta diez pestañas la barra se partía en tres renglones y
+ *    crecía a 200px de alto: el sistema parecía roto.
+ * 2. Se desplazaba en horizontal con la barra de desplazamiento oculta. Esto
+ *    era peor, aunque no se notara: a 1366px —el portátil institucional
+ *    corriente— la barra necesita unos 1110px y dispone de 572px, así que
+ *    cinco de los diez módulos quedaban recortados SIN NINGUNA SEÑAL de que
+ *    estuvieran ahí. Y el único gesto que los alcanzaba era la rueda
+ *    horizontal, o sea un trackpad: con el ratón de un escritorio, que solo
+ *    tiene rueda vertical, no se llegaba a ellos de ninguna manera. Medido:
+ *    `scrollLeft` 0 → 517 con rueda horizontal, 0 → 0 con la vertical.
  *
- * Y si aun así no cabe (superadmin, ventana muy angosta), el nav se desplaza en
- * horizontal: nada queda cortado sin aviso, que era la preocupación original,
- * pero sin partir la barra.
+ * Ahora `ShellComponent.medir()` mide cuántas caben y el resto pasa al menú
+ * «Más» del final. `overflow: hidden` en vez de `auto` es deliberado: ya no
+ * hay nada que alcanzar desplazando, y dejarlo en `auto` solo reabriría la
+ * puerta a que algo quedara fuera en silencio.
+ *
+ * Los dos escalones de abajo (1400px y 1150px) siguen existiendo, pero ya no
+ * son el mecanismo que garantiza que todo se alcance —de eso se encarga la
+ * medición— sino solo cuántas etiquetas se alcanzan a leer.
  */
 .nav {
   display: flex; flex-wrap: nowrap; gap: 0.3rem;
   flex: 1 1 auto; min-width: 0;
-  overflow-x: auto;
-  // La barra de desplazamiento propia estorba en un elemento de 36px de alto:
-  // se oculta, el gesto sigue funcionando (rueda, trackpad, táctil).
-  scrollbar-width: none;
-  &::-webkit-scrollbar { display: none; }
+  overflow: hidden;
+  /* Lo que `medir()` le reserva al botón «Más». Va como variable y no como un
+     número dentro del TypeScript para que el cálculo y el dibujo no se puedan
+     separar: si alguien cambia el tamaño del botón, el reparto se entera. */
+  --ancho-mas: 34px;
 }
 .nav a { flex: 0 0 auto; }
+/** Pestaña que no cupo: vive en el menú «Más». */
+.nav a.fuera { display: none; }
 
 /* Dos escalones antes de la hamburguesa, para que el ancho se acabe de a poco
    y no de golpe. */
@@ -85,17 +157,19 @@
   opacity: 0.8;
   transition: opacity 0.15s ease;
 }
-.nav a[data-mod='recepcion']  { --mod: var(--mod-recepcion); }
-.nav a[data-mod='despacho']   { --mod: var(--mod-despacho); }
-.nav a[data-mod='consulta']   { --mod: var(--mod-consulta); }
-.nav a[data-mod='recursos']   { --mod: var(--mod-recursos); }
-.nav a[data-mod='panel']      { --mod: var(--mod-panel); }
-.nav a[data-mod='mapa']       { --mod: var(--mod-mapa); }
-.nav a[data-mod='catalogos']  { --mod: var(--mod-catalogos); }
-.nav a[data-mod='admin']      { --mod: var(--mod-admin); }
-.nav a[data-mod='plataforma'] { --mod: var(--mod-plataforma); }
-.nav a[data-mod='monitor']    { --mod: var(--mod-monitor); }
-.nav a[data-mod='chat']       { --mod: var(--mod-chat); }
+// El color va por `[data-mod]` a secas, sin anclarlo a `.nav`: los módulos que
+// no caben se pintan igual dentro del menú «Más», que vive fuera de la barra.
+[data-mod='recepcion']  { --mod: var(--mod-recepcion); }
+[data-mod='despacho']   { --mod: var(--mod-despacho); }
+[data-mod='consulta']   { --mod: var(--mod-consulta); }
+[data-mod='recursos']   { --mod: var(--mod-recursos); }
+[data-mod='panel']      { --mod: var(--mod-panel); }
+[data-mod='mapa']       { --mod: var(--mod-mapa); }
+[data-mod='catalogos']  { --mod: var(--mod-catalogos); }
+[data-mod='admin']      { --mod: var(--mod-admin); }
+[data-mod='plataforma'] { --mod: var(--mod-plataforma); }
+[data-mod='monitor']    { --mod: var(--mod-monitor); }
+[data-mod='chat']       { --mod: var(--mod-chat); }
 
 .nav a:hover { background: var(--surface-2); color: var(--ink); }
 .nav a:hover app-icono { opacity: 1; }
@@ -111,6 +185,51 @@
 .nav a.active app-icono { opacity: 1; }
 .nav a:focus-visible { outline: 2px solid var(--mod, var(--accent)); outline-offset: 2px; }
 .nav-llamadas { display: inline-flex; align-items: center; gap: 0.35rem; }
+
+/* --- El menú «Más»: lo que no cupo en la barra ----------------------------
+   Deliberadamente discreto: es el final de la barra, no un módulo más. Sin
+   color propio —los colores de la barra son de los módulos—, del mismo alto
+   que una pestaña, y con el mismo `:hover` que ellas para que se lea como
+   parte del grupo y no como un control ajeno. */
+.nav-mas {
+  flex: none;
+  display: inline-flex; align-items: center; justify-content: center;
+  width: var(--ancho-mas); height: 32px;
+  border: 0; border-radius: 8px;
+  background: transparent; color: var(--muted); cursor: pointer;
+  transition: background 0.15s ease, color 0.15s ease;
+}
+.nav-mas:hover { background: var(--surface-2); color: var(--ink); }
+.nav-mas.abierto { background: var(--surface-2); color: var(--ink); }
+.nav-mas:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+
+.nav-mas-panel {
+  /* Cuelga de `.topbar` (que es `sticky`, y por tanto bloque contenedor), no
+     del botón: el botón vive dentro de `.nav`, que recorta por `overflow:
+     hidden`. `left` lo pone `alternarMenuMas()` alineándolo con el botón. */
+  position: absolute; top: calc(100% + 6px);
+  width: 190px;
+  /* Por encima del velo que cierra el menú al hacer clic fuera (z-index 15). */
+  z-index: 20;
+  display: flex; flex-direction: column; gap: 0.1rem;
+  padding: 0.3rem;
+  background: var(--surface);
+  border: 1px solid var(--border); border-radius: var(--radius-sm);
+  box-shadow: var(--shadow);
+}
+/* En el panel el nombre siempre se ve, aunque la barra esté en modo icono: el
+   motivo de que estos módulos estén aquí es justamente que no cabían con su
+   etiqueta. Sale gratis porque el panel ya no vive dentro de `.nav`. */
+.nav-mas-panel a {
+  display: flex; align-items: center; gap: 0.5rem;
+  padding: 0.5rem 0.6rem; border-radius: 6px;
+  font-size: 0.86rem; white-space: nowrap;
+  text-decoration: none; color: var(--ink-soft); font-weight: 500;
+}
+.nav-mas-panel a app-icono { color: var(--mod, var(--ink-soft)); }
+.nav-mas-panel a:hover { background: var(--surface-2); color: var(--ink); }
+.nav-mas-panel a.active { color: var(--mod, var(--accent)); font-weight: 600; }
+.nav-mas-panel a:focus-visible { outline: 2px solid var(--mod, var(--accent)); outline-offset: -2px; }
 
 /** Hamburguesa: oculta en escritorio, la muestra la media query de abajo. */
 .menu-btn {
@@ -230,6 +349,10 @@
   .nav.abierto { opacity: 1; visibility: visible; transform: translateY(0); }
   .nav a { padding: 0.7rem 0.8rem; }
   .nav a span:not(.ring-badge) { display: inline; }
+  // Desplegada en vertical caben todas: no hay nada que repartir, así que las
+  // que la barra había escondido vuelven y el botón «Más» sobra.
+  .nav a.fuera { display: flex; }
+  .nav-mas, .nav-mas-panel { display: none; }
 
   // La barra en sí nunca envuelve: logo, hamburguesa y bloque de usuario caben
   // en una fila a cualquier ancho, y envolverla era lo que la hacía crecer.

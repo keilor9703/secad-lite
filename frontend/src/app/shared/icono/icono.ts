@@ -10,7 +10,7 @@ import { ChangeDetectionStrategy, Component, input } from '@angular/core';
  * hereda el color del texto (`currentColor`), se alinea con la línea base y
  * mantiene el mismo peso visual en toda la barra.
  *
- * Tampoco se trae una librería completa: son diecinueve iconos, y una dependencia
+ * Tampoco se trae una librería completa: son veinte iconos, y una dependencia
  * nueva costaría más —peso, versiones, licencias— que los trazos que caben
  * aquí. Todos comparten rejilla de 24, trazo de 1.75 y remates redondos, que
  * es lo que hace que un conjunto de iconos se vea como un conjunto.
@@ -23,7 +23,7 @@ export type NombreIcono =
   | 'recepcion' | 'despacho' | 'consulta' | 'recursos' | 'panel' | 'mapa'
   | 'catalogos' | 'admin' | 'plataforma' | 'monitor' | 'sala'
   | 'llave' | 'salir' | 'telefono' | 'soporte'
-  | 'sol' | 'luna' | 'sistema';
+  | 'sol' | 'luna' | 'sistema' | 'mas';
 
 @Component({
   selector: 'app-icono',
@@ -111,6 +111,14 @@ export type NombreIcono =
         }
         @case ('telefono') {
           <path d="M6.5 3.5h2.2l1.6 4-2 1.3a12.5 12.5 0 0 0 5.9 5.9l1.3-2 4 1.6v2.2a2 2 0 0 1-2.2 2A16.5 16.5 0 0 1 4.5 5.7a2 2 0 0 1 2-2.2z" />
+        }
+        @case ('mas') {
+          <!-- Tres puntos: lo que no cupo en la barra. Van RELLENOS porque a
+               1.75 de trazo un círculo de 1 px de radio se ve como un anillo
+               borroso, no como un punto. -->
+          <circle cx="5.5" cy="12" r="1.6" fill="currentColor" stroke="none" />
+          <circle cx="12" cy="12" r="1.6" fill="currentColor" stroke="none" />
+          <circle cx="18.5" cy="12" r="1.6" fill="currentColor" stroke="none" />
         }
       }
     </svg>
