@@ -92,6 +92,68 @@
 
   --radius: 10px;
   --radius-sm: 6px;
+
+  /* ========================================================================
+     ESCALAS
+     ========================================================================
+
+     Las tres que faltaban. Antes de esto el sistema tenía colores, tipografía
+     base y dos radios; todo lo demás —cada tamaño de letra, cada separación,
+     cada z-index— lo decidía cada hoja por su cuenta. La auditoría contó el
+     resultado: 49 valores distintos de `font-size` declarados (24 llegaban a
+     verse a la vez en pantalla), 39 de `gap`, 137 de `padding` y catorce
+     z-index sin orden entre ellos.
+
+     Una escala no es una preferencia estética: es lo que hace que dos
+     pantallas escritas por manos distintas, con meses de diferencia, se
+     parezcan. Si el valor que uno necesita está en la lista, se usa; si no
+     está, casi siempre es que el valor que hacía falta era el de al lado.
+     Ver docs/sistema-de-diseno.md. */
+
+  /* --- Tipografía ---------------------------------------------------------
+     Ocho peldaños. El `rem` es relativo a la RAÍZ (16px), no al `font-size:
+     14px` del body, así que 0.875rem es exactamente el cuerpo de texto. */
+  --texto-2xs:  0.65rem;   /* 10,4px · meta diminuta (el rol bajo el nombre) */
+  --texto-xs:   0.72rem;   /* 11,5px · cabecera de columna, insignia, pie de campo */
+  --texto-sm:   0.8rem;    /* 12,8px · texto secundario, ayuda, marca de tiempo */
+  --texto-base: 0.875rem;  /*   14px · CUERPO. Celdas, botones, campos */
+  --texto-md:   1rem;      /*   16px · título de sección dentro de una tarjeta */
+  --texto-lg:   1.15rem;   /* 18,4px · título de un diálogo */
+  --texto-xl:   1.35rem;   /* 21,6px · TÍTULO DE PÁGINA (uno por pantalla) */
+  --texto-2xl:  1.75rem;   /*   28px · la cifra grande de un indicador */
+
+  /* --- Espaciado ----------------------------------------------------------
+     Rejilla de 4px. La separación entre cosas que van juntas es `--esp-2`;
+     entre grupos distintos, `--esp-4`. Si hace falta algo intermedio, casi
+     siempre es que los dos elementos no eran tan distintos como parecía. */
+  --esp-1: 0.25rem;  /*  4px · dentro de una misma línea (icono y su texto) */
+  --esp-2: 0.5rem;   /*  8px · entre elementos hermanos */
+  --esp-3: 0.75rem;  /* 12px */
+  --esp-4: 1rem;     /* 16px · entre grupos, y entre tarjetas */
+  --esp-5: 1.5rem;   /* 24px · entre secciones de una página */
+  --esp-6: 2rem;     /* 32px */
+  --esp-7: 3rem;     /* 48px · aire grande, estados vacíos */
+
+  /* Interior de una tarjeta. Un solo valor: la auditoría encontró ocho. */
+  --pad-tarjeta: var(--esp-4) 1.25rem;
+
+  /* --- Apilamiento --------------------------------------------------------
+     El orden importa y no es arbitrario. Un desplegable tiene que poder
+     abrirse DENTRO de un diálogo, así que va por encima de él; y un aviso
+     (toast) tiene que verse siempre, también sobre un diálogo — antes estaba
+     en 1000 con los modales en 2500, así que el aviso que confirmaba una
+     acción salía por debajo del diálogo que la había disparado. */
+  --z-base:        1;
+  --z-barra:      10;   /* la barra superior, pegada arriba */
+  --z-velo:      100;   /* el fondo oscurecido de un diálogo */
+  --z-dialogo:   110;
+  --z-desplegable: 200; /* selector, fecha, autocompletar — también dentro de un diálogo */
+  --z-flotante:  300;   /* la ventana de videollamada que sigue al usuario */
+  --z-aviso:     400;   /* toast: por encima de todo, siempre */
+
+  --radius-lg: 14px;
+  --radius-pill: 999px;
+
   --shadow: 0 1px 3px rgba(16,32,29,0.05), 0 4px 16px rgba(16,32,29,0.04);
 
   /* Etiquetas de estado: un par fondo/texto por familia de color, para que las
@@ -285,3 +347,151 @@ body.desp-ancho .content { max-width: none; }
    Va después de leaflet.css, que angular.json carga antes de esta hoja.
 --------------------------------------------------------------------------- */
 .leaflet-container { position: relative; z-index: 0; }
+
+
+/* ============================================================================
+   COMPONENTES DEL SISTEMA
+
+   Cada bloque de aquí abajo existe porque la auditoría encontró el MISMO
+   concepto dibujado de varias formas distintas en módulos distintos. El
+   número entre paréntesis es cuántas versiones había.
+
+   Quien escriba una pantalla nueva usa estas clases. Quien toque una vieja la
+   migra a ellas y borra la copia local — ese es el plan de
+   docs/sistema-de-diseno.md, módulo por módulo.
+   ========================================================================== */
+
+/* --- Encabezado de página (había 13 copias) --------------------------------
+   El título de la pantalla, su frase de contexto y, a la derecha, lo que se
+   pueda hacer sobre toda la pantalla. UNO por página. */
+.encabezado {
+  display: flex; align-items: flex-end; justify-content: space-between;
+  gap: var(--esp-4); flex-wrap: wrap;
+}
+.encabezado h1 {
+  margin: 0;
+  font-size: var(--texto-xl); font-weight: 600; letter-spacing: -0.02em;
+}
+.encabezado p { margin: 0.2rem 0 0; color: var(--muted); font-size: var(--texto-sm); }
+.encabezado-acciones { display: flex; align-items: center; gap: var(--esp-2); flex-wrap: wrap; }
+
+/* --- Interior de una tarjeta (había 8 rellenos distintos) -------------------
+   `.card` pone la caja —fondo, borde, radio, sombra—; `.panel` pone lo de
+   dentro. Van juntas: <section class="card panel">.
+
+   `.panel` trae SOLO el relleno a propósito. La disposición vertical, que es
+   lo que quiere la mayoría, se pide con `.panel--col`. Separarlas no es un
+   capricho: ocho módulos ya declaran su propio `.panel`, y como el estilo de
+   componente gana en especificidad, una regla global con `display: flex`
+   habría cambiado la disposición de los que solo fijaban el relleno —medido:
+   movía el tablero de Sala 633px— sin que nadie lo hubiera revisado. Un
+   sistema que al escribirlo rediseña cuatro pantallas no es un sistema, es un
+   rediseño encubierto. Cada módulo lo adopta cuando le toca su migración. */
+.panel { padding: var(--pad-tarjeta); min-width: 0; }
+.panel--col { display: flex; flex-direction: column; gap: var(--esp-3); }
+.panel--col > h2 { margin: 0; font-size: var(--texto-md); font-weight: 600; }
+
+/* --- Pestañas (había 3 copias idénticas y una cuarta distinta) --------------
+   Subrayado, no pastilla: es navegación dentro de la pantalla, y la pastilla
+   compite con los botones. */
+.pestanas {
+  display: flex; flex-wrap: wrap; gap: var(--esp-1);
+  border-bottom: 1px solid var(--border); overflow-x: auto;
+}
+.pestanas button {
+  font: inherit; font-weight: 500; font-size: var(--texto-md); cursor: pointer;
+  border: none; background: transparent; color: var(--muted);
+  padding: var(--esp-2) var(--esp-3);
+  display: inline-flex; align-items: center; gap: var(--esp-1); white-space: nowrap;
+  border-bottom: 2px solid transparent; margin-bottom: -1px;
+  transition: color 0.15s ease, border-color 0.15s ease;
+}
+.pestanas button:hover { color: var(--ink-soft); }
+.pestanas button.activa { color: var(--accent); border-bottom-color: var(--accent); }
+.pestanas button:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+
+/* --- Tabla (había 8 implementaciones y 7 cabeceras) -------------------------
+   La cabecera va en versalitas pequeñas y atenuadas: es el rótulo de la
+   columna, no un dato. El envoltorio es obligatorio — sin él, una tabla ancha
+   ensancha la página entera en un celular. */
+/* Igual que `.panel`: `.tabla` ya existe en Monitor con reglas propias, así
+   que el estilo del sistema se pide con `.tabla--sistema` y las pantallas lo
+   van tomando al migrarse. */
+.tabla-envoltura { overflow-x: auto; min-width: 0; }
+.tabla--sistema { width: 100%; border-collapse: collapse; font-size: var(--texto-base); }
+.tabla--sistema th, .tabla--sistema td {
+  text-align: left; padding: var(--esp-2) var(--esp-3);
+  border-bottom: 1px solid var(--border);
+}
+.tabla--sistema thead th {
+  font-size: var(--texto-xs); font-weight: 600;
+  text-transform: uppercase; letter-spacing: 0.05em;
+  color: var(--muted); background: var(--surface-2);
+  white-space: nowrap;
+}
+.tabla--sistema tbody tr:last-child td { border-bottom: none; }
+.tabla--sistema tbody tr:hover { background: var(--surface-2); }
+
+/* --- Estado vacío (había 12 declaraciones, y ninguna era un estado vacío) ---
+   Una frase gris no es un estado vacío: quien llega a una pantalla sin datos
+   no sabe si está vacía, si falló la carga o si filtró mal. Un estado vacío
+   dice QUÉ pasa y QUÉ hacer. */
+.estado-vacio {
+  display: flex; flex-direction: column; align-items: center; gap: var(--esp-2);
+  padding: var(--esp-7) var(--esp-4); text-align: center;
+}
+.estado-vacio strong { font-size: var(--texto-md); font-weight: 600; color: var(--ink-soft); }
+.estado-vacio p { margin: 0; max-width: 42ch; color: var(--muted); font-size: var(--texto-sm); }
+
+/* --- Diálogo (había 6 implementaciones, con DOS velos distintos) ------------
+   El velo es azul marino, no negro: tres módulos usaban uno y tres el otro, y
+   en tema claro se nota. */
+/* Igual criterio: tres módulos ya tienen `.velo`/`.dialogo` propios y los
+   suyos ganan. Estas reglas son las canónicas para quien escriba uno nuevo, y
+   el destino de los tres viejos cuando se migren. */
+.velo {
+  position: fixed; inset: 0; z-index: var(--z-velo);
+  background: rgba(6, 16, 24, 0.45);
+  display: flex; align-items: center; justify-content: center;
+  padding: var(--esp-4); overflow-y: auto;
+}
+.dialogo {
+  position: relative; z-index: var(--z-dialogo);
+  width: min(var(--dialogo-ancho, 480px), 100%);
+  padding: 1.2rem 1.4rem;
+  display: flex; flex-direction: column; gap: var(--esp-3);
+  max-height: calc(100dvh - 2rem); overflow-y: auto;
+}
+.dialogo--sm { --dialogo-ancho: 420px; }
+.dialogo--md { --dialogo-ancho: 560px; }
+.dialogo--lg { --dialogo-ancho: 680px; }
+.dialogo > h2 { margin: 0; font-size: var(--texto-lg); font-weight: 600; }
+.dialogo-cab { display: flex; align-items: flex-start; justify-content: space-between; gap: var(--esp-3); }
+.dialogo-acciones { display: flex; justify-content: flex-end; gap: var(--esp-2); margin-top: var(--esp-1); }
+
+/* --- Botón de cerrar (había 3, dos de ellos idénticos) --------------------- */
+.cerrar {
+  flex: none;
+  display: inline-flex; align-items: center; justify-content: center;
+  width: 28px; height: 28px;
+  border: 0; border-radius: var(--radius-pill);
+  background: transparent; color: var(--muted);
+  font-size: var(--texto-md); line-height: 1; cursor: pointer;
+  transition: background 0.15s ease, color 0.15s ease;
+}
+.cerrar:hover { background: var(--surface-2); color: var(--ink); }
+.cerrar:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+
+/* --- Etiqueta de estado: la familia de color que le toca a cada estado ------
+   Esto no es decoración. La auditoría encontró el mismo estado pintado de dos
+   colores según la pantalla —`nuevo` teal en Consulta y ámbar en el modal de
+   reporte, `cerrado` gris aquí y verde allá—, y en un sistema de emergencias
+   el color de un estado ES información. Un solo mapa, aquí, y las pantallas
+   solo eligen la clase. */
+.badge--info { background: var(--tag-info-bg); color: var(--tag-info-fg); }
+/* Estado del caso. Quien pinte uno usa estas, no inventa el color. */
+.badge[data-estado='nuevo']      { background: var(--tag-teal-bg);   color: var(--tag-teal-fg); }
+.badge[data-estado='en_gestion'] { background: var(--tag-warn-bg);   color: var(--tag-warn-fg); }
+.badge[data-estado='despachado'] { background: var(--tag-info-bg);   color: var(--tag-info-fg); }
+.badge[data-estado='derivado']   { background: var(--surface-2);     color: var(--ink-soft); }
+.badge[data-estado='cerrado']    { background: var(--tag-ok-bg);     color: var(--tag-ok-fg); }
