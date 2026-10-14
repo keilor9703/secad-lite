@@ -875,6 +875,111 @@ el uso real medido durante la primera semana.
 
 ---
 
+## Correo saliente (Brevo)
+
+Para qué: la **invitación** con que cada funcionario elige su propia
+contraseña, y **«olvidé mi contraseña»**. Sin esto el sistema funciona igual
+—las cuentas se crean con una contraseña inicial que pone el administrador—
+y crear un usuario **nunca** se aborta porque Brevo falle: la cuenta queda, el
+motivo se anota, y el administrador puede pedir el enlace para entregarlo por
+otra vía.
+
+Va por **API**, no por SMTP: el backend hace un `POST` a
+`api.brevo.com/v3/smtp/email` con la cabecera `api-key`. La clave que hace
+falta es una **clave API** (Settings → SMTP y API → pestaña *Claves API*), no
+una clave SMTP. Son cosas distintas y no se intercambian.
+
+### El remitente va en un subdominio
+
+`avisos@mail.falconcad.com.co`, no en el dominio raíz. Es el subdominio el que
+se verifica en Brevo y el que lleva SPF, DKIM y DMARC. Así, el día que un
+envío arruine la reputación, se quema `mail.` y no el dominio con el que se
+recibe el correo de la mesa de ayuda.
+
+DMARC se crea a mano y se empieza permisivo:
+
+```
+_dmarc.mail   TXT   v=DMARC1; p=none; rua=mailto:<buzón que alguien lea>
+```
+
+Tras un mes de reportes limpios se sube a `p=quarantine`.
+
+### Probar la clave ANTES de tocar FALCON
+
+Sin este paso, un fallo no distingue entre clave mala, dominio sin verificar y
+error del código.
+
+```bash
+export BREVO_API_KEY=...        # con un espacio delante: fuera del historial
+curl -s -o /dev/null -w "%{http_code}\n" -X POST https://api.brevo.com/v3/smtp/email \
+  -H "api-key: $BREVO_API_KEY" -H "content-type: application/json" \
+  -d '{"sender":{"email":"avisos@mail.falconcad.com.co","name":"FALCON CAD"},
+       "to":[{"email":"<su correo>"}],
+       "subject":"Prueba","htmlContent":"<p>Prueba</p>","textContent":"Prueba"}'
+```
+
+`201` es correcto — y hay que comprobar que llegue **a la bandeja, no a spam**:
+si cae en spam, falta DKIM o SPF. `401` es clave equivocada (o una SMTP en vez
+de API). `400` casi siempre es el remitente sin verificar.
+
+### Las cuatro variables
+
+Igual que con Google Maps, son **DOS pasos**: el `.env` solo le sirve a docker
+compose para sustituir `${VARIABLE}` en su YAML. Si el servicio no la declara,
+el backend no la ve.
+
+```bash
+cd ~/falcon-deploy
+grep -c '^BREVO_API_KEY=' .env        # 0 antes de empezar
+
+# La clave, sin que quede en el historial ni en pantalla
+read -rsp 'Clave API de Brevo: ' BREVO; echo
+printf 'BREVO_API_KEY=%s\n' "$BREVO" >> .env
+unset BREVO
+
+cat >> .env <<'EOF'
+CORREO_REMITENTE=avisos@mail.falconcad.com.co
+CORREO_REMITENTE_NOMBRE=FALCON CAD
+URL_PUBLICA=https://falconcad.com.co
+EOF
+chmod 600 .env
+```
+
+`URL_PUBLICA` es la que arma el enlace del correo
+(`https://.../activar/<token>`). Si queda mal, los enlaces llegan rotos y nadie
+se entera hasta que alguien no puede activar su cuenta.
+
+El paso 2 es declararlas en el bloque `&benv` del compose, con el mismo patrón
+sin editor de la sección de Mapas — anclando en `JWT_SECRET` y agregando las
+cuatro. Después:
+
+```bash
+docker compose config > /dev/null && echo "YAML correcto"
+docker compose up -d --force-recreate backend1 backend2 backend3
+
+for r in backend1 backend2 backend3; do
+  echo -n "$r: clave=$(docker compose exec -T "$r" printenv BREVO_API_KEY | cut -c1-8) "
+  echo "remitente=$(docker compose exec -T "$r" printenv CORREO_REMITENTE)"
+done
+```
+
+Las tres líneas tienen que imprimir `xkeysib` y la dirección. Si solo la ve
+`backend1`, una de cada tres invitaciones no saldrá y el patrón será
+desconcertante.
+
+### La prueba que de verdad cierra el asunto
+
+Crear un usuario en Administración con el **propio** correo, recibir la
+invitación, pulsar el enlace, elegir contraseña y entrar. Después **volver a
+abrir el mismo enlace**: tiene que decir «Este enlace ya no sirve». Si ese
+ciclo completo funciona, está listo.
+
+### Límite del plan gratuito
+
+El volumen real son unos pocos correos diarios, así que el tope no estorba.
+Pero una carga masiva de usuarios sí lo topa: doscientas invitaciones de golpe
+dejarían a la mitad de la gente sin recibir nada. Esas van por tandas.
+
 ## Cortafuegos — dos capas, las dos importan
 
 ### 1. Security List de Oracle (la que más se olvida)
