@@ -59,7 +59,7 @@
           <tr>
             <td class="mono">{{ c.id }}</td>
             <td class="mono">{{ c.codigoCaso || '—' }}</td>
-            <td class="titulo"><a [routerLink]="['/caso', c.id]">{{ canalIcon(c.canal) }} {{ c.titulo }}</a></td>
+            <td class="titulo"><a [routerLink]="['/caso', c.id]"><app-icono [nombre]="canalIcono(c.canal)" [tam]="14" /> {{ c.titulo }}</a></td>
             <td>{{ c.ciudadano }}</td>
             <td class="ubic">{{ c.direccion || c.barrio || '—' }}</td>
             <td>{{ c.agencia }}</td>

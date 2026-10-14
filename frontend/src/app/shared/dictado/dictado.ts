@@ -1,5 +1,6 @@
 import { ChangeDetectionStrategy, Component, DestroyRef, inject, input, OnDestroy, signal } from '@angular/core';
 import { FormControl } from '@angular/forms';
+import { IconoComponent } from '../icono/icono';
 
 /**
  * El API de reconocimiento de voz del navegador (Web Speech API). No todo
@@ -47,6 +48,7 @@ declare global {
 @Component({
   selector: 'app-dictado',
   standalone: true,
+  imports: [IconoComponent],
   template: `
     @if (soportado) {
       <button
@@ -57,7 +59,7 @@ declare global {
         [title]="grabando() ? 'Detener el dictado' : 'Dictar por voz'"
         (click)="alternar()"
       >
-        {{ grabando() ? '⏹️' : '🎙️' }}
+        @if (grabando()) { <app-icono nombre="detener" [tam]="15" /> } @else { <app-icono nombre="micro" [tam]="15" /> }
       </button>
     }
   `,

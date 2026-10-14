@@ -10,7 +10,7 @@ import { Agencia, Canal, CanalAtencion, Caso, EstadoCaso, PrioridadCaso } from '
 import { SelectorComponent } from '../../shared/selector/selector';
 import { OpcionComponent } from '../../shared/selector/opcion';
 import { FechaComponent } from '../../shared/fecha/fecha';
-import { IconoComponent } from '../../shared/icono/icono';
+import { IconoComponent, NombreIcono } from '../../shared/icono/icono';
 
 /**
  * Consulta y seguimiento: la bandeja completa con búsqueda. Es la vista de
@@ -143,9 +143,6 @@ export class CasosComponent {
     URL.revokeObjectURL(url);
   }
 
-  canalIcon(c: Canal): string {
-    return { llamada: '📞', chat: '💬', whatsapp: '🟢', whatsapp_llamada: '🟢📞', integracion: '🔌' }[c] ?? '•';
-  }
   estadoLabel(e: EstadoCaso): string {
     return { nuevo: 'Nuevo', en_gestion: 'En gestión', despachado: 'Despachado', derivado: 'Derivado', cerrado: 'Cerrado' }[e];
   }
@@ -157,5 +154,11 @@ export class CasosComponent {
   /** Nombre del canal (cola) de atención dentro de esa agencia. */
   nombreCanalAtencion(id: string): string {
     return this.canalesAtencion().find((c) => c.id === id)?.nombre ?? '—';
+  }
+
+  /** El canal por el que entró, como icono del set — no como emoji. */
+  canalIcono(c: string): NombreIcono {
+    return ({ llamada: 'telefono', chat: 'chat', whatsapp: 'chat',
+      whatsapp_llamada: 'telefono', integracion: 'enchufe' } as Record<string, NombreIcono>)[c] ?? 'documento';
   }
 }

@@ -152,7 +152,7 @@
                       </span>
                     }
                     <span class="f-dato">
-                      <span role="img" [attr.aria-label]="canalIconData(c).label">{{ canalIconData(c).emoji }}</span>
+                      <span role="img" [attr.aria-label]="canalIconData(c).label"><app-icono [nombre]="canalIconData(c).icono" [tam]="14" /></span>
                       {{ c.ciudadano }}
                     </span>
                     @if (canalesDe(c); as cods) {

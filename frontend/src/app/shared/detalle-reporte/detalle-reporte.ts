@@ -2,6 +2,7 @@ import { ChangeDetectionStrategy, Component, HostListener, input, output } from 
 import { CommonModule } from '@angular/common';
 import { RouterLink } from '@angular/router';
 import { Caso, Canal, EstadoCaso, PrioridadCaso } from '../../core/models';
+import { IconoComponent } from '../icono/icono';
 
 /**
  * La modal que abre el doble clic sobre una barra de un reporte (Panel o
@@ -16,13 +17,13 @@ import { Caso, Canal, EstadoCaso, PrioridadCaso } from '../../core/models';
 @Component({
   selector: 'app-detalle-reporte',
   standalone: true,
-  imports: [CommonModule, RouterLink],
+  imports: [CommonModule, RouterLink, IconoComponent],
   template: `
     <div class="dr-overlay" (click)="cerrarClick()">
       <div class="dr-card" role="dialog" aria-modal="true" [attr.aria-label]="titulo()" (click)="$event.stopPropagation()">
         <header class="dr-head">
           <h2>{{ titulo() }}</h2>
-          <button type="button" class="dr-x" (click)="cerrar.emit()" aria-label="Cerrar">✕</button>
+          <button type="button" class="cerrar" (click)="cerrar.emit()" aria-label="Cerrar"><app-icono nombre="cerrar" [tam]="15" /></button>
         </header>
 
         @if (cargando()) {

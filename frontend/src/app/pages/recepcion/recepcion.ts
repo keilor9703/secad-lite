@@ -36,7 +36,7 @@ import {
   Agencia, Canal, CanalAtencion, Caso, CodigoCaso, CrearCaso, EstadoCaso, Llamada, OrigenLlamada, PrioridadCaso,
 } from '../../core/models';
 import { PIN_ALTO, PIN_ANCHO, pinCasoSvg } from '../../shared/mapa/pin-caso';
-import { IconoComponent } from '../../shared/icono/icono';
+import { IconoComponent, NombreIcono } from '../../shared/icono/icono';
 
 @Component({
   selector: 'app-recepcion',
@@ -929,9 +929,12 @@ export class RecepcionComponent implements OnInit {
       const posicion = { lat, lng };
       if (this.marcadorGoogle) this.marcadorGoogle.position = posicion;
       else {
+        // El MISMO marcador que dibuja la rama de Leaflet (y el módulo Mapa):
+        // antes esta rama ponía un 📍, que cambia de forma y de color según el
+        // sistema operativo y no hacía juego con el resto de la cartografía.
         const pin = document.createElement('span');
         pin.className = 'pin-caso';
-        pin.textContent = '📍';
+        pin.innerHTML = pinCasoSvg(this.form.controls.prioridad.value ?? undefined);
         this.marcadorGoogle = new this.marcadorGoogleCtor({ map: this.mapaGoogle, position: posicion, content: pin });
       }
       if (centrar) { this.mapaGoogle.setCenter(posicion); this.mapaGoogle.setZoom(16); }
@@ -1333,10 +1336,6 @@ export class RecepcionComponent implements OnInit {
   }
 
   // --- Prioridad ----------------------------------------------------------
-
-  prioridadIcon(p: PrioridadCaso): string {
-    return { alta: '🔴', media: '🟡', baja: '🟢' }[p];
-  }
   prioridadLabel(p: PrioridadCaso): string {
     return { alta: 'Alta', media: 'Media', baja: 'Baja' }[p];
   }
@@ -1350,12 +1349,9 @@ export class RecepcionComponent implements OnInit {
   canalLabel(c: Canal): string {
     return { llamada: 'Llamada', chat: 'Chat', whatsapp: 'WhatsApp', whatsapp_llamada: 'Llamada WhatsApp', integracion: 'Integración' }[c];
   }
-  canalIcon(c: Canal): string {
-    return { llamada: '📞', chat: '💬', whatsapp: '🟢', whatsapp_llamada: '🟢📞', integracion: '🔌' }[c];
-  }
-  /** Ícono para una llamada EN COLA (todavía sin caso), según su `origen` — mismo criterio que `canalIcon`. */
-  origenIcon(o: OrigenLlamada): string {
-    return { telefono: '📞', whatsapp_chat: '🟢', whatsapp_llamada: '🟢📞' }[o];
+  /** Ícono de una llamada EN COLA (todavía sin caso), según su `origen`. */
+  origenIcono(o: OrigenLlamada): NombreIcono {
+    return ({ telefono: 'telefono', whatsapp_chat: 'chat', whatsapp_llamada: 'telefono' } as Record<OrigenLlamada, NombreIcono>)[o];
   }
   origenLabel(o: OrigenLlamada): string {
     return { telefono: 'Llamada telefónica', whatsapp_chat: 'Chat de WhatsApp', whatsapp_llamada: 'Llamada de WhatsApp' }[o];
@@ -1377,5 +1373,11 @@ export class RecepcionComponent implements OnInit {
       lat: null, lng: null,
       agenciaResponsableId: null,
     };
+  }
+
+  /** El canal por el que entró, como icono del set — no como emoji. */
+  canalIcono(c: string): NombreIcono {
+    return ({ llamada: 'telefono', chat: 'chat', whatsapp: 'chat',
+      whatsapp_llamada: 'telefono', integracion: 'enchufe' } as Record<string, NombreIcono>)[c] ?? 'documento';
   }
 }

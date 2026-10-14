@@ -1,22 +1,39 @@
 .rec { display: flex; flex-direction: column; gap: 1.1rem; }
 
 /* 4. KPIs */
-.kpis { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 0.8rem; }
+/* Tres indicadores que son UN conjunto y tienen que leerse como tal.
+ *
+ * Antes no lo eran: solo el del medio llevaba la barra de acento, así que uno
+ * de los tres pesaba más sin motivo, y «En gestión» se partía en dos renglones
+ * y empujaba la etiqueta de ESA caja, dejando los tres rótulos a alturas
+ * distintas. Un conjunto en el que una pieza está desalineada se lee como un
+ * error, no como una jerarquía.
+ *
+ * Ahora: misma caja, misma línea de base para los números, y la etiqueta con
+ * altura reservada para dos renglones aunque solo use uno. */
+.kpis { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: var(--esp-2); }
 .kpi {
   background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius);
-  padding: 0.7rem 0.9rem; display: flex; flex-direction: column;
+  padding: var(--esp-3) var(--esp-3) var(--esp-2);
+  display: flex; flex-direction: column; min-width: 0;
 }
-.kpi:nth-child(2) { border-left: 3px solid var(--accent); }
-.kpi .n { 
-  font-size: 2rem; 
-  font-weight: 600; 
-  color: var(--accent); 
-  font-variant-numeric: tabular-nums; 
+.kpi .n {
+  font-size: var(--texto-2xl);
+  font-weight: 600;
+  color: var(--accent);
+  font-variant-numeric: tabular-nums;
+  line-height: 1.1;
   border-bottom: 1px solid var(--border-2);
-  padding-bottom: 0.4rem;
-  margin-bottom: 0.4rem;
+  padding-bottom: var(--esp-2);
+  margin-bottom: var(--esp-2);
 }
-.kpi .l { font-size: 0.78rem; color: var(--muted); text-transform: uppercase; letter-spacing: 0.05em; }
+.kpi .l {
+  font-size: var(--texto-xs); color: var(--muted);
+  text-transform: uppercase; letter-spacing: 0.05em; line-height: 1.25;
+  // Dos renglones reservados: «En gestión» usa dos y los otros uno, y sin esto
+  // la caja del medio crecía y rompía la alineación del conjunto.
+  min-height: calc(2 * 1.25em);
+}
 
 .error { color: var(--danger); font-size: 0.87rem; margin: 0; }
 
@@ -141,7 +158,13 @@
   transition: all 0.15s ease;
 }
 .chip-prio:hover { border-color: var(--border); background: var(--surface); transform: translateY(-1px); }
-.chip-prio .ico { font-size: 1.3rem; line-height: 1; }
+/* El punto lleva el color de la prioridad, igual que la píldora de estado.
+   Antes eran 🔴🟡🟢 a 1,3rem: tres emoji que el sistema operativo pinta a su
+   manera y que, a ese tamaño, convertían el formulario en un semáforo. */
+.chip-prio .punto { width: 13px; height: 13px; border-radius: 50%; flex: none; }
+.chip-prio[data-prio="alta"]  .punto { background: var(--tag-danger-fg); }
+.chip-prio[data-prio="media"] .punto { background: var(--tag-warn-fg); }
+.chip-prio[data-prio="baja"]  .punto { background: var(--tag-info-fg); }
 .chip-prio[data-prio="alta"].on {
   border-color: var(--tag-danger-fg);
   background: var(--tag-danger-bg);

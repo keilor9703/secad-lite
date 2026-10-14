@@ -39,17 +39,6 @@
 }
 .dr-head h2 { margin: 0; font-size: 1rem; font-weight: 600; }
 
-.dr-x {
-  border: none;
-  background: transparent;
-  color: var(--muted);
-  font-size: 1rem;
-  cursor: pointer;
-  padding: 0.2rem 0.5rem;
-  border-radius: var(--radius-sm);
-}
-.dr-x:hover { background: var(--surface-2); color: var(--ink); }
-
 .dr-msg { padding: 2rem; text-align: center; color: var(--muted); margin: 0; }
 .dr-error { color: var(--danger); }
 

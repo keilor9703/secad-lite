@@ -16,7 +16,7 @@ import { ConfirmService } from '../../shared/confirm/confirm.service';
 import { SelectorComponent } from '../../shared/selector/selector';
 import { OpcionComponent } from '../../shared/selector/opcion';
 import { DictadoComponent } from '../../shared/dictado/dictado';
-import { IconoComponent } from '../../shared/icono/icono';
+import { IconoComponent, NombreIcono } from '../../shared/icono/icono';
 import {
   Agencia, Asignacion, Canal, CanalAtencion, Caso, CodigoCaso, CodigoCierre, EstadoAsignacion, EstadoCaso,
   EventoCaso, MensajeChat, MensajeChatInterno, Recurso, TenantDirectorio, TipoEvento,
@@ -697,15 +697,19 @@ export class DetalleComponent implements OnInit, OnDestroy {
   canalLabel(c: Canal): string {
     return { llamada: 'Llamada', chat: 'Chat', whatsapp: 'WhatsApp', whatsapp_llamada: 'Llamada WhatsApp', integracion: 'Integración' }[c];
   }
-  canalIcon(c: Canal): string {
-    return { llamada: '📞', chat: '💬', whatsapp: '🟢', whatsapp_llamada: '🟢📞', integracion: '🔌' }[c];
-  }
-  eventoIcon(t: TipoEvento): string {
-    return { creacion: '🟢', estado: '🔁', derivacion: '➡️', nota: '📝', despacho: '🚓' }[t];
+  eventoIcon(t: TipoEvento): NombreIcono {
+    return ({ creacion: 'check', estado: 'recargar', derivacion: 'remitir',
+      nota: 'documento', despacho: 'patrulla' } as Record<TipoEvento, NombreIcono>)[t];
   }
 
   /** Para alinear a la derecha los mensajes propios en el chat interno. */
   esPropio(m: MensajeChatInterno): boolean {
     return m.autorId === this.auth.sesion()?.usuario;
+  }
+
+  /** El canal por el que entró, como icono del set — no como emoji. */
+  canalIcono(c: string): NombreIcono {
+    return ({ llamada: 'telefono', chat: 'chat', whatsapp: 'chat',
+      whatsapp_llamada: 'telefono', integracion: 'enchufe' } as Record<string, NombreIcono>)[c] ?? 'documento';
   }
 }

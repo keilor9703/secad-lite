@@ -12,7 +12,7 @@ import { Agencia, CanalAtencion, Caso, EstadoCaso } from '../../core/models';
 import { ToastService } from '../../shared/toast/toast.service';
 import { SelectorComponent } from '../../shared/selector/selector';
 import { OpcionComponent } from '../../shared/selector/opcion';
-import { IconoComponent } from '../../shared/icono/icono';
+import { IconoComponent, NombreIcono } from '../../shared/icono/icono';
 
 /** Un paso del ciclo de vida y los casos que están en él. */
 interface Grupo {
@@ -472,15 +472,16 @@ export class DespachoComponent implements OnDestroy {
     return cods.join(', ');
   }
 
-  canalIconData(c: Caso): { emoji: string; label: string } {
-    const map: Record<string, { emoji: string; label: string }> = {
-      llamada: { emoji: '📞', label: 'Llamada telefónica' },
-      chat: { emoji: '💬', label: 'Chat en línea' },
-      whatsapp: { emoji: '🟢', label: 'WhatsApp' },
-      whatsapp_llamada: { emoji: '🟢📞', label: 'Llamada de WhatsApp' },
-      integracion: { emoji: '🔌', label: 'Integración externa' },
+  /** Canal por el que entró el caso: icono del set y su nombre para el lector. */
+  canalIconData(c: Caso): { icono: NombreIcono; label: string } {
+    const map: Record<string, { icono: NombreIcono; label: string }> = {
+      llamada: { icono: 'telefono', label: 'Llamada telefónica' },
+      chat: { icono: 'chat', label: 'Chat en línea' },
+      whatsapp: { icono: 'chat', label: 'WhatsApp' },
+      whatsapp_llamada: { icono: 'telefono', label: 'Llamada de WhatsApp' },
+      integracion: { icono: 'enchufe', label: 'Integración externa' },
     };
-    return map[c.canal] ?? { emoji: '•', label: c.canal };
+    return map[c.canal] ?? { icono: 'documento', label: c.canal };
   }
 
   ngOnDestroy(): void {

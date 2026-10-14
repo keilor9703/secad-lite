@@ -35,7 +35,7 @@
           <div class="llam" [class.llam--mia]="esLaLlamadaEnCurso(l)"
             [class.llam--ajena]="!esMia(l)">
             <div class="llam-cab">
-              <span class="llam-icono" role="img" [attr.aria-label]="origenLabel(l.origen)">{{ origenIcon(l.origen) }}</span>
+              <span class="llam-icono" role="img" [attr.aria-label]="origenLabel(l.origen)"><app-icono [nombre]="origenIcono(l.origen)" [tam]="16" /></span>
               <!-- Lo que manda la central no siempre es un abonado: para los
               contactos de WhatsApp manda un identificador de sesión. Mostrarlo
               en grande como «el número» invita a marcarlo. -->
@@ -157,7 +157,7 @@
                 <label for="fmedio">Medio de comunicación</label>
                 <app-selector id="fmedio" formControlName="canal">
                   @for (c of canales; track c) {
-                    <app-opcion [valor]="c">{{ canalIcon(c) }} {{ canalLabel(c) }}</app-opcion>
+                    <app-opcion [valor]="c">{{ canalLabel(c) }}</app-opcion>
                   }
                 </app-selector>
               </div>
@@ -215,7 +215,7 @@
                     <button type="button" class="chip-prio" [attr.data-prio]="p"
                       [class.on]="form.controls.prioridad.value === p"
                       (click)="elegirPrioridad(p)">
-                      <span class="ico">{{ prioridadIcon(p) }}</span>
+                      <span class="punto" aria-hidden="true"></span>
                       <span>{{ prioridadLabel(p) }}</span>
                     </button>
                   }

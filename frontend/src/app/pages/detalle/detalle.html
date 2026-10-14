@@ -15,7 +15,7 @@
       <div class="tabs-nav" role="tablist" aria-label="Secciones del caso">
         <button type="button" role="tab" class="tab-btn" [class.activa]="tab() === 'ficha'"
           [attr.aria-selected]="tab() === 'ficha'" (click)="tab.set('ficha')">
-          {{ canalIcon(c.canal) }} Ficha
+          <app-icono [nombre]="canalIcono(c.canal)" [tam]="16" /> Ficha
         </button>
         <button type="button" role="tab" class="tab-btn" [class.activa]="tab() === 'despacho'"
           [attr.aria-selected]="tab() === 'despacho'" (click)="tab.set('despacho')">
@@ -54,7 +54,7 @@
             <!-- Ficha del caso -->
             <div class="ficha card">
               <div class="ficha-head">
-                <span class="canal">{{ canalIcon(c.canal) }} {{ canalLabel(c.canal) }}</span>
+                <span class="canal"><app-icono [nombre]="canalIcono(c.canal)" [tam]="14" /> {{ canalLabel(c.canal) }}</span>
                 <span class="badge" [attr.data-estado]="c.estado">{{ estadoLabel(c.estado) }}</span>
               </div>
               <h1>{{ c.titulo }}</h1>
@@ -487,7 +487,7 @@
               <ol class="timeline">
                 @for (ev of eventos(); track ev) {
                   <li [attr.data-tipo]="ev.tipo">
-                    <span class="dot">{{ eventoIcon(ev.tipo) }}</span>
+                    <span class="dot"><app-icono [nombre]="eventoIcon(ev.tipo)" [tam]="13" /></span>
                     <div class="ev">
                       <p class="ev-desc">{{ ev.descripcion }}</p>
                       <p class="ev-meta">{{ ev.autor }} · {{ ev.creadoEn | date:'short' }}</p>

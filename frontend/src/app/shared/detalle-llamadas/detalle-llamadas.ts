@@ -2,6 +2,7 @@ import { ChangeDetectionStrategy, Component, HostListener, input, output } from 
 import { CommonModule } from '@angular/common';
 import { RouterLink } from '@angular/router';
 import { EstadoLlamada, Llamada } from '../../core/models';
+import { IconoComponent } from '../icono/icono';
 
 /**
  * La modal que abre el doble clic sobre "Atendidas"/"Perdidas" del reporte
@@ -14,13 +15,13 @@ import { EstadoLlamada, Llamada } from '../../core/models';
 @Component({
   selector: 'app-detalle-llamadas',
   standalone: true,
-  imports: [CommonModule, RouterLink],
+  imports: [CommonModule, RouterLink, IconoComponent],
   template: `
     <div class="dl-overlay" (click)="cerrarClick()">
       <div class="dl-card" role="dialog" aria-modal="true" [attr.aria-label]="titulo()" (click)="$event.stopPropagation()">
         <header class="dl-head">
           <h2>{{ titulo() }}</h2>
-          <button type="button" class="dl-x" (click)="cerrar.emit()" aria-label="Cerrar">✕</button>
+          <button type="button" class="cerrar" (click)="cerrar.emit()" aria-label="Cerrar"><app-icono nombre="cerrar" [tam]="15" /></button>
         </header>
 
         @if (cargando()) {
