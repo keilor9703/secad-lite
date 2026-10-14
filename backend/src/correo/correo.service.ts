@@ -42,7 +42,7 @@ export class CorreoService {
   private readonly logger = new Logger(CorreoService.name);
 
   private readonly apiKey = process.env.BREVO_API_KEY ?? '';
-  private readonly remitente = process.env.CORREO_REMITENTE ?? 'avisos@falconcad.com.co';
+  private readonly remitente = process.env.CORREO_REMITENTE ?? 'avisos@mail.falconcad.com.co';
   private readonly remitenteNombre = process.env.CORREO_REMITENTE_NOMBRE ?? 'FALCON CAD';
   private readonly url = process.env.BREVO_API_URL ?? 'https://api.brevo.com/v3/smtp/email';
 
