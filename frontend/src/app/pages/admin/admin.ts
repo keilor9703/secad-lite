@@ -224,6 +224,36 @@ export class AdminComponent implements OnInit {
     extension: new FormControl<string | null>(null),
   });
   readonly usuarioCanales = signal<string[]>([]);
+
+  /**
+   * El alta vive en un modal, no en una fila de campos siempre presente.
+   *
+   * Dos razones. La de forma: una hilera de ocho `placeholder` sin etiquetas
+   * ocupaba el encabezado de la pestaña todo el tiempo, y los avisos en vivo
+   * —«Disponible», «ya la usa X»— crecían bajo su caja y, al alinear la fila
+   * por el centro, EMPUJABAN ese campo hacia arriba dejándolo desalineado del
+   * resto. La de fondo: dar de alta a alguien es una tarea deliberada, con
+   * decisiones que merecen explicación (correo o contraseña, agencia y canal),
+   * y eso pide un formulario con etiquetas, no ocho cajas grises.
+   */
+  readonly altaAbierta = signal(false);
+
+  abrirAlta(): void {
+    this.error.set('');
+    this.usuarioForm.reset({
+      username: '', nombre: '', correo: '', contrasena: '',
+      rol: 'operador', agenciaId: null, extension: null,
+    });
+    this.usuarioCanales.set([]);
+    this.usuarioUsernameEstado.set('inactivo');
+    this.altaAbierta.set(true);
+    // El foco al primer campo: quien abre el modal ya decidió qué va a hacer.
+    setTimeout(() => document.getElementById('alta-username')?.focus(), 0);
+  }
+
+  cerrarAlta(): void {
+    this.altaAbierta.set(false);
+  }
   /** Resultado de validar en vivo, contra toda la plataforma, el username que se está tecleando. */
   readonly usuarioUsernameEstado = signal<'inactivo' | 'verificando' | 'disponible' | 'ocupado'>('inactivo');
 
@@ -862,6 +892,7 @@ export class AdminComponent implements OnInit {
         this.usuarios.update((us) => [...us, u]);
         this.usuarioForm.reset({ username: '', nombre: '', correo: '', contrasena: '', rol: 'operador', agenciaId: null, extension: null });
         this.usuarioCanales.set([]);
+        this.altaAbierta.set(false);
         if (u.invitacionError) {
           this.toast.advertencia(`Cuenta creada, pero el correo no salió: ${u.invitacionError}`);
         } else if (u.correo) {

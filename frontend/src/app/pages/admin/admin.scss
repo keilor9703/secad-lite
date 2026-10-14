@@ -41,16 +41,89 @@
 .admin-tabs button.activa { color: var(--accent); border-bottom-color: var(--accent); }
 .admin-tabs button:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
 
-.crear-inline, .crear-usuario { display: flex; flex-wrap: wrap; gap: 0.5rem; align-items: center; }
+.crear-inline { display: flex; flex-wrap: wrap; gap: 0.5rem; align-items: center; }
 .crear-inline input { flex: 1; min-width: 160px; }
-.crear-usuario input, .crear-usuario app-selector { flex: 1; min-width: 120px; width: auto; }
 
-.campo-username { display: flex; flex-direction: column; gap: 0.15rem; flex: 1; min-width: 120px; }
-.campo-username input { width: 100%; }
-.campo-username input.ocupado { border-color: var(--tag-danger-fg); }
 .username-hint { font-size: 0.72rem; color: var(--muted); }
 .username-hint.ok { color: var(--tag-ok-fg); }
 .username-hint.mala { color: var(--tag-danger-fg); }
+
+/* Encabezado de sección: el título a la izquierda, su acción a la derecha. */
+.seccion-cab {
+  display: flex; align-items: center; justify-content: space-between;
+  gap: 1rem; flex-wrap: wrap;
+}
+.seccion-cab h2 { margin: 0; }
+
+/* ── Modal de alta ───────────────────────────────────────────────────────
+   El velo y la tarjeta replican los de la barra superior (shell.scss): es el
+   mismo objeto visual y la encapsulación de vistas impide heredarlos. */
+.velo {
+  position: fixed; inset: 0; z-index: 900;
+  background: rgba(6, 16, 24, 0.45);
+  display: flex; align-items: center; justify-content: center;
+  padding: 1rem; overflow-y: auto;
+}
+.dialogo {
+  width: min(680px, 100%); padding: 1.3rem 1.5rem 1.4rem;
+  display: flex; flex-direction: column; gap: 1rem;
+  max-height: calc(100dvh - 2rem); overflow-y: auto;
+}
+.dialogo-cab { display: flex; align-items: center; justify-content: space-between; gap: 0.8rem; }
+.dialogo-cab h2 { margin: 0; font-size: 1.1rem; font-weight: 600; }
+.dialogo-acciones {
+  display: flex; justify-content: flex-end; gap: 0.6rem;
+  margin-top: 0.2rem; flex-wrap: wrap;
+}
+
+/* Dos columnas que se apilan en pantalla angosta. */
+.dialogo .rejilla {
+  display: grid; grid-template-columns: 1fr 1fr; gap: 0.5rem 1rem;
+  align-items: start;   /* ← cada campo crece hacia abajo, no empuja al vecino */
+}
+@media (max-width: 560px) { .dialogo .rejilla { grid-template-columns: 1fr; } }
+
+.dialogo .field { gap: 0.3rem; }
+.dialogo .field > label { font-size: 0.78rem; font-weight: 500; color: var(--ink-soft); }
+.dialogo .field input.ocupado { border-color: var(--tag-danger-fg); }
+.dialogo .campo-corto { max-width: 15rem; }
+
+/* EL ARREGLO: el renglón de ayuda SIEMPRE ocupa su alto, tenga texto o no.
+   Sin esto, un aviso que aparece empuja su campo y lo desalinea del vecino —
+   que es exactamente lo que se veía en la fila anterior. */
+.pie-campo {
+  margin: 0; min-height: 1.05rem;
+  font-size: 0.72rem; line-height: 1.05rem;
+}
+.pie-campo .tenue { color: var(--muted); }
+.pie-campo .ok { color: var(--tag-ok-fg); }
+.pie-campo .mala { color: var(--tag-danger-fg); }
+.pie-campo .aviso { color: var(--warn); }
+
+/* Agrupa las dos formas de entrar, que son alternativas entre sí. */
+.dialogo .grupo {
+  border: 1px solid var(--border); border-radius: 10px;
+  padding: 0.85rem 1rem 1rem; margin: 0;
+  display: flex; flex-direction: column; gap: 0.55rem;
+}
+.dialogo .grupo legend {
+  padding: 0 0.4rem; margin-left: -0.4rem;
+  font-size: 0.78rem; font-weight: 500; color: var(--ink-soft);
+}
+/* «o» centrado sobre una línea: deja ver que son excluyentes. */
+.o-bien {
+  display: flex; align-items: center; gap: 0.7rem;
+  margin: 0.1rem 0; font-size: 0.74rem; color: var(--muted);
+}
+.o-bien::before, .o-bien::after {
+  content: ''; flex: 1; height: 1px; background: var(--border);
+}
+
+.error-alta {
+  margin: 0; padding: 0.55rem 0.7rem; border-radius: 8px;
+  font-size: 0.82rem;
+  background: var(--tag-danger-bg); color: var(--tag-danger-fg);
+}
 
 /* min-width: 0 — dentro de un flex column, la tabla no dejaba que esta caja
    se achicara por debajo de su ancho (aunque tenga overflow-x: auto), y

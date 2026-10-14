@@ -521,48 +521,11 @@
         <!-- Usuarios -->
         @if (pestanaActiva() === 'usuarios') {
         <div class="panel card" role="tabpanel" id="panel-usuarios" aria-labelledby="tab-usuarios">
-          <h2>👤 Usuarios</h2>
-          <form class="crear-usuario" [formGroup]="usuarioForm" (ngSubmit)="crearUsuario()">
-            <div class="campo-username">
-              <input formControlName="username" placeholder="usuario" [class.ocupado]="usuarioUsernameEstado() === 'ocupado'" />
-              @switch (usuarioUsernameEstado()) {
-                @case ('verificando') { <span class="username-hint">Verificando…</span> }
-                @case ('disponible') { <span class="username-hint ok">Disponible</span> }
-                @case ('ocupado') { <span class="username-hint mala">Ya existe en otra instancia</span> }
-              }
-            </div>
-            <input formControlName="nombre" placeholder="Nombre completo" />
-            <div class="campo-correo">
-              <input formControlName="correo" type="email" inputmode="email" autocomplete="off"
-                placeholder="correo (recibe la invitación)"
-                title="A este correo le llega el enlace para que elija su propia contraseña." />
-              @if (correoRepetido(); as otro) {
-                <span class="username-hint">Ya la usa «{{ otro }}» · correcto solo si es un buzón compartido</span>
-              }
-            </div>
-            <input formControlName="contrasena" type="password" autocomplete="new-password"
-              placeholder="o contraseña inicial (sin correo)"
-              title="Déjela vacía si puso un correo: la persona elegirá la suya y nadie más la conocerá." />
-            <app-selector formControlName="rol">
-              @for (r of rolesDisponibles(); track r) {
-                <app-opcion [valor]="r">{{ r }}</app-opcion>
-              }
-            </app-selector>
-            <app-selector formControlName="agenciaId" (cambio)="usuarioCanales.set([])">
-              <app-opcion [valor]="null">— agencia —</app-opcion>
-              @for (a of agencias(); track a) {
-                <app-opcion [valor]="a.id" [deshabilitada]="!a.activo">{{ a.nombre }}</app-opcion>
-              }
-            </app-selector>
-            <input formControlName="extension" placeholder="extensión PBX (opcional)"
-              title="Extensión de la planta telefónica. La central dirige aquí las llamadas de este funcionario." />
-            @if (esSuperadmin()) {
-              <span class="ctx-tag" title="Tenant en gestión">{{ tenantCtx() || '—' }}</span>
-            }
-            <button type="submit" class="btn btn--primary" [disabled]="usuarioForm.invalid">Crear usuario</button>
-            <!-- La regla «correo o contraseña, al menos una» la valida crearUsuario():
-                 un formulario inválido no explica CUÁL de las dos falta. -->
-          </form>
+          <div class="seccion-cab">
+            <h2>👤 Usuarios</h2>
+            <button type="button" class="btn btn--primary" (click)="abrirAlta()">Nuevo usuario</button>
+          </div>
+
           @if (enlaceInvitacion(); as inv) {
             <div class="enlace-invitacion" role="status">
               <p>
@@ -577,23 +540,6 @@
             </div>
           }
 
-          <!-- Canales que atenderá: solo los de la agencia elegida. -->
-          @if (usuarioForm.controls.agenciaId.value; as usuarioAgenciaId) {
-            <div class="canales-pick">
-              <span class="canales-lbl">Canal de atención (uno):</span>
-              @for (c of canalesDe(usuarioAgenciaId); track c) {
-                <label class="chip" [class.off]="!c.activo">
-                  <input type="radio" name="canalUsuarioNuevo" [checked]="canalMarcado(c.id)" (click)="alternarCanalNuevo(c.id)" />
-                  <span>{{ c.codigo }} · {{ c.nombre }}</span>
-                </label>
-              }
-              @if (!canalesDe(usuarioAgenciaId).length) {
-                <span class="vacio-inline">
-                  Esa agencia todavía no tiene canales.
-                </span>
-              }
-            </div>
-          }
 
           <div class="tbl-wrap">
             <table>
@@ -795,3 +741,130 @@
           </div>
         }
       </section>
+
+<!-- ────────────────────────── Alta de usuario ──────────────────────────
+     En modal y no en una fila permanente. Dos razones. La de forma: los
+     avisos en vivo («Disponible», «ya la usa X») crecían bajo su caja y, al
+     alinear la fila por el centro, EMPUJABAN ese campo hacia arriba dejándolo
+     desalineado del resto. Aquí cada campo tiene su etiqueta y su renglón de
+     aviso con ALTURA RESERVADA, así que aparecer o desaparecer no mueve nada.
+     La de fondo: dar de alta a alguien es una tarea deliberada, con decisiones
+     que merecen explicación —correo o contraseña, agencia y canal—, y eso
+     pide un formulario con etiquetas, no ocho cajas grises en el encabezado.
+                                                                          -->
+@if (altaAbierta()) {
+  <div class="velo" (click)="cerrarAlta()">
+    <form class="dialogo card" [formGroup]="usuarioForm"
+      (click)="$event.stopPropagation()" (submit)="crearUsuario(); $event.preventDefault()"
+      role="dialog" aria-modal="true" aria-labelledby="alta-titulo">
+
+      <header class="dialogo-cab">
+        <h2 id="alta-titulo">Nuevo usuario</h2>
+        @if (esSuperadmin()) {
+          <span class="ctx-tag" title="Instancia en gestión">{{ tenantCtx() || '—' }}</span>
+        }
+      </header>
+
+      <div class="rejilla">
+        <div class="field">
+          <label for="alta-username">Usuario</label>
+          <input id="alta-username" formControlName="username" autocomplete="off"
+            [class.ocupado]="usuarioUsernameEstado() === 'ocupado'" />
+          <p class="pie-campo">
+            @switch (usuarioUsernameEstado()) {
+              @case ('verificando') { <span>Verificando…</span> }
+              @case ('disponible') { <span class="ok">Disponible</span> }
+              @case ('ocupado') { <span class="mala">Ya existe en otra instancia</span> }
+              @default { <span class="tenue">Único en toda la plataforma.</span> }
+            }
+          </p>
+        </div>
+
+        <div class="field">
+          <label for="alta-nombre">Nombre completo</label>
+          <input id="alta-nombre" formControlName="nombre" autocomplete="off" />
+          <p class="pie-campo"><span class="tenue">Como aparecerá en los casos que atienda.</span></p>
+        </div>
+      </div>
+
+      <fieldset class="grupo">
+        <legend>Cómo entrará la primera vez</legend>
+
+        <div class="field">
+          <label for="alta-correo">Correo</label>
+          <input id="alta-correo" formControlName="correo" type="email" inputmode="email" autocomplete="off" />
+          <p class="pie-campo">
+            @if (correoRepetido(); as otro) {
+              <span class="aviso">Ya la usa «{{ otro }}» · correcto solo si es un buzón compartido</span>
+            } @else {
+              <span class="tenue">Recibe el enlace para elegir su propia contraseña. Nadie más la conocerá.</span>
+            }
+          </p>
+        </div>
+
+        <p class="o-bien"><span>o</span></p>
+
+        <div class="field">
+          <label for="alta-clave">Contraseña inicial</label>
+          <input id="alta-clave" formControlName="contrasena" type="password" autocomplete="new-password" />
+          <p class="pie-campo"><span class="tenue">Solo si la cuenta no tendrá correo. La conocerán dos personas.</span></p>
+        </div>
+      </fieldset>
+
+      <div class="rejilla">
+        <div class="field">
+          <label>Rol</label>
+          <app-selector formControlName="rol" [ariaLabel]="'Rol'">
+            @for (r of rolesDisponibles(); track r) {
+              <app-opcion [valor]="r">{{ r }}</app-opcion>
+            }
+          </app-selector>
+          <p class="pie-campo"><span class="tenue">Define a qué módulos entra.</span></p>
+        </div>
+
+        <div class="field">
+          <label>Agencia</label>
+          <app-selector formControlName="agenciaId" (cambio)="usuarioCanales.set([])" [ariaLabel]="'Agencia'">
+            <app-opcion [valor]="null">— sin agencia —</app-opcion>
+            @for (a of agencias(); track a) {
+              <app-opcion [valor]="a.id" [deshabilitada]="!a.activo">{{ a.nombre }}</app-opcion>
+            }
+          </app-selector>
+          <p class="pie-campo"><span class="tenue">Queda como origen de los casos que recepcione.</span></p>
+        </div>
+      </div>
+
+      @if (usuarioForm.controls.agenciaId.value; as usuarioAgenciaId) {
+        <div class="field">
+          <label>Canal de atención (uno)</label>
+          <div class="canales-pick">
+            @for (c of canalesDe(usuarioAgenciaId); track c) {
+              <label class="chip" [class.off]="!c.activo">
+                <input type="radio" name="canalUsuarioNuevo" [checked]="canalMarcado(c.id)" (click)="alternarCanalNuevo(c.id)" />
+                <span>{{ c.codigo }} · {{ c.nombre }}</span>
+              </label>
+            }
+            @if (!canalesDe(usuarioAgenciaId).length) {
+              <span class="vacio-inline">Esa agencia todavía no tiene canales.</span>
+            }
+          </div>
+        </div>
+      }
+
+      <div class="field campo-corto">
+        <label for="alta-ext">Extensión PBX</label>
+        <input id="alta-ext" formControlName="extension" autocomplete="off" />
+        <p class="pie-campo"><span class="tenue">Opcional. La central dirige aquí sus llamadas.</span></p>
+      </div>
+
+      @if (error()) {
+        <p class="error-alta" role="alert">{{ error() }}</p>
+      }
+
+      <div class="dialogo-acciones">
+        <button type="button" class="btn btn--ghost" (click)="cerrarAlta()">Cancelar</button>
+        <button type="submit" class="btn btn--primary" [disabled]="usuarioForm.invalid">Crear usuario</button>
+      </div>
+    </form>
+  </div>
+}
