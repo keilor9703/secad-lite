@@ -72,6 +72,20 @@
         <button type="submit" class="btn btn--primary full" [disabled]="cargando()">
           {{ cargando() ? 'Ingresando…' : 'Ingresar' }}
         </button>
+
+        <!-- Recuperar el acceso sin depender de que un administrador conteste
+             el teléfono. La respuesta es la misma exista la cuenta o no. -->
+        @if (recuperado()) {
+          <p class="recuperado" role="status">
+            Si ese usuario existe y tiene correo registrado, le acabamos de enviar un
+            enlace para elegir una contraseña nueva. Revise su bandeja y la carpeta de
+            correo no deseado.
+          </p>
+        } @else {
+          <button type="button" class="enlace-olvide" (click)="recuperar()" [disabled]="recuperando()">
+            {{ recuperando() ? 'Enviando…' : 'Olvidé mi contraseña' }}
+          </button>
+        }
       }
     </form>
   </div>

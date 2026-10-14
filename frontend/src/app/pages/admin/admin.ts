@@ -214,7 +214,11 @@ export class AdminComponent implements OnInit {
   readonly usuarioForm = new FormGroup({
     username: new FormControl('', { nonNullable: true, validators: [Validators.required] }),
     nombre: new FormControl('', { nonNullable: true, validators: [Validators.required] }),
-    contrasena: new FormControl('', { nonNullable: true, validators: [Validators.required] }),
+    // El correo es el camino normal: con él, la persona recibe una invitación
+    // y elige su propia contraseña. La contraseña inicial queda como salida de
+    // emergencia para una cuenta sin correo, y ya NO es obligatoria.
+    correo: new FormControl('', { nonNullable: true, validators: [Validators.email] }),
+    contrasena: new FormControl('', { nonNullable: true }),
     rol: new FormControl('operador', { nonNullable: true }),
     agenciaId: new FormControl<string | null>(null),
     extension: new FormControl<string | null>(null),
@@ -823,27 +827,87 @@ export class AdminComponent implements OnInit {
     });
   }
 
+  /** ¿Esa dirección ya la usa otro funcionario del tenant? Avisa, no bloquea. */
+  readonly correoRepetido = computed(() => {
+    const v = (this.usuarioForm.controls.correo.value ?? '').trim().toLowerCase();
+    if (!v) return null;
+    // Hay oficinas pequeñas que comparten un buzón institucional, así que
+    // repetirlo es legítimo. Pero casi siempre es un dedo de más, y entonces
+    // la invitación le llega a la persona equivocada.
+    return this.usuarios().find((u) => (u.correo ?? '').toLowerCase() === v)?.username ?? null;
+  });
+
   crearUsuario(): void {
     this.error.set('');
     const v = this.usuarioForm.getRawValue();
+    const correo = v.correo.trim().toLowerCase();
     const dto: CrearUsuario = {
-      username: v.username.trim(), nombre: v.nombre.trim(), contrasena: v.contrasena, rol: v.rol,
+      username: v.username.trim(), nombre: v.nombre.trim(), rol: v.rol,
+      correo: correo || null,
+      // Solo viaja si el administrador escribió una: vacía significa «mándale
+      // la invitación y que elija ella».
+      ...(v.contrasena ? { contrasena: v.contrasena } : {}),
       tenant: this.tenantCtx() ?? undefined, agenciaId: v.agenciaId, canales: this.usuarioCanales(),
       extension: v.extension,
     };
-    if (!dto.username || !dto.nombre.trim() || !dto.contrasena) {
-      this.error.set('Usuario, nombre y contraseña son obligatorios.'); return;
+    if (!dto.username || !dto.nombre.trim()) {
+      this.error.set('Usuario y nombre son obligatorios.'); return;
+    }
+    if (!correo && !v.contrasena) {
+      this.error.set('Escriba un correo para enviarle la invitación, o una contraseña inicial.'); return;
     }
     if (this.esSuperadmin() && !dto.tenant) { this.error.set('Seleccione el tenant del usuario.'); return; }
     this.admin.crearUsuario(dto).subscribe({
       next: (u) => {
         this.usuarios.update((us) => [...us, u]);
-        this.usuarioForm.reset({ username: '', nombre: '', contrasena: '', rol: 'operador', agenciaId: null, extension: null });
+        this.usuarioForm.reset({ username: '', nombre: '', correo: '', contrasena: '', rol: 'operador', agenciaId: null, extension: null });
         this.usuarioCanales.set([]);
-        this.toast.exito('Usuario creado.');
+        if (u.invitacionError) {
+          this.toast.advertencia(`Cuenta creada, pero el correo no salió: ${u.invitacionError}`);
+        } else if (u.correo) {
+          this.toast.exito(`Cuenta creada. Se envió la invitación a ${u.correo}.`);
+        } else {
+          this.toast.exito('Usuario creado.');
+        }
       },
       error: (e) => this.error.set(e?.error?.message ?? 'No fue posible crear el usuario.'),
     });
+  }
+
+  /** Enlace de activación que el administrador pidió para entregarlo a mano. */
+  readonly enlaceInvitacion = signal<{ usuario: string; url: string } | null>(null);
+
+  /** Reenvía la invitación a una cuenta que todavía no se activó. */
+  reenviarInvitacion(u: UsuarioAdmin): void {
+    this.admin.invitarUsuario(u.id, true).subscribe({
+      next: (r) => {
+        if (r.ok) { this.toast.exito(`Invitación reenviada a ${u.correo}.`); this.cargarUsuarios(); }
+        else this.toast.advertencia(`No salió el correo: ${r.error}`);
+      },
+      error: (e) => this.error.set(e?.error?.message ?? 'No fue posible reenviar la invitación.'),
+    });
+  }
+
+  /**
+   * Pide el enlace SIN enviarlo, para dictarlo por radio o entregarlo en
+   * persona. Es el camino cuando el servidor del municipio acepta el correo
+   * y lo descarta en silencio, que es más común de lo que parece.
+   */
+  obtenerEnlace(u: UsuarioAdmin): void {
+    this.admin.invitarUsuario(u.id, false).subscribe({
+      next: (r) => {
+        if (r.enlace) this.enlaceInvitacion.set({ usuario: u.username, url: r.enlace });
+      },
+      error: (e) => this.error.set(e?.error?.message ?? 'No fue posible generar el enlace.'),
+    });
+  }
+
+  copiarEnlace(): void {
+    const url = this.enlaceInvitacion()?.url;
+    if (!url) return;
+    navigator.clipboard.writeText(url)
+      .then(() => this.toast.exito('Enlace copiado.'))
+      .catch(() => this.toast.advertencia('El navegador no permitió copiar; selecciónelo a mano.'));
   }
 
   toggleActivo(u: UsuarioAdmin): void {

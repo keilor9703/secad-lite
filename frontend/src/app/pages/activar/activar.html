@@ -1,0 +1,74 @@
+<div class="activar">
+  <section class="card activar-card">
+    <header class="brand">
+      <span class="brand-mark"><app-logo [tam]="26" fondo="transparent" /></span>
+      <span class="brand-texto">
+        <strong>FALCON <span>CAD</span></strong>
+        <small>Central de despacho</small>
+      </span>
+    </header>
+
+    @if (cargando()) {
+      <p class="estado" role="status">Comprobando el enlace…</p>
+    } @else if (enlaceMuerto()) {
+      <div class="aviso aviso--malo" role="alert">
+        <h1>Este enlace ya no sirve</h1>
+        <p>
+          Los enlaces valen <strong>una sola vez</strong> y caducan. Es posible que
+          ya lo haya usado, que haya pasado el plazo, o que se haya enviado uno más
+          nuevo que reemplazó a este.
+        </p>
+        <p>Pídale a su administrador que se lo reenvíe.</p>
+      </div>
+      <a class="btn btn--ghost" routerLink="/login">Ir al inicio de sesión</a>
+    } @else if (listo()) {
+      <div class="aviso aviso--bien" role="status">
+        <h1>Su contraseña quedó registrada</h1>
+        <p>Ya puede entrar con su usuario y la contraseña que acaba de elegir.</p>
+      </div>
+      <a class="btn btn--primary" routerLink="/login">Iniciar sesión</a>
+    } @else if (datos(); as d) {
+      <h1>{{ titulo() }}</h1>
+      <p class="intro">
+        {{ d.nombre }}, su usuario es <strong>{{ d.usuario }}</strong>.
+        Elija una contraseña: nadie más la conocerá, ni siquiera quien creó su cuenta.
+      </p>
+
+      <form (ngSubmit)="guardar()">
+        <div class="field">
+          <label for="clave">Contraseña nueva</label>
+          <div class="con-ojo">
+            <input id="clave" [type]="verClave() ? 'text' : 'password'" autocomplete="new-password"
+              [value]="clave()" (input)="clave.set($any($event.target).value)"
+              [attr.aria-invalid]="corta() ? 'true' : null" aria-describedby="ayuda-clave" />
+            <button type="button" class="ojo" (click)="verClave.set(!verClave())"
+              [attr.aria-label]="verClave() ? 'Ocultar la contraseña' : 'Mostrar la contraseña'">
+              {{ verClave() ? 'Ocultar' : 'Ver' }}
+            </button>
+          </div>
+          <p id="ayuda-clave" class="pista" [class.pista--mala]="corta()">
+            Mínimo 8 caracteres.
+          </p>
+        </div>
+
+        <div class="field">
+          <label for="confirma">Repítala</label>
+          <input id="confirma" [type]="verClave() ? 'text' : 'password'" autocomplete="new-password"
+            [value]="confirma()" (input)="confirma.set($any($event.target).value)"
+            [attr.aria-invalid]="noCoincide() ? 'true' : null" />
+          @if (noCoincide()) {
+            <p class="pista pista--mala">Las dos contraseñas no coinciden.</p>
+          }
+        </div>
+
+        @if (error()) {
+          <p class="error" role="alert">{{ error() }}</p>
+        }
+
+        <button type="submit" class="btn btn--primary btn--ancho" [disabled]="!puedeGuardar()">
+          {{ guardando() ? 'Guardando…' : 'Guardar mi contraseña' }}
+        </button>
+      </form>
+    }
+  </section>
+</div>

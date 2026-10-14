@@ -149,3 +149,20 @@ form { display: flex; flex-direction: column; gap: 0.9rem; }
   color: var(--muted);
   line-height: 1.4;
 }
+
+/* Recuperar el acceso. Discreto: no compite con el botón de ingresar, pero
+   tiene que estar a la vista de alguien que ya no puede entrar. */
+.enlace-olvide {
+  align-self: center;
+  font: inherit; font-size: 0.8rem; font-weight: 500;
+  color: var(--ink-soft); background: transparent; border: 0;
+  padding: 0.35rem 0.5rem; border-radius: 6px; cursor: pointer;
+}
+.enlace-olvide:hover:not(:disabled) { color: var(--accent); background: var(--surface-2); }
+.enlace-olvide:disabled { opacity: 0.6; cursor: not-allowed; }
+
+.recuperado {
+  margin: 0; padding: 0.6rem 0.7rem; border-radius: 8px;
+  font-size: 0.8rem; line-height: 1.5;
+  background: var(--accent-soft); color: var(--ink);
+}

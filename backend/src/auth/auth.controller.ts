@@ -1,7 +1,7 @@
-import { Body, Controller, ForbiddenException, Get, Post, UseGuards } from '@nestjs/common';
+import { Body, Controller, ForbiddenException, Get, HttpCode, Param, Post, UseGuards } from '@nestjs/common';
 import { Throttle, ThrottlerGuard } from '@nestjs/throttler';
 import { AuthService } from './auth.service';
-import { CambiarContrasenaDto, ConfirmarMfaDto, InscripcionMfaDto, LoginDto, VerificarMfaDto } from './dto/login.dto';
+import { CambiarContrasenaDto, ConfirmarMfaDto, EstablecerContrasenaDto, InscripcionMfaDto, LoginDto, RecuperarDto, VerificarMfaDto } from './dto/login.dto';
 import { MfaService } from './mfa/mfa.service';
 import { Public } from './public.decorator';
 import { Usuario } from '../common/usuario.decorator';
@@ -71,6 +71,55 @@ export class AuthController {
   async verificar(@Body() dto: VerificarMfaDto) {
     const usuarioId = await this.mfa.verificar(dto?.reto ?? '', dto?.codigo ?? '');
     return this.auth.sesionDe(usuarioId);
+  }
+
+  // ── Activación y recuperación ───────────────────────────────────────────
+  // Los tres son públicos: quien los usa todavía no tiene sesión, y lo que lo
+  // acredita es el enlace de un solo uso que recibió en su buzón.
+
+  /**
+   * POST /api/auth/recuperar — «olvidé mi contraseña».
+   *
+   * Responde 204 SIEMPRE, exista el usuario o no, tenga correo o no. Si
+   * distinguiera, cualquiera podría averiguar qué cuentas existen probando
+   * nombres, que es el primer paso de un ataque dirigido. Y con tope de
+   * intentos, porque además sería una forma de mandar correo gratis.
+   */
+  @Public()
+  @UseGuards(ThrottlerGuard)
+  @Throttle({ default: { limit: 5, ttl: 300_000 } })
+  @HttpCode(204)
+  @Post('recuperar')
+  async recuperar(@Body() dto: RecuperarDto): Promise<void> {
+    await this.usuarios.solicitarRecuperacion(dto?.usuario ?? '');
+  }
+
+  /**
+   * GET /api/auth/activacion/:token — ¿este enlace todavía vale, y de quién es?
+   * La página lo pregunta para saludar por el nombre antes de pedir la clave,
+   * en vez de dejar que la persona escriba una contraseña y recién entonces
+   * decirle que el enlace venció.
+   */
+  @Public()
+  @UseGuards(ThrottlerGuard)
+  @Throttle({ default: { limit: 20, ttl: 60_000 } })
+  @Get('activacion/:token')
+  activacion(@Param('token') token: string) {
+    return this.usuarios.datosDeToken(token);
+  }
+
+  /** POST /api/auth/activacion/:token — el dueño del enlace fija su contraseña. */
+  @Public()
+  @UseGuards(ThrottlerGuard)
+  @Throttle({ default: { limit: 10, ttl: 60_000 } })
+  @Post('activacion/:token')
+  async establecer(@Param('token') token: string, @Body() dto: EstablecerContrasenaDto) {
+    const r = await this.usuarios.establecerPorToken(token, dto?.contrasena ?? '');
+    // La bitácora es del sistema: no hay actor autenticado, el actor es el
+    // dueño de la cuenta, que acaba de demostrar que controla su buzón.
+    await this.auditoria.registrar('plataforma', r.username, 'contrasena.activacion',
+      `«${r.username}» estableció su contraseña con un enlace de un solo uso.`);
+    return { ok: true, usuario: r.username };
   }
 
   /**

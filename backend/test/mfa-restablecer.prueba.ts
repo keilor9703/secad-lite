@@ -45,7 +45,13 @@ async function main(): Promise<number> {
     save: async (u: UsuarioEntity) => { base.set(u.id, u); return u; },
   } as unknown as Repository<UsuarioEntity>;
 
-  const servicio = new UsuariosService(repo, {} as RolesService, {} as CatalogosService);
+  // Esta prueba solo ejercita el restablecimiento del doble factor, que no
+  // toca credenciales ni correo: los dos últimos van como dobles inertes.
+  const servicio = new UsuariosService(
+    repo, {} as RolesService, {} as CatalogosService,
+    { anularVivos: async () => {} } as never,
+    { enviar: async () => ({ ok: true }) } as never,
+  );
 
   const admin = { sub: 'admin.envigado', rol: 'admin', tenant: 'envigado' } as never;
   const superadmin = { sub: 'superadmin', rol: 'superadmin', tenant: null } as never;

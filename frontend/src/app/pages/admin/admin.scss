@@ -215,3 +215,36 @@ tbody tr:last-child td { border-bottom: none; }
   color: var(--ink-soft);
 }
 
+/* Estado del correo en la lista de usuarios. */
+.col-correo { white-space: nowrap; }
+.correo-dir {
+  display: inline-block; max-width: 15rem; overflow: hidden;
+  text-overflow: ellipsis; vertical-align: middle;
+  font-size: 0.8rem; color: var(--ink-soft);
+}
+.correo-estado {
+  display: inline-block; margin-left: 0.4rem; padding: 0.1rem 0.45rem;
+  border-radius: 999px; font-size: 0.72rem; font-weight: 500;
+  background: var(--surface-2); color: var(--ink-soft);
+}
+.correo-estado--bien { background: var(--tag-ok-bg, var(--accent-soft)); color: var(--accent-deep); }
+.correo-estado--malo { background: var(--tag-danger-bg); color: var(--tag-danger-fg); }
+.correo-estado--sin { background: transparent; font-style: italic; }
+
+.campo-correo { display: flex; flex-direction: column; gap: 0.2rem; }
+
+/* El enlace de activación entregado a mano: es una credencial, así que se
+   muestra deliberadamente destacado y con su advertencia. */
+.enlace-invitacion {
+  margin-top: 0.8rem; padding: 0.8rem 0.9rem;
+  border: 1px solid var(--accent); border-radius: 10px;
+  background: var(--accent-soft);
+  display: flex; flex-direction: column; gap: 0.55rem;
+}
+.enlace-invitacion p { margin: 0; font-size: 0.82rem; line-height: 1.5; }
+.enlace-invitacion code {
+  display: block; padding: 0.5rem 0.6rem; border-radius: 8px;
+  background: var(--surface); border: 1px solid var(--border);
+  font-size: 0.74rem; word-break: break-all; user-select: all;
+}
+.enlace-acciones { display: flex; gap: 0.5rem; }

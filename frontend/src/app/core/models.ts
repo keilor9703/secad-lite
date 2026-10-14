@@ -346,6 +346,16 @@ export interface UsuarioAdmin {
   extension: string | null;
   /** Cuándo vinculó su aplicación de autenticación; null si no lo ha hecho. */
   mfaActivadoEn?: string | null;
+  /** Correo del funcionario; null en las cuentas anteriores al campo. */
+  correo?: string | null;
+  /** Con fecha, la persona usó su enlace y demostró que el buzón es suyo. */
+  correoVerificadoEn?: string | null;
+  /** Cuándo salió la última invitación. Con `correoVerificadoEn` nulo: sin activar. */
+  invitacionEnviadaEn?: string | null;
+  /** Por qué falló el último envío, si falló. */
+  invitacionError?: string | null;
+  /** El proveedor reportó que la dirección rebota. */
+  correoRebotadoEn?: string | null;
 }
 
 // --- API entrante (entidades externas) ---

@@ -98,3 +98,13 @@ export class InscripcionMfaDto {
   @IsString() @MaxLength(4000)
   reto!: string;
 }
+
+/** «Olvidé mi contraseña»: se pide por usuario, nunca por correo. */
+export class RecuperarDto {
+  usuario!: string;
+}
+
+/** El dueño del enlace elige su contraseña. */
+export class EstablecerContrasenaDto {
+  contrasena!: string;
+}

@@ -532,7 +532,17 @@
               }
             </div>
             <input formControlName="nombre" placeholder="Nombre completo" />
-            <input formControlName="contrasena" type="password" placeholder="contraseña" />
+            <div class="campo-correo">
+              <input formControlName="correo" type="email" inputmode="email" autocomplete="off"
+                placeholder="correo (recibe la invitación)"
+                title="A este correo le llega el enlace para que elija su propia contraseña." />
+              @if (correoRepetido(); as otro) {
+                <span class="username-hint">Ya la usa «{{ otro }}» · correcto solo si es un buzón compartido</span>
+              }
+            </div>
+            <input formControlName="contrasena" type="password" autocomplete="new-password"
+              placeholder="o contraseña inicial (sin correo)"
+              title="Déjela vacía si puso un correo: la persona elegirá la suya y nadie más la conocerá." />
             <app-selector formControlName="rol">
               @for (r of rolesDisponibles(); track r) {
                 <app-opcion [valor]="r">{{ r }}</app-opcion>
@@ -550,7 +560,23 @@
               <span class="ctx-tag" title="Tenant en gestión">{{ tenantCtx() || '—' }}</span>
             }
             <button type="submit" class="btn btn--primary" [disabled]="usuarioForm.invalid">Crear usuario</button>
+            <!-- La regla «correo o contraseña, al menos una» la valida crearUsuario():
+                 un formulario inválido no explica CUÁL de las dos falta. -->
           </form>
+          @if (enlaceInvitacion(); as inv) {
+            <div class="enlace-invitacion" role="status">
+              <p>
+                Enlace de activación de <strong>{{ inv.usuario }}</strong>. Sirve
+                <strong>una sola vez</strong> y vence en 72 horas; entrégueselo solo a esa persona.
+              </p>
+              <code>{{ inv.url }}</code>
+              <div class="enlace-acciones">
+                <button type="button" class="btn btn--primary mini" (click)="copiarEnlace()">Copiar</button>
+                <button type="button" class="btn btn--ghost mini" (click)="enlaceInvitacion.set(null)">Cerrar</button>
+              </div>
+            </div>
+          }
+
           <!-- Canales que atenderá: solo los de la agencia elegida. -->
           @if (usuarioForm.controls.agenciaId.value; as usuarioAgenciaId) {
             <div class="canales-pick">
@@ -571,7 +597,7 @@
 
           <div class="tbl-wrap">
             <table>
-              <thead><tr><th>Usuario</th><th>Nombre</th><th>Rol</th><th>Agencia</th><th>Canales</th><th>Extensión PBX</th><th>Tenant</th><th>Estado</th><th>Contraseña</th><th>Doble factor</th><th></th></tr></thead>
+              <thead><tr><th>Usuario</th><th>Nombre</th><th>Rol</th><th>Agencia</th><th>Canales</th><th>Extensión PBX</th><th>Tenant</th><th>Estado</th><th>Contraseña</th><th>Doble factor</th><th>Correo</th><th></th></tr></thead>
               <tbody>
                 @for (u of usuarios(); track u) {
                   <tr>
@@ -681,6 +707,30 @@
                         </button>
                       } @else {
                         <span class="mfa-estado mfa-estado--sin">Sin vincular</span>
+                      }
+                    </td>
+                    <!-- Estado del correo. Lo que el administrador necesita ver
+                         de un vistazo: quién no ha activado todavía su cuenta, y
+                         a quién no le llegó el correo. -->
+                    <td class="col-correo">
+                      @if (!u.correo) {
+                        <span class="correo-estado correo-estado--sin">Sin correo</span>
+                      } @else {
+                        <span class="correo-dir" [title]="u.correo">{{ u.correo }}</span>
+                        @if (u.correoRebotadoEn) {
+                          <span class="correo-estado correo-estado--malo">Rebota</span>
+                        } @else if (u.correoVerificadoEn) {
+                          <span class="correo-estado correo-estado--bien">Activada</span>
+                        } @else if (u.invitacionError) {
+                          <span class="correo-estado correo-estado--malo" [title]="u.invitacionError">No salió</span>
+                        } @else if (u.invitacionEnviadaEn) {
+                          <span class="correo-estado">Invitación enviada</span>
+                        }
+                        @if (!u.correoVerificadoEn) {
+                          <button type="button" class="btn btn--ghost mini" (click)="reenviarInvitacion(u)">Reenviar</button>
+                          <button type="button" class="btn btn--ghost mini" (click)="obtenerEnlace(u)"
+                            title="Genera el enlace sin enviarlo, para dictarlo o entregarlo en persona.">Enlace</button>
+                        }
                       }
                     </td>
                     <td>

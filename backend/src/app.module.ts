@@ -17,6 +17,7 @@ import { SuscripcionGuard } from './tenants/suscripcion.guard';
 import { RolesModule } from './roles/roles.module';
 import { CatalogosModule } from './catalogos/catalogos.module';
 import { CasosModule } from './casos/casos.module';
+import { CredencialesModule } from './credenciales/credenciales.module';
 import { UsuariosModule } from './usuarios/usuarios.module';
 import { MetricasModule } from './metricas/metricas.module';
 import { TenantsModule } from './tenants/tenants.module';
@@ -101,6 +102,7 @@ import { PlataformaModule } from './plataforma/plataforma.module';
       },
     }),
     CommonModule,
+    CredencialesModule,
     UsuariosModule,
     TenantsModule,
     RolesModule,

@@ -2,9 +2,14 @@ import { BadRequestException, ConflictException, ForbiddenException, Injectable,
 import { InjectRepository } from '@nestjs/typeorm';
 import { IsNull, Repository } from 'typeorm';
 import * as bcrypt from 'bcryptjs';
+import { randomBytes } from 'node:crypto';
 import { UsuarioEntity } from './usuario.entity';
 import { RolesService } from '../roles/roles.service';
 import { CatalogosService } from '../catalogos/catalogos.service';
+import { CredencialesService, HORAS_INVITACION, HORAS_RECUPERACION } from '../credenciales/credenciales.service';
+import { TipoCredencial } from '../credenciales/credencial-token.entity';
+import { CorreoService } from '../correo/correo.service';
+import { plantillaInvitacion, plantillaRecuperacion } from '../correo/plantillas';
 
 /** Contexto del actor autenticado (subconjunto del JWT). */
 export interface Actor {
@@ -35,12 +40,30 @@ export interface UsuarioDto {
    * administrador si tiene algo que restablecer antes de pulsar el botón.
    */
   mfaActivadoEn: Date | null;
+  /** Correo del funcionario; null en las cuentas anteriores al campo. */
+  correo: string | null;
+  /** Con fecha, la persona demostró que el buzón es suyo al usar un enlace. */
+  correoVerificadoEn: Date | null;
+  /** Cuándo salió la última invitación. Con `correoVerificadoEn` nulo: pendiente de activar. */
+  invitacionEnviadaEn: Date | null;
+  /** Por qué falló el último envío, si falló. Lo ve el administrador en la lista. */
+  invitacionError: string | null;
+  /** El proveedor reportó que la dirección rebota. */
+  correoRebotadoEn: Date | null;
 }
 
 export interface CrearUsuarioDto {
   username: string;
   nombre: string;
-  contrasena: string;
+  /**
+   * Contraseña inicial. OPCIONAL: el camino recomendado es dejarla vacía y
+   * dar un `correo`, para que la persona elija la suya por invitación. Una
+   * contraseña que un administrador inventa la conocen dos personas, y la de
+   * la segunda suele viajar por WhatsApp.
+   */
+  contrasena?: string;
+  /** A dónde va la invitación. Sin esto o sin `contrasena`, no se puede crear. */
+  correo?: string | null;
   rol: string;
   tenant?: string;
   agenciaId?: string | null;
@@ -51,6 +74,7 @@ export interface CrearUsuarioDto {
 
 export interface ActualizarUsuarioDto {
   nombre?: string;
+  correo?: string | null;
   rol?: string;
   activo?: boolean;
   contrasena?: string;
@@ -76,6 +100,8 @@ export class UsuariosService implements OnModuleInit {
     private readonly repo: Repository<UsuarioEntity>,
     private readonly roles: RolesService,
     private readonly catalogos: CatalogosService,
+    private readonly credenciales: CredencialesService,
+    private readonly correo: CorreoService,
   ) {}
 
   async onModuleInit(): Promise<void> {
@@ -153,10 +179,19 @@ export class UsuariosService implements OnModuleInit {
 
   async crear(actor: Actor, dto: CrearUsuarioDto): Promise<UsuarioDto> {
     const username = dto.username?.trim().toLowerCase();
-    if (!username || !dto.contrasena || !dto.nombre?.trim()) {
-      throw new BadRequestException('Usuario, nombre y contraseña son obligatorios.');
+    if (!username || !dto.nombre?.trim()) {
+      throw new BadRequestException('Usuario y nombre son obligatorios.');
     }
-    this.validarContrasena(dto.contrasena);
+    const correo = normalizarCorreo(dto.correo);
+    // Una de las dos, no ninguna: o la persona recibe una invitación para
+    // elegir su clave, o el administrador pone una inicial. Sin ninguna, la
+    // cuenta nacería sin forma de entrar.
+    if (!correo && !dto.contrasena) {
+      throw new BadRequestException(
+        'Indique un correo para enviarle la invitación, o una contraseña inicial.',
+      );
+    }
+    if (dto.contrasena) this.validarContrasena(dto.contrasena);
     const { rol, tenant } = await this.resolverAmbito(actor, dto.rol, dto.tenant);
 
     // Único en TODA la plataforma: si "carlos" ya existe en otro secad, no
@@ -175,9 +210,16 @@ export class UsuariosService implements OnModuleInit {
       this.repo.create({
         username,
         nombre: dto.nombre.trim(),
-        passwordHash: await bcrypt.hash(dto.contrasena, 10),
+        // Sin contraseña inicial queda un hash de 32 bytes aleatorios que
+        // nadie conoce: la columna sigue siendo NOT NULL y la cuenta existe,
+        // pero no hay ninguna cadena que abra esa sesión. La única puerta es
+        // el enlace de invitación.
+        passwordHash: dto.contrasena
+          ? await bcrypt.hash(dto.contrasena, 10)
+          : await bcrypt.hash(randomBytes(32).toString('hex'), 10),
         rol,
         tenant,
+        correo,
         agenciaId,
         canales,
         extension,
@@ -185,7 +227,129 @@ export class UsuariosService implements OnModuleInit {
         activo: true,
       }),
     );
-    return this.aDto(u);
+
+    // El envío va después de guardar y NO puede tumbar el alta: si Brevo está
+    // caído, la cuenta existe igual y el administrador ve el error y puede
+    // pedir el enlace para pasarlo por otra vía.
+    if (correo) await this.emitirYEnviar(u, 'invitacion', actor.sub);
+
+    return this.aDto(await this.repo.findOneOrFail({ where: { id: u.id } }));
+  }
+
+  // ── Invitación y recuperación ──────────────────────────────────────────────
+
+  /**
+   * Emite un enlace de un solo uso y lo manda al correo de la cuenta.
+   *
+   * No lanza: devuelve qué pasó. El enlace se devuelve SOLO cuando el envío
+   * falló — si el correo salió, el administrador no necesita tener en la mano
+   * una credencial que acabaría reenviada por WhatsApp. Para el caso del
+   * servidor que acepta el correo y lo descarta en silencio está la acción
+   * explícita de pedir el enlace sin enviarlo (`invitar` con `enviar: false`).
+   */
+  private async emitirYEnviar(
+    u: UsuarioEntity, tipo: TipoCredencial, creadoPor: string | null,
+  ): Promise<{ ok: boolean; enlace?: string; error?: string }> {
+    if (!u.correo) return { ok: false, error: 'La cuenta no tiene correo registrado.' };
+
+    const { token } = await this.credenciales.emitir(u.id, tipo, creadoPor);
+    const enlace = enlaceDe(token);
+    const horas = tipo === 'invitacion' ? HORAS_INVITACION : HORAS_RECUPERACION;
+    const plantilla = tipo === 'invitacion'
+      ? plantillaInvitacion(u.nombre, u.username, enlace, horas)
+      : plantillaRecuperacion(u.nombre, u.username, enlace, horas);
+
+    const r = await this.correo.enviar({ ...plantilla, para: u.correo });
+
+    u.invitacionEnviadaEn = new Date();
+    u.invitacionError = r.ok ? null : (r.error ?? 'No se pudo enviar.');
+    await this.repo.save(u);
+
+    return r.ok ? { ok: true } : { ok: false, enlace, error: u.invitacionError ?? undefined };
+  }
+
+  /**
+   * Un administrador reenvía la invitación, o pide el enlace sin enviarlo.
+   * Emitir uno nuevo anula el anterior: nunca quedan dos enlaces vivos.
+   */
+  async invitar(
+    actor: Actor, id: string, enviar = true,
+  ): Promise<{ username: string; tenant: string | null; ok: boolean; enlace?: string; error?: string }> {
+    const u = await this.repo.findOne({ where: { id } });
+    if (!u) throw new NotFoundException('Usuario no encontrado.');
+    if (actor.rol !== 'superadmin' && u.tenant !== actor.tenant) {
+      throw new ForbiddenException('No puede gestionar usuarios de otro tenant.');
+    }
+    if (!u.correo) {
+      throw new BadRequestException('La cuenta no tiene correo. Regístrele uno antes de invitarla.');
+    }
+
+    if (!enviar) {
+      // El administrador se lleva el enlace para entregarlo en persona o por
+      // radio. Queda en la bitácora porque es, literalmente, entregar una llave.
+      const { token } = await this.credenciales.emitir(u.id, 'invitacion', actor.sub);
+      return { username: u.username, tenant: u.tenant ?? null, ok: true, enlace: enlaceDe(token) };
+    }
+
+    const r = await this.emitirYEnviar(u, 'invitacion', actor.sub);
+    return { username: u.username, tenant: u.tenant ?? null, ...r };
+  }
+
+  /**
+   * Autoservicio: «olvidé mi contraseña». Se pide por USERNAME, no por correo
+   * —así no hay que decidir a qué cuenta pertenece una dirección compartida— y
+   * no devuelve nada: quien pregunta no debe poder averiguar si un usuario
+   * existe, ni si tiene correo registrado.
+   */
+  async solicitarRecuperacion(username: string): Promise<void> {
+    if (!String(username ?? '').trim()) return;
+    const candidatos = await this.buscarActivosPorUsername(username);
+    for (const u of candidatos) {
+      if (u.correo) await this.emitirYEnviar(u, 'recuperacion', 'autoservicio');
+    }
+  }
+
+  /** Qué cuenta abre este enlace, para que la página salude antes de pedir la clave. */
+  async datosDeToken(token: string): Promise<{ username: string; nombre: string; tipo: TipoCredencial }> {
+    const fila = await this.credenciales.validar(token);
+    const u = fila ? await this.repo.findOne({ where: { id: fila.usuarioId, activo: true } }) : null;
+    if (!fila || !u) throw new NotFoundException('El enlace no es válido, ya se usó o venció.');
+    return { username: u.username, nombre: u.nombre, tipo: fila.tipo };
+  }
+
+  /**
+   * El dueño del enlace elige su contraseña. Consumir el token es lo que
+   * VERIFICA el correo: solo quien abre ese buzón pudo llegar hasta aquí.
+   */
+  async establecerPorToken(token: string, contrasena: string): Promise<{ username: string }> {
+    this.validarContrasena(contrasena ?? '');
+    const fila = await this.credenciales.consumir(token);
+    if (!fila) throw new NotFoundException('El enlace no es válido, ya se usó o venció.');
+
+    const u = await this.repo.findOne({ where: { id: fila.usuarioId, activo: true } });
+    if (!u) throw new NotFoundException('El enlace no es válido, ya se usó o venció.');
+
+    u.passwordHash = await bcrypt.hash(contrasena, 10);
+    u.correoVerificadoEn = new Date();
+    u.invitacionError = null;
+    u.correoRebotadoEn = null;
+    u.correoRebotadoMotivo = null;
+    await this.repo.save(u);
+
+    // Cualquier otro enlace vivo de esta cuenta muere aquí.
+    await this.credenciales.anularVivos(u.id);
+    return { username: u.username };
+  }
+
+  /** El proveedor avisó que la dirección rebota. Lo ve el administrador en la lista. */
+  async registrarRebote(correo: string, motivo: string): Promise<number> {
+    const valor = normalizarCorreo(correo);
+    if (!valor) return 0;
+    const r = await this.repo.update(
+      { correo: valor },
+      { correoRebotadoEn: new Date(), correoRebotadoMotivo: (motivo ?? '').slice(0, 300) },
+    );
+    return r.affected ?? 0;
   }
 
   /**
@@ -241,6 +405,20 @@ export class UsuariosService implements OnModuleInit {
     if (dto.contrasena) {
       this.validarContrasena(dto.contrasena);
       u.passwordHash = await bcrypt.hash(dto.contrasena, 10);
+      // La clave cambió por otra vía: cualquier enlace de activación o de
+      // recuperación que anduviera por un buzón deja de valer ahora.
+      await this.credenciales.anularVivos(u.id);
+    }
+    if (dto.correo !== undefined) {
+      const nuevo = normalizarCorreo(dto.correo);
+      if (nuevo !== (u.correo ?? null)) {
+        // Dirección distinta: lo que se hubiera verificado era de la anterior.
+        u.correo = nuevo;
+        u.correoVerificadoEn = null;
+        u.correoRebotadoEn = null;
+        u.correoRebotadoMotivo = null;
+        await this.credenciales.anularVivos(u.id);
+      }
     }
     if (dto.agenciaId !== undefined || dto.canales !== undefined) {
       const adscripcion = await this.resolverAdscripcion(
@@ -288,6 +466,9 @@ export class UsuariosService implements OnModuleInit {
     this.validarContrasena(nueva ?? '');
     u.passwordHash = await bcrypt.hash(nueva, 10);
     await this.repo.save(u);
+    // Quien ya entró y cambió su clave no debe dejar atrás un enlace de
+    // recuperación vivo en su buzón.
+    await this.credenciales.anularVivos(u.id);
     return { ok: true };
   }
 
@@ -398,6 +579,11 @@ export class UsuariosService implements OnModuleInit {
       extension: u.extension ?? null,
       whatsappHandle: u.whatsappHandle ?? null,
       mfaActivadoEn: u.mfaActivadoEn ?? null,
+      correo: u.correo ?? null,
+      correoVerificadoEn: u.correoVerificadoEn ?? null,
+      invitacionEnviadaEn: u.invitacionEnviadaEn ?? null,
+      invitacionError: u.invitacionError ?? null,
+      correoRebotadoEn: u.correoRebotadoEn ?? null,
     };
   }
 
@@ -452,4 +638,28 @@ export class UsuariosService implements OnModuleInit {
       this.logger.warn(`Seed de usuarios demo omitido: ${(e as Error).message}`);
     }
   }
+}
+
+/**
+ * Normaliza una dirección: recortada y en minúsculas, o null. Los correos no
+ * distinguen mayúsculas en la práctica, y guardar `Juan@X.CO` hace que el
+ * rebote y la búsqueda no encuentren la fila.
+ */
+function normalizarCorreo(valor: string | null | undefined): string | null {
+  const v = String(valor ?? '').trim().toLowerCase();
+  if (!v) return null;
+  if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(v)) {
+    throw new BadRequestException('El correo no tiene una forma válida.');
+  }
+  return v;
+}
+
+/**
+ * El enlace que va en el correo. `URL_PUBLICA` es el origen desde el que la
+ * gente abre FALCON; sin ella el enlace sale relativo y no sirve en un correo,
+ * así que se avisa al construirlo en vez de mandar algo roto.
+ */
+function enlaceDe(token: string): string {
+  const base = (process.env.URL_PUBLICA ?? '').replace(/\/+$/, '');
+  return `${base}/activar/${token}`;
 }

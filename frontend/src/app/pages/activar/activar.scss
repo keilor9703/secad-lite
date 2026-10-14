@@ -1,0 +1,56 @@
+/* Mismo fondo y mismas medidas que el inicio de sesión: es la otra puerta de
+   entrada al sistema y tiene que reconocerse como tal. */
+.activar {
+  min-height: 100vh;
+  display: flex; align-items: center; justify-content: center;
+  padding: 1.5rem;
+  background:
+    radial-gradient(1100px 500px at 50% -10%, var(--accent-soft), transparent 60%),
+    var(--bg);
+}
+.activar-card {
+  width: 100%; max-width: 420px;
+  padding: 1.8rem 1.7rem 1.6rem;
+  display: flex; flex-direction: column; gap: 1.1rem;
+}
+
+.brand { display: flex; align-items: center; gap: 0.8rem; }
+.brand-mark {
+  width: 44px; height: 44px; flex: none;
+  display: grid; place-items: center;
+  border-radius: 12px; background: var(--accent-soft);
+}
+.brand-texto { display: flex; flex-direction: column; line-height: 1.2; }
+.brand-texto strong { font-size: 1.05rem; letter-spacing: 0.01em; }
+.brand-texto strong span { color: var(--accent); }
+.brand-texto small { font-size: 0.74rem; color: var(--ink-soft); }
+
+h1 { margin: 0; font-size: 1.15rem; font-weight: 600; }
+.intro { margin: 0; font-size: 0.88rem; line-height: 1.55; color: var(--ink-soft); }
+.estado { margin: 0; font-size: 0.88rem; color: var(--ink-soft); }
+
+form { display: flex; flex-direction: column; gap: 0.9rem; }
+
+.con-ojo { position: relative; display: flex; }
+.con-ojo input { padding-right: 4.4rem; }
+.ojo {
+  position: absolute; right: 0.45rem; top: 50%; transform: translateY(-50%);
+  font: inherit; font-size: 0.76rem; font-weight: 500;
+  color: var(--accent); background: transparent; border: 0;
+  padding: 0.3rem 0.45rem; border-radius: 6px; cursor: pointer;
+}
+.ojo:hover { background: var(--surface-2); }
+
+.pista { margin: 0; font-size: 0.75rem; color: var(--ink-soft); }
+.pista--mala { color: var(--tag-danger-fg); }
+.error {
+  margin: 0; padding: 0.5rem 0.65rem; border-radius: 8px;
+  font-size: 0.82rem;
+  background: var(--tag-danger-bg); color: var(--tag-danger-fg);
+}
+
+.aviso { display: flex; flex-direction: column; gap: 0.5rem; }
+.aviso p { margin: 0; font-size: 0.88rem; line-height: 1.55; color: var(--ink-soft); }
+.aviso--malo h1 { color: var(--tag-danger-fg); }
+
+.btn--ancho { width: 100%; justify-content: center; margin-top: 0.2rem; }

@@ -71,6 +71,31 @@ export class UsuariosController {
     };
   }
 
+  /**
+   * POST /api/usuarios/:id/invitacion — reenvía la invitación, o devuelve el
+   * enlace sin enviarlo (`{ "enviar": false }`) para entregarlo en persona
+   * cuando el correo del municipio descarta los mensajes en silencio.
+   *
+   * Emitir uno nuevo anula el anterior: nunca quedan dos enlaces vivos.
+   */
+  @Post(':id/invitacion')
+  async invitacion(
+    @Usuario() actor: JwtPayload, @Param('id') id: string, @Body() body: { enviar?: boolean },
+  ) {
+    const enviar = body?.enviar !== false;
+    const r = await this.usuarios.invitar(actor, id, enviar);
+    await this.auditoria.registrar(
+      r.tenant ?? 'plataforma', actor.sub,
+      enviar ? 'usuario.invitacion_enviar' : 'usuario.invitacion_enlace',
+      enviar
+        ? `Reenvió la invitación de «${r.username}»${r.ok ? '.' : ` (falló: ${r.error}).`}`
+        : `Obtuvo el enlace de activación de «${r.username}» para entregarlo por otra vía.`,
+    );
+    // El enlace solo viaja de vuelta cuando el administrador lo pidió, o
+    // cuando el envío falló y es la única forma de desbloquear a la persona.
+    return { ok: r.ok, enlace: r.enlace, error: r.error };
+  }
+
   @Patch(':id')
   async actualizar(@Usuario() actor: JwtPayload, @Param('id') id: string, @Body() dto: ActualizarUsuarioDto) {
     const u = await this.usuarios.actualizar(actor, id, dto);

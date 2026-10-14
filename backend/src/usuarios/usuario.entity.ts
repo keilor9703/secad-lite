@@ -73,6 +73,60 @@ export class UsuarioEntity {
   @Column({ type: 'varchar', length: 80, nullable: true })
   whatsappHandle?: string | null;
 
+  // ── Correo ──────────────────────────────────────────────────────────────
+
+  /**
+   * Correo del funcionario. A dónde va su invitación para elegir contraseña,
+   * y por dónde recupera el acceso cuando la olvida en un turno de noche.
+   *
+   * NO lleva restricción de unicidad, a propósito. Hay municipios pequeños
+   * donde una oficina entera comparte un solo buzón institucional, y no hay
+   * nada que proteger exigiendo unicidad: la recuperación se pide por
+   * USERNAME, no por correo, así que nunca hay dos cuentas que disputen un
+   * mismo enlace. La interfaz sí avisa si la dirección ya está en uso, para
+   * que un error de digitación no pase inadvertido.
+   *
+   * Nulo en las cuentas creadas antes de que existiera el campo.
+   */
+  @Column({ type: 'varchar', length: 200, nullable: true })
+  correo?: string | null;
+
+  /**
+   * Cuándo se comprobó que la dirección existe y es de esta persona. Se marca
+   * al usar un enlace de activación o de recuperación: el único que puede
+   * usarlo es quien abre ese buzón.
+   *
+   * Un correo escrito por un administrador y nunca verificado no sirve como
+   * identidad — un dedo de más en el teclado manda la invitación a un
+   * desconocido. Hasta que esto tenga fecha, la dirección es una suposición.
+   */
+  @Column({ type: 'timestamptz', nullable: true })
+  correoVerificadoEn?: Date | null;
+
+  /** Última vez que el proveedor de correo reportó que la dirección rebota. */
+  @Column({ type: 'timestamptz', nullable: true })
+  correoRebotadoEn?: Date | null;
+
+  /** Qué dijo el proveedor al rebotar, para que el administrador sepa qué corregir. */
+  @Column({ type: 'varchar', length: 300, nullable: true })
+  correoRebotadoMotivo?: string | null;
+
+  /**
+   * Cuándo salió la última invitación. Con `correoVerificadoEn` en nulo, le
+   * dice al administrador que la cuenta existe pero nadie la ha activado.
+   */
+  @Column({ type: 'timestamptz', nullable: true })
+  invitacionEnviadaEn?: Date | null;
+
+  /**
+   * Por qué falló el último envío, si falló. Crear la cuenta NUNCA se aborta
+   * porque el proveedor de correo esté caído: el alta se completa, el error
+   * queda aquí, y el administrador puede copiar el enlace y pasarlo por otra
+   * vía. Un alta bloqueada por un tercero es inaceptable en un CAD.
+   */
+  @Column({ type: 'varchar', length: 300, nullable: true })
+  invitacionError?: string | null;
+
   @Column({ type: 'boolean', default: true })
   activo!: boolean;
 

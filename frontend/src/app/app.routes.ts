@@ -28,6 +28,14 @@ export const routes: Routes = [
     loadComponent: () =>
       import('./pages/video-ciudadano/video-ciudadano').then((m) => m.VideoCiudadanoComponent),
   },
+  // Elegir la contraseña propia con un enlace de un solo uso. Va fuera del
+  // layout autenticado, como la del ciudadano: a quien la abre no lo acredita
+  // una sesión sino el enlace que le llegó a su buzón — de hecho, su cuenta
+  // puede no tener todavía ninguna contraseña con la que entrar.
+  {
+    path: 'activar/:token',
+    loadComponent: () => import('./pages/activar/activar').then((m) => m.ActivarComponent),
+  },
   {
     path: '',
     loadComponent: () => import('./layout/shell/shell').then((m) => m.ShellComponent),

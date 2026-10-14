@@ -7,7 +7,13 @@ import { Tenant, UsuarioAdmin } from './models';
 export interface CrearUsuario {
   username: string;
   nombre: string;
-  contrasena: string;
+  /**
+   * Contraseña inicial. Se deja vacía en el camino normal: con `correo`, la
+   * persona recibe una invitación y elige la suya, y nadie más la conoce.
+   */
+  contrasena?: string;
+  /** A dónde va la invitación. Sin esto o sin contraseña, el backend rechaza. */
+  correo?: string | null;
   /** Código del rol (dinámico por tenant). */
   rol: string;
   tenant?: string;
@@ -73,7 +79,16 @@ export class AdminService {
     return this.http.patch<UsuarioAdmin>(`${this.base}/usuarios/${id}`, { agenciaId, canales });
   }
   /** Nombre, agencia y canales en un solo PATCH — la edición completa de una cuenta ya creada. */
-  editarUsuario(id: string, cambios: { nombre?: string; agenciaId?: string | null; canales?: string[] }): Observable<UsuarioAdmin> {
+  /**
+   * Reenvía la invitación, o pide el enlace sin enviarlo para entregarlo por
+   * otra vía cuando el correo del municipio lo descarta en silencio.
+   */
+  invitarUsuario(id: string, enviar = true): Observable<{ ok: boolean; enlace?: string; error?: string }> {
+    return this.http.post<{ ok: boolean; enlace?: string; error?: string }>(
+      `${this.base}/usuarios/${id}/invitacion`, { enviar });
+  }
+
+  editarUsuario(id: string, cambios: { nombre?: string; correo?: string | null; agenciaId?: string | null; canales?: string[] }): Observable<UsuarioAdmin> {
     return this.http.patch<UsuarioAdmin>(`${this.base}/usuarios/${id}`, cambios);
   }
   cambiarRol(id: string, rol: string): Observable<UsuarioAdmin> {

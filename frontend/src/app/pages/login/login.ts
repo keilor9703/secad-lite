@@ -1,3 +1,4 @@
+import { HttpClient } from '@angular/common/http';
 import { ChangeDetectionStrategy, Component, computed, inject, signal, viewChild } from '@angular/core';
 
 import { FormControl, FormGroup, ReactiveFormsModule, Validators } from '@angular/forms';
@@ -9,6 +10,7 @@ import { ToastComponent } from '../../shared/toast/toast';
 import { MfaModalComponent } from './mfa/mfa-modal';
 import { CodigoCasillasComponent } from './mfa/codigo-casillas';
 import { MfaService } from '../../core/mfa.service';
+import { environment } from '../../../environments/environment';
 import { RetoMfa, esRetoMfa } from '../../core/mfa.service';
 import { Sesion } from '../../core/models';
 
@@ -30,6 +32,7 @@ export class LoginComponent {
   private mfa = inject(MfaService);
   private router = inject(Router);
   private route = inject(ActivatedRoute);
+  private http = inject(HttpClient);
 
   readonly form = new FormGroup({
     usuario: new FormControl('', { nonNullable: true, validators: [Validators.required] }),
@@ -58,6 +61,34 @@ export class LoginComponent {
   readonly verificando = signal(false);
   /** Se desvanece la tarjeta antes de entrar, para que el salto no sea brusco. */
   readonly saliendo = signal(false);
+
+  // ── «Olvidé mi contraseña» ────────────────────────────────────────────────
+  // Hoy el único camino es despertar a un administrador para que la
+  // restablezca a mano. Esto lo reemplaza, y de paso quita de la mesa de
+  // ayuda el ticket más frecuente que existe.
+
+  readonly recuperando = signal(false);
+  readonly recuperado = signal(false);
+
+  /**
+   * Pide el enlace. La respuesta es la MISMA exista la cuenta o no: si
+   * distinguiera, cualquiera podría averiguar qué usuarios existen probando
+   * nombres, que es el primer paso de un ataque dirigido.
+   */
+  recuperar(): void {
+    const usuario = this.form.controls.usuario.value?.trim();
+    if (!usuario) {
+      this.error.set('Escriba su usuario y vuelva a pulsar «Olvidé mi contraseña».');
+      return;
+    }
+    this.recuperando.set(true);
+    this.error.set('');
+    this.http.post(`${environment.apiBaseUrl}/auth/recuperar`, { usuario }).subscribe({
+      next: () => { this.recuperando.set(false); this.recuperado.set(true); },
+      // Tampoco un fallo del servidor debe delatar nada: se dice lo mismo.
+      error: () => { this.recuperando.set(false); this.recuperado.set(true); },
+    });
+  }
 
   private readonly casillas = viewChild(CodigoCasillasComponent);
 
