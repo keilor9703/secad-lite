@@ -235,7 +235,7 @@
 }
 .chip--todos:hover { border-color: var(--accent); color: var(--accent); }
 .chip--todos.on { border-style: solid; border-color: var(--accent); color: var(--accent); }
-.cuenta { font-size: var(--texto-xs); font-weight: 700; background: var(--accent); color: var(--on-accent, #fff); border-radius: 999px; padding: 0.05rem 0.4rem; }
+.cuenta { font-size: var(--texto-xs); font-weight: 700; background: var(--accent); color: var(--on-accent); border-radius: 999px; padding: 0.05rem 0.4rem; }
 
 .sug {
   font-size: var(--texto-2xs);

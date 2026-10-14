@@ -352,7 +352,7 @@
   color: var(--ink);
   text-align: left;
 
-  &:focus-visible { outline: 2px solid var(--accent); outline-offset: 3px; }
+  &:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
 }
 
 .vll-chevron { color: var(--muted); }

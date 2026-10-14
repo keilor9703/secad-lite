@@ -29,7 +29,7 @@
   accent-color: var(--accent);
 }
 .sev-op input[type='radio']:focus { box-shadow: none; }
-.sev-op:focus-within { outline: 2px solid var(--accent); outline-offset: 1px; }
+.sev-op:focus-within { outline: 2px solid var(--accent); outline-offset: 2px; }
 .sev-cuerpo { display: flex; flex-direction: column; gap: 0.1rem; min-width: 0; }
 .sev-tit { font-size: var(--texto-base); }
 .sev-tit strong { margin-right: 0.35rem; color: var(--accent); }
@@ -49,7 +49,7 @@ textarea {
   border: 1px solid var(--border); background: var(--surface); color: var(--ink);
   resize: vertical;
 }
-textarea:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
+textarea:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
 .pista { margin: 0.1rem 0 0; font-size: var(--texto-xs); color: var(--ink-soft); }
 
 /* Contexto técnico: a la vista si se pide, nunca oculto por diseño. */

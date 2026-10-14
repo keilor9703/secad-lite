@@ -22,6 +22,7 @@
   --accent-soft:#0d3340;
   --on-accent: #04222b;
   --danger:    #e8776b;
+  --on-danger: #2a0f0c;
   --warn:      #e0973f;
   --ok:        #3fd3e2;
   --shadow: 0 1px 2px rgba(0,0,0,0.3), 0 8px 24px rgba(0,0,0,0.35);
@@ -84,6 +85,9 @@
   --accent-soft:#e1f4f8;
   --on-accent: #ffffff;
   --danger:    #b4342a;
+  /* Texto encima de --danger: en claro el rojo es oscuro y pide blanco; en
+     oscuro es claro y pide tinta. Lo comprueba scripts/contraste.mjs. */
+  --on-danger: #ffffff;
   --warn:      #9d5d09;
   --ok:        #0a7285;
 

@@ -128,6 +128,9 @@ function pares(t) {
   // Y de fondo, con --on-accent encima: el botón primario.
   añadir('on-accent sobre accent (botón primario)', t['on-accent'], t.accent);
   añadir('on-accent sobre accent-deep (botón primario, hover)', t['on-accent'], t['accent-deep']);
+  // La insignia de llamadas timbrando: fondo --danger con --on-danger encima.
+  // Es la que no puede pasar inadvertida, así que tampoco puede leerse mal.
+  añadir('on-danger sobre danger (insignia de alarma)', t['on-danger'], t.danger);
 
   // Las cinco etiquetas de estado, cada una contra su propio fondo.
   for (const fam of ['info', 'warn', 'ok', 'teal', 'danger']) {

@@ -244,7 +244,7 @@
 .nav-velo { position: fixed; inset: 0; z-index: 15; background: transparent; }
 .ring-badge {
   display: inline-grid; place-items: center; min-width: 18px; height: 18px; padding: 0 5px;
-  background: #e5484d; color: #fff; border-radius: 999px; font-size: var(--texto-xs); font-weight: 700;
+  background: var(--danger); color: var(--on-danger); border-radius: var(--radius-pill); font-size: var(--texto-xs); font-weight: 700;
   animation: ringpulse 1.2s ease-in-out infinite;
 }
 @keyframes ringpulse { 0%,100% { transform: scale(1); } 50% { transform: scale(1.18); } }
@@ -309,7 +309,7 @@
   transition: background 0.15s ease, color 0.15s ease;
 }
 .accion:hover { background: var(--surface-2); color: var(--ink); }
-.accion:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
+.accion:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
 .accion--salir { padding-right: 0.75rem; }
 .accion--salir:hover { background: var(--tag-danger-bg); color: var(--tag-danger-fg); }
 
