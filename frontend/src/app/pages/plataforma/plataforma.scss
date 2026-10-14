@@ -1,38 +1,8 @@
 .plat { display: flex; flex-direction: column; gap: 1rem; }
-.plat-head h1 { margin: 0; font-size: 1.35rem; font-weight: 600; letter-spacing: -0.02em; }
-.plat-head p { margin: 0.2rem 0 0; color: var(--muted); font-size: 0.85rem; }
 .error { color: var(--danger); margin: 0; }
 
 /* Mismo patrón que las pestañas de Administración (admin.scss): una sola
    forma de cambiar de sección en todo el sistema. */
-.plat-tabs {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 0.2rem;
-  border-bottom: 1px solid var(--border);
-  overflow-x: auto;
-}
-.plat-tabs button {
-  font: inherit;
-  font-weight: 500;
-  font-size: 0.86rem;
-  cursor: pointer;
-  border: none;
-  background: transparent;
-  color: var(--muted);
-  padding: 0.6rem 0.9rem;
-  display: inline-flex;
-  align-items: center;
-  gap: 0.35rem;
-  white-space: nowrap;
-  border-bottom: 2px solid transparent;
-  margin-bottom: -1px;
-  transition: color 0.15s ease, border-color 0.15s ease;
-}
-.plat-tabs button .ico { font-size: 0.95rem; }
-.plat-tabs button:hover { color: var(--ink-soft); }
-.plat-tabs button.activa { color: var(--accent); border-bottom-color: var(--accent); }
-.plat-tabs button:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
 
 /* El panel de cada pestaña hereda la separación que antes daba .plat */
 [role='tabpanel'] { display: flex; flex-direction: column; gap: 1rem; }
@@ -43,9 +13,6 @@
        padding: 0.8rem 1rem; display: flex; flex-direction: column; }
 .kpi .n { font-size: 1.6rem; font-weight: 700; color: var(--accent); }
 .kpi .l { font-size: 0.72rem; text-transform: uppercase; letter-spacing: 0.06em; color: var(--muted); }
-
-.panel, .tenant { padding: 1.1rem 1.2rem; display: flex; flex-direction: column; gap: 0.7rem; }
-.panel h2, .tenant h2 { margin: 0; font-size: 1.05rem; }
 .hint { margin: 0; color: var(--muted); font-size: 0.85rem; }
 .crear-inline { display: flex; gap: 0.5rem; flex-wrap: wrap; }
 .crear-inline input { width: auto; flex: 1; min-width: 160px; }

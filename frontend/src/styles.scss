@@ -420,7 +420,15 @@ body.desp-ancho .content { max-width: none; }
    rediseño encubierto. Cada módulo lo adopta cuando le toca su migración. */
 .panel { padding: var(--pad-tarjeta); min-width: 0; }
 .panel--col { display: flex; flex-direction: column; gap: var(--esp-3); }
-.panel--col > h2 { margin: 0; font-size: var(--texto-md); font-weight: 600; }
+/* El título de sección de una tarjeta. Había SEIS tamaños para esto —0,95,
+   1,02, 1,05, 1, 1,15 y 1,25rem— según el módulo. Va en flex porque casi todos
+   llevan ahora un icono delante. */
+.panel h2 {
+  margin: 0; font-size: var(--texto-md); font-weight: 600;
+  display: flex; align-items: center; gap: var(--esp-2); flex-wrap: wrap;
+}
+/* Sin disposición vertical el `h2` necesita su propio aire por debajo. */
+.panel:not(.panel--col) > h2 { margin-bottom: var(--esp-3); }
 
 /* --- Pestañas (había 3 copias idénticas y una cuarta distinta) --------------
    Subrayado, no pastilla: es navegación dentro de la pantalla, y la pastilla
@@ -430,7 +438,9 @@ body.desp-ancho .content { max-width: none; }
   border-bottom: 1px solid var(--border); overflow-x: auto;
 }
 .pestanas button {
-  font: inherit; font-weight: 500; font-size: var(--texto-md); cursor: pointer;
+  // Cuerpo de texto, no título: la etiqueta de una pestaña es navegación y
+  // tiene que pesar lo mismo que el resto de la interfaz.
+  font: inherit; font-weight: 500; font-size: var(--texto-base); cursor: pointer;
   border: none; background: transparent; color: var(--muted);
   padding: var(--esp-2) var(--esp-3);
   display: inline-flex; align-items: center; gap: var(--esp-1); white-space: nowrap;

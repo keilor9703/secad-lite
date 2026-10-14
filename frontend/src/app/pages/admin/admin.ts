@@ -15,7 +15,7 @@ import { ToastService } from '../../shared/toast/toast.service';
 import { ConfirmService } from '../../shared/confirm/confirm.service';
 import { SelectorComponent } from '../../shared/selector/selector';
 import { OpcionComponent } from '../../shared/selector/opcion';
-import { IconoComponent } from '../../shared/icono/icono';
+import { IconoComponent, NombreIcono } from '../../shared/icono/icono';
 import {
   Agencia, CanalAtencion, CodigoCaso, CtiConfig, EntidadExterna, ModuloPermisos, PbxConfig, PermisoDef, PrioridadCaso,
   RemisionConfig, RolTenant, Tenant, TipoAgencia, UsuarioAdmin, WhatsappConfig,
@@ -33,7 +33,7 @@ const CLAVES_TRANSVERSALES = ['pbx.usar', 'whatsapp.responder'];
 interface PestanaAdmin {
   id: string;
   etiqueta: string;
-  icono: string;
+  icono: NombreIcono;
 }
 
 @Component({
@@ -106,10 +106,10 @@ export class AdminComponent implements OnInit {
    */
   readonly pestanas = computed<PestanaAdmin[]>(() => {
     const p: PestanaAdmin[] = [];
-    if (this.puedeVerMatriz()) p.push({ id: 'roles', etiqueta: 'Roles y permisos', icono: '🛡️' });
-    p.push({ id: 'usuarios', etiqueta: 'Usuarios', icono: '👤' });
-    if (this.hayIntegraciones()) p.push({ id: 'integraciones', etiqueta: 'Integraciones', icono: '🔗' });
-    if (!this.esSuperadmin() || this.tenantCtx()) p.push({ id: 'bitacora', etiqueta: 'Bitácora', icono: '🧾' });
+    if (this.puedeVerMatriz()) p.push({ id: 'roles', etiqueta: 'Roles y permisos', icono: 'escudo' });
+    p.push({ id: 'usuarios', etiqueta: 'Usuarios', icono: 'usuario' });
+    if (this.hayIntegraciones()) p.push({ id: 'integraciones', etiqueta: 'Integraciones', icono: 'enlace' });
+    if (!this.esSuperadmin() || this.tenantCtx()) p.push({ id: 'bitacora', etiqueta: 'Bitácora', icono: 'documento' });
     return p;
   });
   /** Pestaña que se está viendo. Null hasta que se conoce la primera disponible. */

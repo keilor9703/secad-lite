@@ -1,23 +1,7 @@
 /* Mismos valores que el diálogo de la barra superior (shell.scss): el velo y la
    tarjeta son el mismo objeto visual, y la encapsulación de vistas impide
    heredarlos. */
-.velo {
-  position: fixed; inset: 0; z-index: 900;
-  background: rgba(6, 16, 24, 0.45);
-  display: flex; align-items: center; justify-content: center; padding: 1rem;
-  overflow-y: auto;
-}
-.dialogo {
-  width: min(560px, 100%); padding: 1.2rem 1.4rem;
-  display: flex; flex-direction: column; gap: 0.9rem;
-  max-height: calc(100dvh - 2rem); overflow-y: auto;
-}
-.dialogo h2 { margin: 0; font-size: 1.05rem; font-weight: 600; }
 .sub { margin: 0.25rem 0 0; font-size: 0.8rem; color: var(--ink-soft); }
-.dialogo-acciones {
-  display: flex; justify-content: flex-end; gap: 0.6rem; margin-top: 0.3rem;
-  flex-wrap: wrap;
-}
 
 /* Severidad: cada opción muestra el compromiso que implica elegirla. */
 .sev { border: 0; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 0.4rem; }

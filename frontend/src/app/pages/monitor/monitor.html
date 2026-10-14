@@ -1,10 +1,10 @@
 <section class="mon">
-  <header class="mon-head">
+  <header class="encabezado">
     <div>
       <h1>Monitor de plataforma</h1>
       <p class="mon-ctx">Estado, uso y cartera de FALCON CAD en todas sus instancias.</p>
     </div>
-    <div class="mon-head-der">
+    <div class="encabezado-acciones">
       @if (actualizado(); as a) {
         <span class="sello">Actualizado {{ hora(a) }}</span>
       }
@@ -204,7 +204,7 @@
       <div class="grafica"><canvas #canvasUso></canvas></div>
 
       <div class="tabla-envoltura">
-        <table class="tabla">
+        <table class="tabla--sistema">
           <caption class="sr">Volumen por instancia en los últimos {{ u.dias }} días</caption>
           <thead>
             <tr>

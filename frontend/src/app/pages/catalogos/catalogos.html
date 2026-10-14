@@ -1,12 +1,16 @@
 <section class="cat">
-  <header class="cat-head">
-    <h1>Catálogos operativos</h1>
-    <p>Las entidades que atienden, sus canales de despacho, la tipificación de casos
-    y los desenlaces con que se cierran.</p>
-    @if (esSuperadmin()) {
-      <p class="ctx-nota">Instancia en gestión:
-        <strong>{{ tenantCtx() || 'ninguna' }}</strong> — cámbiela en la barra superior.</p>
-      }
+  <header class="encabezado">
+    <div>
+      <h1>Catálogos operativos</h1>
+      <p>Las entidades que atienden, sus canales de despacho, la tipificación de casos
+      y los desenlaces con que se cierran.</p>
+    </div>
+    <div class="encabezado-acciones">
+      @if (esSuperadmin()) {
+        <p class="ctx-nota">Instancia en gestión:
+          <strong>{{ tenantCtx() || 'ninguna' }}</strong> — cámbiela en la barra superior.</p>
+        }
+    </div>
     </header>
 
     @if (error()) {
@@ -16,21 +20,21 @@
       <p class="aviso">{{ aviso() }}</p>
     }
 
-  <nav class="cat-tabs" role="tablist" aria-label="Catálogos">
+  <nav class="pestanas" role="tablist" aria-label="Catálogos">
     @for (p of pestanas; track p.id) {
       <button type="button" role="tab" [id]="'tab-' + p.id"
         [attr.aria-selected]="pestanaActiva() === p.id"
         [attr.aria-controls]="'panel-' + p.id"
         [class.activa]="pestanaActiva() === p.id"
         (click)="pestanaActiva.set(p.id)">
-        <span class="ico">{{ p.icono }}</span> {{ p.etiqueta }}
+        <app-icono [nombre]="p.icono" [tam]="16" /> {{ p.etiqueta }}
       </button>
     }
   </nav>
 
   @if (pestanaActiva() === 'agencias') {
     <div role="tabpanel" id="panel-agencias" aria-labelledby="tab-agencias">
-      <div class="panel card">
+      <div class="panel panel--col card">
         <p class="hint">Cada agencia tiene sus canales, que son las colas por las que despacha.
         A esos canales se adscriben los funcionarios y a ellos se envían los casos.</p>
 
@@ -140,7 +144,7 @@
 
   @if (pestanaActiva() === 'casos') {
     <div role="tabpanel" id="panel-casos" aria-labelledby="tab-casos">
-      <div class="panel card">
+      <div class="panel panel--col card">
         <p class="hint">La tipificación que el operador digita al recepcionar. Cada código trae su
         prioridad y la agencia que suele atenderlo, para preseleccionarlas en el formulario.</p>
 
@@ -182,7 +186,7 @@
                   }
                 </p>
                 @if (r.rechazos.length) {
-                  <div class="tbl-wrap">
+                  <div class="tabla-envoltura">
                     <table class="rechazos">
                       <thead><tr><th>Línea</th><th>Código</th><th>Motivo</th></tr></thead>
                       <tbody>
@@ -241,8 +245,8 @@
           <span class="conteo">{{ codigosCoincidentes() }} de {{ codigos().length }}</span>
         </div>
 
-        <div class="tbl-wrap">
-          <table>
+        <div class="tabla-envoltura">
+          <table class="tabla--sistema">
             <thead><tr><th>Código</th><th>Descripción</th><th>Prioridad</th><th>Agencia sugerida</th><th>Estado</th><th></th></tr></thead>
             <tbody>
               @for (c of codigosFiltrados(); track c) {
@@ -310,7 +314,7 @@
 
   @if (pestanaActiva() === 'cierres') {
     <div role="tabpanel" id="panel-cierres" aria-labelledby="tab-cierres">
-      <div class="panel card">
+      <div class="panel panel--col card">
         <p class="hint">Cómo terminó el caso. El despachador elige uno al cerrar y es lo que permite
           contar después cuántos fueron efectivos, cuántos falsa alarma y cuántos se perdieron sin unidad.
         La clave solo se puede cambiar mientras ningún caso se haya cerrado con ella.</p>
@@ -323,8 +327,8 @@
           </form>
         }
 
-        <div class="tbl-wrap">
-          <table>
+        <div class="tabla-envoltura">
+          <table class="tabla--sistema">
             <thead><tr><th>Clave</th><th>Etiqueta</th><th>Estado</th><th></th></tr></thead>
             <tbody>
               @for (c of cierres(); track c) {

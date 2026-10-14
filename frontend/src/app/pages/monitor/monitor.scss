@@ -13,33 +13,10 @@
   gap: 1.4rem;
 }
 
-// --- Cabecera --------------------------------------------------------------
-
-.mon-head {
-  display: flex;
-  align-items: flex-start;
-  justify-content: space-between;
-  gap: 1rem;
-  flex-wrap: wrap;
-}
-
-.mon-head h1 {
-  margin: 0;
-  font-size: 1.35rem;
-  font-weight: 600;
-  letter-spacing: -0.02em;
-}
-
 .mon-ctx {
   margin: 0.15rem 0 0;
   font-size: 0.82rem;
   color: var(--muted);
-}
-
-.mon-head-der {
-  display: flex;
-  align-items: center;
-  gap: 0.6rem;
 }
 
 .sello {
@@ -351,52 +328,11 @@
   padding: 0.5rem 0;
 }
 
-.tabla-envoltura {
-  overflow-x: auto;
-}
-
-.tabla {
-  width: 100%;
-  border-collapse: collapse;
-  font-size: 0.82rem;
-}
-
-.tabla th {
-  text-align: left;
-  font-size: 0.68rem;
-  font-weight: 700;
-  text-transform: uppercase;
-  letter-spacing: 0.06em;
-  color: var(--muted);
-  padding: 0.35rem 0.6rem 0.35rem 0;
-  border-bottom: 1px solid var(--border);
-  white-space: nowrap;
-}
-
-.tabla td {
-  padding: 0.4rem 0.6rem 0.4rem 0;
-  border-bottom: 1px solid var(--border);
-}
-
-.tabla .num {
-  text-align: right;
-  font-variant-numeric: tabular-nums;
-  padding-right: 0;
-}
-
-.tabla th.num { padding-right: 0; }
-
 .cod {
   font-family: var(--mono);
   font-size: 0.7rem;
   color: var(--muted);
   margin-left: 0.35rem;
-}
-
-// Una instancia sin movimiento se atenúa: la lista se lee de arriba abajo y
-// lo que no se mueve no debe competir con lo que sí.
-.tabla tr.inactiva td {
-  color: var(--muted);
 }
 
 .sr {

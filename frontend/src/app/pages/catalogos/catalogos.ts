@@ -8,7 +8,7 @@ import { ToastService } from '../../shared/toast/toast.service';
 import { ConfirmService } from '../../shared/confirm/confirm.service';
 import { SelectorComponent } from '../../shared/selector/selector';
 import { OpcionComponent } from '../../shared/selector/opcion';
-import { IconoComponent } from '../../shared/icono/icono';
+import { IconoComponent, NombreIcono } from '../../shared/icono/icono';
 
 /** Qué registro se está editando: su sección y su id. */
 interface Edicion {
@@ -45,10 +45,10 @@ export class CatalogosComponent {
    * El orden sigue al del caso: primero quién atiende, luego cómo se tipifica
    * lo que entra, y al final cómo se cierra.
    */
-  readonly pestanas: ReadonlyArray<{ id: PestanaCatalogos; etiqueta: string; icono: string }> = [
-    { id: 'agencias', etiqueta: 'Agencias y canales', icono: '🏢' },
-    { id: 'casos', etiqueta: 'Códigos de caso', icono: '🏷️' },
-    { id: 'cierres', etiqueta: 'Códigos de cierre', icono: '✅' },
+  readonly pestanas: ReadonlyArray<{ id: PestanaCatalogos; etiqueta: string; icono: NombreIcono }> = [
+    { id: 'agencias', etiqueta: 'Agencias y canales', icono: 'edificio' },
+    { id: 'casos', etiqueta: 'Códigos de caso', icono: 'catalogos' },
+    { id: 'cierres', etiqueta: 'Códigos de cierre', icono: 'check' },
   ];
   readonly pestanaActiva = signal<PestanaCatalogos>('agencias');
 

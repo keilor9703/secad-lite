@@ -1,8 +1,4 @@
 .mapa-est { display: flex; flex-direction: column; gap: 1rem; }
-
-.mapa-head { display: flex; align-items: flex-end; justify-content: space-between; gap: 1rem; flex-wrap: wrap; }
-.mapa-head h1 { margin: 0; font-size: 1.35rem; font-weight: 600; letter-spacing: -0.02em; }
-.mapa-head p { margin: 0.2rem 0 0; color: var(--muted); font-size: 0.85rem; }
 .mapa-datos { display: flex; gap: 1rem; align-items: baseline; flex-wrap: wrap; }
 .dato { font-size: 0.85rem; color: var(--ink-soft); }
 .dato strong { color: var(--accent); font-variant-numeric: tabular-nums; }
@@ -35,8 +31,6 @@
 
 .cols { display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; }
 @media (max-width: 720px) { .cols { grid-template-columns: 1fr; } }
-.panel { padding: 1.1rem 1.2rem; }
-.panel h2 { margin: 0 0 0.5rem; font-size: 1.02rem; }
 .pico { margin: 0 0 0.7rem; font-size: 0.82rem; color: var(--ink-soft); }
 .pico strong { color: var(--accent); }
 .ayuda-top { margin: 0 0 0.7rem; font-size: 0.8rem; color: var(--muted); }

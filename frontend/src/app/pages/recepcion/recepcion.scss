@@ -1,14 +1,5 @@
 .rec { display: flex; flex-direction: column; gap: 1.1rem; }
 
-.rec-head { display: flex; align-items: flex-end; justify-content: space-between; gap: 1rem; }
-.rec-head h1 { 
-  margin: 0; 
-  font-size: 1.35rem; 
-  letter-spacing: -0.02em; 
-  font-weight: 600;
-}
-.rec-head p { margin: 0.2rem 0 0; color: var(--muted); font-size: 0.9rem; }
-
 /* 4. KPIs */
 .kpis { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 0.8rem; }
 .kpi {

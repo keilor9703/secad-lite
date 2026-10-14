@@ -1,7 +1,4 @@
 .casos { display: flex; flex-direction: column; gap: 0.9rem; }
-.casos-head { display: flex; align-items: flex-start; justify-content: space-between; gap: 1rem; flex-wrap: wrap; }
-.casos-head h1 { margin: 0; font-size: 1.35rem; font-weight: 600; letter-spacing: -0.02em; }
-.casos-head p { margin: 0.2rem 0 0; color: var(--muted); font-size: 0.85rem; }
 .conteo { font-family: var(--mono); font-size: 0.8rem; color: var(--muted); }
 .alcance, .error { margin: 0; font-size: 0.82rem; }
 .alcance { color: var(--muted); }
@@ -15,17 +12,10 @@
    deja que este item se achique por debajo del ancho de la tabla (aunque
    tenga overflow-x: auto) y termina desbordando toda la página, no solo
    esta caja. */
-.tbl-wrap { overflow-x: auto; min-width: 0; padding: 0.2rem 0.4rem 0.6rem; }
-table { width: 100%; border-collapse: collapse; font-size: 0.9rem; }
-th { text-align: left; font-size: 0.72rem; text-transform: uppercase; letter-spacing: 0.05em;
-     color: var(--muted); padding: 0.6rem; border-bottom: 1px solid var(--border); }
 /* `vertical-align: top` en toda la tabla: hay celdas de una línea (estado,
    fecha) junto a otras de dos o tres (el id del caso, la lista de canales).
    Centradas, cada columna arrancaba a una altura distinta y la fila se leía
    torcida; alineadas arriba, todas empiezan en la misma línea. */
-td { padding: 0.55rem 0.6rem; border-bottom: 1px solid var(--border); vertical-align: top; }
-th { vertical-align: bottom; }
-tbody tr:last-child td { border-bottom: none; }
 .titulo a { color: var(--accent); text-decoration: none; font-weight: 600; }
 .titulo a:hover { text-decoration: underline; }
 .ubic { color: var(--ink-soft); }

@@ -1,10 +1,10 @@
 <section class="dash">
-  <header class="dash-head">
+  <header class="encabezado">
     <div>
       <h1>Panel de gestión</h1>
       <p>Indicadores de casos del municipio</p>
     </div>
-    <div class="dash-head-der">
+    <div class="encabezado-acciones">
       <button class="btn btn--ghost" type="button" (click)="exportarInformePdf()" aria-label="Exportar informe de gestión a PDF">
         <app-icono nombre="descargar" [tam]="15" /> Exportar PDF
       </button>
@@ -155,8 +155,8 @@
             </div>
           </div>
           @if (t.porPrioridad.length) {
-            <div class="tbl-wrap">
-              <table class="t-tabla">
+            <div class="tabla-envoltura">
+              <table class="tabla--sistema">
                 <thead>
                   <tr>
                     <th>Prioridad</th>
@@ -263,8 +263,8 @@
       <div class="panel card">
         <h2>Operadores <span class="periodo">{{ r.periodo.desde }} → {{ r.periodo.hasta }}</span></h2>
         @if (rk.operadores.length) {
-          <div class="tbl-wrap">
-            <table class="t-tabla">
+          <div class="tabla-envoltura">
+            <table class="tabla--sistema">
               <thead>
                 <tr><th>Operador</th><th>Casos tomados</th><th>Casos cerrados</th></tr>
               </thead>

@@ -148,7 +148,7 @@
 <!-- Autoservicio: cambiar MI contraseña demostrando la actual. -->
 @if (cambioClaveAbierto()) {
   <div class="velo" (click)="cambioClaveAbierto.set(false)">
-    <form class="dialogo card" [formGroup]="claveForm" (click)="$event.stopPropagation()" (ngSubmit)="guardarClave()">
+    <form class="dialogo dialogo--sm card" [formGroup]="claveForm" (click)="$event.stopPropagation()" (ngSubmit)="guardarClave()">
       <h2>Cambiar mi contraseña</h2>
       <div class="field">
         <label for="claveActual">Contraseña actual</label>

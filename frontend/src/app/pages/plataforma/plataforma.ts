@@ -8,7 +8,7 @@ import { SelectorComponent } from '../../shared/selector/selector';
 import { OpcionComponent } from '../../shared/selector/opcion';
 import { FechaComponent } from '../../shared/fecha/fecha';
 import { ArchivadoService, ResultadoArchivado } from '../../core/archivado.service';
-import { IconoComponent } from '../../shared/icono/icono';
+import { IconoComponent, NombreIcono } from '../../shared/icono/icono';
 
 /** Las dos mitades del módulo. Ver `PESTANAS` para por qué están separadas. */
 export type PestanaPlataforma = 'tenants' | 'operacion';
@@ -69,9 +69,9 @@ export class PlataformaComponent implements OnInit {
    *
    * «Instancias» va primero porque es lo del día a día.
    */
-  readonly pestanas: ReadonlyArray<{ id: PestanaPlataforma; etiqueta: string; icono: string }> = [
-    { id: 'tenants', etiqueta: 'Instancias', icono: '🏛️' },
-    { id: 'operacion', etiqueta: 'Configuración e integraciones', icono: '🔗' },
+  readonly pestanas: ReadonlyArray<{ id: PestanaPlataforma; etiqueta: string; icono: NombreIcono }> = [
+    { id: 'tenants', etiqueta: 'Instancias', icono: 'plataforma' },
+    { id: 'operacion', etiqueta: 'Configuración e integraciones', icono: 'enlace' },
   ];
   readonly pestanaActiva = signal<PestanaPlataforma>('tenants');
 

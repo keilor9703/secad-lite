@@ -1,7 +1,9 @@
 <section class="recursos">
-  <header class="rec-head">
-    <h1>Recursos</h1>
-    <p>Flota operativa y disponibilidad</p>
+  <header class="encabezado">
+    <div>
+      <h1>Recursos</h1>
+      <p>Flota operativa y disponibilidad</p>
+    </div>
   </header>
 
   @if (error()) {
@@ -9,7 +11,7 @@
   }
 
   @if (gestiona()) {
-    <div class="panel card">
+    <div class="panel panel--col card">
       <h2>Nuevo recurso</h2>
       <form class="crear" [formGroup]="nuevoForm" (ngSubmit)="crear()">
         <input formControlName="codigo" placeholder="código (P-03)" />
@@ -44,9 +46,9 @@
     </div>
   }
 
-  <div class="panel card">
-    <div class="tbl-wrap">
-      <table>
+  <div class="panel panel--col card">
+    <div class="tabla-envoltura">
+      <table class="tabla--sistema">
         <thead>
           <tr>
             <th>Código</th><th>Nombre</th><th>Tipo</th><th>Agencia</th><th>Estado</th>
