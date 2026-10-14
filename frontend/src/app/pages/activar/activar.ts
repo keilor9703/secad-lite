@@ -71,7 +71,10 @@ export class ActivarComponent implements OnInit {
     });
   }
 
-  guardar(): void {
+  guardar(ev?: Event): void {
+    // El formulario se envía por el evento nativo: hay que impedir que el
+    // navegador recargue la página antes de que la petición salga.
+    ev?.preventDefault();
     if (!this.puedeGuardar()) return;
     this.guardando.set(true);
     this.error.set('');

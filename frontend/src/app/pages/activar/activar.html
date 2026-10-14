@@ -34,7 +34,12 @@
         Elija una contraseña: nadie más la conocerá, ni siquiera quien creó su cuenta.
       </p>
 
-      <form (ngSubmit)="guardar()">
+      <!-- `(submit)` nativo con preventDefault() explícito, NO `(ngSubmit)`.
+           `ngSubmit` es una salida de NgForm: sin FormsModule importado el
+           evento no existe, el navegador hace el envío tradicional y la
+           página se recarga como si no se hubiera escrito nada. Pasó, y no
+           se ve hasta que alguien pulsa el botón. -->
+      <form (submit)="guardar($event)">
         <div class="field">
           <label for="clave">Contraseña nueva</label>
           <div class="con-ojo">
