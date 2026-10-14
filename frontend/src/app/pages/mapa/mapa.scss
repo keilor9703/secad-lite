@@ -65,14 +65,9 @@
 .track.vert { width: 14px; height: 90px; background: var(--surface-2); border-radius: 999px; display: flex; align-items: flex-end; overflow: hidden; }
 .track.vert .fill { width: 100%; height: 0%; border-radius: 999px; background: var(--accent); min-width: 0; transition: height 0.3s ease; }
 
-/* Marcadores de caso (modos puntos/cluster): divIcon, sin depender de PNG. */
-:host ::ng-deep .pin-caso {
-  display: inline-block; width: 14px; height: 14px; border-radius: 50%;
-  border: 2px solid var(--surface); box-shadow: 0 1px 4px rgba(0, 0, 0, 0.4);
-}
-:host ::ng-deep .pin-caso[data-prio='alta']  { background: #d64545; }
-:host ::ng-deep .pin-caso[data-prio='media'] { background: #de9b3a; }
-:host ::ng-deep .pin-caso[data-prio='baja']  { background: #4a90d9; }
+/* El marcador de caso lo dibuja shared/mapa/pin-caso.ts: un SVG en línea con
+   su propio color y su propia sombra, igual en este mapa y en el de Recepción.
+   Aquí ya no queda nada que estilar. */
 
 :host ::ng-deep .leaflet-control-attribution { font-size: 0.65rem; }
 :host ::ng-deep .marker-cluster { background-clip: padding-box; }

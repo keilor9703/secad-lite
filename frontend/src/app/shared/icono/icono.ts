@@ -10,7 +10,7 @@ import { ChangeDetectionStrategy, Component, input } from '@angular/core';
  * hereda el color del texto (`currentColor`), se alinea con la línea base y
  * mantiene el mismo peso visual en toda la barra.
  *
- * Tampoco se trae una librería completa: son dieciséis iconos, y una dependencia
+ * Tampoco se trae una librería completa: son diecinueve iconos, y una dependencia
  * nueva costaría más —peso, versiones, licencias— que los trazos que caben
  * aquí. Todos comparten rejilla de 24, trazo de 1.75 y remates redondos, que
  * es lo que hace que un conjunto de iconos se vea como un conjunto.
@@ -22,7 +22,8 @@ import { ChangeDetectionStrategy, Component, input } from '@angular/core';
 export type NombreIcono =
   | 'recepcion' | 'despacho' | 'consulta' | 'recursos' | 'panel' | 'mapa'
   | 'catalogos' | 'admin' | 'plataforma' | 'monitor' | 'sala'
-  | 'llave' | 'salir' | 'telefono' | 'soporte';
+  | 'llave' | 'salir' | 'telefono' | 'soporte'
+  | 'sol' | 'luna' | 'sistema';
 
 @Component({
   selector: 'app-icono',
@@ -93,6 +94,20 @@ export type NombreIcono =
           <circle cx="12" cy="12" r="9" /><circle cx="12" cy="12" r="3.8" />
           <path d="M5.6 5.6l3.7 3.7" /><path d="M14.7 14.7l3.7 3.7" />
           <path d="M18.4 5.6l-3.7 3.7" /><path d="M9.3 14.7l-3.7 3.7" />
+        }
+        @case ('sol') {
+          <circle cx="12" cy="12" r="4.2" />
+          <path d="M12 2.6v2.2M12 19.2v2.2M4.4 12H2.2M21.8 12h-2.2" />
+          <path d="M6.6 6.6 5 5M19 19l-1.6-1.6M17.4 6.6 19 5M5 19l1.6-1.6" />
+        }
+        @case ('luna') {
+          <!-- Creciente por sustracción: un solo trazo, sin relleno. -->
+          <path d="M20.5 14.3A8.8 8.8 0 0 1 9.7 3.5a8.8 8.8 0 1 0 10.8 10.8z" />
+        }
+        @case ('sistema') {
+          <!-- Pantalla: «lo que diga el equipo». -->
+          <rect x="2.5" y="4.5" width="19" height="12.5" rx="2" />
+          <path d="M8.5 20.5h7" /><path d="M12 17v3.5" />
         }
         @case ('telefono') {
           <path d="M6.5 3.5h2.2l1.6 4-2 1.3a12.5 12.5 0 0 0 5.9 5.9l1.3-2 4 1.6v2.2a2 2 0 0 1-2.2 2A16.5 16.5 0 0 1 4.5 5.7a2 2 0 0 1 2-2.2z" />

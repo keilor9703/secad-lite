@@ -1,4 +1,5 @@
 import { ChangeDetectionStrategy, Component, OnDestroy, OnInit, computed, inject, signal } from '@angular/core';
+import { PIN_ALTO, PIN_ANCHO, PrioridadPin, pinCasoSvg } from '../../shared/mapa/pin-caso';
 
 import { FormControl, FormGroup, ReactiveFormsModule } from '@angular/forms';
 import { Router } from '@angular/router';
@@ -272,9 +273,12 @@ export class MapaComponent implements OnInit, OnDestroy {
    * nada aquí.
    */
   private marcador(L: typeof import('leaflet'), p: PuntoMapa): import('leaflet').Marker {
+    // La punta del pin es el ancla: el caso ocurrió DONDE señala, no donde
+    // está su centro. Con el ancla al medio, cada marcador miente media altura.
     const icono = L.divIcon({
-      className: '', iconSize: [16, 16], iconAnchor: [8, 8],
-      html: `<span class="pin-caso" data-prio="${p.prioridad ?? 'media'}"></span>`,
+      className: '', iconSize: [PIN_ANCHO, PIN_ALTO], iconAnchor: [PIN_ANCHO / 2, PIN_ALTO],
+      popupAnchor: [0, -PIN_ALTO + 6],
+      html: pinCasoSvg((p.prioridad as PrioridadPin) ?? 'media'),
     });
     const marcador = L.marker([p.lat, p.lng], { icon: icono });
     const cont = document.createElement('div');

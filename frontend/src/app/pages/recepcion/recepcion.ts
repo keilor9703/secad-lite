@@ -35,6 +35,7 @@ import { AnclajeVideollamadaDirective } from '../../components/videollamada-flot
 import {
   Agencia, Canal, CanalAtencion, Caso, CodigoCaso, CrearCaso, EstadoCaso, Llamada, OrigenLlamada, PrioridadCaso,
 } from '../../core/models';
+import { PIN_ALTO, PIN_ANCHO, pinCasoSvg } from '../../shared/mapa/pin-caso';
 
 @Component({
   selector: 'app-recepcion',
@@ -942,7 +943,10 @@ export class RecepcionComponent implements OnInit {
     const L = await this.leaflet();
     // Marcador dibujado en HTML: evita depender de los PNG de Leaflet, que el
     // empaquetador no resuelve.
-    const icono = L.divIcon({ className: 'pin-caso', html: '📍', iconSize: [26, 26], iconAnchor: [13, 24] });
+    const icono = L.divIcon({
+      className: '', iconSize: [PIN_ANCHO, PIN_ALTO], iconAnchor: [PIN_ANCHO / 2, PIN_ALTO],
+      html: pinCasoSvg(),
+    });
     if (this.marcador) this.marcador.setLatLng([lat, lng]);
     else this.marcador = L.marker([lat, lng], { icon: icono }).addTo(this.mapa);
     if (centrar) this.mapa.setView([lat, lng], 16);

@@ -177,7 +177,7 @@
    tiene sitio de sobra: la izquierda llega mucho más abajo. */
 .mapa { height: clamp(300px, 44vh, 560px); border-radius: var(--radius-sm); border: 1px solid var(--border-2); overflow: hidden; box-shadow: inset 0 0 0 1px var(--border-2); }
 @media (max-width: 767px) { .mapa { height: 260px; } }
-:host ::ng-deep .pin-caso { font-size: 1.5rem; line-height: 1; text-align: center; }
+/* El pin lo dibuja shared/mapa/pin-caso.ts; no necesita estilos. */
 :host ::ng-deep .leaflet-control-attribution { font-size: 0.65rem; }
 
 /* 10. Panel de Atención / Destinos */

@@ -68,7 +68,22 @@
   z-index: 2000;
   top: calc(100% + 4px);
   left: 0;
-  right: 0;
+  /*
+   * La lista se dimensiona por SU CONTENIDO, no por el ancho del disparador.
+   *
+   * Con `right: 0` quedaba exactamente del ancho del botón, así que en un
+   * control angosto —el de instancia en la barra superior— los nombres se
+   * cortaban y aparecía una barra de desplazamiento HORIZONTAL dentro del
+   * desplegable: para leer «elcarmendev» había que arrastrar de lado. Un
+   * desplegable que obliga a desplazarse para leer una opción no cumple su
+   * único trabajo.
+   *
+   * `min-width: 100%` conserva el mínimo de alinearse con el disparador, y el
+   * tope evita que una opción larguísima se salga de la pantalla.
+   */
+  min-width: 100%;
+  width: max-content;
+  max-width: min(22rem, calc(100vw - 1.5rem));
   padding: 0.3rem;
   background: var(--surface);
   border: 1px solid var(--border);
@@ -100,8 +115,11 @@
   margin: 0;
   padding: 0;
   list-style: none;
-  max-height: 220px;
+  max-height: 260px;
   overflow-y: auto;
+  /* Explícito: con solo `overflow-y`, el eje horizontal pasa a `auto` por
+     especificación y reaparece la barra lateral que se quiso quitar. */
+  overflow-x: hidden;
 }
 .sel-vacio {
   padding: 0.45rem 0.6rem;
@@ -118,6 +136,12 @@
   cursor: pointer;
   font-size: 0.86rem;
   color: var(--ink);
+  /* Más allá del tope de ancho se recorta con puntos suspensivos: se pierde
+     el final de un nombre larguísimo, pero no se rompe la caja ni vuelve la
+     barra horizontal. */
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 ::ng-deep .sel-opcion:hover,
 ::ng-deep .sel-opcion.resaltada {
