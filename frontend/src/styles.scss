@@ -65,14 +65,24 @@
   --border-2:  #c6d3e0;
   --ink:       #102639;
   --ink-soft:  #42566b;
-  --muted:     #6a7d90;
-  --accent:    #0c7e92;
+  /* Los cuatro valores de abajo no son estéticos: están puestos en el borde
+     bajo que todavía cumple WCAG AA (4,5:1) sobre las TRES superficies del
+     tema claro —--bg, --surface y --surface-2—, que es donde de verdad caen.
+     Los anteriores (--muted #6a7d90, --accent #0c7e92, --warn #a5620a) daban
+     entre 3,77 y 4,45 y se leían mal de día en una sala de despacho: --muted
+     es el color de todos los subtítulos, cabeceras de columna, estados vacíos
+     y marcas de tiempo del sistema, así que fallaba en los diez módulos a la
+     vez. `node scripts/contraste.mjs` comprueba cada par y falla si alguien
+     los vuelve a aclarar. El tema oscuro ya pasaba con holgura (4,8–10,1) y
+     no se tocó. */
+  --muted:     #5c6f82;
+  --accent:    #0a7285;
   --accent-deep:#0a6273;
   --accent-soft:#e1f4f8;
   --on-accent: #ffffff;
   --danger:    #b4342a;
-  --warn:      #a5620a;
-  --ok:        #0c7e92;
+  --warn:      #9d5d09;
+  --ok:        #0a7285;
 
   --sans: "Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
   --mono: ui-monospace, "SF Mono", Menlo, Consolas, monospace;
@@ -84,7 +94,7 @@
   /* Etiquetas de estado: un par fondo/texto por familia de color, para que las
      páginas no repitan literales ni necesiten su propia consulta de tema. */
   --tag-info-bg:   #e7edff;  --tag-info-fg:   #3550b4;
-  --tag-warn-bg:   #fff4e0;  --tag-warn-fg:   #a5620a;
+  --tag-warn-bg:   #fff4e0;  --tag-warn-fg:   #9d5d09;
   --tag-ok-bg:     #e6f6ec;  --tag-ok-fg:     #1c7a44;
   --tag-teal-bg:   #e1f4f8;  --tag-teal-fg:   #0a6273;
   --tag-danger-bg: #fbe6e4;  --tag-danger-fg: #b4342a;
