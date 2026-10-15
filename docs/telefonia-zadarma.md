@@ -109,8 +109,23 @@ La pestaña **«Claves y API»** dice en su propio encabezado que desde ahí se
 primera vista, sale al pulsar **MODIFICAR CLAVES**. Las dos rutas llevan al
 mismo sitio.
 
-1. Abra **Notificaciones de eventos** y actívelo.
-2. En la dirección del webhook pegue, **con la llave de la instancia al final**:
+Al abrir **Notificaciones de eventos** salen dos pasos:
+
+- **«Paso 1. Agrega el código al inicio de script»**, con un fragmento de PHP
+  (`if (isset($_GET['zd_echo'])) exit($_GET['zd_echo']);`). **No hay que hacer
+  nada**: eso es para quien recibe el webhook en un script propio, y es
+  exactamente lo que FALCON ya hace. De paso confirma el mecanismo: la
+  validación llega por **GET, con `zd_echo` en la cadena de consulta**.
+- **«Paso 2. Inserta enlaces»**, con DOS campos. Solo sirve el primero:
+
+  | Campo | Qué manda | ¿La URL de FALCON? |
+  |---|---|---|
+  | **Sobre llamadas a la centralita** | `NOTIFY_START`, `NOTIFY_INTERNAL`, `NOTIFY_ANSWER`, `NOTIFY_END`, `NOTIFY_RECORD` | **Sí, aquí** |
+  | Sobre eventos | SMS, consultas de número, saldo, *call tracking* | No, vacío |
+
+1. Abra **Notificaciones de eventos**.
+2. En **«Sobre llamadas a la centralita»** pegue, **con la llave de la
+   instancia al final**:
 
    ```
    https://falconcad.com.co/api/pbx/zadarma/<API_KEY_DE_LA_INSTANCIA>
@@ -119,11 +134,12 @@ mismo sitio.
    La API key es la que ya existe para el webhook de la planta — en FALCON,
    *Administración → la instancia*. Si no la tiene a mano, rótela y copie la
    nueva (se muestra una sola vez).
-3. Marque los eventos: **NOTIFY_START, NOTIFY_INTERNAL, NOTIFY_ANSWER,
-   NOTIFY_END**. Los demás pueden quedar marcados: FALCON los acepta y los
-   ignora sin quejarse.
-4. Guarde. Zadarma va a llamar a esa dirección con un `zd_echo` para
-   comprobar que es suya; FALCON lo devuelve tal cual.
+3. Pulse **Agregar**. Es en ESE momento cuando Zadarma llama a la dirección
+   con un `zd_echo` para comprobar que es suya — de ahí que el endpoint tenga
+   que estar ya desplegado.
+4. Si después aparece una lista de eventos para marcar, marque **NOTIFY_START,
+   NOTIFY_INTERNAL, NOTIFY_ANSWER y NOTIFY_END**. Los demás pueden quedar
+   marcados: FALCON los acepta y los ignora sin quejarse.
 
 **Si dice que la URL no es válida**, compruébelo usted mismo antes de pelear
 con el panel:
