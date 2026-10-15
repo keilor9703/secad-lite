@@ -189,6 +189,11 @@
                 @if (tieneVideollamada() && abonadoSinConfirmar()) {
                   <small class="rec-els">Oprima Enter para habilitar la videollamada con este abonado.</small>
                 }
+                <!-- Devolver la llamada desde aquí mismo: el operador ya tiene
+                     el abonado en el campo y no tiene que copiarlo a su
+                     teléfono. El botón se dibuja solo si la planta sabe
+                     originar llamadas (ver `app-boton-llamar`). -->
+                <app-boton-llamar [numero]="form.controls.telefono.value" />
               </div>
               <div class="field span2">
                 <label for="fdirll">Dirección de quien llama</label>

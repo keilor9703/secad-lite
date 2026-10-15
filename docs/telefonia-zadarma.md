@@ -89,6 +89,18 @@ operador del municipio.
   | `NOTIFY_OUT_START` | Saliente: queda en la bitácora, no entra a la cola |
   | `NOTIFY_RECORD` | Todavía no se usa (ver *Lo que falta*) |
 
+- **Llamar desde el caso** (`POST /api/pbx/marcar`): la central llama primero a
+  la extensión del operador y, al descolgar, al ciudadano. Por eso funciona sin
+  softphone: el audio nunca pasa por el navegador. El botón está junto al
+  teléfono en el detalle del caso y en Recepción, y **solo se dibuja** si la
+  planta de esa instancia declara que sabe marcar.
+  - La extensión sale del usuario que pide la llamada, **nunca del navegador**:
+    es una llamada facturable que queda a nombre de alguien en el registro de
+    la central.
+  - Cada intento —salga o no— queda en la bitácora de administración con el
+    número que de verdad se marcó, y el caso recibe una nota.
+  - Diez por minuto por operador: alcanzan de sobra para una sala de despacho y
+    evitan que un botón repetido gaste la cuenta del municipio.
 - Configuración por instancia en `config_pbx`: las credenciales se guardan como
   JSON en una sola columna y **lo que el proveedor marca como secreto va
   cifrado**. Antes eran dos columnas con nombre de Zadarma; ahora los campos
@@ -308,8 +320,12 @@ Si no hay NINGUNA fila, la petición no llegó: es Zadarma, el DNS o nginx.
    `/v1/pbx/record/request/` (hay que esperar unos segundos: justo después del
    aviso, el archivo todavía no está) y se guarda como adjunto del caso, con la
    misma política de retención que el video.
-3. **Llamada saliente desde el caso.** `/v1/request/callback/`: FALCON pide a la
-   centralita que llame primero al operador y después al ciudadano.
+3. ~~**Llamada saliente desde el caso.**~~ Hecho (ver §2). Falta una sola cosa,
+   y no es código: **comprobar que el servidor de producción puede SALIR** a
+   `api.zadarma.com`. El webhook va en la dirección contraria —lo inicia
+   Zadarma—, así que que las llamadas entren no dice nada sobre si se pueden
+   originar. Si la salida está cerrada, el botón dice «No se pudo hablar con la
+   centralita» y se arregla apuntando `ZADARMA_API_URL` a un proxy de salida.
 4. **El número de verdad.** Hoy no hay DID: la cuenta solo tiene extensiones,
    así que se puede probar todo menos la llamada del ciudadano. Para el caso
    **C** de §1.1 —el número en la nube que vendemos nosotros— basta comprar

@@ -4,6 +4,7 @@ import { CommonModule } from '@angular/common';
 import { FormControl, FormGroup, ReactiveFormsModule, Validators } from '@angular/forms';
 import { ActivatedRoute, RouterLink } from '@angular/router';
 import { Subscription } from 'rxjs';
+import { BotonLlamarComponent } from '../../components/boton-llamar/boton-llamar';
 import { CasosService } from '../../core/casos.service';
 import { CasosWsService } from '../../core/casos-ws.service';
 import { AuthService } from '../../core/auth.service';
@@ -28,7 +29,7 @@ export type TabDetalle = 'ficha' | 'despacho' | 'whatsapp' | 'chat' | 'videollam
 @Component({
   selector: 'app-detalle',
   standalone: true,
-  imports: [CommonModule, ReactiveFormsModule, RouterLink, SelectorComponent, OpcionComponent, DictadoComponent, IconoComponent],
+  imports: [CommonModule, ReactiveFormsModule, RouterLink, SelectorComponent, OpcionComponent, DictadoComponent, IconoComponent, BotonLlamarComponent],
   templateUrl: './detalle.html',
   styleUrl: './detalle.scss',
   changeDetection: ChangeDetectionStrategy.OnPush,

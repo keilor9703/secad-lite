@@ -73,7 +73,12 @@
                 }
                 <div><dt>Prioridad</dt><dd><span class="badge" [attr.data-prio]="c.prioridad">{{ c.prioridad || 'media' }}</span></dd></div>
                 <div><dt>Quien reporta</dt><dd>{{ c.ciudadano }}</dd></div>
-                <div><dt>Teléfono</dt><dd>{{ c.telefono || '—' }}</dd></div>
+                <div><dt>Teléfono</dt>
+                  <dd class="tel-dd">
+                    {{ c.telefono || '—' }}
+                    <app-boton-llamar [numero]="c.telefono" [casoId]="c.id" />
+                  </dd>
+                </div>
                 @if (c.direccionLlamante) {
                   <div><dt>Dirección del llamante</dt><dd>{{ c.direccionLlamante }}</dd></div>
                 }

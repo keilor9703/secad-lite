@@ -1,8 +1,15 @@
 import { CuerpoAviso, ResultadoVerificacion, TraduccionAviso } from './aviso';
 import {
-  CampoCredencial, CredencialesPbx, DescriptorProveedor, ProveedorPbx,
+  CampoCredencial, CredencialesPbx, DescriptorProveedor, ProveedorPbx, ResultadoMarcar,
 } from './proveedor';
 import { EVENTOS_ZADARMA, EventoZadarma, verificarFirma } from '../zadarma/zadarma.firma';
+import {
+  cadenaParametros, encabezadoAutorizacion, firmarPeticion, pareceCredencialZadarma,
+} from '../zadarma/zadarma.api';
+
+/** La API de Zadarma, y el método que origina una llamada. */
+const API_POR_DEFECTO = 'https://api.zadarma.com';
+const METODO_CALLBACK = '/v1/request/callback/';
 
 /** Las credenciales que Zadarma necesita de nosotros, dichas por Zadarma. */
 const CREDENCIALES: CampoCredencial[] = [
@@ -58,11 +65,34 @@ const CREDENCIALES: CampoCredencial[] = [
  * ────────────────────────────────────────────────────────────────────────────
  */
 export class ProveedorZadarma implements ProveedorPbx {
+  /**
+   * El `fetch` se inyecta para poder probar el camino completo —firma,
+   * parámetros, lectura de la respuesta y cada forma de fallar— sin salir a
+   * internet. En producción es el `fetch` de Node.
+   */
+  /**
+   * @param pedir  El `fetch` a usar. Se inyecta para poder probar el camino
+   *   completo —firma, parámetros, lectura de la respuesta y cada forma de
+   *   fallar— sin salir a internet.
+   * @param api  La base de la API. Configurable por `ZADARMA_API_URL` porque
+   *   el webhook y la API van en direcciones CONTRARIAS: el webhook lo inicia
+   *   Zadarma y basta con que el servidor sea alcanzable desde fuera; la API
+   *   la inicia FALCON, y un servidor con la salida restringida —lo normal en
+   *   una nube con reglas de egreso— puede recibir llamadas perfectamente y no
+   *   poder originar ninguna. Con esto se apunta a un proxy de salida sin
+   *   tocar código, y el error que se ve en pantalla («No se pudo hablar con
+   *   la centralita») deja de ser un callejón sin salida.
+   */
+  constructor(
+    private readonly pedir: typeof fetch = (...a) => fetch(...a),
+    private readonly api: string = process.env.ZADARMA_API_URL?.trim() || API_POR_DEFECTO,
+  ) {}
+
   readonly descriptor: DescriptorProveedor = {
     clave: 'ZADARMA',
     nombre: 'Zadarma',
     resumen: 'Centralita en la nube que operamos nosotros: número, extensiones y grabación en su panel. Sirve para el municipio que no tiene línea propia, y como banco de pruebas de toda la cadena.',
-    capacidades: ['entrantes'],
+    capacidades: ['entrantes', 'marcar'],
     credenciales: CREDENCIALES,
     rutaAviso: '/api/pbx/zadarma/',
     dondeSePega: 'Integraciones y API → Integraciones → Notificaciones de eventos → campo «Sobre llamadas a la centralita»',
@@ -137,6 +167,82 @@ export class ProveedorZadarma implements ProveedorPbx {
       default:
         return { accion: 'nada', resumen: `Evento sin traducción: ${evento}` };
     }
+  }
+
+  /**
+   * LLAMADA SALIENTE: `/v1/request/callback/`.
+   *
+   * No es FALCON llamando al ciudadano: es FALCON pidiéndole a la centralita
+   * que llame **primero a la extensión del operador** y, cuando descuelgue,
+   * al ciudadano. Así el audio no pasa por el navegador —no hace falta
+   * softphone— y la llamada queda en el registro de la central como cualquier
+   * otra.
+   *
+   * Nunca lanza: una central caída, un 401 o una respuesta que no es JSON
+   * devuelven `{ ok: false, error }` con algo que el operador pueda leer. Un
+   * botón de llamar que revienta con un error de red en pantalla no sirve en
+   * una sala de despacho.
+   */
+  async marcar(cred: CredencialesPbx, orden: { extension: string; numero: string }): Promise<ResultadoMarcar> {
+    const key = cred.key?.trim();
+    const secreto = cred.secreto?.trim();
+    if (!key || !secreto) {
+      return { ok: false, error: 'Faltan las credenciales de la API de Zadarma para esta instancia.' };
+    }
+
+    // `from` es a quién llama primero la central —la extensión del operador—
+    // y `to` el ciudadano. `sip` repite la extensión: es la que factura y la
+    // que queda en el registro de la central como originadora.
+    const params = { from: orden.extension, to: orden.numero, sip: orden.extension };
+    const cadena = cadenaParametros(params);
+    const firma = firmarPeticion(METODO_CALLBACK, cadena, secreto);
+
+    try {
+      const res = await this.pedir(`${this.api}${METODO_CALLBACK}?${cadena}`, {
+        headers: { Authorization: encabezadoAutorizacion(key, firma) },
+        // Sin tope, una API lenta deja al operador mirando un botón girando.
+        signal: AbortSignal.timeout(10_000),
+      });
+      const cuerpo = (await res.json().catch(() => ({}))) as {
+        status?: string; message?: string; id?: string | number; call_id?: string;
+      };
+
+      if (!res.ok || cuerpo?.status === 'error') {
+        return { ok: false, error: this.porQueFallo(res.status, cuerpo?.message, key, secreto) };
+      }
+      return { ok: true, id: String(cuerpo?.id ?? cuerpo?.call_id ?? '') || undefined };
+    } catch (e) {
+      const m = (e as Error)?.name === 'TimeoutError'
+        ? 'La centralita no respondió a tiempo.'
+        : `No se pudo hablar con la centralita: ${(e as Error)?.message ?? 'error desconocido'}.`;
+      return { ok: false, error: m };
+    }
+  }
+
+  /**
+   * Por qué falló, en términos que sirvan para arreglarlo.
+   *
+   * Un 401 de Zadarma dice «authentication failed» y nada más, y la causa real
+   * suele ser una credencial pegada con un espacio o a medias —da exactamente
+   * el mismo error que una credencial equivocada—. Si la forma no cuadra, se
+   * dice; es la única pista que hay.
+   */
+  private porQueFallo(estado: number, mensaje: string | undefined, key: string, secreto: string): string {
+    const detalle = mensaje?.trim() || `HTTP ${estado}`;
+    if (estado === 401 || /auth/i.test(detalle)) {
+      const sospechosas = [
+        pareceCredencialZadarma(key) ? null : 'la Key',
+        pareceCredencialZadarma(secreto) ? null : 'el Secret',
+      ].filter(Boolean);
+      if (sospechosas.length) {
+        return `Zadarma rechazó la autenticación (${detalle}). Revise ${sospechosas.join(' y ')}: `
+          + 'no tiene la forma que espera Zadarma (20 caracteres), así que puede estar pegada '
+          + 'con un espacio o a medias.';
+      }
+      return `Zadarma rechazó la autenticación (${detalle}). Las credenciales tienen la forma `
+        + 'correcta, así que seguramente son de otra cuenta o se rotaron en su panel.';
+    }
+    return `Zadarma no pudo originar la llamada: ${detalle}`;
   }
 
   /** Los campos comunes a todos sus eventos. */

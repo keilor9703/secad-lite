@@ -78,6 +78,8 @@
 .datos { display: grid; grid-template-columns: 1fr 1fr; gap: 0.6rem 1rem; margin: 0.4rem 0 0; }
 .datos dt { font-size: var(--texto-xs); text-transform: uppercase; letter-spacing: 0.04em; color: var(--muted); }
 .datos dd { margin: 0.1rem 0 0; font-weight: 500; }
+/* El teléfono lleva el botón de llamar al lado; en pantalla angosta baja. */
+.datos dd.tel-dd { display: flex; align-items: center; gap: .6rem; flex-wrap: wrap; }
 .desc { background: var(--surface-2); border-radius: var(--radius-sm); padding: 0.6rem 0.8rem; margin: 0.3rem 0 0; }
 
 .acciones { margin-top: 0.5rem; }

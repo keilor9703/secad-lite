@@ -57,7 +57,7 @@ Hoy:
 | Proveedor | Capacidades | Credenciales que pide |
 |---|---|---|
 | **YACO** | `entrantes` | Ninguna: entrega por el webhook genérico, autenticado con la API key de la instancia |
-| **Zadarma** | `entrantes` | Key y Secret de su API |
+| **Zadarma** | `entrantes`, `marcar` | Key y Secret de su API |
 
 > **Sobre YACO, para no confundirse.** Las llamadas que hoy llegan de YACO
 > entran por esta integración, «Planta telefónica (PBX)». La integración **CTI
@@ -165,6 +165,25 @@ donde está el trabajo de verdad. El transporte y el saludo son de cada uno.
 | Configuración por instancia | `backend/src/pbx/pbx-config.service.ts`, `config-pbx.entity.ts` |
 | Cola, casos y avisos (comunes a todas las plantas) | `backend/src/pbx/pbx.service.ts` |
 | La pantalla, armada del catálogo | `frontend/src/app/pages/plataforma/` |
+
+---
+
+## 6. El egreso, que es un problema aparte
+
+El webhook y la API del proveedor van en **direcciones contrarias**:
+
+- el **webhook** lo inicia el proveedor, y basta con que FALCON sea alcanzable
+  desde internet;
+- la **API** la inicia FALCON (llamada saliente, grabaciones), y un servidor con
+  la salida restringida —lo normal en una nube con reglas de egreso— puede
+  recibir llamadas perfectamente y no poder originar ninguna.
+
+Son dos cosas que fallan por separado y el síntoma no se parece: la cola
+funciona y el botón de llamar dice «No se pudo hablar con la centralita». Para
+eso existe `ZADARMA_API_URL`: apunta la base de la API a un proxy de salida sin
+tocar código. Un proveedor nuevo que llame a una API debería ofrecer lo mismo.
+
+---
 
 Para el detalle de Zadarma —su firma, su `zd_echo`, su panel, su mapa de
 eventos y qué falta— ver [`telefonia-zadarma.md`](telefonia-zadarma.md).

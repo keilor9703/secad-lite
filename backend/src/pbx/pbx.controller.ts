@@ -1,4 +1,5 @@
 import { Body, Controller, Get, Param, Post, UseFilters, UseGuards, UseInterceptors } from '@nestjs/common';
+import { Throttle, ThrottlerGuard } from '@nestjs/throttler';
 import { ActorPbx, PbxService, WebhookLlamadaDto } from './pbx.service';
 import { TenantsService } from '../tenants/tenants.service';
 import { TenantEntity } from '../tenants/tenant.entity';
@@ -14,6 +15,9 @@ import { Usuario } from '../common/usuario.decorator';
 import { PermisosVigentes } from '../common/permisos-vigentes.decorator';
 import { JwtPayload } from '../auth/auth.service';
 import { RequiereIntegracion } from '../tenants/integracion.decorator';
+import { PbxSalienteService, ResultadoLlamar } from './pbx-saliente.service';
+import { PbxCredencialesService } from './pbx-credenciales.service';
+import { descriptor as descriptorDe } from './proveedores/registro';
 
 @RequiereIntegracion('pbx')
 @Controller('pbx')
@@ -22,7 +26,45 @@ export class PbxController {
     private readonly pbx: PbxService,
     private readonly tenants: TenantsService,
     private readonly auditoria: AuditoriaAdminService,
+    private readonly saliente: PbxSalienteService,
+    private readonly credenciales: PbxCredencialesService,
   ) {}
+
+  /**
+   * POST /api/pbx/marcar — llamar al ciudadano desde el caso.
+   *
+   * La central llama primero a la extensión de QUIEN PIDE (sale de su usuario,
+   * nunca del cuerpo) y después al número. Es una llamada facturable que queda
+   * a nombre de alguien, así que:
+   *
+   *  - va con el mismo permiso que atender llamadas (`pbx.usar`): devolverle la
+   *    llamada a un ciudadano es parte del trabajo de quien recepciona, y un
+   *    permiso aparte que nadie tendría dejaría la función muerta;
+   *  - cada intento queda en la bitácora de administración, con el número;
+   *  - y se acota la frecuencia: diez por minuto alcanzan de sobra para una
+   *    sala de despacho y evitan que un botón repetido o un script gasten la
+   *    cuenta del municipio.
+   */
+  @Permisos('pbx.usar')
+  @UseGuards(ThrottlerGuard)
+  @Throttle({ default: { limit: 10, ttl: 60_000 } })
+  @Post('marcar')
+  async marcar(
+    @Tenant() tenant: string,
+    @Usuario() usuario: JwtPayload,
+    @Body() dto: { numero?: string; casoId?: string },
+  ): Promise<ResultadoLlamar> {
+    const actor = usuario?.sub ?? 'desconocido';
+    const r = await this.saliente.marcar(tenant, actor, dto ?? {});
+    await this.auditoria.registrar(
+      tenant, actor, 'pbx.marcar',
+      `Llamada saliente a ${r.numero ?? dto?.numero ?? '(sin número)'}`
+        + (r.extension ? ` desde la extensión ${r.extension}` : '')
+        + (dto?.casoId ? ` · caso ${dto.casoId}` : '')
+        + (r.ok ? '' : ` — NO se pudo: ${r.mensaje}`),
+    );
+    return r;
+  }
 
   /**
    * POST /api/pbx/webhook — la planta telefónica notifica timbre/colgada.
@@ -108,6 +150,29 @@ export class PbxController {
     @Body() dto: { casoId: string },
   ) {
     return this.pbx.vincular(tenant, id, dto?.casoId, this.actor(usuario, permisos));
+  }
+
+  /**
+   * GET /api/pbx/capacidades — qué puede hacer la planta de ESTA instancia.
+   *
+   * Lo lee el operador, no el superadmin, y por eso no trae ni una credencial:
+   * solo el nombre del proveedor, si está encendido y qué sabe hacer. Con eso
+   * la pantalla no ofrece lo imposible —el botón de llamar no aparece donde la
+   * planta no sabe originar llamadas— en vez de dejar que el operador lo
+   * descubra con un error en medio de una emergencia.
+   */
+  @Permisos('pbx.usar')
+  @Get('capacidades')
+  async capacidades(@Tenant() tenant: string) {
+    const fila = await this.credenciales.configDe(tenant);
+    const clave = this.credenciales.claveProveedor(fila);
+    const d = descriptorDe(clave);
+    return {
+      proveedor: clave,
+      nombre: d?.nombre ?? clave,
+      activo: fila ? fila.activo : true,
+      capacidades: d?.capacidades ?? [],
+    };
   }
 
   /**

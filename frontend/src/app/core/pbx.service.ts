@@ -6,6 +6,14 @@ import { environment } from '../../environments/environment';
 import { AuthService } from './auth.service';
 import { Llamada, PbxConfig } from './models';
 
+/** Qué sabe hacer la planta de esta instancia. Sin credenciales: lo lee el operador. */
+export interface CapacidadesPbx {
+  proveedor: string;
+  nombre: string;
+  activo: boolean;
+  capacidades: ('entrantes' | 'marcar' | 'softphone' | 'grabacion')[];
+}
+
 /**
  * Qué se escribe en el campo «Abonado» al tomar una llamada, y qué se le
  * advierte al operador.
@@ -45,6 +53,22 @@ export class PbxService {
 
   /** Cola de llamadas (recientes primero). */
   readonly llamadas = signal<Llamada[]>([]);
+
+  /**
+   * Lo que sabe hacer la planta de esta instancia.
+   *
+   * Sirve para no ofrecer lo imposible: con una planta que no sabe originar
+   * llamadas, el botón de llamar no se dibuja, en vez de dejar que el operador
+   * lo descubra con un error en medio de una emergencia. Arranca vacío: hasta
+   * que el servidor contesta, no se promete nada.
+   */
+  readonly capacidades = signal<CapacidadesPbx | null>(null);
+
+  /** ¿La planta de esta instancia sabe hacer esto, y está encendida? */
+  puede(c: CapacidadesPbx['capacidades'][number]): boolean {
+    const cp = this.capacidades();
+    return !!cp?.activo && cp.capacidades.includes(c);
+  }
   /**
    * Solo las que están timbrando Y le corresponden a esta sesión: una llamada
    * que otro operador ya tomó (o que el ACD dirigió a otro) desaparece de la
@@ -178,6 +202,7 @@ export class PbxService {
     this.apagadoAProposito = false;
     this.canalEsperado.set(true);
     this.recargar();
+    this.recargarCapacidades();
     if (this.socket?.connected) return;
     this.socket = this.crearSocket();
 
@@ -273,6 +298,7 @@ export class PbxService {
 
   desconectar(): void {
     this.apagadoAProposito = true;
+    this.capacidades.set(null);
     this.socket?.disconnect();
     this.socket = undefined;
     this.enVivo.set(false);
@@ -287,6 +313,26 @@ export class PbxService {
       next: (ls) => this.llamadas.set(ls),
       error: () => {},
     });
+  }
+
+  recargarCapacidades(): void {
+    this.http.get<CapacidadesPbx>(`${this.base}/pbx/capacidades`).subscribe({
+      // Un fallo deja `null`, y con null no se ofrece nada: callarse es
+      // preferible a dibujar un botón que no se sabe si funciona.
+      next: (c) => this.capacidades.set(c),
+      error: () => this.capacidades.set(null),
+    });
+  }
+
+  /**
+   * Pide a la central que llame: primero timbra la extensión de QUIEN PIDE
+   * —la decide el servidor, a partir de su usuario— y al descolgar, el
+   * número del ciudadano.
+   */
+  marcar(numero: string, casoId?: string): Observable<{ ok: boolean; mensaje: string; extension?: string }> {
+    return this.http.post<{ ok: boolean; mensaje: string; extension?: string }>(
+      `${this.base}/pbx/marcar`, { numero, casoId },
+    );
   }
 
   atender(id: string): Observable<{ llamada: Llamada; casoId: string }> {

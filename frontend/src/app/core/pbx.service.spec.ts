@@ -81,12 +81,27 @@ const LLAMADA: Llamada = {
   estado: 'sonando', creadoEn: '2026-10-04T10:00:00Z', actualizadoEn: '2026-10-04T10:00:00Z',
 } as Llamada;
 
+/**
+ * `conectar()` también pregunta qué puede hacer la planta de la instancia.
+ *
+ * No es el asunto de estas pruebas —que son sobre la cola— así que se
+ * responde y se descarta. Se hace con `match` y no con `expectOne` a
+ * propósito: una prueba que no haya llamado a `conectar()` no tiene por qué
+ * fallar por esto.
+ */
+function responderCapacidades(http: HttpTestingController): void {
+  for (const r of http.match((req) => req.url.endsWith('/pbx/capacidades'))) {
+    r.flush({ proveedor: 'YACO', nombre: 'YACO', activo: true, capacidades: ['entrantes'] });
+  }
+}
+
 describe('PbxService — la cola se pone al día sola', () => {
   let pbx: PbxServicePrueba;
   let http: HttpTestingController;
 
   /** Responde a la petición de la cola; falla si no la hubo. */
   function responderCola(llamadas: Llamada[]): void {
+    responderCapacidades(http);
     const req = http.expectOne((r) => r.url.endsWith('/pbx/llamadas'));
     req.flush(llamadas);
   }
@@ -102,7 +117,7 @@ describe('PbxService — la cola se pone al día sola', () => {
     http = TestBed.inject(HttpTestingController);
   });
 
-  afterEach(() => http.verify());
+  afterEach(() => { responderCapacidades(http); http.verify(); });
 
   it('al conectar pide la cola', () => {
     pbx.conectar();
@@ -243,6 +258,7 @@ describe('PbxService — ver no es sonar', () => {
   it('al operador de otro puesto no le aparece la llamada dirigida a la 110', () => {
     const { pbx, http } = montar('op103', ['casos.ver', 'pbx.usar']);
     pbx.conectar();
+    responderCapacidades(http);
     http.expectOne((r) => r.url.endsWith('/pbx/llamadas')).flush([AJENA]);
     expect(pbx.sonando().length).toBe(0);
     http.verify();
@@ -251,6 +267,7 @@ describe('PbxService — ver no es sonar', () => {
   it('a la supervisión sí le aparece, para poder auxiliar ese puesto', () => {
     const { pbx, http } = montar('jefe', ['casos.ver', 'casos.ver_todos']);
     pbx.conectar();
+    responderCapacidades(http);
     http.expectOne((r) => r.url.endsWith('/pbx/llamadas')).flush([AJENA]);
     expect(pbx.sonando().length).toBe(1);
     http.verify();
@@ -259,6 +276,7 @@ describe('PbxService — ver no es sonar', () => {
   it('pero no es suya: no le suena', () => {
     const { pbx, http } = montar('jefe', ['casos.ver', 'casos.ver_todos']);
     pbx.conectar();
+    responderCapacidades(http);
     http.expectOne((r) => r.url.endsWith('/pbx/llamadas')).flush([]);
     expect(pbx.esMia(AJENA)).withContext('no es suya').toBe(false);
     expect(pbx.esMia(SIN_DUENO)).withContext('una sin dueño sí le toca').toBe(true);
@@ -270,6 +288,7 @@ describe('PbxService — ver no es sonar', () => {
     // desactivado: no puede quedarse sin que nadie la vea.
     const { pbx, http } = montar('op103', ['casos.ver', 'pbx.usar']);
     pbx.conectar();
+    responderCapacidades(http);
     http.expectOne((r) => r.url.endsWith('/pbx/llamadas')).flush([SIN_DUENO]);
     expect(pbx.sonando().length).toBe(1);
     expect(pbx.esMia(SIN_DUENO)).toBe(true);
@@ -280,6 +299,7 @@ describe('PbxService — ver no es sonar', () => {
     const mia = { ...LLAMADA, id: 'l-4', destinatario: 'op103' } as Llamada;
     const { pbx, http } = montar('op103', ['casos.ver', 'pbx.usar']);
     pbx.conectar();
+    responderCapacidades(http);
     http.expectOne((r) => r.url.endsWith('/pbx/llamadas')).flush([mia]);
     expect(pbx.sonando().length).toBe(1);
     expect(pbx.esMia(mia)).toBe(true);
@@ -319,7 +339,7 @@ describe('PbxService — avisar de un canal caído, no de uno inexistente', () =
     http = TestBed.inject(HttpTestingController);
   });
 
-  afterEach(() => http.verify({ ignoreCancelled: true }));
+  afterEach(() => { responderCapacidades(http); http.verify({ ignoreCancelled: true }); });
 
   it('sin contratar la planta, no se espera canal y no hay nada que anunciar', () => {
     // Nadie llamó a conectar(): es el caso de la instancia sin PBX.
@@ -329,6 +349,7 @@ describe('PbxService — avisar de un canal caído, no de uno inexistente', () =
 
   it('al conectar se espera canal, aunque todavía no esté arriba', () => {
     pbx.conectar();
+    responderCapacidades(http);
     http.expectOne((r) => r.url.endsWith('/pbx/llamadas')).flush([]);
     // Esta es la combinación que SÍ debe mostrar el aviso: se esperaba canal
     // y no está.
@@ -338,6 +359,7 @@ describe('PbxService — avisar de un canal caído, no de uno inexistente', () =
 
   it('un apagado a propósito deja de esperar canal', () => {
     pbx.conectar();
+    responderCapacidades(http);
     http.expectOne((r) => r.url.endsWith('/pbx/llamadas')).flush([]);
     pbx.desconectar();
     // Cerrar sesión o cambiar a una instancia sin planta no es una avería.

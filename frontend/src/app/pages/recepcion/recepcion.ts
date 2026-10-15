@@ -3,6 +3,7 @@ import { CommonModule } from '@angular/common';
 import { FormControl, FormGroup, ReactiveFormsModule, Validators } from '@angular/forms';
 import { Observable, firstValueFrom } from 'rxjs';
 import { RouterLink } from '@angular/router';
+import { BotonLlamarComponent } from '../../components/boton-llamar/boton-llamar';
 import { CasosService } from '../../core/casos.service';
 import { PbxService, abonadoDeLlamada } from '../../core/pbx.service';
 import {
@@ -42,7 +43,7 @@ import { IconoComponent, NombreIcono } from '../../shared/icono/icono';
   selector: 'app-recepcion',
   standalone: true,
   imports: [CommonModule, ReactiveFormsModule, RouterLink, AutocompletarComponent, SelectorComponent, OpcionComponent,
-    DictadoComponent, AnclajeVideollamadaDirective, IconoComponent],
+    DictadoComponent, AnclajeVideollamadaDirective, IconoComponent, BotonLlamarComponent],
   templateUrl: './recepcion.html',
   styleUrl: './recepcion.scss',
   changeDetection: ChangeDetectionStrategy.OnPush,
