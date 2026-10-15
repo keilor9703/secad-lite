@@ -333,15 +333,27 @@
             <button type="button" class="btn btn--ghost mini" (click)="copiarWebhook()">Copiar dirección</button>
           </div>
 
+          <!-- Qué falta, en cada momento. La pantalla nunca puede quedarse
+               callada: la primera configuración real se atascó dos veces por
+               no decir qué paso seguía. -->
           @if (!cfg.tieneCredenciales) {
-            <!-- Elegir Zadarma sin secreto es un estado legítimo —el campo para
-                 escribirlo está justo arriba— pero la deja APAGADA, y eso hay
-                 que decirlo o parece que no guardó. -->
             <p class="aviso-pbx">
               <strong>Falta el secret</strong>, así que la planta quedó <strong>apagada</strong>:
               sin él no se puede verificar la firma de lo que llegue, y aceptar sin verificar
-              sería dejar que cualquiera meta llamadas en la cola. Péguelo arriba y después
-              ponga el estado en <em>Activa</em>.
+              sería dejar que cualquiera meta llamadas en la cola. Péguelo arriba y la planta
+              se enciende sola.
+            </p>
+          } @else if (!cfg.activo) {
+            <p class="aviso-pbx">
+              Las credenciales están puestas, pero la planta está <strong>apagada</strong>:
+              lo que llegue de Zadarma se anota y no entra a la cola. Ponga el estado en
+              <em>Activa</em> para empezar a recibir llamadas.
+            </p>
+          } @else {
+            <p class="aviso-pbx aviso-pbx--listo">
+              <strong>Lista.</strong> Falta un paso que se hace en Zadarma, no aquí: pegar la
+              dirección de abajo en su panel. Después, llame y compruebe que la llamada
+              aparece en Recepción.
             </p>
           }
         }

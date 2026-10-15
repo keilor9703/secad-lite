@@ -101,3 +101,70 @@ describe('PbxConfigService', () => {
       .rejects.toThrow(/no reconocido/i);
   });
 });
+
+/**
+ * Lo que pasa cuando por fin llega el secreto.
+ *
+ * Quedó apagada porque sin secreto no podía verificar nada. Cuando el secreto
+ * llega, esa razón desaparece — y dejarla apagada esperando a que alguien
+ * mueva «Estado» hace que la planta se quede muda sin que nada lo explique.
+ * Pasó en la primera configuración real.
+ */
+describe('PbxConfigService · el secreto que llega después', () => {
+  let filas: ConfigPbxEntity[];
+  let svc: PbxConfigService;
+
+  beforeEach(() => {
+    process.env.JWT_SECRET = 'llave-de-prueba';
+    filas = [];
+    const repo = {
+      find: async () => filas,
+      findOne: async (o: { where: { tenant: string } }) =>
+        filas.find((f) => f.tenant === o.where.tenant) ?? null,
+      create: (v: Partial<ConfigPbxEntity>) => ({ ...v }) as ConfigPbxEntity,
+      save: async (f: ConfigPbxEntity) => {
+        const i = filas.findIndex((x) => x.tenant === f.tenant);
+        if (i >= 0) filas[i] = f; else filas.push(f);
+        return f;
+      },
+    } as unknown as Repository<ConfigPbxEntity>;
+    svc = new PbxConfigService(repo);
+  });
+
+  it('guardar el secreto enciende la planta que estaba apagada por faltarle', async () => {
+    await svc.guardar({ tenant: 'itagui', proveedor: 'ZADARMA' }, 'superadmin');
+    expect(filas[0].activo).toBe(false);
+
+    const v = await svc.guardar({ tenant: 'itagui', zadarmaSecreto: 'abc' }, 'superadmin');
+
+    expect(v.activo).toBe(true);
+    expect(v.tieneCredenciales).toBe(true);
+  });
+
+  it('pero si se pide apagada explícitamente, se respeta', async () => {
+    await svc.guardar({ tenant: 'itagui', proveedor: 'ZADARMA' }, 'superadmin');
+
+    const v = await svc.guardar({ tenant: 'itagui', zadarmaSecreto: 'abc', activo: false }, 'superadmin');
+
+    expect(v.activo).toBe(false);
+  });
+
+  it('cambiar un secreto que YA estaba no reenciende una planta apagada a propósito', async () => {
+    // Se apagó por una migración, un corte, lo que sea. Rotar la credencial no
+    // puede devolverle llamadas a una instancia que alguien apagó queriendo.
+    await svc.guardar({ tenant: 'itagui', proveedor: 'ZADARMA', zadarmaSecreto: 'viejo' }, 'superadmin');
+    await svc.guardar({ tenant: 'itagui', activo: false }, 'superadmin');
+
+    const v = await svc.guardar({ tenant: 'itagui', zadarmaSecreto: 'nuevo' }, 'superadmin');
+
+    expect(v.activo).toBe(false);
+  });
+
+  it('y con YACO el secreto de Zadarma no enciende nada', async () => {
+    await svc.guardar({ tenant: 'itagui', proveedor: 'YACO', activo: false }, 'superadmin');
+
+    const v = await svc.guardar({ tenant: 'itagui', zadarmaSecreto: 'abc' }, 'superadmin');
+
+    expect(v.activo).toBe(false);
+  });
+});

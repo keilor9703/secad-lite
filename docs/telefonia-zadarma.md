@@ -161,8 +161,11 @@ telefónica**:
 2. Proveedor **Zadarma**. Queda elegida y **apagada**: sin el secreto no se
    puede verificar nada de lo que llegue, así que la pantalla lo dice y espera.
 3. Pegue la **Key** y el **Secret** de Zadarma —los campos aparecen al elegir
-   el proveedor— y el **número entrante** si ya lo tiene.
-4. Ponga el estado en **Activa**.
+   el proveedor— y el **número entrante** si ya lo tiene. Al guardar el secret
+   **la planta se enciende sola**: la única razón por la que estaba apagada
+   era que faltaba. Si la quiere apagada, se apaga, que es un clic.
+4. El panel dice en cada momento qué falta: *falta el secret* → *apagada* →
+   *lista, falta pegar la dirección en Zadarma*.
 5. El panel arma la **dirección del webhook** y la deja lista para copiar; solo
    hay que agregarle al final la API key de esa instancia.
 

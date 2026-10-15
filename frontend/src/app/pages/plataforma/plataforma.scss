@@ -96,3 +96,5 @@
   border-radius: 10px; background: var(--surface-2);
   font-size: var(--texto-sm); line-height: 1.5; color: var(--ink-soft);
 }
+/* El mismo aviso cuando ya está todo: deja de ser una advertencia. */
+.aviso-pbx--listo { border-left-color: var(--ok); }

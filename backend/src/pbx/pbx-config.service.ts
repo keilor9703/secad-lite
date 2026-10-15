@@ -60,6 +60,7 @@ export class PbxConfigService {
     // Solo de escritura: sin valor en el cuerpo se conserva el que había. Un
     // formulario que no recibió el secreto no puede reenviarlo, y sin esto
     // apagar la integración lo borraría sin querer.
+    const teniaSecreto = !!fila.zadarmaSecreto;
     const secreto = dto.zadarmaSecreto?.trim();
     if (secreto) fila.zadarmaSecreto = cifrar(secreto, process.env.JWT_SECRET ?? '');
 
@@ -80,6 +81,16 @@ export class PbxConfigService {
         );
       }
       fila.activo = false;
+    } else if (fila.proveedor === 'ZADARMA' && secreto && !teniaSecreto && dto.activo === undefined) {
+      // Y la vuelta: acaba de llegar el secreto que faltaba. La ÚNICA razón
+      // por la que esta fila estaba apagada era esa, así que se enciende sola.
+      //
+      // La alternativa —dejarla apagada y esperar a que alguien se acuerde de
+      // mover «Estado»— ya se probó: quien configuró la instancia dio por
+      // hecho que con la credencial puesta quedaba lista, y la planta se
+      // quedó muda sin que nada en pantalla dijera por qué. Si de verdad se
+      // quiere apagada, se apaga, que es un clic y se ve.
+      fila.activo = true;
     }
 
     fila.actualizadoPor = actor;

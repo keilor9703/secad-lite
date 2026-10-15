@@ -146,12 +146,15 @@ describe('Plataforma · configurar Zadarma de punta a punta', () => {
     };
     return (d: ConfigPbxGuardar): ConfigPbxVisible => {
       if (d.proveedor) fila = { ...fila, proveedor: d.proveedor };
+      const teniaSecreto = fila.tieneCredenciales;
       if (d.zadarmaSecreto) fila = { ...fila, tieneCredenciales: true };
       if (typeof d.activo === 'boolean') fila = { ...fila, activo: d.activo };
       // La regla del servidor: elegida sin secreto queda APAGADA, no rechazada.
       if (fila.proveedor === 'ZADARMA' && !fila.tieneCredenciales) {
         if (d.activo === true) throw new Error('hace falta el secreto de la API');
         fila = { ...fila, activo: false };
+      } else if (fila.proveedor === 'ZADARMA' && d.zadarmaSecreto && !teniaSecreto && d.activo === undefined) {
+        fila = { ...fila, activo: true };
       }
       return fila;
     };
@@ -217,7 +220,9 @@ describe('Plataforma · configurar Zadarma de punta a punta', () => {
     expect(texto(f)).toContain('apagada');
   });
 
-  it('con el secret guardado, el aviso desaparece', () => {
+  it('al guardar el secret, la planta queda encendida y lista', () => {
+    // La primera configuración real se quedó aquí: con el secret puesto, la
+    // planta seguía apagada y nada en pantalla decía que faltaba ese clic.
     const f = montar();
     f.componentInstance.guardarPbx({ proveedor: 'ZADARMA' });
     f.detectChanges();
@@ -226,6 +231,22 @@ describe('Plataforma · configurar Zadarma de punta a punta', () => {
     f.detectChanges();
 
     expect(f.componentInstance.pbxActual()?.tieneCredenciales).toBe(true);
+    expect(f.componentInstance.pbxActual()?.activo).toBe(true);
     expect(texto(f)).not.toContain('Falta el secret');
+    expect(texto(f)).toContain('Lista.');
+  });
+
+  it('apagada a mano, la pantalla dice que no entrará ninguna llamada', () => {
+    const f = montar();
+    f.componentInstance.guardarPbx({ proveedor: 'ZADARMA' });
+    f.componentInstance.guardarPbx({ zadarmaSecreto: 'abc' });
+    f.detectChanges();
+
+    f.componentInstance.guardarPbx({ activo: false });
+    f.detectChanges();
+
+    expect(texto(f)).toContain('está');
+    expect(texto(f)).toContain('apagada');
+    expect(texto(f)).toContain('Activa');
   });
 });
