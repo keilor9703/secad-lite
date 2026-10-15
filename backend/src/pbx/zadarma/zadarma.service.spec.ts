@@ -41,16 +41,39 @@ describe('ZadarmaService', () => {
 
   let enviados: WebhookLlamadaDto[];
   let svc: ZadarmaService;
+  /** Las llamadas que «existen» en la base, por callId — como en `PbxService`. */
+  let enCola: Map<string, { id: string; estado: string }>;
+  /** Y cuáles ya se cerraron: una fila cerrada no desaparece de la base. */
+  let cerradas: Set<string>;
 
   function armar(cfg: Partial<ConfigPbxEntity> | null = { proveedor: 'ZADARMA', activo: true }) {
     enviados = [];
+    enCola = new Map();
+    cerradas = new Set();
     const config = {
       findOne: async () => (cfg ? ({ tenant: '63001', ...cfg } as ConfigPbxEntity) : null),
     } as unknown as Repository<ConfigPbxEntity>;
     const pbx = {
       webhook: async (_t: TenantEntity, dto: WebhookLlamadaDto) => {
         enviados.push(dto);
-        return { id: `ll-${enviados.length}` };
+        const llamada = enCola.get(dto.callId ?? '') ?? { id: `ll-${enviados.length}`, estado: 'sonando' };
+        if (dto.callId) enCola.set(dto.callId, llamada);
+        return llamada;
+      },
+      // Igual que el de verdad, y esto importó: devuelve null cuando no hay
+      // nada que cerrar —en vez de lanzar un 404 que Zadarma reintentaría sin
+      // fin— y la llamada SIGUE existiendo después de cerrada, con
+      // `cambio: false`. La primera versión de este doble la borraba del
+      // mapa, así que un fin repetido parecía «nada que cerrar»; en la base
+      // de verdad la fila sigue ahí y la bitácora anotaba «Colgada» dos
+      // veces. Lo descubrió el tráfico real, no esta prueba.
+      cerrarSiEstaEnCola: async (_t: TenantEntity, dto: WebhookLlamadaDto) => {
+        enviados.push(dto);
+        const llamada = enCola.get(dto.callId ?? '');
+        if (!llamada) return null;
+        const cambio = !cerradas.has(dto.callId ?? '');
+        if (dto.callId) cerradas.add(dto.callId);
+        return { llamada, cambio };
       },
     } as unknown as PbxService;
     svc = new ZadarmaService(config, pbx);
@@ -137,6 +160,82 @@ describe('ZadarmaService', () => {
 
     expect(enviados.length).toBe(0);
     expect(r.resumen).toContain('no entra a la cola');
+  });
+
+  /**
+   * EL FIN DE LA LLAMADA NO TIENE UN SOLO NOMBRE.
+   *
+   * Pasó en la primera prueba real, entre dos extensiones: la llamada entró a
+   * la cola por `NOTIFY_INTERNAL` y al colgar NO se cerró en FALCON —siguió
+   * timbrando y hubo que cerrarla a mano por la API—, porque desde la
+   * extensión que marcó ese fin es una SALIENTE y llega como
+   * `NOTIFY_OUT_END`, que se ignoraba por «saliente».
+   *
+   * Lo que decide, entonces, no es el nombre del evento: es el `pbx_call_id`.
+   */
+  describe('cualquier aviso de fin cierra la llamada que nombra', () => {
+    const FIN = {
+      caller_id: '101', called_did: '102', call_start: '2026-10-15 09:12:33',
+      pbx_call_id: 'in-abc123', internal: '102', disposition: 'answered', duration: '12',
+    };
+
+    it('NOTIFY_OUT_END cierra la llamada interna que sí estaba en la cola', async () => {
+      await svc.procesar(TENANT, LLAMADA.ofrecida);
+      const r = await svc.procesar(TENANT, { ...FIN, event: 'NOTIFY_OUT_END' });
+
+      expect(enviados[1].evento).toBe('colgada');
+      expect(enviados[1].callId).toBe('in-abc123');
+      expect(enviados[1].atendidaEnPlanta).toBe(true);
+      expect(r.resumen).toContain('Colgada');
+      expect(r.llamadaId).toBeTruthy();
+      // Y NO pisa al agente: en un fin de saliente `internal` es quien
+      // MARCÓ (101), no quien contestó (102). Se vio en la primera llamada
+      // real: la llamada quedó atribuida a la extensión equivocada.
+      expect(enviados[1].agente).toBeUndefined();
+    });
+
+    it('NOTIFY_INTERNAL_END también', async () => {
+      await svc.procesar(TENANT, LLAMADA.ofrecida);
+      const r = await svc.procesar(TENANT, { ...FIN, event: 'NOTIFY_INTERNAL_END' });
+
+      expect(enviados[1].evento).toBe('colgada');
+      expect(r.llamadaId).toBeTruthy();
+    });
+
+    it('pero una saliente de VERDAD no cierra nada, y lo dice', async () => {
+      // Nunca creó fila, así que no hay nada que cerrar. Tratarlo como un
+      // `colgada` cualquiera respondería 404, y Zadarma reintenta los 404.
+      const r = await svc.procesar(TENANT, {
+        event: 'NOTIFY_OUT_END', internal: '101', destination: '573009999999',
+        call_start: '2026-10-15 10:00:00', pbx_call_id: 'out-1', disposition: 'answered', duration: '30',
+      });
+
+      expect(r.llamadaId).toBeUndefined();
+      expect(r.resumen).toContain('nada que cerrar');
+      expect(r.cuerpo).toEqual({ ok: true });
+    });
+
+    it('el fin repetido lo dice, en vez de anotar la llamada colgada dos veces', async () => {
+      // Zadarma puede contar el fin dos veces (la pata interna y la
+      // saliente). La segunda no mueve la cola del operador —eso lo
+      // garantiza `PbxService`— pero sí tiene que distinguirse en la
+      // bitácora: dos «Colgada» seguidas por la misma llamada se leen como
+      // dos cosas que pasaron, y mandan a buscar un problema que no existe.
+      await svc.procesar(TENANT, LLAMADA.ofrecida);
+      const primero = await svc.procesar(TENANT, { ...FIN, event: 'NOTIFY_INTERNAL_END' });
+      const segundo = await svc.procesar(TENANT, { ...FIN, event: 'NOTIFY_OUT_END' });
+
+      expect(primero.resumen).toContain('Colgada');
+      expect(segundo.resumen).toContain('Ya estaba cerrada');
+      expect(segundo.resumen).not.toContain('Colgada (');
+    });
+
+    it('un fin de una llamada que FALCON nunca vio no revienta ni se reintenta', async () => {
+      const r = await svc.procesar(TENANT, { ...FIN, event: 'NOTIFY_END', pbx_call_id: 'fantasma' });
+
+      expect(r.cuerpo).toEqual({ ok: true });
+      expect(r.resumen).toContain('fantasma');
+    });
   });
 
   it('un evento que no sabemos traducir no revienta ni se reintenta', async () => {

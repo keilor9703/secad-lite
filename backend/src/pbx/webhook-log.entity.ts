@@ -25,11 +25,22 @@ export class PbxWebhookLogEntity {
   @Column({ type: 'int' })
   estadoHttp!: number;
 
-  /** 'entrante' | 'colgada', tal como llegó en el body — null si el body ni siquiera traía ese campo. */
+  /**
+   * El evento tal como llegó en el body: `evento` en el webhook genérico
+   * ('entrante' | 'colgada'), `event` en el de Zadarma ('NOTIFY_START',
+   * 'NOTIFY_OUT_END'…). Null si el body ni siquiera traía ese campo.
+   */
   @Column({ type: 'varchar', length: 20, nullable: true })
   evento?: string | null;
 
-  /** El mismo mensaje que se le respondió a la central; null cuando sí se aceptó. */
+  /**
+   * Qué pasó con esta petición. En un rechazo, el mismo mensaje que se le
+   * respondió a la central. En lo aceptado por el webhook de Zadarma, el
+   * resumen de lo que se hizo —«Colgada (answered, 94 s)», «Saliente 101 →
+   * 102 terminada; no estaba en la cola»—, porque «qué hizo FALCON con
+   * esto» es la pregunta que se le hace a esta tabla. Null solo cuando no
+   * hay nada que contar.
+   */
   @Column({ type: 'text', nullable: true })
   motivo?: string | null;
 

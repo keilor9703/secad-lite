@@ -1,5 +1,6 @@
 import { ArgumentsHost, BadRequestException, UnauthorizedException } from '@nestjs/common';
 import { PbxWebhookRechazoFilter } from './webhook-rechazo.filter';
+import { PbxWebhookLogService } from './webhook-log.service';
 import { PeticionPbx } from './pbx-api-key.guard';
 
 /** El guardado pasa por un `await` sin bloquear la respuesta; deja correr los microtasks pendientes. */
@@ -23,7 +24,7 @@ describe('PbxWebhookRechazoFilter', () => {
 
   beforeEach(() => {
     repo = { create: jest.fn((v) => v), save: jest.fn().mockResolvedValue(undefined) };
-    filter = new PbxWebhookRechazoFilter(repo as any);
+    filter = new PbxWebhookRechazoFilter(new PbxWebhookLogService(repo as any));
   });
 
   it('responde exactamente el mismo cuerpo y estado que la excepción original, sin esperar al registro', () => {

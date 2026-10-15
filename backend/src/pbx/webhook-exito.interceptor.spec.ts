@@ -1,6 +1,7 @@
 import { CallHandler, ExecutionContext } from '@nestjs/common';
 import { of } from 'rxjs';
 import { PbxWebhookExitoInterceptor } from './webhook-exito.interceptor';
+import { PbxWebhookLogService } from './webhook-log.service';
 import { LlamadaEntity } from './llamada.entity';
 
 describe('PbxWebhookExitoInterceptor', () => {
@@ -18,7 +19,7 @@ describe('PbxWebhookExitoInterceptor', () => {
 
   beforeEach(() => {
     repo = { create: jest.fn((v) => v), save: jest.fn().mockResolvedValue(undefined) };
-    interceptor = new PbxWebhookExitoInterceptor(repo as any);
+    interceptor = new PbxWebhookExitoInterceptor(new PbxWebhookLogService(repo as any));
   });
 
   it('deja pasar la respuesta del controlador sin tocarla', (done) => {

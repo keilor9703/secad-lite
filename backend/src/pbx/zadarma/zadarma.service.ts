@@ -40,9 +40,13 @@ import { CuerpoZadarma, EVENTOS_ZADARMA, EventoZadarma, verificarFirma } from '.
  *                      fingir que son una sola pondría casos vacíos en el
  *                      tablero. Cuando se conteste dentro de FALCON (WebRTC),
  *                      coincidirán solas.
- *  NOTIFY_END        → `colgada`.
- *  NOTIFY_OUT_*      → salientes: se registran en la bitácora del webhook y no
- *                      entran a la cola. La cola de un CAD es de lo que ENTRA;
+ *  NOTIFY_END        → `colgada`. Y con él NOTIFY_INTERNAL_END y —ojo—
+ *                      NOTIFY_OUT_END: lo que decide cuál llamada se cierra es
+ *                      el `pbx_call_id`, no el nombre del evento. Ver
+ *                      `colgada()`, que explica por qué cuesta una llamada
+ *                      colgada para siempre en la cola.
+ *  NOTIFY_OUT_START  → saliente: se registra en la bitácora del webhook y no
+ *                      entra a la cola. La cola de un CAD es de lo que ENTRA;
  *                      meter ahí lo que marca un operador la vuelve inútil.
  *  NOTIFY_RECORD     → todavía no: la grabación es el paso siguiente.
  * ────────────────────────────────────────────────────────────────────────────
@@ -126,23 +130,12 @@ export class ZadarmaService {
       }
 
       case 'NOTIFY_END':
-      case 'NOTIFY_INTERNAL_END': {
-        const llamada = await this.pbx.webhook(tenant, this.dto(cuerpo, {
-          evento: 'colgada',
-          agente: cuerpo.internal ?? undefined,
-          // `answered` es la palabra de la central: alguien descolgó. Sin
-          // esto, una llamada atendida por softphone se contaba como perdida.
-          atendidaEnPlanta: cuerpo.disposition === 'answered',
-        }));
-        return {
-          cuerpo: { ok: true },
-          resumen: `Colgada (${cuerpo.disposition ?? 'sin disposición'}, ${cuerpo.duration ?? '?'} s)`,
-          llamadaId: llamada?.id ?? null,
-        };
-      }
+      case 'NOTIFY_INTERNAL_END':
+      // Sí, también el fin de una saliente cierra: ver `colgada()`.
+      case 'NOTIFY_OUT_END':
+        return this.colgada(tenant, cuerpo, evento);
 
       case 'NOTIFY_OUT_START':
-      case 'NOTIFY_OUT_END':
         // Saliente: queda en la bitácora del webhook y no toca la cola.
         return {
           cuerpo: { ok: true },
@@ -155,6 +148,63 @@ export class ZadarmaService {
       default:
         return { cuerpo: { ok: true }, resumen: `Evento sin traducción: ${evento}` };
     }
+  }
+
+  /**
+   * Fin de llamada: cierra la que nombre el aviso, si queda alguna abierta.
+   *
+   * ES EL MISMO CAMINO PARA LOS TRES AVISOS DE FIN, Y ESO ES LO IMPORTANTE.
+   *
+   * Zadarma no cuenta el fin de una llamada con un solo evento. Una llamada
+   * entre extensiones entra como `NOTIFY_INTERNAL` —y FALCON la pone en la
+   * cola— pero su fin puede llegar como `NOTIFY_OUT_END`, porque desde la
+   * extensión que marcó fue una saliente. Mientras `NOTIFY_OUT_END` se
+   * ignoraba por ser «saliente», colgar en el softphone no colgaba en FALCON:
+   * la llamada se quedaba timbrando en la cola y solo se podía cerrar a mano
+   * por la API. Pasa igual con los avisos duplicados (el fin de la pata
+   * interna y el de la saliente, los dos por la misma llamada).
+   *
+   * Por eso lo que decide no es el NOMBRE del evento sino el `pbx_call_id`:
+   * si hay una llamada con ese id, se cierra; si no, no había nada que cerrar
+   * —una saliente de verdad nunca creó fila— y eso no es un error. La
+   * alternativa, tratarlo como un `colgada` normal, responde 404 a Zadarma, y
+   * un 404 lo reintenta hasta cansarse.
+   */
+  private async colgada(
+    tenant: TenantEntity, cuerpo: CuerpoZadarma, evento: EventoZadarma,
+  ): Promise<ResultadoZadarma> {
+    const llamada = await this.pbx.cerrarSiEstaEnCola(tenant, this.dto(cuerpo, {
+      evento: 'colgada',
+      // `internal` NO siempre es quien contestó. En un fin de entrante sí; en
+      // un `NOTIFY_OUT_END` es la extensión que MARCÓ, y tomársela por el
+      // agente pisaba al que de verdad descolgó: en la primera prueba real
+      // 101→102 la llamada quedó atribuida a la 101. Eso se ve en el
+      // historial del municipio, así que ahí no se toca el agente.
+      agente: evento === 'NOTIFY_OUT_END' ? undefined : cuerpo.internal ?? undefined,
+      // `answered` es la palabra de la central: alguien descolgó. Sin esto,
+      // una llamada atendida por softphone se contaba como perdida.
+      atendidaEnPlanta: cuerpo.disposition === 'answered',
+    }));
+    const detalle = `${cuerpo.disposition ?? 'sin disposición'}, ${cuerpo.duration ?? '?'} s`;
+    if (llamada) {
+      return {
+        cuerpo: { ok: true },
+        // «Ya estaba cerrada» no es lo mismo que «se cerró», y la bitácora
+        // tenía que poder decirlo: el fin de una llamada llega dos veces.
+        resumen: llamada.cambio
+          ? `Colgada (${detalle})`
+          : `Ya estaba cerrada (${llamada.llamada.estado}); este aviso de fin no cambió nada`,
+        llamadaId: llamada.llamada.id,
+      };
+    }
+    return {
+      cuerpo: { ok: true },
+      resumen: evento === 'NOTIFY_OUT_END'
+        ? `Saliente ${cuerpo.internal ?? '?'} → ${cuerpo.destination ?? '?'} terminada `
+          + `(${detalle}); no estaba en la cola, nada que cerrar`
+        : `Fin de llamada (${detalle}) sin nada que cerrar: `
+          + `ninguna llamada con el id ${cuerpo.pbx_call_id || '(sin id)'}`,
+    };
   }
 
   /** Alta (o completado) de una llamada entrante. */

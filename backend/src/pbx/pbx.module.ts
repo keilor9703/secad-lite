@@ -11,6 +11,7 @@ import { PbxGateway } from './pbx.gateway';
 import { PbxApiKeyGuard } from './pbx-api-key.guard';
 import { PbxWebhookRechazoFilter } from './webhook-rechazo.filter';
 import { PbxWebhookExitoInterceptor } from './webhook-exito.interceptor';
+import { PbxWebhookLogService } from './webhook-log.service';
 import { CasosModule } from '../casos/casos.module';
 import { TenantsModule } from '../tenants/tenants.module';
 import { AuthModule } from '../auth/auth.module';
@@ -43,7 +44,8 @@ import { ZadarmaController } from './zadarma/zadarma.controller';
   ],
   controllers: [PbxController, PbxConfigController, ZadarmaController],
   providers: [
-    PbxService, PbxGateway, PbxApiKeyGuard, PbxWebhookRechazoFilter, PbxWebhookExitoInterceptor,
+    PbxService, PbxGateway, PbxApiKeyGuard, PbxWebhookLogService,
+    PbxWebhookRechazoFilter, PbxWebhookExitoInterceptor,
     PbxConfigService, ZadarmaService,
   ],
   exports: [PbxService],

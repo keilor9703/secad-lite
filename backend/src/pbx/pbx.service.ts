@@ -112,6 +112,20 @@ export interface ActorPbx {
   supervisor: boolean;
 }
 
+/**
+ * Resultado de cerrar una llamada: cuál quedó cerrada, y si este aviso
+ * cambió algo de verdad.
+ *
+ * `cambio: false` es un aviso de fin repetido —una central puede contar el
+ * final dos veces; Zadarma manda el de la pata interna y el de la saliente—.
+ * Distinguirlo importa para la bitácora: sin esto anotaba «Colgada» dos
+ * veces por la misma llamada, como si hubieran pasado dos cosas.
+ */
+export interface CierreLlamada {
+  llamada: LlamadaEntity;
+  cambio: boolean;
+}
+
 /** Cambio en la cola de llamadas, para empujar por WebSocket al operador. */
 export interface LlamadaEvento {
   tenant: string;
@@ -265,26 +279,71 @@ export class PbxService {
       }
 
       if (dto?.evento === 'colgada') {
-        const llamada = await this.ubicar(manager, tenant.codigo, dto.callId, dto.numero);
-        if (!llamada) throw new NotFoundException('Llamada no encontrada.');
-        if (llamada.estado === 'sonando') {
-          // Sonando al colgar: perdida, salvo que la central diga que alguien
-          // la contestó por fuera de FALCON (softphone). Ver `atendidaEnPlanta`.
-          llamada.estado = dto.atendidaEnPlanta ? 'finalizada' : 'perdida';
-        } else if (llamada.estado === 'atendida') {
-          llamada.estado = 'finalizada';
-        }
-        // Muchas centrales solo saben quién contestó al momento de colgar
-        // (resumen final de la llamada) — se acepta también aquí, y no pisa
-        // lo que ya se hubiera recibido en 'entrante' si esta vez no lo manda.
-        if (dto.agente?.trim()) llamada.agentePbx = dto.agente.trim();
-        const guardada = await llamadas.save(llamada);
-        this.eventos$.next({ tenant: tenant.codigo, tipo: 'cambio', llamada: guardada });
-        return guardada;
+        const cierre = await this.colgar(manager, tenant.codigo, dto);
+        // El webhook genérico sí responde 404: ahí un `colgada` que no ubica
+        // la llamada es un error del integrador, no un evento esperable.
+        if (!cierre) throw new NotFoundException('Llamada no encontrada.');
+        return cierre.llamada;
       }
 
       throw new BadRequestException('Evento de PBX no reconocido.');
     });
+  }
+
+  /**
+   * Cierra la llamada que nombre este aviso, SI todavía queda alguna.
+   *
+   * Existe por los avisos de fin que no siempre corresponden a una llamada de
+   * la cola. Zadarma cuenta el fin de una llamada entre extensiones como el
+   * fin de una SALIENTE (`NOTIFY_OUT_END`), y eso dejó un agujero con las dos
+   * salidas malas: ignorarlo deja la llamada timbrando en la cola para
+   * siempre —fue el síntoma, colgar en el softphone no colgaba en FALCON y
+   * hubo que cerrarla a mano por la API—, y tratarlo como un `colgada`
+   * cualquiera responde 404 cuando sí era una saliente de verdad, que es lo
+   * que Zadarma reintenta hasta cansarse.
+   *
+   * Así que aquí «no había nada que cerrar» no es un error: es un resultado,
+   * igual que «ya estaba cerrada» (`cambio: false`).
+   */
+  async cerrarSiEstaEnCola(tenant: TenantEntity, dto: WebhookLlamadaDto): Promise<CierreLlamada | null> {
+    return this.rls.conTenant(tenant.codigo, (manager) => this.colgar(manager, tenant.codigo, dto));
+  }
+
+  /**
+   * El cierre propiamente dicho; null si no hay ninguna llamada que nombre
+   * este aviso.
+   *
+   * No vuelve a guardar ni a avisar lo que ya estaba igual: una central puede
+   * contar el fin de la misma llamada dos veces —Zadarma manda el fin de la
+   * pata interna y el de la saliente— y un `cambio` por algo que no cambió
+   * mueve la cola en la pantalla del operador sin motivo.
+   */
+  private async colgar(
+    manager: EntityManager, tenant: string, dto: WebhookLlamadaDto,
+  ): Promise<CierreLlamada | null> {
+    const llamada = await this.ubicar(manager, tenant, dto.callId, dto.numero);
+    if (!llamada) return null;
+
+    const estadoAntes = llamada.estado;
+    const agenteAntes = llamada.agentePbx;
+    if (llamada.estado === 'sonando') {
+      // Sonando al colgar: perdida, salvo que la central diga que alguien
+      // la contestó por fuera de FALCON (softphone). Ver `atendidaEnPlanta`.
+      llamada.estado = dto.atendidaEnPlanta ? 'finalizada' : 'perdida';
+    } else if (llamada.estado === 'atendida') {
+      llamada.estado = 'finalizada';
+    }
+    // Muchas centrales solo saben quién contestó al momento de colgar
+    // (resumen final de la llamada) — se acepta también aquí, y no pisa
+    // lo que ya se hubiera recibido en 'entrante' si esta vez no lo manda.
+    if (dto.agente?.trim()) llamada.agentePbx = dto.agente.trim();
+    if (llamada.estado === estadoAntes && llamada.agentePbx === agenteAntes) {
+      return { llamada, cambio: false };
+    }
+
+    const guardada = await manager.getRepository(LlamadaEntity).save(llamada);
+    this.eventos$.next({ tenant, tipo: 'cambio', llamada: guardada });
+    return { llamada: guardada, cambio: true };
   }
 
   /**

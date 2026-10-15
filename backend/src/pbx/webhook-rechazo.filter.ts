@@ -1,13 +1,7 @@
-import { ArgumentsHost, Catch, ExceptionFilter, HttpException, Injectable, Logger } from '@nestjs/common';
-import { InjectRepository } from '@nestjs/typeorm';
-import { Repository } from 'typeorm';
+import { ArgumentsHost, Catch, ExceptionFilter, HttpException, Injectable } from '@nestjs/common';
 import { Response } from 'express';
-import { PbxWebhookLogEntity } from './webhook-log.entity';
 import { PeticionPbx } from './pbx-api-key.guard';
-import { resolverIpCliente } from '../common/ip-cliente.decorator';
-
-/** Nada de lo que se guarde acá debe crecer sin límite ante un body enorme o repetido. */
-const TOPE_CUERPO = 2000;
+import { PbxWebhookLogService } from './webhook-log.service';
 
 /**
  * Deja constancia de cada intento AL WEBHOOK DE PBX que termina en error —
@@ -30,12 +24,7 @@ const TOPE_CUERPO = 2000;
 @Injectable()
 @Catch(HttpException)
 export class PbxWebhookRechazoFilter implements ExceptionFilter {
-  private readonly log = new Logger(PbxWebhookRechazoFilter.name);
-
-  constructor(
-    @InjectRepository(PbxWebhookLogEntity)
-    private readonly repo: Repository<PbxWebhookLogEntity>,
-  ) {}
+  constructor(private readonly bitacora: PbxWebhookLogService) {}
 
   catch(exception: HttpException, host: ArgumentsHost): void {
     const ctx = host.switchToHttp();
@@ -50,16 +39,11 @@ export class PbxWebhookRechazoFilter implements ExceptionFilter {
 
     res.status(estado).json(cuerpoRespuesta);
 
-    // Nunca debe tumbar la respuesta real al webhook: si falla el guardado,
-    // solo se registra en el log del proceso y sigue.
-    this.repo.save(this.repo.create({
+    this.bitacora.registrar(req, {
       tenant: req.pbxTenant?.codigo ?? null,
       exitoso: false,
       estadoHttp: estado,
-      evento: (req.body as { evento?: string })?.evento ?? null,
       motivo,
-      ip: resolverIpCliente(req),
-      cuerpo: req.body ? JSON.stringify(req.body).slice(0, TOPE_CUERPO) : null,
-    })).catch((e) => this.log.warn(`No se pudo registrar el rechazo del webhook: ${(e as Error).message}`));
+    });
   }
 }

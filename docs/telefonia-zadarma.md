@@ -7,13 +7,15 @@ que tocar en su panel.
 > telefónica de una instancia de FALCON: las llamadas entran a la cola de
 > Recepción, se dirigen al operador que tiene esa extensión y quedan en el
 > registro. Es exactamente el banco de pruebas que recomienda
-> [`telefonia-cadena-de-la-llamada.md`](telefonia-cadena-de-la-llamada.md) §9 —
-> y las dos objeciones de ese documento siguen en pie para un 123 de verdad:
-> **no hay residencia de datos en Colombia** (el audio y las grabaciones salen
-> del país) y **nadie ha confirmado que una numeración de Zadarma pueda ser el
-> número E.164 al que los operadores enrutan el 123**. Para una línea
-> administrativa, para la línea propia de FALCON y para probar toda la cadena,
-> sirve hoy.
+> [`telefonia-cadena-de-la-llamada.md`](telefonia-cadena-de-la-llamada.md) §9.
+>
+> Ese documento dejaba dos objeciones abiertas —residencia de datos en
+> Colombia y enrutamiento del 1XY— y **las dos quedaron resueltas como
+> decisión de negocio el 15/10/2026**, no como hallazgo técnico: por ahora no
+> condicionan el trabajo. El enrutamiento del 123, además, nunca pasó por
+> Zadarma: llega por troncal SIP a través del proveedor del municipio —ver
+> §1.1—. Conviene volver a mirarlas antes de firmar un 123 de producción,
+> porque una decisión comercial puede cambiar y un requisito regulatorio no.
 
 ---
 
@@ -32,6 +34,33 @@ FALCON **no enruta**: quién recibe cada llamada lo decide la centralita. Lo que
 FALCON hace es traducir «se la estoy ofreciendo a la extensión 101» a «avísale
 a Juan Pérez, que es el dueño de la 101».
 
+### 1.1 De dónde sale el número de cada municipio
+
+Esta es la parte comercial, y explica por qué el 1XY no es un problema de
+Zadarma. Hay **tres casos**, y cada municipio cae en uno:
+
+| Caso | Qué tiene el municipio | Qué hay que hacer |
+|---|---|---|
+| **A** | Piloto **123** | Pedirle a su operador que la **troncal física pase a troncal SIP en la nube**. Con eso, todas las llamadas del 123 de ese municipio se pueden entregar a la plataforma de comunicaciones, y de ahí bajan a FALCON |
+| **B** | Sin 123, pero con **línea fija o WhatsApp** | El número de WhatsApp se **absorbe** en la plataforma: en vez de vivir en el celular de alguien, queda asociado a la barra y la llamada entra directo a FALCON (ya probado). Una línea fija es igual que el caso A: hay que pasarla a troncal SIP |
+| **C** | **Nada** (ni 123, ni fija, ni WhatsApp) | Nosotros le damos el número en la nube —fijo o WhatsApp— como **servicio facturable**, y ese pasa a ser el número del municipio |
+
+Lo que FALCON ve es lo mismo en los tres: una llamada entrante con su número.
+La diferencia es de quién es la troncal y quién factura.
+
+**Dónde encaja Zadarma:** es la pieza del caso **C** —el número en la nube que
+podemos dar nosotros— y, mientras tanto, el banco de pruebas de toda la
+cadena. El caso A no depende de ella: ahí el 123 entra por la troncal SIP del
+operador del municipio.
+
+> **Y sobre YACO, para no confundirse.** La integración **CTI / YACO (barra
+> embebida)** —la de [`integracion-cti-yaco.md`](integracion-cti-yaco.md)—
+> está en FALCON **solo como esqueleto**: el proveedor todavía no ha
+> desarrollado la barra. Las llamadas que hoy llegan de YACO entran por la
+> integración **Planta telefónica (PBX)**, el mismo webhook genérico que usa
+> esta página, no por la de CTI. YACO sigue siendo quien controla la llamada y
+> quien la baja a FALCON; lo que se construye aquí es la alternativa.
+
 ---
 
 ## 2. Lo que ya está hecho
@@ -48,8 +77,8 @@ a Juan Pérez, que es el dueño de la 101».
   | `NOTIFY_START` | La llamada entra a la cola y empieza a sonar en pantalla |
   | `NOTIFY_INTERNAL` | La misma llamada, ya dirigida a una extensión → se le avisa a ese operador |
   | `NOTIFY_ANSWER` | Anota quién descolgó (no abre el caso: eso lo hace el operador al «atender») |
-  | `NOTIFY_END` | Cierra la llamada. Si la central dice `answered`, **no** se cuenta como perdida |
-  | `NOTIFY_OUT_*` | Saliente: queda en la bitácora, no entra a la cola |
+  | `NOTIFY_END`, `NOTIFY_INTERNAL_END`, `NOTIFY_OUT_END` | Cierran la llamada que nombra su `pbx_call_id`, si queda alguna abierta. Si la central dice `answered`, **no** se cuenta como perdida. Ver *El fin de la llamada no tiene un solo nombre* |
+  | `NOTIFY_OUT_START` | Saliente: queda en la bitácora, no entra a la cola |
   | `NOTIFY_RECORD` | Todavía no se usa (ver *Lo que falta*) |
 
 - Configuración por instancia en `config_pbx`, con el secreto **cifrado**.
@@ -186,10 +215,17 @@ pero pierde la mitad de la gracia.
 
 ### 3.5 Comprobar que llegó
 
-Llame al número desde un celular y mire, en este orden:
+**Sin DID todavía**, la prueba que sí se puede hacer es entre extensiones:
+regístrese con MicroSIP (o el teléfono web de *Mi centralita*, o la app) en la
+101, marque `102`, conteste en la otra y cuelgue. No es una llamada del
+ciudadano —entra por `NOTIFY_INTERNAL`, no por `NOTIFY_START`— pero recorre
+toda la cadena: URL, firma, cola, operador y cierre.
+
+Con DID, llámelo desde un celular. En los dos casos mire, en este orden:
 
 1. La llamada aparece en la cola de *Recepción* mientras suena.
-2. Al sonar la extensión, el aviso se dirige a ese operador.
+2. Al sonar la extensión, el aviso se dirige a ese operador —siempre que esa
+   extensión esté puesta en su usuario (§3.4); sin eso se anuncia a todos.
 3. Al colgar, queda en el registro con su duración.
 
 Si no aparece, el rastro está en la base, no en los logs del proceso:
@@ -199,6 +235,22 @@ SELECT "creadoEn", exitoso, "estadoHttp", left(motivo, 80) AS motivo, left(cuerp
 FROM pbx_webhook_log ORDER BY "creadoEn" DESC LIMIT 10;
 ```
 
+La tabla se lee como una transcripción de la llamada. `motivo` dice **qué se
+hizo**, no solo qué falló:
+
+```
+ exitoso |       evento        | motivo
+---------+---------------------+--------------------------------------------------
+ t       | NOTIFY_INTERNAL     | Dirigida a la extensión 102
+ t       | NOTIFY_ANSWER       | Contestada por la extensión 102
+ t       | NOTIFY_OUT_END      | Colgada (answered, 37 s)
+ t       | NOTIFY_INTERNAL_END | Ya estaba cerrada (finalizada); no cambió nada
+ t       | NOTIFY_OUT_START    | Saliente 101 → 573009999999, no entra a la cola
+ t       | NOTIFY_START        | Entrante de 573001234567
+ t       | NOTIFY_END          | Colgada (no answer, 0 s)
+ f       | NOTIFY_END          | La firma no corresponde al cuerpo de la petición.
+```
+
 | Lo que dice `motivo` | Qué pasó |
 |---|---|
 | `Llave de instancia desconocida` | La API key de la URL no es la de ninguna instancia |
@@ -206,9 +258,19 @@ FROM pbx_webhook_log ORDER BY "creadoEn" DESC LIMIT 10;
 | `Esta instancia no tiene Zadarma…` | Falta `config_pbx`, o el proveedor quedó en `YACO` |
 | `…está apagada para esta instancia` | `activo = false`; es a propósito |
 | `La firma no corresponde…` | El secreto guardado no es el de esa cuenta de Zadarma |
-| *(ninguno, `exitoso = true`)* | Llegó y se procesó |
+| `Entrante de …` / `Dirigida a la extensión …` | Entró a la cola |
+| `Colgada (…)` | Se cerró la llamada; entre paréntesis, lo que dijo la central |
+| `Ya estaba cerrada (…)` | Aviso de fin repetido —llegan dos—; no cambió nada |
+| `… no estaba en la cola, nada que cerrar` | Fin de una saliente de verdad: nunca creó fila |
+| `Saliente … no entra a la cola` | La marcó un operador; la cola es de lo que entra |
 
 Si no hay NINGUNA fila, la petición no llegó: es Zadarma, el DNS o nginx.
+
+> Hasta el 15/10/2026 esta tabla no servía para nada con Zadarma: TODA
+> petición quedaba como `exitoso = true`, sin motivo, sin tenant y sin el
+> nombre del evento, porque esta ruta responde 200 incluso cuando rechaza y el
+> interceptor genérico tomaba ese `{ ok: false }` por un éxito. Si está
+> mirando una fila vieja así, no significa que estuviera bien.
 
 ---
 
@@ -229,8 +291,11 @@ Si no hay NINGUNA fila, la petición no llegó: es Zadarma, el DNS o nginx.
    misma política de retención que el video.
 3. **Llamada saliente desde el caso.** `/v1/request/callback/`: FALCON pide a la
    centralita que llame primero al operador y después al ciudadano.
-4. **El número de verdad.** Las dos preguntas abiertas del documento de
-   telefonía: residencia de datos y enrutamiento del 1XY.
+4. **El número de verdad.** Hoy no hay DID: la cuenta solo tiene extensiones,
+   así que se puede probar todo menos la llamada del ciudadano. Para el caso
+   **C** de §1.1 —el número en la nube que vendemos nosotros— basta comprar
+   uno en Zadarma y ponerlo en *Número entrante* en Plataforma. El 123 del
+   caso **A** no sale de aquí: eso es troncal SIP del operador del municipio.
 
 ---
 
@@ -244,6 +309,39 @@ Si no hay NINGUNA fila, la petición no llegó: es Zadarma, el DNS o nginx.
 | Configuración por instancia | `backend/src/pbx/config-pbx.entity.ts`, `pbx-config.service.ts` |
 | Pantalla de configuración | `frontend/src/app/pages/plataforma/` (panel «Planta telefónica») |
 | Cola, casos y avisos (comunes a las dos plantas) | `backend/src/pbx/pbx.service.ts` |
+
+### El fin de la llamada no tiene un solo nombre
+
+Lo encontró la primera llamada real, entre dos extensiones: entró a la cola,
+se colgó en el softphone y en FALCON **siguió timbrando**; hubo que cerrarla a
+mano por la API.
+
+La causa es que Zadarma cuenta esa llamada desde los dos lados. Para la 102 es
+una entrante (`NOTIFY_INTERNAL`) y FALCON la encola; para la 101, que fue la
+que marcó, es una **saliente**, y su fin llega como `NOTIFY_OUT_END` —que se
+ignoraba, por saliente—. Y a veces llegan los dos finales, el de la pata
+interna y el de la saliente, por la misma llamada.
+
+Las dos salidas obvias eran malas: ignorar `NOTIFY_OUT_END` deja la llamada
+colgada en la cola para siempre, y tratarlo como un `colgada` cualquiera
+responde 404 cuando sí era una saliente de verdad —y un 404 lo reintenta la
+central sin fin—. Así que lo que decide **no es el nombre del evento sino el
+`pbx_call_id`**:
+
+| Llega | Hay una llamada con ese `pbx_call_id` | Qué se hace |
+|---|---|---|
+| `NOTIFY_END`, `NOTIFY_INTERNAL_END`, `NOTIFY_OUT_END` | Sí, abierta | Se cierra |
+| lo mismo | Sí, ya cerrada | Nada; se anota «ya estaba cerrada» |
+| lo mismo | No | Nada; era una saliente de verdad |
+| `NOTIFY_OUT_START` | — | Nada: la cola es de lo que ENTRA |
+
+Dos detalles que solo se ven con tráfico real:
+
+- En `NOTIFY_OUT_END`, `internal` es la extensión que **marcó**, no la que
+  contestó. Tomarla por el agente dejaba la llamada 101→102 atribuida a la
+  101 en el historial del municipio.
+- El segundo aviso de fin no vuelve a guardar ni a mover la cola en la
+  pantalla del operador, pero sí se distingue en la bitácora.
 
 ### La firma, que es donde se pierde una tarde
 

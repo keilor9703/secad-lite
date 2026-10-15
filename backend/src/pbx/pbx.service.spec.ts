@@ -185,6 +185,102 @@ describe('PbxService.webhook()', () => {
 });
 
 /**
+ * Cerrar una llamada cuando el aviso de fin PUEDE no corresponder a ninguna.
+ *
+ * Nace de la primera llamada real por Zadarma: entró a la cola, se colgó en
+ * el softphone y en FALCON siguió timbrando, porque su fin llegó con el
+ * nombre de un evento de saliente. Cerrarla exigía `webhook({evento:
+ * 'colgada'})`, que responde 404 cuando no encuentra la llamada —y un 404 lo
+ * reintenta la central sin fin—. Aquí «no había nada que cerrar» es un
+ * resultado, no un error.
+ */
+describe('PbxService.cerrarSiEstaEnCola()', () => {
+  let service: PbxService;
+  let llamadasRepo: { findOne: jest.Mock; save: jest.Mock; create: jest.Mock; find: jest.Mock };
+  let avisos: number;
+  const tenantDemo = { codigo: 'demo', integraciones: ['pbx'] } as any;
+
+  beforeEach(async () => {
+    llamadasRepo = {
+      findOne: jest.fn().mockResolvedValue(null),
+      save: jest.fn((v) => Promise.resolve(v)),
+      create: jest.fn((v) => v),
+      find: jest.fn(),
+    };
+    const module: TestingModule = await Test.createTestingModule({
+      providers: [
+        PbxService,
+        { provide: CasosService, useValue: {} },
+        { provide: UsuariosService, useValue: { buscarPorExtension: jest.fn().mockResolvedValue(null) } },
+        {
+          provide: TenantRlsService,
+          useValue: {
+            conTenant: jest.fn((_t: string, fn: (m: any) => unknown) =>
+              fn({ getRepository: () => llamadasRepo, query: jest.fn() })),
+          },
+        },
+      ],
+    }).compile();
+    service = module.get<PbxService>(PbxService);
+    avisos = 0;
+    service.eventos$.subscribe(() => { avisos += 1; });
+  });
+
+  it('cierra la llamada que nombra el aviso y avisa a la pantalla', async () => {
+    llamadasRepo.findOne.mockResolvedValue({ id: 'll-1', callId: 'in-1', estado: 'sonando', agentePbx: null });
+
+    const r = await service.cerrarSiEstaEnCola(tenantDemo, {
+      evento: 'colgada', callId: 'in-1', atendidaEnPlanta: true,
+    } as WebhookLlamadaDto);
+
+    expect(r).toMatchObject({ llamada: { id: 'll-1', estado: 'finalizada' }, cambio: true });
+    expect(avisos).toBe(1);
+  });
+
+  it('sin contestar sigue siendo perdida', async () => {
+    llamadasRepo.findOne.mockResolvedValue({ id: 'll-1', callId: 'in-1', estado: 'sonando', agentePbx: null });
+    const r = await service.cerrarSiEstaEnCola(tenantDemo, { evento: 'colgada', callId: 'in-1' } as WebhookLlamadaDto);
+    expect(r).toMatchObject({ llamada: { estado: 'perdida' }, cambio: true });
+  });
+
+  it('devuelve null —no un 404— cuando no hay ninguna llamada con ese id', async () => {
+    const r = await service.cerrarSiEstaEnCola(tenantDemo, { evento: 'colgada', callId: 'out-1' } as WebhookLlamadaDto);
+    expect(r).toBeNull();
+    expect(llamadasRepo.save).not.toHaveBeenCalled();
+    expect(avisos).toBe(0);
+  });
+
+  it('un segundo aviso de fin no vuelve a guardar ni a mover la cola', async () => {
+    // La central puede contar el fin dos veces (la pata interna y la
+    // saliente). Un `cambio` por algo que no cambió sacude la pantalla del
+    // operador sin motivo.
+    llamadasRepo.findOne.mockResolvedValue({ id: 'll-1', callId: 'in-1', estado: 'perdida', agentePbx: null });
+
+    const r = await service.cerrarSiEstaEnCola(tenantDemo, { evento: 'colgada', callId: 'in-1' } as WebhookLlamadaDto);
+
+    // Y lo dice: `cambio: false` es lo que deja a la bitácora distinguir
+    // «se colgó» de «ya estaba colgada».
+    expect(r).toMatchObject({ llamada: { estado: 'perdida' }, cambio: false });
+    expect(llamadasRepo.save).not.toHaveBeenCalled();
+    expect(avisos).toBe(0);
+  });
+
+  it('pero sí guarda si el aviso trae el agente que faltaba', async () => {
+    llamadasRepo.findOne.mockResolvedValue({ id: 'll-1', callId: 'in-1', estado: 'finalizada', agentePbx: null });
+    await service.cerrarSiEstaEnCola(tenantDemo, {
+      evento: 'colgada', callId: 'in-1', agente: '102',
+    } as WebhookLlamadaDto);
+    expect(llamadasRepo.save).toHaveBeenCalledWith(expect.objectContaining({ agentePbx: '102' }));
+  });
+
+  it('una llamada ya atendida en FALCON queda finalizada, no perdida', async () => {
+    llamadasRepo.findOne.mockResolvedValue({ id: 'll-1', callId: 'in-1', estado: 'atendida', agentePbx: null });
+    const r = await service.cerrarSiEstaEnCola(tenantDemo, { evento: 'colgada', callId: 'in-1' } as WebhookLlamadaDto);
+    expect(r).toMatchObject({ llamada: { estado: 'finalizada' } });
+  });
+});
+
+/**
  * El origen de la llamada (teléfono / chat de WhatsApp / llamada de
  * WhatsApp) fija automáticamente el `canal` del caso que se crea al
  * atender — es lo que hace que el operador no tenga que elegirlo a mano en

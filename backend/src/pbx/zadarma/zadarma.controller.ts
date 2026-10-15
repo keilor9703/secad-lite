@@ -1,11 +1,9 @@
-import {
-  Body, Controller, Get, Headers, Param, Post, Query, UseFilters, UseInterceptors,
-} from '@nestjs/common';
+import { Body, Controller, Get, Headers, HttpException, Param, Post, Query, Req } from '@nestjs/common';
 import { TenantsService } from '../../tenants/tenants.service';
+import { TenantEntity } from '../../tenants/tenant.entity';
 import { Public } from '../../auth/public.decorator';
-import { PbxWebhookRechazoFilter } from '../webhook-rechazo.filter';
-import { PbxWebhookExitoInterceptor } from '../webhook-exito.interceptor';
-import { ZadarmaService } from './zadarma.service';
+import { PbxWebhookLogService, PeticionWebhook } from '../webhook-log.service';
+import { ResultadoZadarma, ZadarmaService } from './zadarma.service';
 import { CuerpoZadarma, verificarFirma } from './zadarma.firma';
 
 /**
@@ -45,6 +43,7 @@ export class ZadarmaController {
   constructor(
     private readonly zadarma: ZadarmaService,
     private readonly tenants: TenantsService,
+    private readonly bitacora: PbxWebhookLogService,
   ) {}
 
   /**
@@ -68,40 +67,71 @@ export class ZadarmaController {
    * cualquier comprobación de forma.
    */
   @Public()
-  @UseFilters(PbxWebhookRechazoFilter)
-  @UseInterceptors(PbxWebhookExitoInterceptor)
   @Post(':clave')
   async webhook(
+    @Req() req: PeticionWebhook,
     @Param('clave') clave: string,
     @Body() cuerpo: CuerpoZadarma,
     @Headers('signature') firma?: string,
   ): Promise<unknown> {
-    // 1. El eco, primero que todo: esa petición no trae firma ni evento.
+    // 1. El eco, primero que todo: esa petición no trae firma ni evento, y
+    // tampoco es tráfico de llamadas que valga la pena anotar.
     const eco = cuerpo?.zd_echo;
     if (eco) return String(eco);
 
     // 2. De qué instancia hablamos.
     const tenant = await this.tenants.porApiKey(clave);
-    if (!tenant) return this.rechazo('Llave de instancia desconocida.');
-    this.tenants.asegurarVigente(tenant, 'pbx');
+    if (!tenant) return this.rechazo(req, null, 'Llave de instancia desconocida.');
+    try {
+      this.tenants.asegurarVigente(tenant, 'pbx');
+    } catch (e) {
+      return this.rechazo(req, tenant, mensajeDe(e));
+    }
 
     // 3. ¿Esta instancia tiene Zadarma, y encendido?
     const cfg = await this.zadarma.configDe(tenant.codigo);
     if (!cfg || cfg.proveedor !== 'ZADARMA') {
-      return this.rechazo('Esta instancia no tiene Zadarma como planta telefónica.');
+      return this.rechazo(req, tenant, 'Esta instancia no tiene Zadarma como planta telefónica.');
     }
     if (!cfg.activo) {
       // Apagado a propósito. Se responde 200 para que Zadarma no reintente
       // eternamente, y queda anotado en la bitácora del webhook.
-      return { ok: true, ignorado: 'La integración de Zadarma está apagada para esta instancia.' };
+      const motivo = 'La integración de Zadarma está apagada para esta instancia.';
+      return this.rechazo(req, tenant, motivo, { ok: true, ignorado: motivo });
     }
 
     // 4. La firma: esto es lo que de verdad autentica.
     const veredicto = verificarFirma(cuerpo, firma, this.zadarma.secretoDe(cfg));
-    if (!veredicto.ok) return this.rechazo(veredicto.motivo);
+    if (!veredicto.ok) return this.rechazo(req, tenant, veredicto.motivo);
 
     // 5. Traducir y aplicar.
-    const r = await this.zadarma.procesar(tenant, cuerpo);
+    let r: ResultadoZadarma;
+    try {
+      r = await this.zadarma.procesar(tenant, cuerpo);
+    } catch (e) {
+      // Un 4xx es permanente —un cuerpo que no cumple, una llamada que no
+      // existe— y reintentarlo no lo arregla: se anota y se responde 200. Un
+      // error inesperado SÍ se deja subir: ahí el reintento de Zadarma es
+      // justo lo que hace falta, y el 500 no se puede esconder.
+      if (e instanceof HttpException && e.getStatus() < 500) {
+        return this.rechazo(req, tenant, `Rechazado al procesar: ${mensajeDe(e)}`);
+      }
+      this.bitacora.registrar(req, {
+        tenant: tenant.codigo, exitoso: false, estadoHttp: 500,
+        motivo: `Error inesperado: ${(e as Error)?.message ?? e}`,
+      });
+      throw e;
+    }
+
+    this.bitacora.registrar(req, {
+      tenant: tenant.codigo,
+      exitoso: true,
+      estadoHttp: 201,
+      // El resumen, no un null: «qué hizo FALCON con esto» es la pregunta que
+      // se le hace a esta tabla, y hasta ahora no la contestaba.
+      motivo: r.resumen,
+      llamadaId: r.llamadaId ?? null,
+    });
     return r.cuerpo;
   }
 
@@ -113,7 +143,23 @@ export class ZadarmaController {
    * El rechazo queda en `pbx_webhook_log` con su motivo, que es donde se mira
    * cuando «la central dice que lo mandó».
    */
-  private rechazo(motivo: string): { ok: false; motivo: string } {
-    return { ok: false, motivo };
+  private rechazo(
+    req: PeticionWebhook, tenant: TenantEntity | null, motivo: string, cuerpo?: unknown,
+  ): unknown {
+    this.bitacora.registrar(req, {
+      tenant: tenant?.codigo ?? null, exitoso: false, estadoHttp: 201, motivo,
+    });
+    return cuerpo ?? { ok: false, motivo };
   }
+}
+
+/** El texto de una excepción de Nest, sin el envoltorio. */
+function mensajeDe(e: unknown): string {
+  if (e instanceof HttpException) {
+    const cuerpo = e.getResponse();
+    const mensaje = typeof cuerpo === 'string' ? cuerpo : (cuerpo as { message?: unknown })?.message;
+    if (Array.isArray(mensaje)) return mensaje.join(' | ');
+    if (typeof mensaje === 'string') return mensaje;
+  }
+  return (e as Error)?.message ?? String(e);
 }
