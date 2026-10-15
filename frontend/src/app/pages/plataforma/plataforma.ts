@@ -1,7 +1,7 @@
 import { ChangeDetectionStrategy, Component, OnInit, computed, inject, signal } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormControl, FormGroup, FormsModule, ReactiveFormsModule, Validators } from '@angular/forms';
-import { AdminService, ConfigElsGuardar, ConfigElsVisible, ConfigMfaVisible, ConfigSmsGuardar, ConfigSmsVisible } from '../../core/admin.service';
+import { AdminService, ConfigElsGuardar, ConfigElsVisible, ConfigMfaVisible, ConfigPbxGuardar, ConfigPbxVisible, ConfigSmsGuardar, ConfigSmsVisible } from '../../core/admin.service';
 import { EstadoSuscripcion, PlanTenant, Tenant } from '../../core/models';
 import { SelectorMunicipioComponent } from '../../shared/selector-municipio/selector-municipio';
 import { SelectorComponent } from '../../shared/selector/selector';
@@ -157,6 +157,79 @@ export class PlataformaComponent implements OnInit {
     this.cargarSms();
     this.cargarEls();
     this.cargarMfa();
+    this.cargarPbx();
+  }
+
+  // --- Planta telefónica, por instancia ---
+  //
+  // A diferencia del SMS —cuya cuenta y factura son del operador del SaaS—,
+  // la línea del 123 es del municipio: su número, su centralita, su contrato.
+  // Por eso esto se configura POR INSTANCIA y la pantalla empieza eligiendo
+  // cuál.
+
+  readonly pbxConfigs = signal<ConfigPbxVisible[]>([]);
+  readonly pbxTenant = signal<string>('');
+  readonly pbxError = signal('');
+  readonly pbxExito = signal('');
+  readonly pbxGuardando = signal(false);
+
+  /** La configuración de la instancia elegida; `null` mientras no se elige. */
+  readonly pbxActual = computed<ConfigPbxVisible | null>(() => {
+    const t = this.pbxTenant();
+    if (!t) return null;
+    return this.pbxConfigs().find((c) => c.tenant === t)
+      // Una instancia sin fila todavía: se muestra el valor por defecto, que
+      // es exactamente lo que hace el backend si nunca se guardó nada.
+      ?? { tenant: t, proveedor: 'YACO', activo: true, zadarmaKey: null,
+           tieneCredenciales: false, numeroEntrante: null,
+           actualizadoPor: null, actualizadoEn: null };
+  });
+
+  /** Las que ya quedaron en Zadarma, para verlo de un vistazo. */
+  readonly pbxEnZadarma = computed(() =>
+    this.pbxConfigs().filter((c) => c.proveedor === 'ZADARMA'));
+
+  cargarPbx(): void {
+    this.admin.verConfigPbx().subscribe({
+      next: (cs) => this.pbxConfigs.set(cs),
+      error: () => this.pbxError.set('No fue posible cargar la configuración de telefonía.'),
+    });
+  }
+
+  guardarPbx(datos: Omit<ConfigPbxGuardar, 'tenant'>): void {
+    const tenant = this.pbxTenant();
+    if (!tenant || this.pbxGuardando()) return;
+    this.pbxError.set('');
+    this.pbxExito.set('');
+    this.pbxGuardando.set(true);
+    this.admin.guardarConfigPbx({ tenant, ...datos }).subscribe({
+      next: (cfg) => {
+        this.pbxGuardando.set(false);
+        this.pbxConfigs.update((cs) => {
+          const resto = cs.filter((c) => c.tenant !== cfg.tenant);
+          return [...resto, cfg].sort((a, b) => a.tenant.localeCompare(b.tenant));
+        });
+        this.pbxExito.set('Telefonía guardada.');
+      },
+      error: (e) => {
+        this.pbxGuardando.set(false);
+        // El backend se niega a activar Zadarma sin secreto, y el motivo es
+        // justo lo que hay que leer: sin él no se puede verificar nada.
+        this.pbxError.set(e?.error?.message ?? 'No fue posible guardar la telefonía.');
+      },
+    });
+  }
+
+  /** La dirección que se pega en el panel de Zadarma. */
+  readonly urlWebhook = computed(() => {
+    const origen = typeof window !== 'undefined' ? window.location.origin : 'https://falconcad.com.co';
+    return `${origen}/api/pbx/zadarma/`;
+  });
+
+  copiarWebhook(): void {
+    navigator.clipboard.writeText(this.urlWebhook())
+      .then(() => this.pbxExito.set('Dirección copiada. Péguela en Zadarma y agréguele la API key de la instancia al final.'))
+      .catch(() => this.pbxError.set('El navegador no permitió copiar; selecciónela a mano.'));
   }
 
   // --- SMS Global ---

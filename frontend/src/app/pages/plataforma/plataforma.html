@@ -256,6 +256,110 @@
       }
     </div>
 
+    <!-- Planta telefónica. POR INSTANCIA, al revés que el SMS: la línea del
+         123 es del municipio —su número, su centralita, su contrato—, así que
+         lo primero que se elige es de cuál se está hablando. -->
+    <div class="panel panel--col card sms-global">
+      <h2><app-icono nombre="telefono" [tam]="17" /> Planta telefónica</h2>
+      <p class="hint">
+        Qué centralita atiende a cada instancia. <strong>YACO</strong> manda el webhook
+        genérico y no necesita credenciales nuestras; <strong>Zadarma</strong> es la
+        centralita que operamos, y ahí sí hacen falta sus llaves para verificar lo que
+        llega y para pedirle grabaciones.
+      </p>
+
+      @if (pbxError()) { <p class="error">{{ pbxError() }}</p> }
+      @if (pbxExito()) { <p class="exito">{{ pbxExito() }}</p> }
+
+      <div class="t-grid">
+        <label class="campo">
+          <span>Instancia</span>
+          <app-selector [valorActual]="pbxTenant()" (cambio)="pbxTenant.set($any($event))">
+            <app-opcion valor="">Elija una instancia…</app-opcion>
+            @for (t of tenants(); track t.codigo) {
+              <app-opcion [valor]="t.codigo">{{ t.nombre }} ({{ t.codigo }})</app-opcion>
+            }
+          </app-selector>
+        </label>
+      </div>
+
+      @if (pbxActual(); as cfg) {
+        <div class="t-grid">
+          <label class="campo">
+            <span>Proveedor</span>
+            <app-selector [valorActual]="cfg.proveedor" (cambio)="guardarPbx({ proveedor: $any($event) })">
+              <app-opcion valor="YACO">YACO (webhook genérico)</app-opcion>
+              <app-opcion valor="ZADARMA">Zadarma</app-opcion>
+            </app-selector>
+          </label>
+          <label class="campo">
+            <span>Estado</span>
+            <app-selector [valorActual]="cfg.activo" (cambio)="guardarPbx({ activo: $any($event) })">
+              <app-opcion [valor]="true">Activa</app-opcion>
+              <app-opcion [valor]="false">Apagada</app-opcion>
+            </app-selector>
+          </label>
+          <label class="campo">
+            <span>Número entrante</span>
+            <input type="tel" [value]="cfg.numeroEntrante ?? ''" placeholder="+576012345678"
+                   (change)="guardarPbx({ numeroEntrante: $any($event.target).value })" />
+          </label>
+        </div>
+
+        @if (cfg.proveedor === 'ZADARMA') {
+          <div class="t-grid">
+            <label class="campo">
+              <span>Key de la API de Zadarma</span>
+              <input type="text" [value]="cfg.zadarmaKey ?? ''" placeholder="71278d8e6746cb220a36"
+                     (change)="guardarPbx({ zadarmaKey: $any($event.target).value })" />
+            </label>
+            <label class="campo">
+              <span>Secret {{ cfg.tieneCredenciales ? '(configurado ✓)' : '(sin configurar)' }}</span>
+              <!-- Solo de escritura: el campo se vacía al guardar y el secreto
+                   no vuelve a bajar al navegador ni para mostrarlo. -->
+              <input type="password" autocomplete="off" placeholder="Pegue el secret aquí"
+                     (change)="guardarPbx({ zadarmaSecreto: $any($event.target).value }); $any($event.target).value = ''" />
+            </label>
+          </div>
+
+          <div class="pbx-webhook">
+            <p class="hint">
+              En Zadarma: <strong>Integraciones y API → Integraciones → Notificaciones de
+              eventos</strong>, campo <strong>«Sobre llamadas a la centralita»</strong>. Pegue
+              esta dirección y agréguele al final la <strong>API key de esta instancia</strong>
+              (la de Administración → Instancias):
+            </p>
+            <code>{{ urlWebhook() }}&lt;API_KEY&gt;</code>
+            <button type="button" class="btn btn--ghost mini" (click)="copiarWebhook()">Copiar dirección</button>
+          </div>
+
+          @if (!cfg.tieneCredenciales && cfg.activo) {
+            <p class="error">
+              Falta el secret. Sin él no se puede verificar la firma de lo que llegue, y
+              aceptar sin verificar sería dejar que cualquiera meta llamadas en la cola.
+            </p>
+          }
+        }
+
+        @if (cfg.actualizadoPor) {
+          <p class="hint">Última actualización por {{ cfg.actualizadoPor }}
+            @if (cfg.actualizadoEn) { el {{ cfg.actualizadoEn | date: 'dd/MM/yyyy HH:mm' }} }
+          </p>
+        }
+      } @else {
+        <p class="hint">Elija una instancia para ver o cambiar su planta telefónica.</p>
+      }
+
+      @if (pbxEnZadarma().length) {
+        <p class="hint">
+          En Zadarma:
+          @for (c of pbxEnZadarma(); track c.tenant) {
+            <strong>{{ c.tenant }}</strong>{{ c.activo ? '' : ' (apagada)' }}@if (!$last) {, }
+          }
+        </p>
+      }
+    </div>
+
     <!-- Archivado de grabaciones. El barrido recorre TODAS las instancias, así
          que es mantenimiento de la plataforma y no de un municipio. -->
     <div class="panel panel--col card sms-global">

@@ -135,6 +135,14 @@ export class AdminService {
     return this.http.post<{ ok: boolean; mensaje: string }>(`${this.base}/plataforma/sms/probar`, { numero });
   }
 
+  // --- Planta telefónica de cada instancia (solo superadmin desde Plataforma) ---
+  verConfigPbx(): Observable<ConfigPbxVisible[]> {
+    return this.http.get<ConfigPbxVisible[]>(`${this.base}/plataforma/pbx`);
+  }
+  guardarConfigPbx(datos: ConfigPbxGuardar): Observable<ConfigPbxVisible> {
+    return this.http.post<ConfigPbxVisible>(`${this.base}/plataforma/pbx`, datos);
+  }
+
   // --- Config de geolocalización ELS global (solo superadmin desde Plataforma) ---
   verConfigEls(): Observable<ConfigElsVisible> {
     return this.http.get<ConfigElsVisible>(`${this.base}/plataforma/els`);
@@ -153,6 +161,33 @@ export class AdminService {
   guardarConfigMfa(exigido: boolean): Observable<ConfigMfaVisible> {
     return this.http.post<ConfigMfaVisible>(`${this.base}/plataforma/mfa`, { exigido });
   }
+}
+
+/**
+ * La planta telefónica de UNA instancia, como se ve en pantalla.
+ *
+ * El secreto no viaja nunca hacia el navegador, ni truncado: `tieneSecreto`
+ * dice si está puesto, y es todo lo que hace falta saber.
+ */
+export interface ConfigPbxVisible {
+  tenant: string;
+  proveedor: 'YACO' | 'ZADARMA';
+  activo: boolean;
+  zadarmaKey: string | null;
+  tieneCredenciales: boolean;
+  numeroEntrante: string | null;
+  actualizadoPor: string | null;
+  actualizadoEn: string | null;
+}
+
+export interface ConfigPbxGuardar {
+  tenant: string;
+  proveedor?: 'YACO' | 'ZADARMA';
+  activo?: boolean;
+  zadarmaKey?: string | null;
+  /** Solo de escritura: sin valor, se conserva el que había. */
+  zadarmaSecreto?: string | null;
+  numeroEntrante?: string | null;
 }
 
 export interface ConfigSmsVisible {

@@ -26,9 +26,15 @@ export class PbxConfigController {
     private readonly auditoria: AuditoriaAdminService,
   ) {}
 
-  /** GET /api/plataforma/pbx?tenant=63001 — qué hay configurado (sin secretos). */
+  /**
+   * GET /api/plataforma/pbx — la planta de cada instancia, sin secretos.
+   *
+   * Devuelve la lista entera y no una instancia a la vez: son unas pocas
+   * filas, la pantalla las necesita todas para poder cambiar de instancia sin
+   * ir y volver al servidor, y así se ve de un vistazo quién quedó en YACO.
+   */
   @Get()
-  ver(@Body('tenant') _sinUso: unknown, @Usuario() _actor: JwtPayload): Promise<VistaConfigPbx[]> {
+  ver(): Promise<VistaConfigPbx[]> {
     return this.config.listar();
   }
 

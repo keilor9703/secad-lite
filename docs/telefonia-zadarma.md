@@ -154,22 +154,23 @@ imprime nada, el problema es de red o de nginx, no de FALCON.
 
 ### 3.3 Las llaves, en FALCON
 
-Con el superadmin:
+Con el superadmin, en **Plataforma → Configuración e integraciones → Planta
+telefónica**:
 
-```bash
-curl -X POST https://falconcad.com.co/api/plataforma/pbx \
-  -H "authorization: Bearer <TOKEN>" -H 'content-type: application/json' \
-  -d '{"tenant":"63001","proveedor":"ZADARMA","activo":true,
-       "zadarmaKey":"<KEY>","zadarmaSecreto":"<SECRET>","numeroEntrante":"+576012345678"}'
-```
+1. Elija la **instancia**.
+2. Proveedor **Zadarma**, estado **Activa**.
+3. Pegue la **Key** y el **Secret** de Zadarma, y el **número entrante** si ya
+   lo tiene.
+4. El panel arma la **dirección del webhook** y la deja lista para copiar; solo
+   hay que agregarle al final la API key de esa instancia.
 
-El secreto se guarda cifrado y no vuelve a salir: la respuesta solo dice si
-está puesto. Activar Zadarma **sin** secreto se rechaza a propósito — sin él no
-se puede verificar nada de lo que llegue, y aceptar sin verificar es peor que
-no tener la integración.
+El secreto se guarda cifrado y **no vuelve a bajar al navegador**, ni para
+mostrarlo: el campo dice si está puesto y nada más. Activar Zadarma **sin**
+secreto se rechaza a propósito —sin él no se puede verificar nada de lo que
+llegue— y la pantalla muestra ese motivo tal cual.
 
-> La pantalla para hacer esto desde *Plataforma*, en lugar de con `curl`, es lo
-> siguiente que falta.
+Cambiar el proveedor o apagar la integración **no borra** el secreto: el campo
+solo escribe, así que dejarlo vacío conserva el que había.
 
 ### 3.4 Las extensiones, con su dueño
 
@@ -208,8 +209,7 @@ Si no hay NINGUNA fila, la petición no llegó: es Zadarma, el DNS o nginx.
 
 ## 4. Lo que falta, en orden
 
-1. **La pantalla de configuración en Plataforma.** Hoy se hace con `curl`.
-2. **Contestar dentro de FALCON (WebRTC).** Es lo que convierte esto en un CAD
+1. **Contestar dentro de FALCON (WebRTC).** Es lo que convierte esto en un CAD
    de verdad: el operador descuelga en la misma pantalla donde escribe el caso,
    sin alternar con MicroSIP. En el panel está en *Integraciones y API →
    pestaña **WebRTC***, y lo primero que pide es **autorizar el dominio**
@@ -218,13 +218,13 @@ Si no hay NINGUNA fila, la petición no llegó: es Zadarma, el DNS o nginx.
    Zadarma —rápido, pero mete su interfaz dentro de la nuestra y el audio pasa
    por su página— o su SIP sobre WebSocket con un softphone propio, que es más
    trabajo y deja el control del audio y de la pantalla en FALCON.
-3. **La grabación al caso.** `NOTIFY_RECORD` avisa que está lista; se pide con
+2. **La grabación al caso.** `NOTIFY_RECORD` avisa que está lista; se pide con
    `/v1/pbx/record/request/` (hay que esperar unos segundos: justo después del
    aviso, el archivo todavía no está) y se guarda como adjunto del caso, con la
    misma política de retención que el video.
-4. **Llamada saliente desde el caso.** `/v1/request/callback/`: FALCON pide a la
+3. **Llamada saliente desde el caso.** `/v1/request/callback/`: FALCON pide a la
    centralita que llame primero al operador y después al ciudadano.
-5. **El número de verdad.** Las dos preguntas abiertas del documento de
+4. **El número de verdad.** Las dos preguntas abiertas del documento de
    telefonía: residencia de datos y enrutamiento del 1XY.
 
 ---
@@ -237,6 +237,7 @@ Si no hay NINGUNA fila, la petición no llegó: es Zadarma, el DNS o nginx.
 | Traducción de eventos | `backend/src/pbx/zadarma/zadarma.service.ts` |
 | Endpoint del webhook | `backend/src/pbx/zadarma/zadarma.controller.ts` |
 | Configuración por instancia | `backend/src/pbx/config-pbx.entity.ts`, `pbx-config.service.ts` |
+| Pantalla de configuración | `frontend/src/app/pages/plataforma/` (panel «Planta telefónica») |
 | Cola, casos y avisos (comunes a las dos plantas) | `backend/src/pbx/pbx.service.ts` |
 
 ### La firma, que es donde se pierde una tarde

@@ -71,3 +71,18 @@
 
 .archivado-botones { display: flex; flex-wrap: wrap; gap: 0.5rem; }
 .archivado-botones + .exito, .archivado-botones + .error { margin-top: 0.7rem; }
+
+/* La dirección del webhook, para copiarla al panel de Zadarma. Se muestra
+   entera y seleccionable: es lo que hay que pegar allá, y truncarla obligaría
+   a abrir las herramientas del navegador para leerla. */
+.pbx-webhook {
+  display: flex; flex-direction: column; align-items: flex-start; gap: 0.5rem;
+  margin-top: 0.3rem; padding: 0.7rem 0.8rem;
+  border: 1px solid var(--border); border-radius: 10px; background: var(--surface-2);
+}
+.pbx-webhook .hint { margin: 0; }
+.pbx-webhook code {
+  display: block; width: 100%; padding: 0.45rem 0.6rem;
+  border: 1px solid var(--border); border-radius: 8px; background: var(--surface);
+  font-size: var(--texto-xs); word-break: break-all; user-select: all;
+}
