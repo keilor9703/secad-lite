@@ -67,6 +67,12 @@ webhook genérico de YACO. Esto no puede romper lo que ya opera.
 
 ### 3.1 Antes de empezar: qué debe estar listo
 
+> **El endpoint tiene que existir en producción ANTES de tocar el panel.**
+> Zadarma valida la dirección en el momento de guardarla: si FALCON todavía no
+> está desplegado con este cambio, el panel la rechaza y parece un problema de
+> la URL. Primero `./deploy-falcon.sh`, después el panel.
+
+
 | | Dónde se ve | Estado que necesita |
 |---|---|---|
 | Centralita virtual creada | *PBX* | Activa |
@@ -79,10 +85,31 @@ Lo que ya probó con MicroSIP cubre los cuatro primeros: si marcando el número
 suena la extensión y se puede hablar, el audio ya funciona. Lo que falta es
 que la centralita le **cuente** a FALCON lo que está pasando.
 
+**Se puede probar el webhook sin número entrante.** Una llamada de extensión a
+extensión (101 marca 102) dispara `NOTIFY_INTERNAL` y `NOTIFY_END`, que basta
+para comprobar que la dirección, la firma y la bitácora funcionan. Para la
+cadena completa —el ciudadano marca y entra a la cola— sí hace falta un DID
+apuntando a la centralita, y saldo: un DID colombiano son unos 12 USD de
+conexión y entre 12 y 18 al mes.
+
 ### 3.2 El webhook
 
-1. Entre a <https://my.zadarma.com/api/> y abra la pestaña de **integraciones
-   / CRM** (la que en la documentación aparece como `#apitab-zcrm`).
+El panel cambió de forma y la documentación de Zadarma todavía habla de una
+pestaña «CRM» que ya no se llama así. Hoy (octubre de 2026) la ruta es:
+
+> **Configuración → Integraciones y API → pestaña «Integraciones» →
+> bloque «Servicios Zadarma» → mosaico «Notificaciones de eventos».**
+
+Ese mosaico **es** el webhook: ahí se activa y ahí va la dirección. Mientras
+diga *Activadas (0)* no hay ninguna notificación saliendo, y por eso no se ve
+ningún campo de URL en el resto del panel.
+
+La pestaña **«Claves y API»** dice en su propio encabezado que desde ahí se
+«configura el enlace para las notificaciones»; si el campo no aparece a
+primera vista, sale al pulsar **MODIFICAR CLAVES**. Las dos rutas llevan al
+mismo sitio.
+
+1. Abra **Notificaciones de eventos** y actívelo.
 2. En la dirección del webhook pegue, **con la llave de la instancia al final**:
 
    ```
@@ -168,9 +195,13 @@ Si no hay NINGUNA fila, la petición no llegó: es Zadarma, el DNS o nginx.
 1. **La pantalla de configuración en Plataforma.** Hoy se hace con `curl`.
 2. **Contestar dentro de FALCON (WebRTC).** Es lo que convierte esto en un CAD
    de verdad: el operador descuelga en la misma pantalla donde escribe el caso,
-   sin alternar con MicroSIP. Zadarma tiene widget propio; hay que decidir si se
-   usa el suyo o su SIP sobre WebSocket con un softphone propio, porque de eso
-   depende cuánto del audio pasa por su interfaz.
+   sin alternar con MicroSIP. En el panel está en *Integraciones y API →
+   pestaña **WebRTC***, y lo primero que pide es **autorizar el dominio**
+   (`https://falconcad.com.co`): hasta que ese dominio esté en la lista, el
+   widget no carga desde FALCON. Queda por decidir si se usa el widget de
+   Zadarma —rápido, pero mete su interfaz dentro de la nuestra y el audio pasa
+   por su página— o su SIP sobre WebSocket con un softphone propio, que es más
+   trabajo y deja el control del audio y de la pantalla en FALCON.
 3. **La grabación al caso.** `NOTIFY_RECORD` avisa que está lista; se pide con
    `/v1/pbx/record/request/` (hay que esperar unos segundos: justo después del
    aviso, el archivo todavía no está) y se guarda como adjunto del caso, con la
