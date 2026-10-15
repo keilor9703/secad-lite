@@ -70,3 +70,39 @@ La aplicación arranca igual, con STUN y sin TURN, y deja un aviso en la consola
 del navegador. La videollamada funciona en la mayoría de las redes y falla en
 las móviles con NAT simétrico de operador. Es un modo degradado a propósito: un
 CAD no puede negarse a abrir porque falte un archivo de ajustes.
+
+---
+
+## `deploy-falcon.sh` se instala como ENLACE, no como copia
+
+En el servidor:
+
+```bash
+cd ~/falcon-deploy
+ln -s secad-lite/deploy/deploy-falcon.sh deploy-falcon.sh
+```
+
+Una copia (`cp`) queda congelada el día en que se hizo: `git pull` actualiza el
+repositorio y el despliegue sigue corriendo la versión vieja, repitiendo
+errores ya corregidos. Pasó tres veces con el mismo fallo de publicación, y la
+causa estaba escrita en el manual, que decía copiarlo. Lo mismo vale para
+`respaldo-falcon.sh`.
+
+El script se niega a correr desde una copia y dice cómo cambiarla, pero esa
+comprobación solo existe en el propio script: una copia anterior a ella no se
+entera. El cambio hay que hacerlo una vez, a mano.
+
+## Pruebas de los guiones de despliegue
+
+No necesitan ni el servidor ni Docker; cada una levanta lo que le hace falta:
+
+```bash
+./deploy/pruebas/lanzador.prueba.sh    # cómo se INVOCA el despliegue
+./deploy/pruebas/respaldo.prueba.sh    # el respaldo, contra un PostgreSQL real
+```
+
+`lanzador.prueba.sh` arma un árbol de despliegue falso (git con su origin,
+compose vacío, `.env`) y comprueba lo que cuesta un despliegue cuando se
+rompe: que una copia se rechace con instrucciones, que un enlace simbólico NO
+se confunda con una copia, que el script se relance cuando el merge trae una
+versión nueva de sí mismo, y que sin `.env` no muera en silencio.

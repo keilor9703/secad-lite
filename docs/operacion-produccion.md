@@ -92,17 +92,38 @@ sola.
 > carpeta vieja o devuelve 403. Es la misma trampa del inodo que hace que
 > `sed -i` rompa el montaje de `nginx.conf`.
 
-Instalarlo o actualizarlo (viene en el repositorio):
+### `deploy-falcon.sh` es un ENLACE, nunca una copia
+
+Instalarlo, una sola vez:
 
 ```bash
 # Requisito del sistema: el script publica el frontend con rsync
 sudo apt-get update && sudo apt-get install -y rsync
 
 cd ~/falcon-deploy
-git -C secad-lite pull
-cp secad-lite/deploy/deploy-falcon.sh .
-chmod +x deploy-falcon.sh
+ln -s secad-lite/deploy/deploy-falcon.sh deploy-falcon.sh
 ```
+
+> ⚠ **Nunca `cp`.** Durante meses estas instrucciones decían copiarlo, y eso
+> convirtió `~/falcon-deploy/deploy-falcon.sh` en una versión congelada del día
+> en que se copió. Arreglar el script en el repositorio no servía de nada: el
+> `git pull` actualizaba el repositorio y el despliegue seguía corriendo la
+> copia vieja, repitiendo un error ya corregido una y otra vez. Con el enlace,
+> `git pull` actualiza también lo que se ejecuta.
+>
+> Si ya existe una copia, se cambia así —y el comando de siempre sigue
+> funcionando igual:
+>
+> ```bash
+> cd ~/falcon-deploy
+> mv deploy-falcon.sh deploy-falcon.sh.copia-vieja   # por si tenía algo propio
+> ln -s secad-lite/deploy/deploy-falcon.sh deploy-falcon.sh
+> ls -l deploy-falcon.sh    # debe mostrar "-> secad-lite/deploy/deploy-falcon.sh"
+> ```
+>
+> El script se niega a correr desde una copia y explica esto mismo, pero solo
+> puede hacerlo una versión que ya traiga la comprobación: una copia anterior a
+> ella no se entera de nada. Por eso el cambio hay que hacerlo a mano, una vez.
 
 ### A mano, si hace falta entender qué hace
 
@@ -430,14 +451,15 @@ cd ~/falcon-deploy
 ./respaldo-falcon.sh confirmar <copia> <sha256>   # "ya la bajé a mi disco, y coincide"
 ```
 
-Instalarlo o actualizarlo:
+Instalarlo, una sola vez. **Enlace, no copia**, por lo mismo que
+`deploy-falcon.sh`: una copia se queda congelada en el día en que se hizo, y
+`git pull` deja de servir para nada:
 
 ```bash
 cd ~/falcon-deploy
-git -C secad-lite pull
-cp secad-lite/deploy/respaldo-falcon.sh .
-chmod +x respaldo-falcon.sh
+ln -sfn secad-lite/deploy/respaldo-falcon.sh respaldo-falcon.sh
 rm -f respaldo.sh      # el anterior: volcaba todo junto y no verificaba nada
+ls -l respaldo-falcon.sh   # debe mostrar "-> secad-lite/deploy/respaldo-falcon.sh"
 ```
 
 ### La política, y las dos cosas que se llaman igual
@@ -1367,22 +1389,33 @@ de `/.well-known/`, que es donde certbot deja el reto para renovar el
 certificado. Lo crea root, así que `--delete` corriendo como `ubuntu` no puede
 borrarlo y rsync aborta. Reaparece en cada renovación, cada 60 días.
 
-El script ya lo protege. Si el error sale igual, es que **se ejecutó una
-versión vieja del script**. Para confirmarlo:
+El script del repositorio ya lo protege. **Si el error sale igual después de
+haberlo corregido, lo que corre no es el script del repositorio.**
+
+Y la causa es casi siempre la misma, porque estaba escrita aquí: durante meses
+estas instrucciones decían `cp secad-lite/deploy/deploy-falcon.sh .`, así que
+`~/falcon-deploy/deploy-falcon.sh` —el que se invoca todos los días— quedó
+congelado en el día en que se copió. `git pull` actualiza el repositorio;
+la copia no. El arreglo viaja hasta el servidor y nunca llega a ejecutarse.
+
+Comprobarlo toma dos segundos:
 
 ```bash
-# ¿Qué script se está ejecutando, y coincide con el del repositorio?
-cd ~/falcon-deploy/secad-lite
-git log --oneline -1
-grep -c "P /.well-known/" deploy/deploy-falcon.sh    # debe decir 1
-git show HEAD:deploy/deploy-falcon.sh | cmp - deploy/deploy-falcon.sh && echo "coincide con HEAD"
+cd ~/falcon-deploy
+ls -l deploy-falcon.sh                # ¿es un enlace, o un archivo propio?
+cmp deploy-falcon.sh secad-lite/deploy/deploy-falcon.sh && echo "idénticos"
+grep -c "P /.well-known/" deploy-falcon.sh    # 0 = es la versión vieja
 ```
 
-El script comprueba esto solo desde `aec9dbf`: se niega a correr si lo invocan
-desde una copia fuera del repositorio, y se relanza si el archivo en disco no
-coincide con el commit actual. Además hace un ensayo (`--dry-run`) antes de
-borrar nada: si el borrado fuera a tocar una ruta que el usuario no puede
-borrar, aborta ANTES de empezar en vez de dejar el directorio a medio publicar.
+Con `ls -l` basta: si no dice `-> secad-lite/deploy/deploy-falcon.sh`, se está
+ejecutando una copia. Se arregla una sola vez (ver *`deploy-falcon.sh` es un
+ENLACE, nunca una copia*), y el comando de siempre vuelve a funcionar.
+
+Desde `aec9dbf` el script se niega a correr desde una copia y dice cómo
+cambiarla por un enlace; se relanza solo si el archivo en disco no coincide con
+el commit actual; y hace un ensayo (`--dry-run`) antes de borrar nada, de modo
+que si el borrado fuera a tocar una ruta que el usuario no puede borrar aborta
+ANTES de empezar, en vez de dejar el directorio a medio publicar.
 
 Si hubiera que publicar a mano en una emergencia:
 

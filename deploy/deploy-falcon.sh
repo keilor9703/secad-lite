@@ -20,6 +20,14 @@
 #   ~/falcon-deploy/frontend-dist/   <- raíz que sirve nginx (bind mount)
 set -euo pipefail
 
+# Qué archivo se está ejecutando, resuelto AQUÍ y no más abajo: `BASH_SOURCE`
+# suele ser una ruta relativa («./deploy-falcon.sh»), y `readlink -f` la
+# resuelve contra el directorio actual. Más abajo el script hace `cd` al
+# repositorio, así que resolverla allí da una ruta que nunca existió — y la
+# comprobación de «¿soy el script del repositorio?» rechazaba justamente al
+# enlace simbólico que es la forma correcta de instalarlo.
+ESTE=$(readlink -f "${BASH_SOURCE[0]}")
+
 DEPLOY_DIR="$HOME/falcon-deploy"
 REPO_DIR="$DEPLOY_DIR/secad-lite"
 DIST_DIR="$DEPLOY_DIR/frontend-dist"
@@ -43,7 +51,10 @@ done
 command -v rsync >/dev/null 2>&1 || {
   echo "Falta rsync: sudo apt-get update && sudo apt-get install -y rsync" >&2; exit 1; }
 
-DOMINIO=$(grep -E '^DOMAIN=' "$DEPLOY_DIR/.env" 2>/dev/null | cut -d= -f2-)
+# El `|| true` no sobra: sin .env, grep sale con 2 y `set -e` mata el script
+# antes de imprimir una sola línea. Un despliegue que termina en silencio con
+# código 2 es la peor forma posible de fallar.
+DOMINIO=$(grep -E '^DOMAIN=' "$DEPLOY_DIR/.env" 2>/dev/null | cut -d= -f2- || true)
 DOMINIO=${DOMINIO:-localhost}
 
 # ── Código ───────────────────────────────────────────────────────────────
@@ -97,13 +108,18 @@ if [[ "$ANTES" != "$DESPUES" && -z "${FALCON_RELANZADO:-}" ]] \
   exec "$REPO_DIR/deploy/deploy-falcon.sh" "$@"
 fi
 
-ESTE=$(readlink -f "${BASH_SOURCE[0]}")
 DEL_REPO="$REPO_DIR/deploy/deploy-falcon.sh"
 
 if [[ "$ESTE" != "$(readlink -f "$DEL_REPO")" ]]; then
-  echo "Está ejecutando $ESTE, que no es el script del repositorio." >&2
-  echo "Use: $DEL_REPO" >&2
-  echo "(Una copia fuera del repositorio no recibe los arreglos y repite errores ya corregidos.)" >&2
+  echo "Está ejecutando una COPIA del script de despliegue:" >&2
+  echo "    $ESTE" >&2
+  echo "Una copia no recibe los arreglos: repite errores ya corregidos en el" >&2
+  echo "repositorio, tantas veces como se despliegue." >&2
+  echo >&2
+  echo "Cámbiela por un enlace, una sola vez, y el comando de siempre funciona:" >&2
+  echo "    cd $DEPLOY_DIR" >&2
+  echo "    mv deploy-falcon.sh deploy-falcon.sh.copia-vieja" >&2
+  echo "    ln -s secad-lite/deploy/deploy-falcon.sh deploy-falcon.sh" >&2
   exit 1
 fi
 
