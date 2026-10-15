@@ -125,6 +125,45 @@ export class PbxService {
     return digitos.length >= 7 && digitos.length <= 15;
   }
 
+  /**
+   * Deja el identificador del llamante como un abonado marcable — la MISMA
+   * regla que aplica el servidor al guardarlo (`PbxService.normalizarNumero`
+   * del backend).
+   *
+   * Se repite aquí porque el softphone tiene que reconocer que la llamada que
+   * suena en el navegador y la que está en la cola son la misma, y la de la
+   * cola ya se guardó normalizada: comparar el crudo del `From` de SIP contra
+   * el limpio de la base no casa nunca.
+   *
+   * Si las dos reglas se separan, el softphone deja de encontrar llamadas y el
+   * síntoma —«contesta pero no la toma»— no se parece a la causa. Hay una
+   * prueba con los casos que de verdad llegan de producción.
+   */
+  static normalizarNumero(crudo: string): string {
+    const sinJid = (crudo ?? '').split('@')[0];
+    const limpio = sinJid.replace(/[^\d+]/g, '');
+    // Un `+` solo vale al principio; si queda en medio es ruido.
+    const candidato = limpio.startsWith('+')
+      ? '+' + limpio.slice(1).replace(/\+/g, '')
+      : limpio.replace(/\+/g, '');
+    // Solo se limpia lo que de verdad es un teléfono. Un identificador de
+    // sesión de WhatsApp (`+CO.1744934636794102`) limpiado daría un número
+    // que parece bueno y no existe.
+    return PbxService.esNumeroMarcable(candidato) ? candidato : (crudo ?? '').trim();
+  }
+
+  /**
+   * La llamada que el softphone acaba de tomar, para que Recepción llene su
+   * formulario con ella.
+   *
+   * Es un traspaso de UN SOLO USO: Recepción la consume y la borra. Si se
+   * quedara puesta, el formulario volvería a llenarse solo cada vez que el
+   * operador entrara a la pantalla —incluso después de haber soltado la
+   * llamada a propósito—, que es justo el tipo de magia que nadie puede
+   * desactivar cuando estorba.
+   */
+  readonly paraTrabajar = signal<Llamada | null>(null);
+
   /** Timbre encendido/apagado; la elección se recuerda en el puesto de trabajo. */
   readonly sonidoActivo = signal(localStorage.getItem('falconcad_pbx_sonido') !== 'off');
 

@@ -344,6 +344,15 @@ export interface UsuarioAdmin {
   canales: string[];
   /** Extensión de la planta telefónica; null si no atiende llamadas por PBX. */
   extension: string | null;
+  /**
+   * ¿Tiene clave SIP guardada? Sí o no, nunca el valor.
+   *
+   * Es lo que le permite contestar DENTRO de FALCON. La clave en sí solo sale
+   * por la ruta del softphone y solo hacia su propio duño: un listado de
+   * administración que la trajera la pondría en la pantalla de cualquiera que
+   * gestione usuarios.
+   */
+  tieneClaveSip?: boolean;
   /** Cuándo vinculó su aplicación de autenticación; null si no lo ha hecho. */
   mfaActivadoEn?: string | null;
   /** Correo del funcionario; null en las cuentas anteriores al campo. */

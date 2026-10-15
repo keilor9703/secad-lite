@@ -1113,6 +1113,38 @@ export class AdminComponent implements OnInit {
     });
   }
 
+  /** Quién tiene el campo de clave SIP abierto; '' si nadie. */
+  readonly claveSipDe = signal('');
+  readonly guardandoClaveSip = signal(false);
+
+  abrirClaveSip(u: UsuarioAdmin): void {
+    this.error.set('');
+    this.claveSipDe.set(this.claveSipDe() === u.id ? '' : u.id);
+  }
+
+  /**
+   * Guarda la clave SIP de esa extensión. Solo de escritura: el campo se vacía
+   * y el valor no vuelve a bajar al navegador ni para mostrarlo. Vacío la
+   * borra, que es cómo se le quita el softphone a alguien.
+   */
+  guardarClaveSip(u: UsuarioAdmin, valor: string): void {
+    if (this.guardandoClaveSip()) return;
+    this.guardandoClaveSip.set(true);
+    this.admin.registrarClaveSip(u.id, valor.trim() || null).subscribe({
+      next: (r) => {
+        this.guardandoClaveSip.set(false);
+        this.claveSipDe.set('');
+        this.usuarios.update((us) => us.map((x) => (x.id === u.id ? { ...x, tieneClaveSip: r.tieneClaveSip } : x)));
+      },
+      error: (e) => {
+        this.guardandoClaveSip.set(false);
+        // El servidor se niega si no hay extensión: la clave es de una
+        // extensión y sin ella no hay con qué registrarse.
+        this.error.set(e?.error?.message ?? 'No fue posible guardar la clave SIP.');
+      },
+    });
+  }
+
   // --- Editar nombre, agencia y canales de un usuario ya creado ---------------
   // El canal que se le asignó al crearlo no quedaba fijo a propósito — es muy
   // común que un funcionario atienda canales distintos según el día— pero

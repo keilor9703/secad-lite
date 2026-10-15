@@ -393,6 +393,56 @@ describe('PbxService.esNumeroMarcable', () => {
  * guarda en el caso como el teléfono del ciudadano, y se cruza contra otros
  * casos del mismo número.
  */
+/**
+ * `PbxService.normalizarNumero` del navegador contra la del servidor.
+ *
+ * Son dos copias de la misma regla, y eso es un riesgo real: el softphone
+ * reconoce que la llamada que suena en el navegador y la que está en la cola
+ * son la misma comparando números normalizados. Si las dos reglas se separan,
+ * el softphone deja de encontrar llamadas y el síntoma —«contesta pero no la
+ * toma— no se parece a la causa.
+ *
+ * Los casos son EXACTAMENTE los de `backend/src/pbx/pbx.service.spec.ts`,
+ * incluidos los que vinieron de producción.
+ */
+describe('PbxService.normalizarNumero — la misma regla que el servidor', () => {
+  it('recorta el sufijo del JID de WhatsApp', () => {
+    expect(PbxService.normalizarNumero('573175882321@s.whatsapp.net')).toBe('573175882321');
+    expect(PbxService.normalizarNumero('573001234567@c.us')).toBe('573001234567');
+  });
+
+  it('quita los adornos de un número «bonito» de la central', () => {
+    expect(PbxService.normalizarNumero('+57 317 588 2321')).toBe('+573175882321');
+    expect(PbxService.normalizarNumero('(317) 588-2321')).toBe('3175882321');
+    expect(PbxService.normalizarNumero('317.588.2321')).toBe('3175882321');
+  });
+
+  it('no toca un número que ya viene limpio', () => {
+    expect(PbxService.normalizarNumero('3175882321')).toBe('3175882321');
+    expect(PbxService.normalizarNumero('+573175882321')).toBe('+573175882321');
+  });
+
+  it('no adivina el indicativo: 57… y 3… son las dos formas legítimas', () => {
+    expect(PbxService.normalizarNumero('573175882321')).toBe('573175882321');
+    expect(PbxService.normalizarNumero('3175882321')).toBe('3175882321');
+  });
+
+  it('el + solo vale al principio', () => {
+    expect(PbxService.normalizarNumero('+57+317+5882321')).toBe('+573175882321');
+  });
+
+  it('si al limpiar no queda nada marcable, devuelve lo que llegó', () => {
+    expect(PbxService.normalizarNumero('anonimo@c.us')).toBe('anonimo@c.us');
+    expect(PbxService.normalizarNumero('privado')).toBe('privado');
+  });
+
+  it('NO convierte un identificador de la central en algo que parece un teléfono', () => {
+    // De producción: limpiarlo daría `+1744934636794102`, que parece un número
+    // y no lo es — y así acabaría marcado, copiado al caso y cruzado con otros.
+    expect(PbxService.normalizarNumero('+CO.1744934636794102')).toBe('+CO.1744934636794102');
+  });
+});
+
 describe('abonadoDeLlamada', () => {
   it('un abonado de verdad se escribe tal cual', () => {
     expect(abonadoDeLlamada('3175882321')).toEqual({ abonado: '3175882321', aviso: '' });

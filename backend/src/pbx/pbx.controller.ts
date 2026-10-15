@@ -17,6 +17,7 @@ import { JwtPayload } from '../auth/auth.service';
 import { RequiereIntegracion } from '../tenants/integracion.decorator';
 import { PbxSalienteService, ResultadoLlamar } from './pbx-saliente.service';
 import { PbxCredencialesService } from './pbx-credenciales.service';
+import { PbxSoftphoneService } from './pbx-softphone.service';
 import { descriptor as descriptorDe } from './proveedores/registro';
 
 @RequiereIntegracion('pbx')
@@ -28,6 +29,7 @@ export class PbxController {
     private readonly auditoria: AuditoriaAdminService,
     private readonly saliente: PbxSalienteService,
     private readonly credenciales: PbxCredencialesService,
+    private readonly softphoneSvc: PbxSoftphoneService,
   ) {}
 
   /**
@@ -173,6 +175,19 @@ export class PbxController {
       activo: fila ? fila.activo : true,
       capacidades: d?.capacidades ?? [],
     };
+  }
+
+  /**
+   * GET /api/pbx/softphone — con qué se registra ESTE navegador.
+   *
+   * Entrega la configuración del usuario de la sesión y de nadie más: la
+   * extensión y la clave SIP salen de su propia cuenta, no de la petición. Y
+   * no se anota en ninguna bitácora —lleva una credencial—.
+   */
+  @Permisos('pbx.usar')
+  @Get('softphone')
+  softphone(@Tenant() tenant: string, @Usuario() usuario: JwtPayload) {
+    return this.softphoneSvc.configDe(tenant, usuario?.sub ?? '');
   }
 
   /**

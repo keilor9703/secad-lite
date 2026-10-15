@@ -636,6 +636,24 @@
                       <input class="mono ext" [value]="u.extension"
                         placeholder="—" (blur)="guardarExtension(u, $any($event.target).value)"
                         [attr.aria-label]="'Extensión PBX de ' + u.username" />
+                      <!-- La clave SIP de esa extensión: es lo que le permite
+                           CONTESTAR dentro de FALCON, en vez de en MicroSIP.
+                           Solo de escritura; aquí solo se ve si está puesta. -->
+                      @if (u.extension) {
+                        <button type="button" class="btn btn--ghost mini" (click)="abrirClaveSip(u)"
+                          [attr.aria-label]="'Clave SIP de ' + u.username">
+                          SIP {{ u.tieneClaveSip ? '✓' : '—' }}
+                        </button>
+                        @if (claveSipDe() === u.id) {
+                          <input type="password" class="mono ext" autocomplete="off"
+                            placeholder="Clave SIP de la extensión"
+                            [attr.aria-label]="'Nueva clave SIP de ' + u.username"
+                            (keydown.enter)="guardarClaveSip(u, $any($event.target).value)"
+                            (blur)="guardarClaveSip(u, $any($event.target).value)" />
+                          <small class="sin-dato">Se consigue en el panel de la centralita, con los
+                            datos de esa extensión. Vacío la borra.</small>
+                        }
+                      }
                     </td>
                     <td class="mono">{{ u.tenant || '—' }}</td>
                     <td><span class="badge" [class.on]="u.activo">{{ u.activo ? 'Activo' : 'Inactivo' }}</span></td>

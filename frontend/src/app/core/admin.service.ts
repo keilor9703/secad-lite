@@ -111,6 +111,13 @@ export class AdminService {
     return this.http.patch<UsuarioAdmin>(`${this.base}/usuarios/${id}`, { extension });
   }
   /**
+   * La clave SIP de la extensión, para contestar dentro de FALCON. Solo de
+   * escritura: el valor no vuelve nunca, solo si está puesta. Vacío la borra.
+   */
+  registrarClaveSip(id: string, clave: string | null): Observable<{ tieneClaveSip: boolean }> {
+    return this.http.post<{ tieneClaveSip: boolean }>(`${this.base}/usuarios/${id}/sip`, { clave });
+  }
+  /**
    * Cambia la contraseña de cualquier usuario visible en la tabla —incluida
    * la del propio superadmin, cuando es él quien mira—: el backend ya
    * resuelve el alcance (un admin de tenant solo ve y puede tocar los suyos).

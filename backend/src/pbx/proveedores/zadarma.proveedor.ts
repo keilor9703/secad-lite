@@ -1,6 +1,7 @@
 import { CuerpoAviso, ResultadoVerificacion, TraduccionAviso } from './aviso';
 import {
-  CampoCredencial, CredencialesPbx, DescriptorProveedor, ProveedorPbx, ResultadoMarcar,
+  CampoCredencial, ConfigSoftphone, CredencialesPbx, DescriptorProveedor, ProveedorPbx,
+  ResultadoMarcar,
 } from './proveedor';
 import { EVENTOS_ZADARMA, EventoZadarma, verificarFirma } from '../zadarma/zadarma.firma';
 import {
@@ -21,6 +22,22 @@ const CREDENCIALES: CampoCredencial[] = [
     requerido: true,
     forma: '^[A-Za-z0-9]{20}$',
     ejemplo: 'a1b2c3d4e5f6a7b8c9d0',
+  },
+  {
+    clave: 'sipWss',
+    etiqueta: 'WebSocket SIP (para contestar en FALCON)',
+    ayuda: 'La dirección `wss://…` de señalización de la centralita. Se consigue en Integraciones y API → WebRTC, donde además hay que autorizar el dominio de FALCON. Sin esto, la telefonía funciona igual pero se contesta en el softphone de siempre.',
+    secreto: false,
+    requerido: false,
+    ejemplo: 'wss://wss.zadarma.com',
+  },
+  {
+    clave: 'sipDominio',
+    etiqueta: 'Dominio SIP',
+    ayuda: 'Con qué dominio se arma la identidad de cada extensión (`101@dominio`). Lo dice el panel junto a los datos de la extensión.',
+    secreto: false,
+    requerido: false,
+    ejemplo: 'sip.zadarma.com',
   },
   {
     clave: 'secreto',
@@ -92,7 +109,7 @@ export class ProveedorZadarma implements ProveedorPbx {
     clave: 'ZADARMA',
     nombre: 'Zadarma',
     resumen: 'Centralita en la nube que operamos nosotros: número, extensiones y grabación en su panel. Sirve para el municipio que no tiene línea propia, y como banco de pruebas de toda la cadena.',
-    capacidades: ['entrantes', 'marcar'],
+    capacidades: ['entrantes', 'marcar', 'softphone'],
     credenciales: CREDENCIALES,
     rutaAviso: '/api/pbx/zadarma/',
     dondeSePega: 'Integraciones y API → Integraciones → Notificaciones de eventos → campo «Sobre llamadas a la centralita»',
@@ -243,6 +260,28 @@ export class ProveedorZadarma implements ProveedorPbx {
         + 'correcta, así que seguramente son de otra cuenta o se rotaron en su panel.';
     }
     return `Zadarma no pudo originar la llamada: ${detalle}`;
+  }
+
+  /**
+   * La configuración con la que el navegador del operador se registra como
+   * teléfono —o null si esta instancia no la tiene puesta.
+   *
+   * Devolver null es un estado normal y frecuente, no un error: la telefonía
+   * funciona igual sin softphone (se contesta en MicroSIP, en el teléfono web
+   * del panel o en el móvil) y lo único que cambia es que atender en FALCON
+   * sigue siendo un segundo gesto. La pantalla lo dice en vez de intentar
+   * registrarse contra una dirección vacía.
+   *
+   * No se inventa ningún valor por defecto a propósito. La dirección de
+   * señalización y el dominio SIP los publica el proveedor en SU panel y
+   * pueden cambiar; una dirección adivinada aquí fallaría con un error de
+   * WebSocket que no se parece en nada a «esto nunca se configuró».
+   */
+  softphone(cred: CredencialesPbx, extension: string, claveSip: string): ConfigSoftphone | null {
+    const wss = cred.sipWss?.trim();
+    const dominio = cred.sipDominio?.trim();
+    if (!wss || !dominio || !extension?.trim() || !claveSip) return null;
+    return { wss, dominio, usuario: extension.trim(), clave: claveSip };
   }
 
   /** Los campos comunes a todos sus eventos. */

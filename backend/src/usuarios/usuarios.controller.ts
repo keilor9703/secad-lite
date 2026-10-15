@@ -122,6 +122,34 @@ export class UsuariosController {
     return { ok: r.ok, correo: r.correo, enlace: r.enlace, error: r.error };
   }
 
+  /**
+   * POST /api/usuarios/:id/sip — la clave SIP de la extensión, para que esa
+   * persona pueda contestar DENTRO de FALCON.
+   *
+   * Solo de escritura: el valor no vuelve nunca, ni en este listado ni en
+   * ningún otro; lo único que se puede saber desde administración es si está
+   * puesta. Mandar vacío la borra, que es cómo se le quita el softphone a
+   * alguien sin tocarle la extensión.
+   *
+   * La bitácora anota el gesto y NO la clave —anotar media credencial es
+   * regalarla a quien lea la auditoría—.
+   */
+  @Post(':id/sip')
+  async registrarClaveSip(
+    @Usuario() actor: JwtPayload, @Param('id') id: string,
+    @Body() body: { clave?: string },
+  ) {
+    const u = await this.usuarios.buscarPorId(id);
+    const r = await this.usuarios.registrarClaveSip(id, body?.clave ?? null);
+    await this.auditoria.registrar(
+      u?.tenant ?? 'plataforma', actor.sub, 'usuario.sip',
+      r.tieneClaveSip
+        ? `Registró la clave SIP de «${u?.username}» (extensión ${u?.extension ?? '—'}).`
+        : `Borró la clave SIP de «${u?.username}»: ya no puede contestar dentro de FALCON.`,
+    );
+    return r;
+  }
+
   @Patch(':id')
   async actualizar(@Usuario() actor: JwtPayload, @Param('id') id: string, @Body() dto: ActualizarUsuarioDto) {
     const u = await this.usuarios.actualizar(actor, id, dto);

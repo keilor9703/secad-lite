@@ -89,6 +89,23 @@ operador del municipio.
   | `NOTIFY_OUT_START` | Saliente: queda en la bitácora, no entra a la cola |
   | `NOTIFY_RECORD` | Todavía no se usa (ver *Lo que falta*) |
 
+- **Contestar DENTRO de FALCON** (softphone propio, SIP sobre WebSocket): el
+  operador descuelga en la misma pantalla donde escribe el caso, y con ese
+  mismo clic la llamada de la cola queda **tomada para él** —desaparece de la
+  cola de los demás— y su número viaja a Recepción. Un gesto en vez de dos
+  programas.
+  - Se enciende a mano (botón *Encender* en el panel del teléfono): registrarse
+    toma el micrófono y hace que la central empiece a entregarle llamadas a ese
+    navegador, y eso no debe pasarle a quien entró a consultar un caso.
+  - **Hace falta configurar tres cosas**: el *WebSocket SIP* y el *Dominio SIP*
+    de la instancia (Plataforma → Planta telefónica) y la **clave SIP de cada
+    extensión** (Administración → Usuarios, botón *SIP* al lado de la
+    extensión). Sin eso el panel dice exactamente qué falta y la telefonía
+    sigue funcionando igual: se contesta en el teléfono de siempre.
+  - La clave SIP **sí baja al navegador**, y es inevitable: en un softphone web
+    el que se registra es el navegador. Lo que se acota es el alcance —solo la
+    del propio usuario, solo por la ruta del softphone, nunca en un listado de
+    administración ni en un registro—.
 - **Llamar desde el caso** (`POST /api/pbx/marcar`): la central llama primero a
   la extensión del operador y, al descolgar, al ciudadano. Por eso funciona sin
   softphone: el audio nunca pasa por el navegador. El botón está junto al
@@ -307,15 +324,17 @@ Si no hay NINGUNA fila, la petición no llegó: es Zadarma, el DNS o nginx.
 
 ## 4. Lo que falta, en orden
 
-1. **Contestar dentro de FALCON (WebRTC).** Es lo que convierte esto en un CAD
-   de verdad: el operador descuelga en la misma pantalla donde escribe el caso,
-   sin alternar con MicroSIP. En el panel está en *Integraciones y API →
-   pestaña **WebRTC***, y lo primero que pide es **autorizar el dominio**
-   (`https://falconcad.com.co`): hasta que ese dominio esté en la lista, el
-   widget no carga desde FALCON. Queda por decidir si se usa el widget de
-   Zadarma —rápido, pero mete su interfaz dentro de la nuestra y el audio pasa
-   por su página— o su SIP sobre WebSocket con un softphone propio, que es más
-   trabajo y deja el control del audio y de la pantalla en FALCON.
+1. ~~**Contestar dentro de FALCON.**~~ Hecho, con **softphone propio** sobre su
+   SIP y no con el widget de Zadarma: el widget es más rápido de montar pero
+   mete su interfaz dentro de la nuestra y el audio pasa por su página.
+   Falta lo que solo se puede hacer en su panel y comprobar con tráfico real:
+   - **autorizar el dominio** `https://falconcad.com.co` en *Integraciones y
+     API → WebRTC*. Hasta que esté en la lista, el navegador no se registra.
+   - **confirmar la dirección del WebSocket y el dominio SIP** que publica
+     Zadarma, y pegarlos en Plataforma. FALCON **no adivina ninguna de las
+     dos** a propósito: una dirección inventada falla con un error de
+     WebSocket que no se parece en nada a «esto nunca se configuró».
+   - registrar la **clave SIP de cada extensión** en Administración → Usuarios.
 2. **La grabación al caso.** `NOTIFY_RECORD` avisa que está lista; se pide con
    `/v1/pbx/record/request/` (hay que esperar unos segundos: justo después del
    aviso, el archivo todavía no está) y se guarda como adjunto del caso, con la

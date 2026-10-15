@@ -44,7 +44,7 @@ puede llamar desde el caso.
 |---|---|
 | `entrantes` | Las llamadas entran a la cola de Recepción. Es el mínimo para existir. |
 | `marcar` | El botón «Llamar» del caso: la central llama al operador y después al ciudadano. |
-| `softphone` | Contestar **dentro** de FALCON (SIP sobre WebSocket / WebRTC), sin softphone aparte. |
+| `softphone` | Contestar **dentro** de FALCON (SIP sobre WebSocket), sin softphone aparte. Además de las credenciales de la instancia, exige la **clave SIP de cada extensión** (Administración → Usuarios). |
 | `grabacion` | Traer la grabación de la llamada al caso. |
 
 > **Declaran lo que FALCON sabe hacer, no lo que el proveedor sabría hacer.**
@@ -57,7 +57,7 @@ Hoy:
 | Proveedor | Capacidades | Credenciales que pide |
 |---|---|---|
 | **YACO** | `entrantes` | Ninguna: entrega por el webhook genérico, autenticado con la API key de la instancia |
-| **Zadarma** | `entrantes`, `marcar` | Key y Secret de su API |
+| **Zadarma** | `entrantes`, `marcar`, `softphone` | Key y Secret de su API; WebSocket SIP y dominio SIP para el softphone |
 
 > **Sobre YACO, para no confundirse.** Las llamadas que hoy llegan de YACO
 > entran por esta integración, «Planta telefónica (PBX)». La integración **CTI

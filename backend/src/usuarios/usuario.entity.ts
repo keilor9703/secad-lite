@@ -65,6 +65,26 @@ export class UsuarioEntity {
   extension?: string | null;
 
   /**
+   * Clave SIP de esa extensión, para contestar DENTRO de FALCON.
+   *
+   * CIFRADA en reposo (AES-256-GCM, ver `common/secretos.ts`) y no como
+   * digest, porque hay que poder recuperarla: es lo que el navegador del
+   * operador usa para registrarse como teléfono en la central.
+   *
+   * **Sí viaja al navegador**, y eso es inevitable, no un descuido: en un
+   * softphone web el que se registra es el navegador. Lo que se puede acotar
+   * es el alcance, y se acota: solo la del usuario que la pide, solo por la
+   * ruta del softphone, y nunca en un registro ni en una respuesta de
+   * administración —ahí solo se dice si está puesta—.
+   *
+   * Es por usuario y no por instancia porque cada extensión tiene la suya: con
+   * una compartida, dos operadores se registrarían como el mismo teléfono y la
+   * central entregaría la llamada a cualquiera de los dos.
+   */
+  @Column({ type: 'varchar', length: 500, nullable: true })
+  sipClave?: string | null;
+
+  /**
    * "@" de WhatsApp del funcionario, para la integración CTI/YACO: permite
    * vincular una conversación de WhatsApp que llega por esa vía a ESTE
    * operador. Igual que `extension`, es solo el mapeo — la asignación en sí

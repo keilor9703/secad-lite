@@ -216,6 +216,8 @@ export class RecepcionComponent implements OnInit {
   tomarLlamada(l: Llamada): void {
     this.error.set('');
     this.avisoAbonado.set('');
+    // Consumido: el traspaso del softphone es de un solo uso.
+    if (this.pbx.paraTrabajar()?.id === l.id) this.pbx.paraTrabajar.set(null);
     this.pbx.reclamar(l.id).subscribe({
       next: (llamada) => {
         // Solo se escribe en Abonado lo que de verdad es un abonado. La central
@@ -508,6 +510,15 @@ export class RecepcionComponent implements OnInit {
   // --- Formulario -------------------------------------------------------------
 
   ngOnInit(): void {
+    // Si el operador acaba de contestar en el softphone, esa llamada ya quedó
+    // tomada para él: se trae al formulario aquí, que es donde se escribe el
+    // caso mientras se habla. El traspaso es de UN SOLO USO (lo borra
+    // `tomarLlamada`): si se quedara puesto, el formulario volvería a
+    // llenarse solo cada vez que entrara a la pantalla, incluso después de
+    // haber soltado la llamada a propósito.
+    const delSoftphone = this.pbx.paraTrabajar();
+    if (delSoftphone) this.tomarLlamada(delSoftphone);
+
     // El mapa y el buscador se preparan una vez pintado el formulario, que ya
     // está a la vista. Se decide UNA sola vez qué motor de mapa usar (Google
     // si hay clave, Leaflet/OSM si no) — ambos comparten el mismo contenedor

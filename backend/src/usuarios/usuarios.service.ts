@@ -3,6 +3,7 @@ import { InjectRepository } from '@nestjs/typeorm';
 import { IsNull, Repository } from 'typeorm';
 import * as bcrypt from 'bcryptjs';
 import { randomBytes } from 'node:crypto';
+import { cifrar, descifrar } from '../common/secretos';
 import { UsuarioEntity } from './usuario.entity';
 import { RolesService } from '../roles/roles.service';
 import { CatalogosService } from '../catalogos/catalogos.service';
@@ -32,6 +33,14 @@ export interface UsuarioDto {
   canales: string[];
   /** Extensión de la planta telefónica; null si no atiende llamadas por PBX. */
   extension: string | null;
+  /**
+   * ¿Tiene clave SIP guardada? Sí o no, nunca el valor.
+   *
+   * La clave en sí solo sale por la ruta del softphone y solo hacia su propio
+   * duño. Un listado de administración que la trajera la pondría en la
+   * pantalla de cualquiera que gestione usuarios.
+   */
+  tieneClaveSip: boolean;
   /** "@" de WhatsApp para la integración CTI/YACO; null si no aplica. */
   whatsappHandle: string | null;
   /**
@@ -527,6 +536,58 @@ export class UsuariosService implements OnModuleInit {
     return valor;
   }
 
+  /**
+   * Guarda (o borra) la clave SIP de una extensión. Solo de escritura.
+   *
+   * Es lo que permite contestar DENTRO de FALCON: el navegador del operador se
+   * registra como teléfono en la central con la clave de SU extensión. Se
+   * cifra en reposo y nunca vuelve en un listado de administración —ahi solo
+   * se dice si está puesta—; la única ruta por la que sale es la del
+   * softphone, y solo hacia su propio duño.
+   *
+   * Mandar vacío la borra, que es cómo se le quita el softphone a alguien sin
+   * tocarle la extensión ni nada más.
+   */
+  async registrarClaveSip(id: string, clave: string | null): Promise<{ tieneClaveSip: boolean }> {
+    const u = await this.repo.findOne({ where: { id } });
+    if (!u) throw new NotFoundException('Usuario no encontrado.');
+    const valor = clave?.trim();
+    if (valor && !u.extension?.trim()) {
+      // Sin extensión la clave no sirve para nada: no hay identidad con la que
+      // registrarse. Decirlo evita el misterio de «ya la puse y no funciona».
+      throw new BadRequestException(
+        'Primero asigne la extensión: la clave SIP es de una extensión, y sin ella no hay con qué registrarse.',
+      );
+    }
+    u.sipClave = valor ? cifrar(valor, this.llaveDeCifrado()) : null;
+    await this.repo.save(u);
+    return { tieneClaveSip: !!u.sipClave };
+  }
+
+  /**
+   * La clave SIP en claro, para entregarla al navegador de su duño.
+   *
+   * Si la llave de cifrado del servidor cambió, devuelve vacío y lo registra
+   * en vez de reventar: así el softphone queda «no disponible» con su motivo
+   * —que es lo correcto— y el resto de la telefonía sigue funcionando.
+   */
+  claveSipDe(u: UsuarioEntity | null): string {
+    if (!u?.sipClave) return '';
+    try {
+      return descifrar(u.sipClave, this.llaveDeCifrado());
+    } catch {
+      this.logger.error(
+        `No se pudo descifrar la clave SIP de «${u.username}»: la llave de cifrado cambió. `
+        + 'Vuelva a registrarla en Administración → Usuarios.',
+      );
+      return '';
+    }
+  }
+
+  private llaveDeCifrado(): string {
+    return process.env.JWT_SECRET ?? '';
+  }
+
   /** El funcionario dueño de esa extensión en el secad; null si no hay match. */
   async buscarPorExtension(tenant: string, extension: string): Promise<UsuarioEntity | null> {
     const valor = extension?.trim();
@@ -613,6 +674,7 @@ export class UsuariosService implements OnModuleInit {
       tenant: u.tenant ?? null, activo: u.activo,
       agenciaId: u.agenciaId ?? null, canales: u.canales ?? [],
       extension: u.extension ?? null,
+      tieneClaveSip: !!u.sipClave,
       whatsappHandle: u.whatsappHandle ?? null,
       mfaActivadoEn: u.mfaActivadoEn ?? null,
       correo: u.correo ?? null,

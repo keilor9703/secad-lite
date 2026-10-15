@@ -1,0 +1,308 @@
+import { TestBed } from '@angular/core/testing';
+import { HttpTestingController, provideHttpClientTesting } from '@angular/common/http/testing';
+import { provideHttpClient } from '@angular/common/http';
+import { signal } from '@angular/core';
+import { of, throwError } from 'rxjs';
+import { SoftphoneService } from './softphone.service';
+import { TransporteSipJs } from './transporte-sipjs';
+import { ConfigSoftphone, OyentesSip } from './transporte-sip';
+import { PbxService } from '../pbx.service';
+import { AuthService } from '../auth.service';
+import { Llamada } from '../models';
+
+/** Un teléfono de mentira: guarda los oyentes para poder provocar los avisos. */
+class TransporteFalso {
+  oyentes?: OyentesSip;
+  config?: ConfigSoftphone;
+  contestadas = 0;
+  colgadas = 0;
+  silencios: boolean[] = [];
+  tonos: string[] = [];
+
+  async conectar(config: ConfigSoftphone, oyentes: OyentesSip): Promise<void> {
+    this.config = config;
+    this.oyentes = oyentes;
+    oyentes.registro('registrado');
+  }
+  async desconectar(): Promise<void> { this.oyentes = undefined; }
+  async contestar(): Promise<void> { this.contestadas += 1; }
+  async colgar(): Promise<void> { this.colgadas += 1; }
+  silenciar(s: boolean): void { this.silencios.push(s); }
+  async tono(t: string): Promise<void> { this.tonos.push(t); }
+  usarAudio(): void { /* no hace falta en pruebas */ }
+}
+
+const llamada = (over: Partial<Llamada> = {}): Llamada => ({
+  id: 'l-1', tenant: 'itagui', numero: '3001234567', origen: 'telefono', estado: 'sonando',
+  creadoEn: '2026-10-15T10:00:00Z', actualizadoEn: '2026-10-15T10:00:00Z', ...over,
+} as Llamada);
+
+/**
+ * CONTESTAR DENTRO DE FALCON.
+ *
+ * Nada de lo que se prueba aquí es SIP: es lo que FALCON decide. Y lo que
+ * decide es una cosa difícil — reconocer que la llamada que suena en el
+ * navegador y la que está en la cola del servidor son la misma, habiendo
+ * llegado por caminos distintos (SIP al navegador, webhook al servidor).
+ */
+describe('SoftphoneService', () => {
+  let sp: SoftphoneService;
+  let transporte: TransporteFalso;
+  let http: HttpTestingController;
+  let llamadas: ReturnType<typeof signal<Llamada[]>>;
+  let paraTrabajar: ReturnType<typeof signal<Llamada | null>>;
+  let reclamar: jasmine.Spy;
+  let capacidades: string[];
+
+  const CONFIG: ConfigSoftphone = {
+    wss: 'wss://wss.ejemplo.com', dominio: 'sip.ejemplo.com', usuario: '102', clave: 's3cr3t0',
+  };
+
+  beforeEach(() => {
+    transporte = new TransporteFalso();
+    llamadas = signal<Llamada[]>([]);
+    paraTrabajar = signal<Llamada | null>(null);
+    capacidades = ['entrantes', 'softphone'];
+    reclamar = jasmine.createSpy('reclamar').and.callFake((id: string) => of(llamada({ id, destinatario: 'pedro' })));
+
+    TestBed.configureTestingModule({
+      providers: [
+        provideHttpClient(), provideHttpClientTesting(),
+        { provide: TransporteSipJs, useValue: transporte },
+        {
+          provide: PbxService,
+          useValue: {
+            llamadas, paraTrabajar, reclamar,
+            puede: (c: string) => capacidades.includes(c),
+          },
+        },
+        {
+          provide: AuthService,
+          useValue: {
+            tieneIntegracion: () => true,
+            tienePermiso: () => true,
+            sesion: () => ({ usuario: 'pedro' }),
+          },
+        },
+      ],
+    });
+    sp = TestBed.inject(SoftphoneService);
+    http = TestBed.inject(HttpTestingController);
+  });
+
+  afterEach(() => http.verify());
+
+  /** Enciende el teléfono respondiendo a la petición de configuración. */
+  async function encender(
+    r: { disponible: boolean; config?: ConfigSoftphone; motivo?: string } =
+      { disponible: true, config: CONFIG },
+  ): Promise<void> {
+    const promesa = sp.encender();
+    http.expectOne((req) => req.url.endsWith('/pbx/softphone')).flush(r);
+    await promesa;
+  }
+
+  describe('encender', () => {
+    it('se registra con la configuración que entrega el servidor', async () => {
+      await encender();
+
+      expect(sp.estado()).toBe('registrado');
+      expect(transporte.config).toEqual(CONFIG);
+      expect(sp.motivo()).toBe('');
+    });
+
+    it('si no está disponible, NO se intenta registrar y se dice por qué', async () => {
+      // Registrarse contra una dirección vacía da un error de WebSocket que
+      // nadie puede interpretar; el motivo del servidor sí se entiende.
+      await encender({ disponible: false, motivo: 'Falta la clave SIP de la extensión 102.' });
+
+      expect(sp.estado()).toBe('apagado');
+      expect(sp.motivo()).toContain('clave SIP');
+      expect(transporte.config).toBeUndefined();
+    });
+
+    it('dos veces no abre dos registros', async () => {
+      await encender();
+      await sp.encender();
+      http.verify();
+      expect(sp.estado()).toBe('registrado');
+    });
+
+    it('apagar deja todo en cero', async () => {
+      await encender();
+      transporte.oyentes!.entrante({ numero: '3001234567' });
+
+      await sp.apagar();
+
+      expect(sp.estado()).toBe('apagado');
+      expect(sp.entrante()).toBeNull();
+      expect(sp.enCurso()).toBeNull();
+      expect(sp.avisoCola()).toBe('');
+    });
+  });
+
+  describe('atar la llamada del navegador con la de la cola', () => {
+    it('por número, normalizado igual que en el servidor', async () => {
+      // La central manda el `From` crudo; la cola guarda el normalizado.
+      // Comparar uno contra otro sin normalizar no casa nunca.
+      llamadas.set([llamada({ id: 'l-9', numero: '+573001234567' })]);
+      await encender();
+
+      expect(sp.deLaCola({ numero: '+57 300 123 4567' })?.id).toBe('l-9');
+    });
+
+    it('por identificador de la central, cuando lo manda: es exacto', async () => {
+      llamadas.set([
+        llamada({ id: 'l-1', numero: '3001111111', callId: 'in-1' }),
+        llamada({ id: 'l-2', numero: '3002222222', callId: 'in-2' }),
+      ]);
+      await encender();
+
+      expect(sp.deLaCola({ numero: '3001111111', callId: 'in-2' })?.id).toBe('l-2');
+    });
+
+    it('entre varias del MISMO número, prefiere la dirigida a este operador', async () => {
+      // Pasa de verdad: dos personas llamando desde la misma cabina o el
+      // mismo conmutador. Tomar la del compañero le quita la suya.
+      llamadas.set([
+        llamada({ id: 'l-otro', destinatario: 'ana' }),
+        llamada({ id: 'l-mia', destinatario: 'pedro' }),
+      ]);
+      await encender();
+
+      expect(sp.deLaCola({ numero: '3001234567' })?.id).toBe('l-mia');
+    });
+
+    it('si ninguna es suya, prefiere una sin dueño antes que la de otro', async () => {
+      llamadas.set([llamada({ id: 'l-otro', destinatario: 'ana' }), llamada({ id: 'l-libre' })]);
+      await encender();
+
+      expect(sp.deLaCola({ numero: '3001234567' })?.id).toBe('l-libre');
+    });
+
+    it('no casa con una llamada que ya no está sonando', async () => {
+      llamadas.set([llamada({ estado: 'finalizada' })]);
+      await encender();
+
+      expect(sp.deLaCola({ numero: '3001234567' })).toBeNull();
+    });
+
+    it('sin número no inventa un emparejamiento', async () => {
+      llamadas.set([llamada()]);
+      await encender();
+
+      expect(sp.deLaCola({ numero: '' })).toBeNull();
+    });
+  });
+
+  describe('contestar: un solo gesto', () => {
+    it('acepta el audio Y toma la llamada de la cola para este operador', async () => {
+      llamadas.set([llamada({ id: 'l-7' })]);
+      await encender();
+      transporte.oyentes!.entrante({ numero: '3001234567' });
+
+      await sp.contestar();
+
+      expect(transporte.contestadas).toBe(1);
+      expect(reclamar).toHaveBeenCalledOnceWith('l-7');
+      // Y queda el traspaso para que Recepción llene el formulario.
+      expect(paraTrabajar()?.id).toBe('l-7');
+      expect(sp.avisoCola()).toContain('Recepción');
+    });
+
+    it('el audio va PRIMERO: el ciudadano está esperando', async () => {
+      // Si tomar la llamada en la cola falla, la conversación ya está en pie.
+      llamadas.set([llamada({ id: 'l-7' })]);
+      reclamar.and.returnValue(throwError(() => ({ error: { message: 'La llamada ya no está en cola.' } })));
+      await encender();
+      transporte.oyentes!.entrante({ numero: '3001234567' });
+
+      await sp.contestar();
+
+      expect(transporte.contestadas).toBe(1);
+      expect(sp.avisoCola()).toContain('Contestada');
+      expect(sp.avisoCola()).toContain('ya no está en cola');
+      expect(paraTrabajar()).toBeNull();
+    });
+
+    it('no espera al servidor para aceptar el audio', async () => {
+      // Lo encontró un sabotaje: la prueba de arriba seguía pasando con el
+      // orden invertido, porque buscar en la cola es inmediato. Lo que de
+      // verdad hay que garantizar es que contestar NO queda a merced de una
+      // petición: con el servidor colgado, el ciudadano no puede quedarse
+      // esperando a que alguien conteste.
+      llamadas.set([llamada({ id: 'l-7' })]);
+      reclamar.and.returnValue({ subscribe: () => undefined });
+      await encender();
+      transporte.oyentes!.entrante({ numero: '3001234567' });
+
+      await sp.contestar();
+
+      expect(transporte.contestadas).toBe(1);
+    });
+
+    it('sin llamada en la cola, se contesta igual y se dice qué hacer', async () => {
+      // El audio es lo urgente; la fila de la cola es nuestro registro. Dejar
+      // al ciudadano esperando por un problema de contabilidad sería absurdo.
+      llamadas.set([]);
+      await encender();
+      transporte.oyentes!.entrante({ numero: '3009999999' });
+
+      await sp.contestar();
+
+      expect(transporte.contestadas).toBe(1);
+      expect(reclamar).not.toHaveBeenCalled();
+      expect(sp.avisoCola()).toContain('no quedó tomada');
+    });
+
+    it('sin llamada entrante no hace nada', async () => {
+      await encender();
+      await sp.contestar();
+      expect(transporte.contestadas).toBe(0);
+    });
+  });
+
+  describe('el estado que ve la pantalla', () => {
+    it('entrante → en curso → terminada', async () => {
+      await encender();
+
+      transporte.oyentes!.entrante({ numero: '3001234567' });
+      expect(sp.entrante()?.numero).toBe('3001234567');
+      expect(sp.enCurso()).toBeNull();
+
+      transporte.oyentes!.establecida();
+      expect(sp.entrante()).toBeNull();
+      expect(sp.enCurso()?.numero).toBe('3001234567');
+
+      transporte.oyentes!.terminada();
+      expect(sp.enCurso()).toBeNull();
+      expect(sp.silenciado()).toBeFalse();
+    });
+
+    it('un fallo del registro se muestra con su motivo', async () => {
+      await encender();
+      transporte.oyentes!.registro('fallo', 'Se perdió la conexión con la centralita.');
+
+      expect(sp.estado()).toBe('fallo');
+      expect(sp.motivo()).toContain('Se perdió');
+    });
+
+    it('silenciar y reactivar llegan al transporte', async () => {
+      await encender();
+      sp.alternarSilencio();
+      sp.alternarSilencio();
+
+      expect(transporte.silencios).toEqual([true, false]);
+      expect(sp.silenciado()).toBeFalse();
+    });
+
+    it('no se ofrece si la planta no sabe dar softphone', () => {
+      capacidades = ['entrantes'];
+      expect(sp.disponible()).toBeFalse();
+    });
+
+    it('y sí cuando la planta lo declara', () => {
+      expect(sp.disponible()).toBeTrue();
+    });
+  });
+});

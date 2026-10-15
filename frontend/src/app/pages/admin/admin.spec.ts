@@ -215,3 +215,100 @@ describe('Administración · cuentas sin correo', () => {
     expect(registrarCorreo).toHaveBeenCalledOnceWith('1', 'jperez@muni.gov.co', true);
   });
 });
+
+/**
+ * La clave SIP de una extensión, desde Administración.
+ *
+ * Es lo que le permite a un operador CONTESTAR dentro de FALCON en vez de en
+ * MicroSIP. Lo que se protege es que sea de verdad solo de escritura: el
+ * componente no guarda ni muestra el valor, solo si está puesta.
+ */
+describe('AdminComponent · la clave SIP', () => {
+  let registrarClaveSip: jasmine.Spy;
+
+  function crear(): AdminComponent {
+    registrarClaveSip = jasmine.createSpy('registrarClaveSip')
+      .and.returnValue(of({ tieneClaveSip: true }));
+    const vacio = {} as never;
+    TestBed.resetTestingModule();
+    TestBed.configureTestingModule({
+      providers: [
+        { provide: AdminService, useValue: { registrarClaveSip, usuarios: () => of([]) } },
+        {
+          provide: AuthService,
+          useValue: {
+            sesion: signal(null), esSuperadmin: signal(false), gestionaRoles: signal(false),
+            tienePermiso: () => signal(false), tieneIntegracion: () => false,
+            tenantCtx: signal(null), tenantActivo: signal('demo'),
+          },
+        },
+        { provide: PbxService, useValue: vacio },
+        { provide: CtiService, useValue: vacio },
+        { provide: WhatsappService, useValue: vacio },
+        { provide: RolesService, useValue: vacio },
+        { provide: EntidadesService, useValue: vacio },
+        { provide: CatalogosService, useValue: vacio },
+        { provide: CasosService, useValue: vacio },
+        { provide: ConfirmService, useValue: vacio },
+        { provide: ToastService, useValue: { exito: () => undefined, error: () => undefined, advertencia: () => undefined, info: () => undefined } },
+      ],
+    });
+    // Sin `detectChanges`: aquí interesa la lógica, no montar media
+    // Administración. Y `cargarUsuarios` se anula para poder ver el estado
+    // que dejó la acción en vez de el que traiga una recarga.
+    const c = TestBed.createComponent(AdminComponent).componentInstance;
+    (c as unknown as { cargarUsuarios: () => void }).cargarUsuarios = () => undefined;
+    return c;
+  }
+
+  const usuario = { id: 'u-1', username: 'pedro', extension: '102' } as UsuarioAdmin;
+
+  it('guardarla deja constancia de que está puesta, sin recordar el valor', () => {
+    const c = crear();
+    c.usuarios.set([usuario]);
+
+    c.guardarClaveSip(usuario, '  clave-de-la-102  ');
+
+    expect(registrarClaveSip).toHaveBeenCalledOnceWith('u-1', 'clave-de-la-102');
+    expect(c.usuarios()[0].tieneClaveSip).toBeTrue();
+    // El componente no guarda el valor en ninguna parte.
+    expect(JSON.stringify(c.usuarios())).not.toContain('clave-de-la-102');
+    // Y el campo se cierra: no queda un input con la credencial escrita.
+    expect(c.claveSipDe()).toBe('');
+  });
+
+  it('vacía la borra: es cómo se le quita el softphone a alguien', () => {
+    const c = crear();
+    registrarClaveSip.and.returnValue(of({ tieneClaveSip: false }));
+    c.usuarios.set([{ ...usuario, tieneClaveSip: true }]);
+
+    c.guardarClaveSip(usuario, '   ');
+
+    expect(registrarClaveSip).toHaveBeenCalledOnceWith('u-1', null);
+    expect(c.usuarios()[0].tieneClaveSip).toBeFalse();
+  });
+
+  it('la negativa del servidor se muestra tal cual', () => {
+    // El servidor se niega si no hay extensión: la clave es DE una extensión
+    // y sin ella no hay con qué registrarse.
+    const c = crear();
+    registrarClaveSip.and.returnValue(throwError(() => ({
+      error: { message: 'Primero asigne la extensión: la clave SIP es de una extensión.' },
+    })));
+
+    c.guardarClaveSip(usuario, 'x');
+
+    expect(c.error()).toContain('Primero asigne la extensión');
+    expect(c.guardandoClaveSip()).toBeFalse();
+  });
+
+  it('dos guardados seguidos no se pisan', () => {
+    const c = crear();
+    registrarClaveSip.and.returnValue({ subscribe: () => undefined });
+
+    c.guardarClaveSip(usuario, 'a');
+    c.guardarClaveSip(usuario, 'b');
+
+    expect(registrarClaveSip).toHaveBeenCalledTimes(1);
+  });
+});

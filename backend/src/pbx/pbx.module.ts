@@ -22,6 +22,7 @@ import { ZadarmaController } from './zadarma/zadarma.controller';
 import { AvisosPbxService } from './avisos.service';
 import { PbxCredencialesService } from './pbx-credenciales.service';
 import { PbxSalienteService } from './pbx-saliente.service';
+import { PbxSoftphoneService } from './pbx-softphone.service';
 
 /**
  * Integración con la planta telefónica (PBX). Recibe eventos de llamada por
@@ -49,7 +50,7 @@ import { PbxSalienteService } from './pbx-saliente.service';
   providers: [
     PbxService, PbxGateway, PbxApiKeyGuard, PbxWebhookLogService,
     PbxWebhookRechazoFilter, PbxWebhookExitoInterceptor,
-    PbxConfigService, PbxCredencialesService, AvisosPbxService, PbxSalienteService,
+    PbxConfigService, PbxCredencialesService, AvisosPbxService, PbxSalienteService, PbxSoftphoneService,
   ],
   exports: [PbxService],
 })
