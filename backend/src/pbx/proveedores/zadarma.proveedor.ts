@@ -26,7 +26,7 @@ const CREDENCIALES: CampoCredencial[] = [
   {
     clave: 'sipWss',
     etiqueta: 'WebSocket SIP (para contestar en FALCON)',
-    ayuda: 'La dirección `wss://…` de señalización de la centralita. Se consigue en Integraciones y API → WebRTC, donde además hay que autorizar el dominio de FALCON. Sin esto, la telefonía funciona igual pero se contesta en el softphone de siempre.',
+    ayuda: 'La dirección `wss://…` de señalización de la centralita. OJO: Zadarma NO la publica —su pestaña WebRTC solo ofrece un widget suyo—. Se saca mirando qué WebSocket abre el teléfono web de «Mi centralita» (F12 → Red → WS), o preguntándole al soporte. Sin esto, la telefonía funciona igual pero se contesta en el softphone de siempre.',
     secreto: false,
     requerido: false,
     ejemplo: 'wss://wss.zadarma.com',
@@ -34,7 +34,7 @@ const CREDENCIALES: CampoCredencial[] = [
   {
     clave: 'sipDominio',
     etiqueta: 'Dominio SIP',
-    ayuda: 'Con qué dominio se arma la identidad de cada extensión (`101@dominio`). Lo dice el panel junto a los datos de la extensión.',
+    ayuda: 'Con qué dominio se arma la identidad de cada extensión (`101@dominio`). Es el servidor SIP que aparece junto a los datos de la extensión —el mismo que se configura en MicroSIP—.',
     secreto: false,
     requerido: false,
     ejemplo: 'sip.zadarma.com',

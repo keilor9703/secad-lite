@@ -324,17 +324,43 @@ Si no hay NINGUNA fila, la petición no llegó: es Zadarma, el DNS o nginx.
 
 ## 4. Lo que falta, en orden
 
-1. ~~**Contestar dentro de FALCON.**~~ Hecho, con **softphone propio** sobre su
-   SIP y no con el widget de Zadarma: el widget es más rápido de montar pero
-   mete su interfaz dentro de la nuestra y el audio pasa por su página.
-   Falta lo que solo se puede hacer en su panel y comprobar con tráfico real:
-   - **autorizar el dominio** `https://falconcad.com.co` en *Integraciones y
-     API → WebRTC*. Hasta que esté en la lista, el navegador no se registra.
-   - **confirmar la dirección del WebSocket y el dominio SIP** que publica
-     Zadarma, y pegarlos en Plataforma. FALCON **no adivina ninguna de las
-     dos** a propósito: una dirección inventada falla con un error de
-     WebSocket que no se parece en nada a «esto nunca se configuró».
-   - registrar la **clave SIP de cada extensión** en Administración → Usuarios.
+1. ~~**Contestar dentro de FALCON.**~~ El softphone propio está hecho y
+   probado; **falta un dato que Zadarma no publica**. Ver §4.1.
+   - ✅ **dominio autorizado**: `https://falconcad.com.co` ya está en
+     *Integraciones y API → WebRTC* (15/10/2026).
+   - ⬜ **la dirección `wss://` y el dominio SIP**, para pegarlos en Plataforma.
+   - ⬜ la **clave SIP de cada extensión**, en Administración → Usuarios. Es la
+     misma que se usa en MicroSIP.
+
+### 4.1 El dato que falta, y por qué no lo pone FALCON
+
+La pestaña *WebRTC* de Zadarma **no ofrece un SIP sobre WebSocket**: ofrece un
+**widget suyo** —su JavaScript desde `my.zadarma.com`, su interfaz en la
+esquina, y una clave que hay que generar en cada carga de página con
+`/v1/webrtc/get_key`—. En ninguna parte publica la dirección de señalización.
+
+Pero esa dirección **existe**: el propio widget, y el teléfono web de *Mi
+centralita*, abren un WebSocket contra algún servidor de Zadarma. Dos formas de
+averiguarla, en orden de esfuerzo:
+
+1. **Mirarla.** Abrir el teléfono web de *Mi centralita* en el navegador, F12 →
+   pestaña **Red** → filtro **WS**, y leer la dirección `wss://…` que abre. En
+   los mensajes de esa conexión, la línea `REGISTER sip:…` trae además el
+   **dominio SIP**. Diez minutos y es un dato, no una conjetura.
+2. **Preguntarla.** Al soporte de Zadarma: *«necesito registrar un softphone
+   propio (SIP.js) contra su centralita desde el navegador: ¿cuál es la
+   dirección WSS de señalización y el dominio SIP, y sirve la clave SIP de la
+   extensión para registrarse, o solo funciona con su widget?»*
+
+**FALCON no adivina ninguna de las dos** a propósito: una dirección inventada
+falla con un error de WebSocket que no se parece en nada a «esto nunca se
+configuró», y mandaría a buscar el problema donde no está.
+
+**Si resulta que Zadarma solo admite su widget**, el camino es montarlo
+(`/v1/webrtc/get_key` con el cliente de API que ya existe) y asumir que
+contestar vuelve a ser dos gestos: el widget es una caja negra y no deja leer
+quién llama ni cuándo se contestó, que es justo lo que ata la llamada con la de
+la cola.
 2. **La grabación al caso.** `NOTIFY_RECORD` avisa que está lista; se pide con
    `/v1/pbx/record/request/` (hay que esperar unos segundos: justo después del
    aviso, el archivo todavía no está) y se guarda como adjunto del caso, con la
