@@ -4,21 +4,24 @@ import { MensajeCorreo } from './correo.service';
  * Los correos que manda FALCON CAD.
  *
  * Un correo transaccional de una plataforma de emergencias lo abre un
- * funcionario público, a veces en el turno de noche, y decide si confía en el
- * enlace que trae. Eso impone una estética concreta: **sobriedad**. Un acento
- * y nada más, mucho blanco, la información presentada como datos, y cero
- * adornos. Un correo con degradados, emoji y signos de admiración se lee como
- * promoción; uno con un panel de datos y una nota de seguridad al pie se lee
- * como un sistema institucional.
+ * funcionario público, a veces en el turno de noche, y decide en dos segundos
+ * si confía en el enlace que trae. Eso impone una estética concreta: una
+ * franja institucional con la marca arriba, el mensaje en una frase que se lee
+ * sin esfuerzo, mucho blanco debajo, una sola acción, y cero adornos. Un
+ * correo con degradados, emoji y signos de admiración se lee como promoción;
+ * este tiene que leerse como un sistema del que depende un turno.
  *
  * ────────────────────────────────────────────────────────────────────────────
  * DECISIONES QUE NO SON DE GUSTO:
  *
- *  - **Sin imágenes, ni el logo.** La mayoría de los clientes de correo
- *    bloquean las imágenes hasta que el lector las autoriza. Un encabezado que
- *    depende de un PNG se ve roto en la primera impresión, que es justo la que
- *    decide si el mensaje parece legítimo. El membrete es tipográfico y se ve
- *    igual siempre.
+ *  - **El águila es un adorno, no el membrete.** La mayoría de los clientes de
+ *    correo —Outlook siempre, Gmail en varios casos— bloquean las imágenes
+ *    hasta que el lector las autoriza. Por eso el logotipo va JUNTO a la
+ *    palabra «FALCON CAD» escrita en texto, nunca en su lugar: con la imagen
+ *    bloqueada la franja sigue diciendo de quién es el correo, que es lo que
+ *    decide si parece legítimo. Y por eso el `alt` del águila va vacío: un
+ *    «[Logo de FALCON CAD]» al lado del nombre escrito es ruido para quien usa
+ *    lector de pantalla.
  *  - **Tablas, no divs.** Outlook en Windows maqueta con el motor de Word:
  *    ignora flex, grid y buena parte de los márgenes. Las tablas son lo único
  *    que se ve igual en los dos mundos.
@@ -30,24 +33,95 @@ import { MensajeCorreo } from './correo.service';
  *    texto suelto.
  *  - **Preencabezado**: la línea que el buzón muestra junto al asunto en la
  *    lista. Sin ella, el cliente rellena ese espacio con el primer texto que
- *    encuentre — normalmente «Si el botón no funciona…», que da pésima
- *    impresión antes de abrir.
+ *    encuentre — normalmente «Si el botón no abre…», que da pésima impresión
+ *    antes de abrir.
+ *  - **El enlace completo, a la vista.** Debajo del botón va la dirección
+ *    entera y legible. No es un respaldo por si el botón falla: es la forma de
+ *    que quien recibe pueda LEER a dónde lo mandan antes de pulsar, que es
+ *    exactamente lo que se le pide a un funcionario que desconfíe de un correo.
  *
  * Y lo de siempre: aquí NUNCA va una contraseña.
  * ────────────────────────────────────────────────────────────────────────────
  */
 
-// Paleta tomada de la aplicación (frontend/src/styles.scss), no inventada.
+// Paleta: azul marino y turquesa del kit de marca
+// (frontend/public/kit-marca-aguila/LEEME.txt), tinta y acento de la
+// aplicación (frontend/src/styles.scss). Nada inventado para el correo.
+const MARINO = '#0e2a47';
+const MARINO_HONDO = '#0a2039';
+const TURQUESA = '#2bc4d4';
+/** Texto secundario SOBRE la franja. Medido: 7,2:1 contra el marino. */
+const SOBRE_MARINO = '#a9bed2';
 const ACENTO = '#0c7e92';
 const ACENTO_HONDO = '#0a6273';
 const TINTA = '#102639';
 const TINTA_SUAVE = '#42566b';
-const APAGADO = '#6a7d90';
+// Medido, no elegido a ojo: este gris tiene que llegar a 4,5:1 sobre el papel
+// blanco Y sobre el fondo gris, porque se usa en los dos — rótulos y nota
+// dentro de la tarjeta, pie fuera de ella. Con #5f7286 el pie daba 4,41.
+const APAGADO = '#5b6e82';
 const BORDE = '#dce5ee';
-const FONDO = '#f3f6f9';
+const FONDO = '#eef2f7';
 const PAPEL = '#ffffff';
 
+/**
+ * La paleta, expuesta para poder MEDIRLA.
+ *
+ * `plantillas.spec.ts` comprueba el contraste de los pares que de verdad
+ * existen en el correo, igual que `scripts/contraste.mjs` hace con la
+ * aplicación. Un correo se lee en el turno de noche y en el teléfono de
+ * alguien que va en un carro: un gris que «se ve bien» en el monitor del que
+ * lo escribió no es un criterio.
+ */
+export const PALETA_CORREO = {
+  MARINO, MARINO_HONDO, TURQUESA, SOBRE_MARINO, ACENTO, ACENTO_HONDO,
+  TINTA, TINTA_SUAVE, APAGADO, BORDE, FONDO, PAPEL, BLANCO: '#ffffff',
+} as const;
+
 const FUENTE = `-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif`;
+const MONO = `ui-monospace, SFMono-Regular, Menlo, Consolas, 'Courier New', monospace`;
+
+/**
+ * El águila, servida desde el propio dominio.
+ *
+ * Tiene que ser una URL pública y absoluta: un `data:` incrustado lo descartan
+ * Gmail y Outlook, y un `cid:` exige mandar el archivo como adjunto en cada
+ * envío. Vive en el frontend (`public/kit-marca-aguila/aguila-correo.png`), así
+ * que la publica el mismo despliegue que sirve la aplicación — y si ese
+ * despliegue no está al día, lo único que pasa es que la franja se ve sin
+ * águila, con el nombre escrito en su sitio.
+ */
+function logoUrl(): string {
+  const propio = (process.env.CORREO_LOGO_URL ?? '').trim();
+  if (propio) return propio;
+  const base = (process.env.URL_PUBLICA ?? '').replace(/\/+$/, '');
+  return base ? `${base}/kit-marca-aguila/aguila-correo.png` : '';
+}
+
+/**
+ * A dónde contesta quien recibe un correo del sistema.
+ *
+ * Un `no-reply` es cómodo para quien lo manda y malo para todo lo demás: la
+ * persona que contesta «no me llegó nada» le escribe al vacío, y los buzones
+ * grandes puntúan peor a un remitente al que nadie puede responder. Por
+ * defecto, las respuestas caen en la mesa de ayuda — que es a donde iban a ir
+ * de todos modos, pero por teléfono.
+ *
+ * Con `CORREO_RESPONDER_A=` (vacío, declarada a propósito) se vuelve al
+ * comportamiento de antes y el pie lo dice.
+ */
+function responderA(): string {
+  const propio = process.env.CORREO_RESPONDER_A;
+  if (propio !== undefined) return propio.trim();
+  return (process.env.SOPORTE_CORREO ?? 'soporte@falconcad.com.co').trim();
+}
+
+/** El cierre, acorde con lo anterior: no se promete una respuesta que no existe. */
+function piePorDefecto(): string {
+  return responderA()
+    ? 'Mensaje automático de FALCON CAD. Si tiene dudas, responda a este correo.'
+    : 'Mensaje automático de FALCON CAD. No responda a este correo.';
+}
 
 interface Dato { etiqueta: string; valor: string }
 
@@ -60,61 +134,89 @@ interface Dato { etiqueta: string; valor: string }
 interface Bloque { titulo: string; texto: string }
 
 /**
- * El marco común. `preencabezado` es el resumen de una línea que se ve en la
- * bandeja; `datos` es el panel institucional de usuario y vigencia.
+ * El marco común de todos los correos.
  *
- * `url` y `textoBoton` son opcionales. Un correo que no pide ninguna acción
- * —el aviso de un ticket a la mesa, el acuse a quien lo abrió— no lleva botón,
- * y un botón que no lleva a ningún lado es peor que ninguno. Sin `url` tampoco
- * se imprime el respaldo del enlace, que no tendría nada que respaldar.
+ * Arriba, la franja marino: marca, saludo y el titular en dos líneas —la
+ * segunda en turquesa—, que es lo que se lee antes de decidir si el correo
+ * importa. Debajo, papel blanco con una sola acción.
+ *
+ * Casi todo es opcional porque los cuatro correos no se parecen: la invitación
+ * tiene botón y un usuario destacado; el aviso de un ticket no tiene ninguna
+ * acción y sí dos bloques de texto largo. Lo único obligatorio es el titular,
+ * el preencabezado, la entrada y la nota del pie.
  */
 function documento(opciones: {
+  /** «Hola, Juan». Va pequeño encima del titular; se omite si no hay a quién saludar. */
+  saludo?: string;
   titulo: string;
+  /** Segunda línea del titular, en turquesa. Es lo que dice qué hay que hacer. */
+  tituloAcento?: string;
   preencabezado: string;
   entrada: string;
-  datos: Dato[];
+  /** El dato que la persona vino a buscar: su usuario, el número del reporte. */
+  destacado?: Dato;
+  datos?: Dato[];
+  bloques?: Bloque[];
   textoBoton?: string;
   url?: string;
-  bloques?: Bloque[];
+  /** La letra pequeña bajo el botón: «Vence en 72 horas · Un solo uso». */
+  bajoBoton?: string;
   nota: string;
   /** El cierre. Por defecto «no responda»; los correos de un ticket sí se responden. */
   pie?: string;
 }): string {
-  const { titulo, preencabezado, entrada, datos, textoBoton, url, bloques, nota } = opciones;
-  const pie = opciones.pie ?? 'Mensaje automático de FALCON CAD. No responda a este correo.';
+  const {
+    saludo, titulo, tituloAcento, preencabezado, entrada,
+    destacado, datos, bloques, textoBoton, url, bajoBoton, nota,
+  } = opciones;
+  const pie = opciones.pie ?? piePorDefecto();
+  const logo = logoUrl();
 
-  const filas = datos.map((d) => `
+  const aguila = !logo ? '' : `
+          <td width="40" style="padding-right:12px;line-height:0" valign="middle">
+            <img src="${logo}" width="40" height="38" alt="" style="display:block;width:40px;height:38px;border:0;background:${MARINO}">
+          </td>`;
+
+  const hola = !saludo ? '' : `
+      <p class="sobremarino" style="margin:0 0 6px;font-family:${FUENTE};font-size:13.5px;color:${SOBRE_MARINO}">${escapar(saludo)}</p>`;
+
+  const segundaLinea = !tituloAcento ? '' : `
+        <span style="display:block;color:${TURQUESA}">${escapar(tituloAcento)}</span>`;
+
+  // El dato que se vino a buscar: rótulo pequeño arriba, valor en
+  // monoespaciada debajo. Monoespaciada porque un nombre de usuario se copia a
+  // mano, y ahí la diferencia entre l, 1 e I deja de ser un detalle.
+  const elDestacado = !destacado ? '' : `
+      <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="margin:0 0 26px">
+        <tr><td style="font-family:${FUENTE};font-size:11px;letter-spacing:.09em;text-transform:uppercase;color:${APAGADO};padding:0 0 5px" class="apagado">${escapar(destacado.etiqueta)}</td></tr>
+        <tr><td style="font-family:${MONO};font-size:19px;font-weight:600;color:${TINTA};letter-spacing:.01em" class="tinta">${escapar(destacado.valor)}</td></tr>
+      </table>`;
+
+  const filas = (datos ?? []).map((d) => `
             <tr>
-              <td class="apagado linea" style="padding:9px 0;border-bottom:1px solid ${BORDE};font-size:13px;color:${APAGADO};white-space:nowrap">${escapar(d.etiqueta)}</td>
-              <td class="tinta linea" style="padding:9px 0;border-bottom:1px solid ${BORDE};font-size:14px;color:${TINTA};font-weight:600;text-align:right">${escapar(d.valor)}</td>
+              <td class="apagado linea" style="padding:9px 0;border-bottom:1px solid ${BORDE};font-size:13px;color:${APAGADO};white-space:nowrap;vertical-align:top">${escapar(d.etiqueta)}</td>
+              <td class="tinta linea" style="padding:9px 0 9px 16px;border-bottom:1px solid ${BORDE};font-size:14px;color:${TINTA};font-weight:600;text-align:right">${escapar(d.valor)}</td>
             </tr>`).join('');
 
-  // Cada bloque, en su propia fila: rótulo arriba y el texto en una caja
-  // monoespaciada. `pre-wrap` conserva los saltos y la alineación; sin él, las
-  // cuarenta líneas del contexto técnico llegan como un párrafo continuo.
-  const cajas = (bloques ?? []).map((b) => `
+  const tabla = !filas ? '' : `
+      <table role="presentation" class="linea" width="100%" cellpadding="0" cellspacing="0" border="0"
+             style="font-family:${FUENTE};border-top:1px solid ${BORDE};margin:0 0 26px">${filas}
+      </table>`;
 
-    <tr><td class="relleno" style="padding:22px 40px 0;font-family:${FUENTE}">
-      <p class="apagado" style="margin:0 0 7px;font-size:11px;letter-spacing:.07em;text-transform:uppercase;color:${APAGADO}">${escapar(b.titulo)}</p>
-      <div class="urlcaja suave" style="padding:12px 14px;background:${FONDO};border:1px solid ${BORDE};border-radius:4px;font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;font-size:12px;line-height:1.55;color:${TINTA_SUAVE};white-space:pre-wrap;word-break:break-word">${escapar(b.texto)}</div>
-    </td></tr>`).join('');
+  const cajas = (bloques ?? []).map((b) => `
+      <p class="apagado" style="margin:0 0 7px;font-family:${FUENTE};font-size:11px;letter-spacing:.09em;text-transform:uppercase;color:${APAGADO}">${escapar(b.titulo)}</p>
+      <div class="caja suave" style="margin:0 0 24px;padding:14px 16px;background:${FONDO};border:1px solid ${BORDE};border-radius:10px;font-family:${MONO};font-size:12px;line-height:1.55;color:${TINTA_SUAVE};white-space:pre-wrap;word-break:break-word">${escapar(b.texto)}</div>`).join('');
 
   const accion = !url ? '' : `
-
-    <!-- Acción -->
-    <tr><td class="relleno" align="center" style="padding:28px 40px 0">
-      <table role="presentation" cellpadding="0" cellspacing="0" border="0"><tr>
-        <td style="background:${ACENTO};border-radius:6px">
-          <a href="${url}" style="display:inline-block;padding:13px 30px;font-family:${FUENTE};font-size:15px;font-weight:600;color:#ffffff;text-decoration:none;border-radius:6px;border:1px solid ${ACENTO_HONDO}">${escapar(textoBoton ?? 'Continuar')}</a>
+      <table role="presentation" cellpadding="0" cellspacing="0" border="0" style="margin:0 0 10px"><tr>
+        <td style="background:${ACENTO};border-radius:10px">
+          <a href="${url}" style="display:inline-block;padding:15px 30px;font-family:${FUENTE};font-size:15.5px;font-weight:600;color:#ffffff;text-decoration:none;border-radius:10px;border:1px solid ${ACENTO_HONDO}">${escapar(textoBoton ?? 'Continuar')}</a>
         </td>
       </tr></table>
-    </td></tr>
-
-    <!-- Respaldo del enlace -->
-    <tr><td class="relleno" style="padding:22px 40px 0;font-family:${FUENTE}">
-      <p class="apagado" style="margin:0 0 7px;font-size:12px;color:${APAGADO}">O copie esta dirección en su navegador:</p>
-      <div class="urlcaja apagado" style="padding:10px 12px;background:${FONDO};border:1px solid ${BORDE};border-radius:4px;font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;font-size:12px;line-height:1.5;color:${TINTA_SUAVE};word-break:break-all">${url}</div>
-    </td></tr>`;
+      ${!bajoBoton ? '' : `<p class="apagado" style="margin:0 0 24px;font-family:${FUENTE};font-size:12.5px;color:${APAGADO}">${bajoBoton}</p>`}
+      <div class="linea" style="border-top:1px solid ${BORDE};margin:${bajoBoton ? '0' : '24px'} 0 20px;font-size:0;line-height:0">&nbsp;</div>
+      <p class="apagado" style="margin:0 0 7px;font-family:${FUENTE};font-size:12.5px;color:${APAGADO}">Si el botón no abre, copie este enlace:</p>
+      <p class="enlace" style="margin:0;font-family:${MONO};font-size:12.5px;line-height:1.5;color:${ACENTO};word-break:break-all">${url}</p>`;
 
   return `<!doctype html>
 <html lang="es"><head>
@@ -124,16 +226,19 @@ function documento(opciones: {
 <title>${escapar(titulo)}</title>
 <style>
   @media (max-width:620px){
-    .marco{width:100%!important}
+    .marco{width:100%!important;border-radius:0!important}
     .relleno{padding-left:24px!important;padding-right:24px!important}
+    .titular{font-size:23px!important}
   }
   @media (prefers-color-scheme:dark){
-    .lienzo{background:#0d1620!important}
+    .lienzo{background:#0a131c!important}
     .marco{background:#16222e!important;border-color:#24323f!important}
     .tinta{color:#e8eef4!important}
-    .suave,.apagado{color:#9fb0c0!important}
+    .suave{color:#c3d0dc!important}
+    .apagado{color:#9fb0c0!important}
     .linea{border-color:#24323f!important}
-    .urlcaja{background:#101a24!important;border-color:#24323f!important}
+    .caja{background:#101a24!important;border-color:#24323f!important}
+    .enlace{color:#56cfe0!important}
   }
 </style>
 </head>
@@ -145,104 +250,114 @@ function documento(opciones: {
 <tr><td align="center" style="padding:32px 16px">
 
   <table role="presentation" class="marco" width="600" cellpadding="0" cellspacing="0" border="0"
-         style="width:600px;max-width:600px;background:${PAPEL};border:1px solid ${BORDE};border-radius:6px">
+         style="width:600px;max-width:600px;background:${PAPEL};border-radius:14px">
 
-    <!-- Membrete -->
-    <tr><td class="relleno" style="padding:28px 40px 0">
-      <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0"><tr>
-        <td style="font-family:${FUENTE};font-size:17px;font-weight:700;letter-spacing:.11em;color:${TINTA}" class="tinta">FALCON<span style="color:${ACENTO}">&nbsp;CAD</span></td>
-        <td align="right" style="font-family:${FUENTE};font-size:11px;letter-spacing:.07em;text-transform:uppercase;color:${APAGADO}" class="apagado">Central de despacho</td>
-      </tr></table>
-    </td></tr>
-    <tr><td class="relleno" style="padding:16px 40px 0">
-      <div class="linea" style="height:2px;background:${ACENTO};width:44px;font-size:0;line-height:0">&nbsp;</div>
+    <!-- Franja de marca y titular -->
+    <tr><td class="relleno" style="padding:22px 36px 26px;background:${MARINO};border-radius:14px 14px 0 0">
+      <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="margin:0 0 22px"><tr>${aguila}
+        <td style="font-family:${FUENTE};font-size:16px;font-weight:700;letter-spacing:.14em;color:#ffffff" valign="middle">FALCON<span style="color:${TURQUESA}">&nbsp;CAD</span></td>
+        <td align="right" style="font-family:${FUENTE};font-size:10.5px;letter-spacing:.09em;text-transform:uppercase;color:${SOBRE_MARINO}" valign="middle">Central de despacho</td>
+      </tr></table>${hola}
+      <h1 class="titular" style="margin:0;font-family:${FUENTE};font-size:27px;line-height:1.26;font-weight:700;color:#ffffff">${escapar(titulo)}${segundaLinea}</h1>
     </td></tr>
 
-    <!-- Cuerpo -->
-    <tr><td class="relleno" style="padding:22px 40px 0;font-family:${FUENTE}">
-      <h1 class="tinta" style="margin:0 0 14px;font-size:21px;line-height:1.3;font-weight:600;color:${TINTA}">${escapar(titulo)}</h1>
-      <p class="suave" style="margin:0 0 22px;font-size:15px;line-height:1.6;color:${TINTA_SUAVE}">${entrada}</p>
+    <!-- Cuerpo. El relleno de abajo depende de qué termine la sección: el
+         bloque del enlace cierra pegado, mientras que una caja o una tabla ya
+         traen su propio margen y sumarlo dejaría un hueco de medio dedo. -->
+    <tr><td class="relleno" style="padding:30px 36px ${accion ? '32' : '6'}px;font-family:${FUENTE}">
+      <p class="suave" style="margin:0 0 26px;font-size:15.5px;line-height:1.62;color:${TINTA_SUAVE}">${entrada}</p>
+      ${elDestacado}${tabla}${cajas}${accion}
     </td></tr>
 
-    <!-- Datos -->
-    <tr><td class="relleno" style="padding:0 40px">
-      <table role="presentation" class="linea" width="100%" cellpadding="0" cellspacing="0" border="0"
-             style="font-family:${FUENTE};border-top:1px solid ${BORDE}">${filas}
-      </table>
-    </td></tr>${cajas}${accion}
-
-    <!-- Nota de seguridad -->
-    <tr><td class="relleno" style="padding:24px 40px 0;font-family:${FUENTE}">
-      <div class="linea" style="border-top:1px solid ${BORDE};padding-top:16px">
-        <p class="apagado" style="margin:0;font-size:12.5px;line-height:1.6;color:${APAGADO}">${nota}</p>
+    <!-- Nota -->
+    <tr><td class="relleno" style="padding:0 36px 30px;font-family:${FUENTE}">
+      <div class="${url ? '' : 'linea'}" style="${url ? '' : `border-top:1px solid ${BORDE};`}padding-top:${url ? '22' : '18'}px">
+        <p class="apagado" style="margin:0;font-size:12.5px;line-height:1.62;color:${APAGADO}">${nota}</p>
       </div>
     </td></tr>
 
-    <tr><td class="relleno" style="padding:20px 40px 28px;font-family:${FUENTE}">
-      <p class="apagado" style="margin:0;font-size:11.5px;line-height:1.6;color:${APAGADO}">
-        ${pie}
-      </p>
-    </td></tr>
-
   </table>
+
+  <!-- Pie, fuera de la tarjeta -->
+  <table role="presentation" width="600" cellpadding="0" cellspacing="0" border="0" style="width:600px;max-width:600px" class="marco-pie">
+    <tr><td class="relleno" align="center" style="padding:18px 36px 0;font-family:${FUENTE}">
+      <p class="apagado" style="margin:0;font-size:11.5px;line-height:1.6;color:${APAGADO}">${pie}</p>
+    </td></tr>
+  </table>
+
 </td></tr></table>
 </body></html>`;
 }
 
 /** La versión en texto plano. No es un descarte: varios filtros puntúan peor un correo sin ella. */
 function textoPlano(opciones: {
-  titulo: string; entrada: string; datos: Dato[]; url?: string; bloques?: Bloque[]; nota: string; pie?: string;
+  saludo?: string;
+  titulo: string;
+  tituloAcento?: string;
+  entrada: string;
+  destacado?: Dato;
+  datos?: Dato[];
+  bloques?: Bloque[];
+  url?: string;
+  bajoBoton?: string;
+  nota: string;
+  pie?: string;
 }): string {
-  // `Math.max()` sin argumentos devuelve -Infinity, y `padEnd(-Infinity)` deja
-  // de alinear sin avisar: un correo sin panel de datos no es un caso raro.
-  const ancho = opciones.datos.length ? Math.max(...opciones.datos.map((d) => d.etiqueta.length)) : 0;
-  const datos = opciones.datos.map((d) => `  ${d.etiqueta.padEnd(ancho)}   ${d.valor}`).join('\n');
-  const cajas = (opciones.bloques ?? [])
-    .map((b) => `\n${b.titulo.toUpperCase()}\n${'─'.repeat(42)}\n${b.texto}\n`)
-    .join('');
-  const pie = opciones.pie ?? 'Mensaje automático de FALCON CAD. No responda a este correo.';
-  // Sin `url` no se deja la línea vacía donde iría: en un correo de ticket, ese
-  // hueco se lee como un enlace que no cargó.
-  const enlace = opciones.url ? `\n${opciones.url}\n` : '';
-  return `FALCON CAD · Central de despacho
-${'─'.repeat(42)}
-
-${opciones.titulo.toUpperCase()}
-
-${sinEtiquetas(opciones.entrada)}
-
-${datos}
-${cajas}${enlace}
-${'─'.repeat(42)}
-${sinEtiquetas(opciones.nota)}
-
-${pie}`;
+  const regla = '─'.repeat(42);
+  const partes: string[] = ['FALCON CAD · Central de despacho', regla, ''];
+  if (opciones.saludo) partes.push(opciones.saludo, '');
+  partes.push([opciones.titulo, opciones.tituloAcento].filter(Boolean).join(' ').toUpperCase(), '');
+  partes.push(sinEtiquetas(opciones.entrada), '');
+  if (opciones.destacado) {
+    partes.push(`${opciones.destacado.etiqueta.toUpperCase()}: ${opciones.destacado.valor}`, '');
+  }
+  if (opciones.datos?.length) {
+    // `Math.max()` sin argumentos devuelve -Infinity, y `padEnd(-Infinity)`
+    // deja de alinear sin avisar: un correo sin panel de datos no es raro.
+    const ancho = Math.max(...opciones.datos.map((d) => d.etiqueta.length));
+    partes.push(opciones.datos.map((d) => `  ${d.etiqueta.padEnd(ancho)}   ${d.valor}`).join('\n'), '');
+  }
+  for (const b of opciones.bloques ?? []) {
+    partes.push(b.titulo.toUpperCase(), regla, b.texto, '');
+  }
+  if (opciones.url) {
+    partes.push(opciones.url, '');
+    if (opciones.bajoBoton) partes.push(sinEtiquetas(opciones.bajoBoton), '');
+  }
+  partes.push(regla, sinEtiquetas(opciones.nota), '');
+  partes.push(opciones.pie ?? piePorDefecto());
+  return partes.join('\n');
 }
 
 /** Invitación: la cuenta existe y falta que su dueño defina su contraseña. */
 export function plantillaInvitacion(
   nombre: string, username: string, url: string, horas: number,
 ): MensajeCorreo {
-  const titulo = 'Su cuenta está lista';
-  const entrada = `${escapar(primerNombre(nombre))}, se creó su cuenta en FALCON CAD. `
-    + 'Para entrar por primera vez, defina su contraseña: será suya y nadie más la conocerá, '
+  const titulo = 'Su acceso está listo.';
+  const acento = 'Falta su contraseña.';
+  const entrada = 'La contraseña que defina será solo suya. Nadie más la conocerá, '
     + 'tampoco quien creó la cuenta.';
-  const datos: Dato[] = [
-    { etiqueta: 'Usuario', valor: username },
-    { etiqueta: 'Vigencia del enlace', valor: vigencia(horas) },
-  ];
-  const nota = 'El enlace puede usarse <strong>una sola vez</strong>. '
-    + 'Si vence antes de que lo use, pida a su administrador que se lo reenvíe. '
-    + 'Si usted no esperaba este mensaje, ignórelo: nadie puede entrar con él.';
+  const destacado = { etiqueta: 'Su usuario', valor: username };
+  const bajoBoton = `Vence en <strong>${vigencia(horas)}</strong> · Un solo uso`;
+  const nota = 'Si el enlace vence antes de que lo use, pida a su administrador que se lo '
+    + 'reenvíe. Si usted no esperaba este mensaje, ignórelo: nadie puede entrar con él.';
+  const comun = {
+    saludo: `Hola, ${primerNombre(nombre)}`,
+    titulo, tituloAcento: acento, entrada, destacado,
+    url, bajoBoton, nota,
+  };
 
   return {
     para: '',
+    responderA: responderA() || undefined,
     asunto: `Active su cuenta de FALCON CAD · ${username}`,
     html: documento({
-      titulo, preencabezado: `Defina la contraseña de su usuario ${username}. El enlace vence en ${vigencia(horas)}.`,
-      entrada, datos, textoBoton: 'Definir mi contraseña', url, nota,
+      ...comun,
+      saludo: `Hola, ${primerNombre(nombre)}`,
+      preencabezado: `Defina la contraseña de su usuario ${username}. El enlace vence en ${vigencia(horas)}.`,
+      textoBoton: 'Definir mi contraseña',
     }),
-    texto: textoPlano({ titulo, entrada, datos, url, nota }),
+    texto: textoPlano(comun),
   };
 }
 
@@ -250,25 +365,30 @@ export function plantillaInvitacion(
 export function plantillaRecuperacion(
   nombre: string, username: string, url: string, horas: number,
 ): MensajeCorreo {
-  const titulo = 'Restablecer su contraseña';
+  const titulo = 'Recupere su acceso.';
+  const acento = 'Defina una contraseña nueva.';
   const entrada = `Se recibió una solicitud para restablecer la contraseña del usuario `
     + `<strong>${escapar(username)}</strong>. Si fue usted, continúe con el botón.`;
-  const datos: Dato[] = [
-    { etiqueta: 'Usuario', valor: username },
-    { etiqueta: 'Vigencia del enlace', valor: vigencia(horas) },
-  ];
-  const nota = 'El enlace puede usarse <strong>una sola vez</strong>. '
-    + 'Si no fue usted quien lo solicitó, no haga nada: su contraseña actual sigue vigente '
-    + 'y nadie puede entrar con este mensaje.';
+  const destacado = { etiqueta: 'Su usuario', valor: username };
+  const bajoBoton = `Vence en <strong>${vigencia(horas)}</strong> · Un solo uso`;
+  const nota = 'Si no fue usted quien lo solicitó, no haga nada: su contraseña actual sigue '
+    + 'vigente y nadie puede entrar con este mensaje.';
+  const comun = {
+    saludo: `Hola, ${primerNombre(nombre)}`,
+    titulo, tituloAcento: acento, entrada, destacado,
+    url, bajoBoton, nota,
+  };
 
   return {
     para: '',
+    responderA: responderA() || undefined,
     asunto: `Restablecer la contraseña de ${username} · FALCON CAD`,
     html: documento({
-      titulo, preencabezado: `Enlace para definir una contraseña nueva. Vence en ${vigencia(horas)}.`,
-      entrada, datos, textoBoton: 'Definir una contraseña nueva', url, nota,
+      ...comun,
+      preencabezado: `Enlace para definir una contraseña nueva. Vence en ${vigencia(horas)}.`,
+      textoBoton: 'Definir una contraseña nueva',
     }),
-    texto: textoPlano({ titulo, entrada, datos, url, nota }),
+    texto: textoPlano(comun),
   };
 }
 
@@ -297,13 +417,11 @@ export interface TicketCorreo {
 
 /** El aviso a la mesa: el ticket entero, en un correo que se puede responder. */
 export function plantillaTicketMesa(t: TicketCorreo): MensajeCorreo {
-  const titulo = `${t.severidad} · ${t.severidadTitulo}`;
   // «Reporte abierto» se leería como un estado de ticket, y no hay ninguno que
   // mantener: el verbo describe quién lo mandó, no en qué situación está.
   const entrada = `Reporte enviado desde FALCON CAD por <strong>${escapar(t.quien)}</strong>, `
     + `en la instancia <strong>${escapar(t.instancia)}</strong>.`;
   const datos: Dato[] = [
-    { etiqueta: 'Ticket', valor: t.id },
     { etiqueta: 'Severidad propuesta', valor: `${t.severidad} — ${t.severidadTitulo}` },
     { etiqueta: 'Compromiso', valor: t.compromiso },
     { etiqueta: 'Instancia', valor: t.instancia },
@@ -318,34 +436,29 @@ export function plantillaTicketMesa(t: TicketCorreo): MensajeCorreo {
       + 'Al responder a este correo, la respuesta le llega a quien lo reportó.'
     : 'La severidad la propone quien reporta; <strong>la confirma la mesa</strong>. '
       + 'La cuenta que reportó no tiene correo registrado: hay que contactarla por otro medio.';
+  const comun = {
+    titulo: `${t.severidad} · ${t.severidadTitulo}`,
+    tituloAcento: t.instancia,
+    entrada,
+    destacado: { etiqueta: 'Reporte', valor: t.id },
+    datos,
+    bloques: [
+      { titulo: 'Lo que reportó', texto: t.relato },
+      { titulo: 'Contexto técnico', texto: t.contexto },
+    ],
+    nota,
+    pie: 'Enviado por FALCON CAD desde la propia aplicación.',
+  };
 
   return {
     para: '',
     responderA: t.correoQuien || undefined,
     asunto: asuntoMesa(t),
     html: documento({
-      titulo,
+      ...comun,
       preencabezado: `${t.id} · ${t.instancia} · ${resumen(t.relato, 90)}`,
-      entrada,
-      datos,
-      bloques: [
-        { titulo: 'Lo que reportó', texto: t.relato },
-        { titulo: 'Contexto técnico', texto: t.contexto },
-      ],
-      nota,
-      pie: 'Enviado por FALCON CAD desde la propia aplicación.',
     }),
-    texto: textoPlano({
-      titulo,
-      entrada,
-      datos,
-      bloques: [
-        { titulo: 'Lo que reportó', texto: t.relato },
-        { titulo: 'Contexto técnico', texto: t.contexto },
-      ],
-      nota,
-      pie: 'Enviado por FALCON CAD desde la propia aplicación.',
-    }),
+    texto: textoPlano(comun),
   };
 }
 
@@ -355,12 +468,9 @@ export function plantillaTicketMesa(t: TicketCorreo): MensajeCorreo {
  * promete ningún estado consultable.
  */
 export function plantillaTicketAcuse(t: TicketCorreo, correoMesa: string): MensajeCorreo {
-  const titulo = 'Su reporte llegó a la mesa de ayuda';
-  const entrada = `${escapar(primerNombre(t.quien))}, su reporte salió hacia la mesa de ayuda de `
-    + 'FALCON CAD. Guarde este número: es con el que se identifica el reporte si hay que '
-    + 'hablar de él.';
+  const entrada = 'Su reporte salió hacia la mesa de ayuda de FALCON CAD. Guarde este '
+    + 'número: es con el que se identifica el reporte si hay que hablar de él.';
   const datos: Dato[] = [
-    { etiqueta: 'Número del reporte', valor: t.id },
     { etiqueta: 'Severidad que indicó', valor: `${t.severidad} — ${t.severidadTitulo}` },
     { etiqueta: 'Compromiso de respuesta', valor: t.compromiso },
     { etiqueta: 'Instancia', valor: t.instancia },
@@ -371,28 +481,27 @@ export function plantillaTicketAcuse(t: TicketCorreo, correoMesa: string): Mensa
     : '')
     + 'Si tiene algo más que agregar, responda a este correo: la respuesta llega a la mesa '
     + 'con el número del reporte.';
+  const comun = {
+    saludo: `Hola, ${primerNombre(t.quien)}`,
+    titulo: 'Su reporte llegó',
+    tituloAcento: 'a la mesa de ayuda.',
+    entrada,
+    destacado: { etiqueta: 'Número del reporte', valor: t.id },
+    datos,
+    bloques: [{ titulo: 'Lo que reportó', texto: t.relato }],
+    nota,
+    pie: 'Enviado por FALCON CAD. Puede responder a este correo.',
+  };
 
   return {
     para: '',
     responderA: correoMesa,
     asunto: `Su reporte ${t.id} llegó a la mesa de ayuda · FALCON CAD`,
     html: documento({
-      titulo,
+      ...comun,
       preencabezado: `Reporte ${t.id} · ${t.severidad} · ${resumen(t.relato, 90)}`,
-      entrada,
-      datos,
-      bloques: [{ titulo: 'Lo que reportó', texto: t.relato }],
-      nota,
-      pie: 'Enviado por FALCON CAD. Puede responder a este correo.',
     }),
-    texto: textoPlano({
-      titulo,
-      entrada,
-      datos,
-      bloques: [{ titulo: 'Lo que reportó', texto: t.relato }],
-      nota,
-      pie: 'Enviado por FALCON CAD. Puede responder a este correo.',
-    }),
+    texto: textoPlano(comun),
   };
 }
 

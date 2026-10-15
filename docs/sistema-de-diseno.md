@@ -233,6 +233,31 @@ hacer**.
 módulos oscurecían con azul marino y tres con negro puro, y en tema claro se
 nota). Ancho con `.dialogo--sm` (420), `--md` (560) o `--lg` (680).
 
+### Los correos son parte del sistema, aunque no se vean en la pantalla
+
+`backend/src/correo/plantillas.ts` arma los cuatro correos (invitación,
+recuperación, aviso a la mesa, acuse) sobre un marco único: franja azul marino
+con el águila del kit de marca y el nombre escrito al lado, titular en dos
+líneas —la segunda en turquesa, y es la que dice qué hay que hacer—, cuerpo
+blanco con una sola acción, y pie fuera de la tarjeta.
+
+Tres reglas que no se ven y sostienen el resto:
+
+- **El águila acompaña al nombre, no lo reemplaza.** Outlook bloquea las
+  imágenes por defecto; si el membrete dependiera del PNG, la primera
+  impresión —la que decide si el correo parece legítimo— sería un recuadro
+  vacío. Una prueba borra los `<img>` del HTML y comprueba que la franja
+  siga diciendo FALCON CAD.
+- **La paleta del correo se mide, no se mira.** `plantillas.spec.ts` comprueba
+  los once pares texto/fondo que existen en los correos contra 4,5:1, igual que
+  `scripts/contraste.mjs` hace con la aplicación, y además verifica que el HTML
+  no traiga ningún color escrito a mano fuera de la paleta. La primera vez que
+  corrió encontró el pie en 4,41.
+- **No hay tokens compartidos con la aplicación.** Un correo no puede usar
+  variables CSS: Gmail las descarta. Los colores están duplicados a propósito,
+  con el comentario que dice de dónde salieron — y la prueba de contraste es lo
+  que evita que la copia se desvíe en silencio.
+
 **`.dialogo-acciones`** — la fila de botones del pie. Se alinea a la derecha y
 **envuelve** (`flex-wrap`): sin eso, un diálogo con cuatro botones —el de
 soporte cuando el envío falla— los aprieta hasta partir la etiqueta en cuatro

@@ -3,6 +3,7 @@ import {
   plantillaRecuperacion,
   plantillaTicketAcuse,
   plantillaTicketMesa,
+  PALETA_CORREO,
   TicketCorreo,
 } from './plantillas';
 
@@ -92,9 +93,64 @@ describe('plantillas de correo', () => {
 
   it('saluda con el nombre de pila, no con el nombre completo', () => {
     const m = plantillaInvitacion('Juan Carlos Pérez Gómez', 'jcperez', URL, 72);
-    expect(m.html).toContain('Juan, se creó');
-    expect(m.html).not.toContain('Juan Carlos Pérez Gómez, se creó');
+    expect(m.html).toContain('Hola, Juan<');
+    expect(m.html).not.toContain('Juan Carlos Pérez Gómez');
+    // Y también en la versión de texto, que es la que leen los filtros.
+    expect(m.texto).toContain('Hola, Juan');
   });
+
+  it('el titular va en dos líneas: la segunda dice qué hay que hacer', () => {
+    // Es lo que se lee antes de decidir si el correo importa. La segunda línea
+    // va en turquesa sobre la franja; si alguien la quita, el correo deja de
+    // tener una frase que explique la acción.
+    const m = plantillaInvitacion('Juan', 'jperez', URL, 72);
+    expect(m.html).toContain('Su acceso está listo.');
+    expect(m.html).toContain('Falta su contraseña.');
+    expect(m.texto).toContain('SU ACCESO ESTÁ LISTO. FALTA SU CONTRASEÑA.');
+  });
+
+  describe('el águila de la franja', () => {
+    const previo = { logo: process.env.CORREO_LOGO_URL, base: process.env.URL_PUBLICA };
+    afterEach(() => {
+      restaurar('CORREO_LOGO_URL', previo.logo);
+      restaurar('URL_PUBLICA', previo.base);
+    });
+
+    it('se sirve desde el propio dominio, con alt vacío', () => {
+      process.env.URL_PUBLICA = 'https://falconcad.com.co/';
+      delete process.env.CORREO_LOGO_URL;
+      const m = plantillaInvitacion('Juan', 'jperez', URL, 72);
+      // Absoluta y en el dominio propio: un `data:` lo descartan Gmail y
+      // Outlook, y una ruta relativa no resuelve en ningún buzón.
+      expect(m.html).toContain('src="https://falconcad.com.co/kit-marca-aguila/aguila-correo.png"');
+      // Sin anunciarse a los lectores de pantalla: el nombre está escrito al lado.
+      expect(m.html).toMatch(/<img[^>]*alt=""/);
+    });
+
+    it('sin origen público configurado no se emite ninguna imagen rota', () => {
+      delete process.env.URL_PUBLICA;
+      delete process.env.CORREO_LOGO_URL;
+      const m = plantillaInvitacion('Juan', 'jperez', URL, 72);
+      expect(m.html).not.toContain('<img');
+    });
+
+    it('la franja dice de quién es el correo aunque la imagen no cargue', () => {
+      // Outlook bloquea las imágenes por defecto. Si el membrete dependiera del
+      // águila, la primera impresión sería un recuadro vacío — y esa primera
+      // impresión es la que decide si el mensaje parece legítimo.
+      process.env.URL_PUBLICA = 'https://falconcad.com.co';
+      const sinImagenes = plantillaInvitacion('Juan', 'jperez', URL, 72)
+        .html.replace(/<img[^>]*>/g, '');
+      expect(sinImagenes).toContain('FALCON');
+      expect(sinImagenes).toContain('CAD');
+    });
+  });
+
+  /** Deja la variable como estaba, exista o no. */
+  function restaurar(nombre: string, valor: string | undefined): void {
+    if (valor === undefined) delete process.env[nombre];
+    else process.env[nombre] = valor;
+  }
 });
 
 /**
@@ -220,5 +276,111 @@ describe('plantillas del ticket de soporte', () => {
     const pre = /mso-hide:all">([^<]*)</.exec(m.html)?.[1] ?? '';
     expect(pre).toContain(TICKET.id);
     expect(pre.length).toBeLessThan(160);
+  });
+});
+
+/**
+ * El contraste del correo, medido.
+ *
+ * Mismo criterio que `scripts/contraste.mjs` para la aplicación: WCAG 2.1 AA
+ * pide 4,5:1 para texto normal. Aquí importa más que en pantalla — un correo
+ * se abre en el turno de noche, en el teléfono, a veces con el brillo al
+ * mínimo — y nadie va a revisarlo cuando alguien aclare un gris «porque se ve
+ * mejor» en su monitor.
+ */
+describe('contraste de la paleta del correo', () => {
+  const P = PALETA_CORREO;
+
+  const luminancia = (hex: string): number =>
+    ([0, 2, 4].map((i) => parseInt(hex.replace('#', '').slice(i, i + 2), 16)))
+      .map((v) => v / 255)
+      .map((v) => (v <= 0.03928 ? v / 12.92 : ((v + 0.055) / 1.055) ** 2.4))
+      .reduce((acc, v, i) => acc + v * [0.2126, 0.7152, 0.0722][i], 0);
+
+  const contraste = (a: string, b: string): number => {
+    const [la, lb] = [luminancia(a), luminancia(b)];
+    return (Math.max(la, lb) + 0.05) / (Math.min(la, lb) + 0.05);
+  };
+
+  const pares: Array<[string, string, string]> = [
+    ['titular sobre la franja', P.BLANCO, P.MARINO],
+    ['segunda línea del titular', P.TURQUESA, P.MARINO],
+    ['saludo sobre la franja', P.SOBRE_MARINO, P.MARINO],
+    ['«central de despacho»', P.SOBRE_MARINO, P.MARINO],
+    ['párrafo del cuerpo', P.TINTA_SUAVE, P.PAPEL],
+    ['dato destacado', P.TINTA, P.PAPEL],
+    ['rótulos y nota al pie', P.APAGADO, P.PAPEL],
+    ['pie, fuera de la tarjeta', P.APAGADO, P.FONDO],
+    ['texto dentro de una caja', P.TINTA_SUAVE, P.FONDO],
+    ['enlace de respaldo', P.ACENTO, P.PAPEL],
+    ['texto del botón', P.BLANCO, P.ACENTO],
+  ];
+
+  for (const [que, texto, fondo] of pares) {
+    it(`${que}: llega a 4,5:1`, () => {
+      const v = contraste(texto, fondo);
+      // El mensaje lleva la medida: quien rompa esto tiene que saber por cuánto.
+      expect(`${que}: ${v.toFixed(2)}:1 (${texto} sobre ${fondo})`)
+        .toBe(`${que}: ${Math.max(v, 4.5).toFixed(2)}:1 (${texto} sobre ${fondo})`);
+    });
+  }
+
+  it('no hay colores sueltos fuera de la paleta', () => {
+    // La otra mitad: medir la paleta no sirve de nada si el HTML trae un gris
+    // escrito a mano que no está en ella.
+    process.env.URL_PUBLICA = 'https://falconcad.com.co';
+    const permitidos = new Set<string>([
+      ...Object.values(P).map((c) => c.toLowerCase()),
+      // Los del bloque de modo oscuro, que solo aplican cuando el cliente lo pide.
+      '#0a131c', '#16222e', '#e8eef4', '#c3d0dc', '#9fb0c0', '#24323f', '#101a24', '#56cfe0',
+    ]);
+    const enlace = 'https://falconcad.com.co/activar/TOKEN';
+    const html = plantillaInvitacion('Juan', 'jperez', enlace, 72).html
+      + plantillaRecuperacion('Ana', 'aruiz', enlace, 1).html;
+    const usados = new Set((html.match(/#[0-9a-fA-F]{6}\b/g) ?? []).map((c) => c.toLowerCase()));
+    const sueltos = [...usados].filter((c) => !permitidos.has(c));
+    expect(sueltos).toEqual([]);
+  });
+});
+
+/**
+ * A dónde contesta quien recibe. Un `no-reply` deja sin salida a la persona
+ * que responde «no me llegó nada», y los buzones grandes puntúan peor a un
+ * remitente al que nadie puede contestar.
+ */
+describe('las respuestas tienen a dónde ir', () => {
+  const previo = { resp: process.env.CORREO_RESPONDER_A, sop: process.env.SOPORTE_CORREO };
+  const ENLACE = 'https://falconcad.com.co/activar/TOKEN';
+
+  afterEach(() => {
+    if (previo.resp === undefined) delete process.env.CORREO_RESPONDER_A;
+    else process.env.CORREO_RESPONDER_A = previo.resp;
+    if (previo.sop === undefined) delete process.env.SOPORTE_CORREO;
+    else process.env.SOPORTE_CORREO = previo.sop;
+  });
+
+  it('por defecto, a la mesa de ayuda, y el pie lo dice', () => {
+    delete process.env.CORREO_RESPONDER_A;
+    delete process.env.SOPORTE_CORREO;
+    const m = plantillaInvitacion('Juan', 'jperez', ENLACE, 72);
+    expect(m.responderA).toBe('soporte@falconcad.com.co');
+    expect(m.html).toContain('responda a este correo');
+    expect(m.html).not.toContain('No responda a este correo');
+  });
+
+  it('sigue al buzón de soporte cuando se cambia', () => {
+    delete process.env.CORREO_RESPONDER_A;
+    process.env.SOPORTE_CORREO = 'tickets@mesa.example';
+    expect(plantillaRecuperacion('Ana', 'aruiz', ENLACE, 1).responderA).toBe('tickets@mesa.example');
+  });
+
+  it('declarada vacía, se vuelve al «no responda» de antes', () => {
+    // Coherencia: si no hay a dónde contestar, el correo no puede invitar a
+    // hacerlo. Las dos cosas se deciden en el mismo sitio justamente por esto.
+    process.env.CORREO_RESPONDER_A = '';
+    const m = plantillaInvitacion('Juan', 'jperez', ENLACE, 72);
+    expect(m.responderA).toBeUndefined();
+    expect(m.html).toContain('No responda a este correo');
+    expect(m.texto).toContain('No responda a este correo');
   });
 });

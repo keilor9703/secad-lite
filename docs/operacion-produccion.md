@@ -997,6 +997,93 @@ Dos comprobaciones que valen la pena una vez, y ninguna más:
 La sección 4 de `docs/mesa-de-ayuda.md` tiene el flujo completo y qué lleva
 cada correo.
 
+### Por qué un correo tarda minutos y por qué cae en «Otros»
+
+Son dos síntomas distintos con causas distintas, y conviene no mezclarlos.
+
+#### Primero medir, que es lo único que distingue las dos mitades
+
+Brevo dice entregar el 99,98 % de los correos transaccionales en menos de 20
+segundos, y documenta colas solo en casos concretos (cuenta suspendida para
+envío de marketing, créditos agotados). Así que antes de culpar al proveedor
+hay que ver en qué tramo se van los minutos:
+
+1. En Brevo → *Transactional* → *Logs*, buscar el mensaje y anotar la hora del
+   evento **Entregado** («Delivered»). Esa es la hora en que el servidor del
+   destinatario lo **aceptó**.
+2. En el buzón que lo recibió, abrir el correo y pedir el original (en Gmail,
+   ⋮ → *Mostrar original*; en Outlook web, ⋮ → *Ver origen del mensaje*).
+   Arriba van las cabeceras `Received:`, una por salto, **con hora**, de abajo
+   hacia arriba.
+
+Con eso se sabe dónde está el tiempo:
+
+| Lo que se ve | Dónde está la demora | Qué hacer |
+|---|---|---|
+| Brevo entrega en segundos y el primer `Received:` del destinatario es de minutos después | **Greylisting**: el servidor del destinatario rechaza a propósito el primer intento de un remitente que no conoce y obliga a reintentar unos minutos más tarde. Es la causa más común de «demora unos minutos» y desaparece sola cuando el remitente deja de ser desconocido | Nada en el código. Se corrige con historial: los primeros correos a un dominio son los lentos |
+| Brevo tarda en marcar *Entregado* | Cola del proveedor | Revisar créditos y el estado de la cuenta; si no hay motivo, abrir ticket con el `messageId` |
+| Brevo no registra el envío | El backend no llegó a mandarlo | `docker compose logs backend1 \| grep CorreoService` |
+
+#### Caer en «Promociones», «Notificaciones» u «Otros» no es caer en spam
+
+Es una **clasificación por pestaña**, y la decide el buzón del destinatario con
+el contenido y, sobre todo, con el comportamiento de ese destinatario. Lo que
+empuja un correo nuestro fuera de la bandeja principal, en orden de peso:
+
+1. **Los enlaces no son del dominio que firma el correo.** Brevo reescribe el
+   `href` de cada botón para contar los clics, así que el correo viene firmado
+   por `mail.falconcad.com.co` y el botón apunta a un dominio de Brevo. Para un
+   clasificador, eso es exactamente la forma de un correo masivo.
+   *Mitigado a medias en el diseño*: debajo del botón va la **dirección
+   completa en texto plano**, y el texto plano no se reescribe — quien recibe
+   puede leer a dónde lo mandan y pegarla a mano. Para quitarlo del todo hay
+   que pedirle a Brevo que desactive el seguimiento de clics en la cuenta: no
+   hay parámetro en la API para hacerlo por mensaje, y su propio equipo lo
+   trata caso por caso (y como función de planes Enterprise).
+2. **Un remitente al que nadie puede contestar.** Ya está corregido: los
+   correos del sistema llevan `Reply-To` al buzón de soporte y el pie lo dice
+   («Si tiene dudas, responda a este correo»). Con `CORREO_RESPONDER_A=`
+   —declarada y vacía— se vuelve al `no-reply` de antes.
+3. **Un dominio sin historial.** `mail.falconcad.com.co` es nuevo y manda pocos
+   correos. Un remitente desconocido entra a prueba, y la prueba dura semanas,
+   no horas.
+4. **Falta DMARC.** SPF y DKIM los pone Brevo al autenticar el dominio, pero
+   DMARC se agrega a mano y es la que le dice al buzón qué hacer con lo que no
+   cuadre. Sin ella, el correo se evalúa con menos información a favor.
+   Comprobar las tres (desde cualquier máquina con `dig`):
+
+   ```bash
+   dig +short TXT mail.falconcad.com.co        # SPF: debe traer include de Brevo
+   dig +short TXT _dmarc.falconcad.com.co      # DMARC: si sale vacío, falta
+   ```
+
+   Si `_dmarc` sale vacío, empezar en modo observación —no rechaza nada, solo
+   informa— y endurecer después:
+
+   ```
+   _dmarc.falconcad.com.co   TXT   "v=DMARC1; p=none; rua=mailto:soporte@falconcad.com.co"
+   ```
+
+**Lo que de verdad mueve la aguja en un día**, y es lo primero que hay que
+pedirle a cada instancia nueva: que quien recibe el primer correo lo **arrastre
+a la bandeja principal** y **agregue `avisos@mail.falconcad.com.co` a sus
+contactos**. Eso es por destinatario y es inmediato; el resto es reputación, y
+la reputación se construye mandando.
+
+#### «Sin marca» y «Branded subdomain: Not available»
+
+Es otra cosa, y no es la causa de la demora. El *branded subdomain* hace que
+los enlaces de seguimiento y las imágenes salgan bajo un subdominio propio
+(`r.mail.falconcad.com.co`) en vez de los de Brevo, lo que alinea del todo el
+SPF y permite una política DMARC estricta. Brevo lo está desplegando por fases
+y lo exige antes de poder asociar una IP dedicada; mientras diga *Not
+available* para esta cuenta, no hay nada que configurar.
+
+Dicho de otro modo: el dominio ya está **autenticado** —que es lo que decide si
+el correo se acepta— y lo que falta es el **marcado**, que decide con qué
+dominio se ven los enlaces de seguimiento. Pesa, pero menos que las cuatro
+causas de arriba.
+
 ### Límite del plan gratuito
 
 El volumen real son unos pocos correos diarios, así que el tope no estorba.
