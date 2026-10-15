@@ -10,13 +10,16 @@ import { registrarErrorHttp } from './registro-errores';
  * Peticiones que NO deben disparar el toast genérico.
  *
  * - `/auth/login`: ya muestra su propio error bajo el formulario.
+ * - `/soporte/ticket`: el diálogo de soporte explica qué hacer cuando el envío
+ *   no sale —copiar o descargar el reporte— y un «Ocurrió un error al procesar
+ *   la solicitud» encima de eso solo tapa la salida.
  * - Los trozos de la grabación: salen cada pocos segundos EN SEGUNDO PLANO
  *   mientras el despachador atiende una emergencia. Un fallo ahí se reintenta
  *   solo, y si de verdad se pierde algo, la videollamada lo dice UNA vez con
  *   un mensaje que se entiende. Sin esto, un servidor que rechaza los trozos
  *   tapaba la pantalla de avisos idénticos encima del video del ciudadano.
  */
-const SILENCIOSAS = ['/auth/login', '/chunk', '/els/ubicacion'];
+const SILENCIOSAS = ['/auth/login', '/soporte/ticket', '/chunk', '/els/ubicacion'];
 
 /**
  * Avisa con un toast cualquier petición que el backend rechace, además del

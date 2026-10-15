@@ -519,7 +519,14 @@ body.desp-ancho .content { max-width: none; }
 .dialogo--lg { --dialogo-ancho: 680px; }
 .dialogo > h2 { margin: 0; font-size: var(--texto-lg); font-weight: 600; }
 .dialogo-cab { display: flex; align-items: flex-start; justify-content: space-between; gap: var(--esp-3); }
-.dialogo-acciones { display: flex; justify-content: flex-end; gap: var(--esp-2); margin-top: var(--esp-1); }
+/* `wrap` porque la fila de acciones no tiene un ancho fijo: un diálogo con
+   cuatro botones —el de soporte cuando el envío falla— los aprieta hasta que
+   la etiqueta se parte en cuatro renglones dentro de un botón de 74 px. Es
+   preferible una segunda fila de botones enteros. */
+.dialogo-acciones {
+  display: flex; flex-wrap: wrap; justify-content: flex-end;
+  gap: var(--esp-2); margin-top: var(--esp-1);
+}
 
 /* --- Botón de cerrar (había 3, dos de ellos idénticos) --------------------- */
 .cerrar {

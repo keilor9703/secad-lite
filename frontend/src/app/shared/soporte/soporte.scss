@@ -70,3 +70,35 @@ textarea:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; 
   border: 1px solid var(--border); border-radius: 10px;
   user-select: all;
 }
+
+/* ── Confirmación ──────────────────────────────────────────────────────────
+   El número del reporte es lo único que la persona se tiene que llevar de
+   aquí: se dicta por teléfono y se pega en un mensaje. Por eso va en
+   monoespaciada —no se confunde un 8 con una B—, grande, con las letras
+   separadas, y `user-select: all` para que un clic lo seleccione entero. */
+.numero {
+  margin: 0;
+  padding: var(--esp-3) var(--esp-4);
+  text-align: center;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  font-size: var(--texto-2xl); font-weight: 600;
+  letter-spacing: 0.08em;
+  color: var(--accent);
+  background: var(--accent-soft);
+  border-radius: 10px;
+  user-select: all;
+}
+
+.resumen {
+  display: grid; grid-template-columns: auto 1fr;
+  gap: 0.3rem var(--esp-4);
+  margin: 0;
+  font-size: var(--texto-sm);
+}
+.resumen dt { color: var(--muted); white-space: nowrap; }
+.resumen dd { margin: 0; color: var(--ink); }
+/* A 400 px de ancho las dos columnas se pisan: el rótulo encima del dato. */
+@media (max-width: 420px) {
+  .resumen { grid-template-columns: 1fr; gap: 0.1rem; }
+  .resumen dd { margin-bottom: 0.35rem; }
+}

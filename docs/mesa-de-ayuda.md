@@ -4,7 +4,8 @@ Cómo se reciben, clasifican y atienden los reportes de las instancias.
 
 > Estado: la matriz de severidad y los niveles están acordados. La herramienta
 > de tickets **todavía no está contratada**; hasta que lo esté, el reporte sale
-> de FALCON como texto y se pega en el canal que se use hoy (correo o mensaje).
+> de FALCON **por correo** a `soporte@falconcad.com.co`, con copia a quien lo
+> abrió y un número para nombrarlo. Ese buzón es, por ahora, la mesa entera.
 > Ver *Lo que falta* al final.
 
 ---
@@ -104,6 +105,41 @@ no recarga la página en doce horas— y **se vacía al cerrar sesión**, para q
 el reporte del relevo no lleve los errores ni las rutas del turno anterior en
 la misma pantalla.
 
+### Cómo sale el reporte
+
+`POST /api/soporte/ticket` (autenticado, 5 cada 10 minutos por IP) recibe lo
+que arma el diálogo y manda **dos correos**:
+
+| | A dónde | Qué lleva | Responder va a |
+|---|---|---|---|
+| Aviso a la mesa | `SOPORTE_CORREO` (por defecto `soporte@falconcad.com.co`) | Número, severidad propuesta y su compromiso, instancia, quién reporta y su correo, pantalla, el relato y el contexto técnico completo | Quien reportó |
+| Acuse | El correo de la cuenta que reportó | Número, severidad, compromiso, instancia y el relato | La mesa |
+
+El número es de la forma `FC-261015-7K3Q`: `FC`, la fecha **en hora de
+Colombia** y cuatro caracteres de un alfabeto sin `I`, `O`, `0` ni `1`, porque
+se dicta por teléfono.
+
+Tres decisiones que conviene no deshacer sin pensarlo:
+
+- **Ningún correo habla de ESTADO.** No hay tablero que lo mantenga. Decir
+  «estado: abierto» sería prometer una consulta que no existe, y la primera
+  persona que intente verla deja de creerse el resto del mensaje. Hay una
+  prueba que lo vigila (`soporte.service.spec.ts`).
+- **Si el correo a la mesa no sale, no se acusa recibo.** El diálogo lo dice,
+  deja el reporte a la vista para copiarlo o descargarlo, y no muestra ningún
+  número: uno que no está en ningún buzón es peor que ninguno.
+- **El correo del acuse sale de la cuenta autenticada, nunca del cuerpo de la
+  petición.** De lo contrario el endpoint sería una forma de mandar correo con
+  el membrete de FALCON CAD a donde se quiera.
+
+Pase lo que pase con el correo, el reporte queda en la **bitácora de la
+instancia** (`soporte.ticket`) con el relato completo — hoy, el único registro
+durable que existe.
+
+Si la cuenta no tiene correo registrado, el ticket sale igual: el aviso a la
+mesa lo dice («la cuenta no tiene correo») para que se la contacte por otro
+medio, y el diálogo le pide a la persona que anote el número.
+
 ### Dónde vive
 
 | Pieza | Archivo |
@@ -113,6 +149,9 @@ la misma pantalla.
 | Enganche de excepciones del navegador | `frontend/src/app/core/manejador-errores.ts` |
 | Armado del informe | `frontend/src/app/core/diagnostico.service.ts` |
 | Diálogo | `frontend/src/app/shared/soporte/` |
+| Envío (frontend) | `frontend/src/app/core/soporte.service.ts` |
+| Endpoint y correos | `backend/src/soporte/`, `backend/src/correo/plantillas.ts` |
+| Escala de severidad del servidor | `backend/src/soporte/severidad.ts` |
 | Sello de versión | `publicar_version()` en `deploy/deploy-falcon.sh` → `/config/version.json` |
 
 ---
@@ -124,10 +163,13 @@ la misma pantalla.
    en el mismo servidor haría que una caída se lleve el canal por el que uno se
    entera de la caída. Requisito técnico: API REST para crear el ticket desde
    aquí.
-2. **Enviar el reporte, no solo copiarlo.** Falta un `POST /api/soporte/ticket`
-   en el backend que reciba lo que arma el diálogo y lo reenvíe a esa
-   herramienta. El informe ya está en el formato que necesita; es un adaptador
-   al final de la cadena.
+2. ~~**Enviar el reporte, no solo copiarlo.**~~ Hecho: el reporte sale por
+   correo (ver *Cómo sale el reporte*). Cuando se contrate la herramienta, lo
+   que cambia es el final de `SoporteService.abrir()` —una llamada a su API en
+   lugar de, o además de, el correo— y el número pasa a ser el suyo. El resto
+   de la cadena, incluido el diálogo, no se toca.
+   Queda pendiente de ese cambio: **el estado**. Hoy ningún correo lo menciona,
+   a propósito; cuando haya dónde consultarlo, el acuse puede llevar el enlace.
 3. **Base de conocimiento.** Sin ella N1 no cierra nada y todo escala.
 4. **Informe mensual** por instancia y severidad: sin medir, no se sabe si la
    mesa mejora o solo aguanta.

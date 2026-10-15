@@ -941,6 +941,7 @@ cat >> .env <<'EOF'
 CORREO_REMITENTE=avisos@mail.falconcad.com.co
 CORREO_REMITENTE_NOMBRE=FALCON CAD
 URL_PUBLICA=https://falconcad.com.co
+SOPORTE_CORREO=soporte@falconcad.com.co
 EOF
 chmod 600 .env
 ```
@@ -973,6 +974,28 @@ Crear un usuario en Administración con el **propio** correo, recibir la
 invitación, pulsar el enlace, elegir contraseña y entrar. Después **volver a
 abrir el mismo enlace**: tiene que decir «Este enlace ya no sirve». Si ese
 ciclo completo funciona, está listo.
+
+### El buzón de la mesa de ayuda
+
+`SOPORTE_CORREO` es a dónde llega lo que alguien reporta con el botón de
+soporte. Mientras no haya herramienta de tickets, **ese buzón ES la mesa**: si
+la dirección no existe, o el relevo la marca como rebote, el reporte no llega a
+ninguna parte. El usuario sí se entera —el diálogo dice que no salió y le deja
+copiar el reporte—, pero la mesa no.
+
+Dos comprobaciones que valen la pena una vez, y ninguna más:
+
+1. Que `soporte@falconcad.com.co` reciba de verdad. Mandarle un correo desde
+   fuera y comprobar que llega a la bandeja.
+2. Que `avisos@mail.falconcad.com.co` no caiga en el spam de ese buzón. El
+   remitente es un subdominio distinto del dominio del destinatario, y es
+   justo el caso que algunos filtros miran con lupa. Abrir un reporte de
+   prueba desde la aplicación (severidad S4, «prueba, ignorar») y comprobar
+   que llega a la bandeja y no a *Correo no deseado*. Si cae en spam, marcarlo
+   como seguro desde ese buzón.
+
+La sección 4 de `docs/mesa-de-ayuda.md` tiene el flujo completo y qué lleva
+cada correo.
 
 ### Límite del plan gratuito
 

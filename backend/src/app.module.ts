@@ -32,6 +32,7 @@ import { IntegracionModule } from './integracion/integracion.module';
 import { CtiModule } from './cti/cti.module';
 import { GeografiaModule } from './geografia/geografia.module';
 import { PlataformaModule } from './plataforma/plataforma.module';
+import { SoporteModule } from './soporte/soporte.module';
 
 @Module({
   imports: [
@@ -121,6 +122,7 @@ import { PlataformaModule } from './plataforma/plataforma.module';
     IntegracionModule,
     GeografiaModule,
     PlataformaModule,
+    SoporteModule,
   ],
   controllers: [AppController],
   providers: [

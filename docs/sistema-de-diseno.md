@@ -233,6 +233,12 @@ hacer**.
 módulos oscurecían con azul marino y tres con negro puro, y en tema claro se
 nota). Ancho con `.dialogo--sm` (420), `--md` (560) o `--lg` (680).
 
+**`.dialogo-acciones`** — la fila de botones del pie. Se alinea a la derecha y
+**envuelve** (`flex-wrap`): sin eso, un diálogo con cuatro botones —el de
+soporte cuando el envío falla— los aprieta hasta partir la etiqueta en cuatro
+renglones dentro de un botón de 74 px. Una segunda fila de botones enteros se
+lee mejor que una fila de botones rotos.
+
 **`.cerrar`** (3 versiones, dos de ellas idénticas byte a byte) — la ✕ de un
 diálogo o un panel.
 

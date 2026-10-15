@@ -52,25 +52,69 @@ const FUENTE = `-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica
 interface Dato { etiqueta: string; valor: string }
 
 /**
+ * Un bloque de texto tal como lo escribió alguien: el relato de un ticket, el
+ * contexto técnico de una pantalla. Va en monoespaciada y respetando los
+ * saltos de línea — un informe alineado en columnas queda ilegible si el
+ * cliente de correo le colapsa los espacios.
+ */
+interface Bloque { titulo: string; texto: string }
+
+/**
  * El marco común. `preencabezado` es el resumen de una línea que se ve en la
  * bandeja; `datos` es el panel institucional de usuario y vigencia.
+ *
+ * `url` y `textoBoton` son opcionales. Un correo que no pide ninguna acción
+ * —el aviso de un ticket a la mesa, el acuse a quien lo abrió— no lleva botón,
+ * y un botón que no lleva a ningún lado es peor que ninguno. Sin `url` tampoco
+ * se imprime el respaldo del enlace, que no tendría nada que respaldar.
  */
 function documento(opciones: {
   titulo: string;
   preencabezado: string;
   entrada: string;
   datos: Dato[];
-  textoBoton: string;
-  url: string;
+  textoBoton?: string;
+  url?: string;
+  bloques?: Bloque[];
   nota: string;
+  /** El cierre. Por defecto «no responda»; los correos de un ticket sí se responden. */
+  pie?: string;
 }): string {
-  const { titulo, preencabezado, entrada, datos, textoBoton, url, nota } = opciones;
+  const { titulo, preencabezado, entrada, datos, textoBoton, url, bloques, nota } = opciones;
+  const pie = opciones.pie ?? 'Mensaje automático de FALCON CAD. No responda a este correo.';
 
   const filas = datos.map((d) => `
             <tr>
               <td class="apagado linea" style="padding:9px 0;border-bottom:1px solid ${BORDE};font-size:13px;color:${APAGADO};white-space:nowrap">${escapar(d.etiqueta)}</td>
               <td class="tinta linea" style="padding:9px 0;border-bottom:1px solid ${BORDE};font-size:14px;color:${TINTA};font-weight:600;text-align:right">${escapar(d.valor)}</td>
             </tr>`).join('');
+
+  // Cada bloque, en su propia fila: rótulo arriba y el texto en una caja
+  // monoespaciada. `pre-wrap` conserva los saltos y la alineación; sin él, las
+  // cuarenta líneas del contexto técnico llegan como un párrafo continuo.
+  const cajas = (bloques ?? []).map((b) => `
+
+    <tr><td class="relleno" style="padding:22px 40px 0;font-family:${FUENTE}">
+      <p class="apagado" style="margin:0 0 7px;font-size:11px;letter-spacing:.07em;text-transform:uppercase;color:${APAGADO}">${escapar(b.titulo)}</p>
+      <div class="urlcaja suave" style="padding:12px 14px;background:${FONDO};border:1px solid ${BORDE};border-radius:4px;font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;font-size:12px;line-height:1.55;color:${TINTA_SUAVE};white-space:pre-wrap;word-break:break-word">${escapar(b.texto)}</div>
+    </td></tr>`).join('');
+
+  const accion = !url ? '' : `
+
+    <!-- Acción -->
+    <tr><td class="relleno" align="center" style="padding:28px 40px 0">
+      <table role="presentation" cellpadding="0" cellspacing="0" border="0"><tr>
+        <td style="background:${ACENTO};border-radius:6px">
+          <a href="${url}" style="display:inline-block;padding:13px 30px;font-family:${FUENTE};font-size:15px;font-weight:600;color:#ffffff;text-decoration:none;border-radius:6px;border:1px solid ${ACENTO_HONDO}">${escapar(textoBoton ?? 'Continuar')}</a>
+        </td>
+      </tr></table>
+    </td></tr>
+
+    <!-- Respaldo del enlace -->
+    <tr><td class="relleno" style="padding:22px 40px 0;font-family:${FUENTE}">
+      <p class="apagado" style="margin:0 0 7px;font-size:12px;color:${APAGADO}">O copie esta dirección en su navegador:</p>
+      <div class="urlcaja apagado" style="padding:10px 12px;background:${FONDO};border:1px solid ${BORDE};border-radius:4px;font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;font-size:12px;line-height:1.5;color:${TINTA_SUAVE};word-break:break-all">${url}</div>
+    </td></tr>`;
 
   return `<!doctype html>
 <html lang="es"><head>
@@ -125,22 +169,7 @@ function documento(opciones: {
       <table role="presentation" class="linea" width="100%" cellpadding="0" cellspacing="0" border="0"
              style="font-family:${FUENTE};border-top:1px solid ${BORDE}">${filas}
       </table>
-    </td></tr>
-
-    <!-- Acción -->
-    <tr><td class="relleno" align="center" style="padding:28px 40px 0">
-      <table role="presentation" cellpadding="0" cellspacing="0" border="0"><tr>
-        <td style="background:${ACENTO};border-radius:6px">
-          <a href="${url}" style="display:inline-block;padding:13px 30px;font-family:${FUENTE};font-size:15px;font-weight:600;color:#ffffff;text-decoration:none;border-radius:6px;border:1px solid ${ACENTO_HONDO}">${escapar(textoBoton)}</a>
-        </td>
-      </tr></table>
-    </td></tr>
-
-    <!-- Respaldo del enlace -->
-    <tr><td class="relleno" style="padding:22px 40px 0;font-family:${FUENTE}">
-      <p class="apagado" style="margin:0 0 7px;font-size:12px;color:${APAGADO}">O copie esta dirección en su navegador:</p>
-      <div class="urlcaja apagado" style="padding:10px 12px;background:${FONDO};border:1px solid ${BORDE};border-radius:4px;font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;font-size:12px;line-height:1.5;color:${TINTA_SUAVE};word-break:break-all">${url}</div>
-    </td></tr>
+    </td></tr>${cajas}${accion}
 
     <!-- Nota de seguridad -->
     <tr><td class="relleno" style="padding:24px 40px 0;font-family:${FUENTE}">
@@ -151,7 +180,7 @@ function documento(opciones: {
 
     <tr><td class="relleno" style="padding:20px 40px 28px;font-family:${FUENTE}">
       <p class="apagado" style="margin:0;font-size:11.5px;line-height:1.6;color:${APAGADO}">
-        Mensaje automático de FALCON CAD. No responda a este correo.
+        ${pie}
       </p>
     </td></tr>
 
@@ -162,10 +191,19 @@ function documento(opciones: {
 
 /** La versión en texto plano. No es un descarte: varios filtros puntúan peor un correo sin ella. */
 function textoPlano(opciones: {
-  titulo: string; entrada: string; datos: Dato[]; url: string; nota: string;
+  titulo: string; entrada: string; datos: Dato[]; url?: string; bloques?: Bloque[]; nota: string; pie?: string;
 }): string {
-  const ancho = Math.max(...opciones.datos.map((d) => d.etiqueta.length));
+  // `Math.max()` sin argumentos devuelve -Infinity, y `padEnd(-Infinity)` deja
+  // de alinear sin avisar: un correo sin panel de datos no es un caso raro.
+  const ancho = opciones.datos.length ? Math.max(...opciones.datos.map((d) => d.etiqueta.length)) : 0;
   const datos = opciones.datos.map((d) => `  ${d.etiqueta.padEnd(ancho)}   ${d.valor}`).join('\n');
+  const cajas = (opciones.bloques ?? [])
+    .map((b) => `\n${b.titulo.toUpperCase()}\n${'─'.repeat(42)}\n${b.texto}\n`)
+    .join('');
+  const pie = opciones.pie ?? 'Mensaje automático de FALCON CAD. No responda a este correo.';
+  // Sin `url` no se deja la línea vacía donde iría: en un correo de ticket, ese
+  // hueco se lee como un enlace que no cargó.
+  const enlace = opciones.url ? `\n${opciones.url}\n` : '';
   return `FALCON CAD · Central de despacho
 ${'─'.repeat(42)}
 
@@ -174,13 +212,11 @@ ${opciones.titulo.toUpperCase()}
 ${sinEtiquetas(opciones.entrada)}
 
 ${datos}
-
-${opciones.url}
-
+${cajas}${enlace}
 ${'─'.repeat(42)}
 ${sinEtiquetas(opciones.nota)}
 
-Mensaje automático de FALCON CAD. No responda a este correo.`;
+${pie}`;
 }
 
 /** Invitación: la cuenta existe y falta que su dueño defina su contraseña. */
@@ -234,6 +270,156 @@ export function plantillaRecuperacion(
     }),
     texto: textoPlano({ titulo, entrada, datos, url, nota }),
   };
+}
+
+// ── Mesa de ayuda ──────────────────────────────────────────────────────────
+// Dos correos por cada reporte: el que lleva el ticket a la mesa y el acuse
+// para quien lo abrió. Ninguno de los dos habla de ESTADO, y eso es a
+// propósito: todavía no hay herramienta de tickets que lo mantenga, y un
+// correo que dijera «estado: abierto» estaría prometiendo un tablero que nadie
+// puede consultar. Dice el número, que es lo único que de verdad existe.
+
+/** Lo que la mesa necesita para atender el reporte sin preguntar nada primero. */
+export interface TicketCorreo {
+  id: string;
+  severidad: string;
+  severidadTitulo: string;
+  compromiso: string;
+  relato: string;
+  contexto: string;
+  instancia: string;
+  /** Quién reporta, como lo muestra el sistema: «Juan Pérez (jperez)». */
+  quien: string;
+  /** Su correo, si la cuenta tiene uno; '' si no. Decide si la mesa puede responder. */
+  correoQuien: string;
+  pantalla: string;
+}
+
+/** El aviso a la mesa: el ticket entero, en un correo que se puede responder. */
+export function plantillaTicketMesa(t: TicketCorreo): MensajeCorreo {
+  const titulo = `${t.severidad} · ${t.severidadTitulo}`;
+  // «Reporte abierto» se leería como un estado de ticket, y no hay ninguno que
+  // mantener: el verbo describe quién lo mandó, no en qué situación está.
+  const entrada = `Reporte enviado desde FALCON CAD por <strong>${escapar(t.quien)}</strong>, `
+    + `en la instancia <strong>${escapar(t.instancia)}</strong>.`;
+  const datos: Dato[] = [
+    { etiqueta: 'Ticket', valor: t.id },
+    { etiqueta: 'Severidad propuesta', valor: `${t.severidad} — ${t.severidadTitulo}` },
+    { etiqueta: 'Compromiso', valor: t.compromiso },
+    { etiqueta: 'Instancia', valor: t.instancia },
+    { etiqueta: 'Reportado por', valor: t.quien },
+    { etiqueta: 'Correo de contacto', valor: t.correoQuien || 'la cuenta no tiene correo' },
+    { etiqueta: 'Pantalla', valor: t.pantalla || '—' },
+  ];
+  // La severidad la propone quien reporta y la confirma la mesa: lo dice la
+  // matriz de docs/mesa-de-ayuda.md, y el correo lo repite donde se decide.
+  const nota = t.correoQuien
+    ? 'La severidad la propone quien reporta; <strong>la confirma la mesa</strong>. '
+      + 'Al responder a este correo, la respuesta le llega a quien lo reportó.'
+    : 'La severidad la propone quien reporta; <strong>la confirma la mesa</strong>. '
+      + 'La cuenta que reportó no tiene correo registrado: hay que contactarla por otro medio.';
+
+  return {
+    para: '',
+    responderA: t.correoQuien || undefined,
+    asunto: asuntoMesa(t),
+    html: documento({
+      titulo,
+      preencabezado: `${t.id} · ${t.instancia} · ${resumen(t.relato, 90)}`,
+      entrada,
+      datos,
+      bloques: [
+        { titulo: 'Lo que reportó', texto: t.relato },
+        { titulo: 'Contexto técnico', texto: t.contexto },
+      ],
+      nota,
+      pie: 'Enviado por FALCON CAD desde la propia aplicación.',
+    }),
+    texto: textoPlano({
+      titulo,
+      entrada,
+      datos,
+      bloques: [
+        { titulo: 'Lo que reportó', texto: t.relato },
+        { titulo: 'Contexto técnico', texto: t.contexto },
+      ],
+      nota,
+      pie: 'Enviado por FALCON CAD desde la propia aplicación.',
+    }),
+  };
+}
+
+/**
+ * El acuse para quien reportó. Lleva el número y lo que escribió — no el
+ * contexto técnico, que ya vio en pantalla y aquí solo sería un muro — y no
+ * promete ningún estado consultable.
+ */
+export function plantillaTicketAcuse(t: TicketCorreo, correoMesa: string): MensajeCorreo {
+  const titulo = 'Su reporte llegó a la mesa de ayuda';
+  const entrada = `${escapar(primerNombre(t.quien))}, su reporte salió hacia la mesa de ayuda de `
+    + 'FALCON CAD. Guarde este número: es con el que se identifica el reporte si hay que '
+    + 'hablar de él.';
+  const datos: Dato[] = [
+    { etiqueta: 'Número del reporte', valor: t.id },
+    { etiqueta: 'Severidad que indicó', valor: `${t.severidad} — ${t.severidadTitulo}` },
+    { etiqueta: 'Compromiso de respuesta', valor: t.compromiso },
+    { etiqueta: 'Instancia', valor: t.instancia },
+  ];
+  const nota = (t.severidad === 'S1'
+    ? 'Un reporte crítico se atiende a cualquier hora, pero <strong>por teléfono</strong>: '
+      + 'un texto que nadie leyó todavía no es un aviso. Llame además a la línea de soporte. '
+    : '')
+    + 'Si tiene algo más que agregar, responda a este correo: la respuesta llega a la mesa '
+    + 'con el número del reporte.';
+
+  return {
+    para: '',
+    responderA: correoMesa,
+    asunto: `Su reporte ${t.id} llegó a la mesa de ayuda · FALCON CAD`,
+    html: documento({
+      titulo,
+      preencabezado: `Reporte ${t.id} · ${t.severidad} · ${resumen(t.relato, 90)}`,
+      entrada,
+      datos,
+      bloques: [{ titulo: 'Lo que reportó', texto: t.relato }],
+      nota,
+      pie: 'Enviado por FALCON CAD. Puede responder a este correo.',
+    }),
+    texto: textoPlano({
+      titulo,
+      entrada,
+      datos,
+      bloques: [{ titulo: 'Lo que reportó', texto: t.relato }],
+      nota,
+      pie: 'Enviado por FALCON CAD. Puede responder a este correo.',
+    }),
+  };
+}
+
+/**
+ * El asunto de la mesa. El número y la severidad van primero porque son lo
+ * único que sobrevive al recorte de la lista del buzón; el resumen del relato
+ * va después, y se recorta para que el asunto entero quepa en lo que muestra
+ * un cliente de correo (unos 78 caracteres).
+ */
+function asuntoMesa(t: TicketCorreo): string {
+  const cabeza = `[${t.id}] ${t.severidad} · ${t.instancia}`;
+  const queda = 78 - cabeza.length - 3;
+  const cola = queda >= 12 ? ` · ${resumen(t.relato, queda)}` : '';
+  return `${cabeza}${cola}`;
+}
+
+/**
+ * La primera línea del relato, recortada. Sirve para el asunto y el
+ * preencabezado: lo que se ve antes de abrir el correo.
+ */
+function resumen(texto: string, tope: number): string {
+  const una = String(texto ?? '').replace(/\s+/g, ' ').trim();
+  if (una.length <= tope) return una;
+  // Cortar en el último espacio evita terminar en media palabra.
+  const corte = una.slice(0, tope);
+  const espacio = corte.lastIndexOf(' ');
+  return `${espacio > tope * 0.6 ? corte.slice(0, espacio) : corte}…`;
 }
 
 /** «72 horas», «1 hora». Un número suelto junto a la palabra queda mal escrito. */

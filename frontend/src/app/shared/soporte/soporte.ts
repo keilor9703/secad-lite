@@ -1,5 +1,7 @@
 import { ChangeDetectionStrategy, Component, OnInit, computed, inject, output, signal } from '@angular/core';
+import { HttpErrorResponse } from '@angular/common/http';
 import { DiagnosticoService, InformeDiagnostico } from '../../core/diagnostico.service';
+import { RespuestaTicket, SoporteService } from '../../core/soporte.service';
 import { ToastService } from '../toast/toast.service';
 
 /**
@@ -21,6 +23,13 @@ import { ToastService } from '../toast/toast.service';
  *     cada opción muestra el compromiso de respuesta que implica: elegir
  *     "la operación está detenida" para un reporte mal exportado deja de ser
  *     gratis cuando al lado dice "respuesta en 15 minutos, 24/7".
+ *
+ *  3. El reporte se MANDA, y si no se puede mandar se dice. Lo recibe
+ *     `POST /api/soporte/ticket`, que lo reparte por correo a la mesa y al
+ *     buzón de quien reportó, con un número para nombrarlo por teléfono.
+ *     Cuando el envío falla —el proveedor de correo caído, la red del puesto—
+ *     no se finge: se explica, y siguen ahí copiar y descargar, que es como
+ *     se hacía antes de que existiera el envío.
  */
 
 export type Severidad = 'S1' | 'S2' | 'S3' | 'S4';
@@ -41,6 +50,7 @@ interface OpcionSeveridad {
 })
 export class SoporteComponent implements OnInit {
   private diag = inject(DiagnosticoService);
+  private api = inject(SoporteService);
   private toast = inject(ToastService);
 
   readonly cerrar = output<void>();
@@ -79,8 +89,19 @@ export class SoporteComponent implements OnInit {
   readonly informe = signal<InformeDiagnostico | null>(null);
   readonly contexto = signal('');
 
+  /** En curso el envío: bloquea el botón para no abrir dos reportes del mismo problema. */
+  readonly enviando = signal(false);
+  /** Lo que respondió el servidor. Con esto en mano, el diálogo muestra el número. */
+  readonly ticket = signal<RespuestaTicket | null>(null);
+  /** Por qué no salió. Mientras tenga texto, se ofrecen copiar y descargar. */
+  readonly fallo = signal('');
+
   readonly esCritico = computed(() => this.severidad() === 'S1');
   readonly listo = computed(() => this.relato().trim().length >= 10 && !!this.contexto());
+  /** El compromiso de la severidad elegida, para repetirlo al confirmar. */
+  readonly compromiso = computed(
+    () => this.severidades.find((s) => s.id === this.severidad())?.respuesta ?? '',
+  );
 
   ngOnInit(): void {
     // Se arma UNA vez, al abrir. Hacerlo al pulsar "copiar" obligaría a
@@ -103,6 +124,80 @@ export class SoporteComponent implements OnInit {
       '',
       this.contexto(),
     ].join('\n');
+  }
+
+  /**
+   * Manda el reporte. No lanza: cualquier fallo termina en `fallo()` con una
+   * frase que dice qué hacer, porque quien está aquí ya tiene un problema y el
+   * segundo no puede ser que el botón no explique nada.
+   */
+  async enviar(): Promise<void> {
+    if (!this.listo() || this.enviando()) return;
+    this.enviando.set(true);
+    this.fallo.set('');
+    try {
+      const r = await this.api.abrirTicket({
+        severidad: this.severidad(),
+        relato: this.relato().trim(),
+        contexto: this.contexto(),
+        pantalla: this.informe()?.donde.ruta ?? '',
+      });
+      if (!r.enviado) {
+        // El servidor contestó, pero el correo no salió: el reporte NO está en
+        // la mesa. Decirlo es lo único honesto, y el respaldo queda a la vista.
+        this.fallo.set(
+          'El servidor no pudo enviar el correo a la mesa de ayuda'
+          + (r.error ? ` (${r.error})` : '')
+          + '. Copie o descargue el reporte y mándelo por otro medio.',
+        );
+        return;
+      }
+      this.ticket.set(r);
+    } catch (e) {
+      this.fallo.set(this.porQue(e));
+    } finally {
+      this.enviando.set(false);
+    }
+  }
+
+  /** El número, al portapapeles: se dicta por teléfono y se pega en un mensaje. */
+  async copiarId(): Promise<void> {
+    const id = this.ticket()?.id;
+    if (!id) return;
+    try {
+      await navigator.clipboard.writeText(id);
+      this.toast.exito(`Número ${id} copiado.`);
+    } catch {
+      this.toast.advertencia('El navegador no permitió copiar. Anote el número que aparece en pantalla.');
+    }
+  }
+
+  /**
+   * Qué decirle a la persona según lo que respondió —o no respondió— el
+   * servidor. El interceptor global no muestra toast para esta ruta
+   * (`SILENCIOSAS` en error-toast.interceptor.ts) justamente para que el
+   * mensaje sea este y no un «ocurrió un error» encima del respaldo.
+   */
+  private porQue(e: unknown): string {
+    const err = e as HttpErrorResponse;
+    const fin = ' Copie o descargue el reporte y mándelo por otro medio.';
+    switch (err?.status) {
+      case 0:
+        return 'No hubo conexión con el servidor, así que el reporte no salió.' + fin;
+      case 429:
+        return 'Ya salieron varios reportes desde este punto en los últimos minutos. '
+          + 'Espere unos minutos antes de mandar otro.' + fin;
+      case 401:
+        // Para esta ruta el interceptor tampoco cierra la sesión ni navega al
+        // login, y aquí eso es lo que conviene: botar la pantalla se llevaría
+        // el relato que la persona acaba de escribir. Se avisa y se le da la
+        // oportunidad de salvarlo antes de volver a entrar.
+        return 'La sesión expiró y el reporte no salió. Copie o descargue el reporte ahora: '
+          + 'al volver a iniciar sesión, este texto se pierde.';
+      default:
+        return 'El servidor no aceptó el reporte'
+          + (err?.status ? ` (HTTP ${err.status})` : '') + '.' + fin;
+    }
   }
 
   async copiar(): Promise<void> {

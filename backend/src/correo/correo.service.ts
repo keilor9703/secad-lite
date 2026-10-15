@@ -27,6 +27,15 @@ export interface MensajeCorreo {
   html: string;
   /** Alternativa en texto plano. Sin ella, varios filtros puntúan peor el mensaje. */
   texto: string;
+  /**
+   * A dónde contesta quien recibe, cuando no es el remitente.
+   *
+   * Existe por los tickets de soporte: el aviso lo manda `avisos@…`, que es un
+   * buzón que nadie lee, y la mesa necesita poder pulsar «Responder» y escribirle
+   * a la persona que reportó. Sin esto la respuesta se va al vacío y el ticket
+   * queda contestado para la mesa y sin contestar para quien lo abrió.
+   */
+  responderA?: string;
 }
 
 export interface ResultadoEnvio {
@@ -62,7 +71,7 @@ export class CorreoService {
       this.logger.warn(`Sin BREVO_API_KEY: no se envió «${m.asunto}» a ${m.para}.`);
       return { ok: false, error: 'El envío de correo no está configurado en este servidor.' };
     }
-    if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(m.para ?? '')) {
+    if (!DIRECCION.test(m.para ?? '')) {
       return { ok: false, error: 'La dirección de correo no tiene forma válida.' };
     }
 
@@ -77,6 +86,10 @@ export class CorreoService {
         body: JSON.stringify({
           sender: { email: this.remitente, name: this.remitenteNombre },
           to: [{ email: m.para }],
+          // Una dirección mal formada aquí la rechaza el proveedor con un 400 y
+          // tumba el envío entero: si no tiene forma de correo, mejor sin
+          // `replyTo` que sin mensaje.
+          ...(DIRECCION.test(m.responderA ?? '') ? { replyTo: { email: m.responderA } } : {}),
           subject: m.asunto,
           htmlContent: m.html,
           textContent: m.texto,
@@ -96,6 +109,12 @@ export class CorreoService {
     }
   }
 }
+
+/**
+ * Forma de una dirección de correo. No valida que exista —eso solo lo dice un
+ * envío— pero descarta lo que el proveedor rechazaría con un 400.
+ */
+const DIRECCION = /^[^@\s]+@[^@\s]+\.[^@\s]+$/;
 
 /** La columna que guarda el error son 300 caracteres. */
 function recortar(texto: string): string {
