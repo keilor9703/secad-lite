@@ -1,6 +1,6 @@
 import { ChangeDetectionStrategy, Component, OnInit, computed, effect, inject, signal } from '@angular/core';
 import { DatePipe } from '@angular/common';
-import { FormControl, FormGroup, FormsModule, ReactiveFormsModule, Validators } from '@angular/forms';
+import { AbstractControl, FormControl, FormGroup, FormsModule, ReactiveFormsModule, ValidationErrors, Validators } from '@angular/forms';
 import { catchError, debounceTime, distinctUntilChanged, map, of, switchMap } from 'rxjs';
 import { AdminService, CrearUsuario, EntradaBitacora } from '../../core/admin.service';
 import { AuthService } from '../../core/auth.service';
@@ -218,7 +218,7 @@ export class AdminComponent implements OnInit {
     // El correo es el camino normal: con él, la persona recibe una invitación
     // y elige su propia contraseña. La contraseña inicial queda como salida de
     // emergencia para una cuenta sin correo, y ya NO es obligatoria.
-    correo: new FormControl('', { nonNullable: true, validators: [Validators.email] }),
+    correo: new FormControl('', { nonNullable: true, validators: [correoValido] }),
     contrasena: new FormControl('', { nonNullable: true }),
     rol: new FormControl('operador', { nonNullable: true }),
     agenciaId: new FormControl<string | null>(null),
@@ -909,6 +909,68 @@ export class AdminComponent implements OnInit {
   /** Enlace de activación que el administrador pidió para entregarlo a mano. */
   readonly enlaceInvitacion = signal<{ usuario: string; url: string } | null>(null);
 
+  // ── Cuentas sin correo ──────────────────────────────────────────────────
+  //
+  // Las que vienen de antes de que FALCON tuviera correos: se crearon con una
+  // contraseña que puso un administrador y no tienen a dónde mandarles nada.
+  // Mientras sigan así, el día que alguien olvide su clave hay que atenderlo a
+  // mano — y nadie se entera de que existen hasta que pasa.
+
+  /** Cuántas cuentas activas siguen sin correo. Cero esconde el aviso entero. */
+  readonly sinCorreo = computed(() => this.usuarios().filter((u) => !u.correo).length);
+  /** Filtro: mostrar solo esas, para ir resolviéndolas de una vez. */
+  readonly soloSinCorreo = signal(false);
+  /** Lo que de verdad pinta la tabla. */
+  readonly usuariosVisibles = computed(() =>
+    this.soloSinCorreo() ? this.usuarios().filter((u) => !u.correo) : this.usuarios());
+
+  /** Fila en la que se está escribiendo un correo, y el campo. */
+  readonly registrandoCorreo = signal<string | null>(null);
+  readonly guardandoCorreo = signal(false);
+  readonly correoNuevoCtrl = new FormControl('', { nonNullable: true, validators: [correoValido] });
+
+  abrirRegistroCorreo(u: UsuarioAdmin): void {
+    this.correoNuevoCtrl.setValue(u.correo ?? '');
+    this.registrandoCorreo.set(u.id);
+  }
+
+  cancelarRegistroCorreo(): void {
+    this.registrandoCorreo.set(null);
+    this.correoNuevoCtrl.reset('');
+  }
+
+  /**
+   * Registra el correo y manda la invitación de una sola vez.
+   *
+   * `enviar` en falso pide el enlace sin mandar nada, para entregarlo en
+   * persona — el caso del municipio cuyo servidor de correo acepta el mensaje
+   * y lo descarta en silencio.
+   */
+  guardarCorreo(u: UsuarioAdmin, enviar = true): void {
+    const correo = this.correoNuevoCtrl.value.trim();
+    if (!correo || this.correoNuevoCtrl.invalid || this.guardandoCorreo()) return;
+    this.guardandoCorreo.set(true);
+    this.admin.registrarCorreo(u.id, correo, enviar).subscribe({
+      next: (r) => {
+        this.guardandoCorreo.set(false);
+        this.cancelarRegistroCorreo();
+        this.cargarUsuarios();
+        if (r.enlace) {
+          // Sea porque lo pidió así, sea porque el envío falló: el enlace es la
+          // única salida que le queda a esa persona, y se muestra a la vista.
+          this.enlaceInvitacion.set({ usuario: u.username, url: r.enlace });
+        }
+        if (enviar && r.ok) this.toast.exito(`Correo registrado. Se envió la invitación a ${r.correo}.`);
+        else if (enviar) this.toast.advertencia(`Correo registrado, pero el envío falló: ${r.error}`);
+        else this.toast.exito('Correo registrado. Entregue el enlace en persona.');
+      },
+      error: (e) => {
+        this.guardandoCorreo.set(false);
+        this.error.set(e?.error?.message ?? 'No fue posible registrar el correo.');
+      },
+    });
+  }
+
   /** Reenvía la invitación a una cuenta que todavía no se activó. */
   reenviarInvitacion(u: UsuarioAdmin): void {
     this.admin.invitarUsuario(u.id, true).subscribe({
@@ -1101,3 +1163,21 @@ export class AdminComponent implements OnInit {
     });
   }
 }
+
+/**
+ * `Validators.email`, pero sobre el valor RECORTADO.
+ *
+ * Un correo pegado del portapapeles —que es como se escriben casi todos— trae
+ * un espacio al final más veces de las que parece, y el de Angular lo da por
+ * inválido: el botón se queda inhabilitado y la pantalla no dice por qué.
+ *
+ * La expresión es la MISMA que usa el backend en `normalizarCorreo`, a
+ * propósito: lo que el formulario acepta es exactamente lo que el servidor va
+ * a aceptar, ni más ni menos.
+ */
+export function correoValido(c: AbstractControl): ValidationErrors | null {
+  const v = String(c.value ?? '').trim();
+  if (!v) return null;
+  return /^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(v) ? null : { email: true };
+}
+

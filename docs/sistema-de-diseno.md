@@ -236,10 +236,17 @@ nota). Ancho con `.dialogo--sm` (420), `--md` (560) o `--lg` (680).
 ### Los correos son parte del sistema, aunque no se vean en la pantalla
 
 `backend/src/correo/plantillas.ts` arma los cuatro correos (invitación,
-recuperación, aviso a la mesa, acuse) sobre un marco único: franja azul marino
-con el águila del kit de marca y el nombre escrito al lado, titular en dos
-líneas —la segunda en turquesa, y es la que dice qué hay que hacer—, cuerpo
-blanco con una sola acción, y pie fuera de la tarjeta.
+recuperación, aviso a la mesa, acuse) sobre un marco único de **dos tonos**: la
+marca sola arriba —monograma marino con el águila del kit, y el nombre escrito
+al lado—, y debajo una tarjeta partida en dos. La mitad superior, en teal
+lavado, lleva el saludo, el titular, la frase y el dato que la persona vino a
+buscar en una pastilla blanca; la inferior, en papel blanco, lleva la única
+acción y nada más. La nota de seguridad y el pie quedan FUERA de la tarjeta,
+en gris: son letra pequeña y tienen que parecerlo.
+
+El corte entre los dos tonos hace el trabajo que haría una franja oscura sin su
+peso: el ojo encuentra dónde está lo que hay que leer y dónde lo que hay que
+pulsar, sin que el correo parezca una valla.
 
 Tres reglas que no se ven y sostienen el resto:
 
@@ -249,7 +256,7 @@ Tres reglas que no se ven y sostienen el resto:
   vacío. Una prueba borra los `<img>` del HTML y comprueba que la franja
   siga diciendo FALCON CAD.
 - **La paleta del correo se mide, no se mira.** `plantillas.spec.ts` comprueba
-  los once pares texto/fondo que existen en los correos contra 4,5:1, igual que
+  los catorce pares texto/fondo que existen en los correos contra 4,5:1, igual que
   `scripts/contraste.mjs` hace con la aplicación, y además verifica que el HTML
   no traiga ningún color escrito a mano fuera de la paleta. La primera vez que
   corrió encontró el pie en 4,41.

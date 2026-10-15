@@ -99,14 +99,25 @@ describe('plantillas de correo', () => {
     expect(m.texto).toContain('Hola, Juan');
   });
 
-  it('el titular va en dos líneas: la segunda dice qué hay que hacer', () => {
-    // Es lo que se lee antes de decidir si el correo importa. La segunda línea
-    // va en turquesa sobre la franja; si alguien la quita, el correo deja de
-    // tener una frase que explique la acción.
+  it('la mitad de arriba dice qué pasó y la de abajo qué hacer', () => {
+    // El titular, la frase y el usuario van sobre el teal; el botón, debajo,
+    // sobre blanco. Es el corte que hace legible el correo de un vistazo.
     const m = plantillaInvitacion('Juan', 'jperez', URL, 72);
-    expect(m.html).toContain('Su acceso está listo.');
-    expect(m.html).toContain('Falta su contraseña.');
-    expect(m.texto).toContain('SU ACCESO ESTÁ LISTO. FALTA SU CONTRASEÑA.');
+    const cabecera = m.html.slice(m.html.indexOf('class="relleno cabecera"'), m.html.indexOf('class="relleno cuerpo"'));
+    const cuerpo = m.html.slice(m.html.indexOf('class="relleno cuerpo"'));
+    expect(cabecera).toContain('Su cuenta está lista');
+    expect(cabecera).toContain('jperez');            // la pastilla del usuario
+    expect(cabecera).not.toContain('<a href');       // ninguna acción arriba
+    expect(cuerpo).toContain('Definir mi contraseña');
+    expect(cuerpo).toContain(URL);
+    expect(m.texto).toContain('SU CUENTA ESTÁ LISTA');
+  });
+
+  it('la letra pequeña del botón no se pierde en la versión de texto', () => {
+    const m = plantillaInvitacion('Juan', 'jperez', URL, 72);
+    expect(m.html).toContain('72 horas');
+    expect(m.html).toContain('un solo uso');
+    expect(m.texto).toContain('Vence en 72 horas · Enlace de un solo uso');
   });
 
   describe('el águila de la franja', () => {
@@ -303,17 +314,23 @@ describe('contraste de la paleta del correo', () => {
   };
 
   const pares: Array<[string, string, string]> = [
-    ['titular sobre la franja', P.BLANCO, P.MARINO],
-    ['segunda línea del titular', P.TURQUESA, P.MARINO],
-    ['saludo sobre la franja', P.SOBRE_MARINO, P.MARINO],
-    ['«central de despacho»', P.SOBRE_MARINO, P.MARINO],
-    ['párrafo del cuerpo', P.TINTA_SUAVE, P.PAPEL],
-    ['dato destacado', P.TINTA, P.PAPEL],
-    ['rótulos y nota al pie', P.APAGADO, P.PAPEL],
-    ['pie, fuera de la tarjeta', P.APAGADO, P.FONDO],
-    ['texto dentro de una caja', P.TINTA_SUAVE, P.FONDO],
-    ['enlace de respaldo', P.ACENTO, P.PAPEL],
+    // Mitad de arriba: teal lavado.
+    ['titular sobre la cabecera', P.TINTA, P.CABECERA],
+    ['saludo sobre la cabecera', P.ACENTO, P.CABECERA],
+    ['segunda línea del titular', P.ACENTO, P.CABECERA],
+    ['párrafo sobre la cabecera', P.TINTA_SUAVE, P.CABECERA],
+    ['rótulo de la pastilla', P.APAGADO, P.PAPEL],
+    ['valor de la pastilla', P.TINTA, P.PAPEL],
+    // Mitad de abajo: papel blanco.
     ['texto del botón', P.BLANCO, P.ACENTO],
+    ['letra pequeña bajo el botón', P.APAGADO, P.PAPEL],
+    ['enlace de respaldo', P.ACENTO, P.PAPEL],
+    ['tabla de datos', P.TINTA, P.PAPEL],
+    ['texto dentro de una caja', P.TINTA_SUAVE, P.FONDO],
+    // Fuera de la tarjeta.
+    ['nota y pie', P.APAGADO, P.FONDO],
+    ['la marca, sobre el fondo', P.TINTA, P.FONDO],
+    ['«CAD» de la marca', P.ACENTO, P.FONDO],
   ];
 
   for (const [que, texto, fondo] of pares) {
@@ -332,7 +349,8 @@ describe('contraste de la paleta del correo', () => {
     const permitidos = new Set<string>([
       ...Object.values(P).map((c) => c.toLowerCase()),
       // Los del bloque de modo oscuro, que solo aplican cuando el cliente lo pide.
-      '#0a131c', '#16222e', '#e8eef4', '#c3d0dc', '#9fb0c0', '#24323f', '#101a24', '#56cfe0',
+      '#0a131c', '#16222e', '#13303a', '#0d1c26', '#e8eef4', '#c3d0dc', '#9fb0c0',
+      '#24323f', '#101a24', '#56cfe0',
     ]);
     const enlace = 'https://falconcad.com.co/activar/TOKEN';
     const html = plantillaInvitacion('Juan', 'jperez', enlace, 72).html
@@ -364,7 +382,7 @@ describe('las respuestas tienen a dónde ir', () => {
     delete process.env.SOPORTE_CORREO;
     const m = plantillaInvitacion('Juan', 'jperez', ENLACE, 72);
     expect(m.responderA).toBe('soporte@falconcad.com.co');
-    expect(m.html).toContain('responda a este correo');
+    expect(m.html).toContain('Puede responder a este correo');
     expect(m.html).not.toContain('No responda a este correo');
   });
 

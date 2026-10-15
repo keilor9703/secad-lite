@@ -96,6 +96,32 @@ export class UsuariosController {
     return { ok: r.ok, enlace: r.enlace, error: r.error };
   }
 
+  /**
+   * POST /api/usuarios/:id/correo — registra el correo de una cuenta que no
+   * tenía y le manda la invitación, en un solo paso.
+   *
+   * Es el camino para las cuentas anteriores a que FALCON tuviera correos:
+   * tienen una contraseña que puso un administrador y ninguna forma de
+   * recuperarla solas. Con `{ "enviar": false }` devuelve el enlace sin
+   * mandarlo, para entregarlo en persona.
+   */
+  @Post(':id/correo')
+  async registrarCorreo(
+    @Usuario() actor: JwtPayload, @Param('id') id: string,
+    @Body() body: { correo?: string; enviar?: boolean },
+  ) {
+    const enviar = body?.enviar !== false;
+    const r = await this.usuarios.registrarCorreo(actor, id, body?.correo ?? '', enviar);
+    await this.auditoria.registrar(
+      r.tenant ?? 'plataforma', actor.sub, 'usuario.correo_registrar',
+      `${r.yaTenia ? 'Cambió' : 'Registró'} el correo de «${r.username}» (${r.correo})`
+        + (enviar
+          ? ` y le envió la invitación${r.ok ? '.' : ` (falló: ${r.error}).`}`
+          : ' y obtuvo el enlace para entregarlo por otra vía.'),
+    );
+    return { ok: r.ok, correo: r.correo, enlace: r.enlace, error: r.error };
+  }
+
   @Patch(':id')
   async actualizar(@Usuario() actor: JwtPayload, @Param('id') id: string, @Body() dto: ActualizarUsuarioDto) {
     const u = await this.usuarios.actualizar(actor, id, dto);

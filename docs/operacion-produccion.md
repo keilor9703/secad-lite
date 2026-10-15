@@ -1106,6 +1106,32 @@ el correo se acepta— y lo que falta es el **marcado**, que decide con qué
 dominio se ven los enlaces de seguimiento. Pesa, pero menos que las cuatro
 causas de arriba.
 
+### Las cuentas que ya existían, sin correo
+
+Las creadas antes de que FALCON mandara correos tienen una contraseña que puso
+un administrador y **ninguna forma de recuperarla solas**: el día que alguien
+la olvide, hay que atenderlo a mano. Y no se notan: una cuenta sin correo
+funciona con normalidad hasta ese día.
+
+En *Administración → Usuarios*, cuando hay alguna, aparece arriba de la tabla
+un aviso con **cuántas son** y un botón para ver solo esas. En la columna
+*Correo* de cada una, **Registrar correo** abre un campo en la misma fila:
+
+| Botón | Qué hace |
+|---|---|
+| **Guardar e invitar** | Registra la dirección y manda la invitación, en un solo paso |
+| **Solo el enlace** | La registra y devuelve el enlace sin mandar nada, para entregarlo en persona o dictarlo por radio |
+
+Es un paso y no dos a propósito. Hacerlo con *Editar* y después *Reenviar*
+deja un estado intermedio —cuenta con correo y sin invitación— que ninguna
+pantalla muestra: la fila deja de decir «Sin correo», nadie vuelve a mirarla, y
+la persona sigue igual de bloqueada que antes.
+
+La contraseña vieja **sigue sirviendo** hasta que la persona use el enlace, así
+que registrar el correo de un operador en pleno turno no lo deja fuera.
+
+> Para una instancia entera, el tope del plan gratuito manda: ver abajo.
+
 ### Límite del plan gratuito
 
 El volumen real son unos pocos correos diarios, así que el tope no estorba.

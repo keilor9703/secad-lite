@@ -296,6 +296,42 @@ export class UsuariosService implements OnModuleInit {
   }
 
   /**
+   * Registrar el correo de una cuenta que no tenía, y mandarle la invitación.
+   *
+   * Existe por las cuentas anteriores a que FALCON tuviera correos: se crearon
+   * con una contraseña que puso un administrador y no tienen a dónde mandarles
+   * nada. Mientras sigan así no pueden recuperar su clave solas, y el día que
+   * alguien la olvide hay que atenderlo a mano.
+   *
+   * Es UN paso y no dos a propósito. Hacerlo con el PATCH de siempre y después
+   * el botón de invitar deja un estado intermedio —cuenta con correo y sin
+   * invitación— que no se ve en ninguna pantalla: la fila deja de decir «sin
+   * correo» y nadie vuelve a mirarla, con la persona igual de bloqueada que
+   * antes. Aquí, o pasan las dos cosas o la bitácora dice cuál falló.
+   */
+  async registrarCorreo(
+    actor: Actor, id: string, correo: string, enviar = true,
+  ): Promise<{
+    username: string; tenant: string | null; correo: string;
+    yaTenia: boolean; ok: boolean; enlace?: string; error?: string;
+  }> {
+    const limpio = normalizarCorreo(correo);
+    if (!limpio) throw new BadRequestException('Escriba un correo válido.');
+
+    const antes = await this.repo.findOne({ where: { id } });
+    if (!antes) throw new NotFoundException('Usuario no encontrado.');
+    const yaTenia = !!antes.correo;
+
+    // Pasa por `actualizar` y no por un `save` propio: ahí vive la comprobación
+    // de tenant, la anulación de los enlaces vivos de la dirección anterior y
+    // el borrado del estado de verificación. Duplicar eso aquí sería la forma
+    // de que un día dejen de coincidir.
+    await this.actualizar(actor, id, { correo: limpio });
+    const r = await this.invitar(actor, id, enviar);
+    return { ...r, correo: limpio, yaTenia };
+  }
+
+  /**
    * Autoservicio: «olvidé mi contraseña». Se pide por USERNAME, no por correo
    * —así no hay que decidir a qué cuenta pertenece una dirección compartida— y
    * no devuelve nada: quien pregunta no debe poder averiguar si un usuario

@@ -88,6 +88,18 @@ export class AdminService {
       `${this.base}/usuarios/${id}/invitacion`, { enviar });
   }
 
+  /**
+   * Registra el correo de una cuenta que no tenía y le manda la invitación, en
+   * una sola petición. Es el camino para las cuentas anteriores a que FALCON
+   * tuviera correos: hacerlo en dos pasos (editar y luego invitar) deja un
+   * estado intermedio que ninguna pantalla muestra.
+   */
+  registrarCorreo(id: string, correo: string, enviar = true):
+    Observable<{ ok: boolean; correo: string; enlace?: string; error?: string }> {
+    return this.http.post<{ ok: boolean; correo: string; enlace?: string; error?: string }>(
+      `${this.base}/usuarios/${id}/correo`, { correo, enviar });
+  }
+
   editarUsuario(id: string, cambios: { nombre?: string; correo?: string | null; agenciaId?: string | null; canales?: string[] }): Observable<UsuarioAdmin> {
     return this.http.patch<UsuarioAdmin>(`${this.base}/usuarios/${id}`, cambios);
   }

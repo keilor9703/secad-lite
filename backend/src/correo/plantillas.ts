@@ -48,12 +48,17 @@ import { MensajeCorreo } from './correo.service';
 // (frontend/public/kit-marca-aguila/LEEME.txt), tinta y acento de la
 // aplicación (frontend/src/styles.scss). Nada inventado para el correo.
 const MARINO = '#0e2a47';
-const MARINO_HONDO = '#0a2039';
 const TURQUESA = '#2bc4d4';
-/** Texto secundario SOBRE la franja. Medido: 7,2:1 contra el marino. */
-const SOBRE_MARINO = '#a9bed2';
-const ACENTO = '#0c7e92';
-const ACENTO_HONDO = '#0a6273';
+/** La mitad de arriba de la tarjeta: teal muy lavado, para separar sin gritar. */
+const CABECERA = '#e4f2f2';
+/**
+ * El acento. Es el `--accent` del tema claro de la aplicación, no un teal
+ * inventado para el correo, y llega a 4,5:1 en los TRES fondos donde se usa:
+ * la cabecera teal (4,86), el papel blanco (5,59) y de fondo con texto blanco
+ * encima en el botón (5,59). Con el anterior (#0c7e92) la cabecera daba 4,14.
+ */
+const ACENTO = '#0a7285';
+const ACENTO_HONDO = '#095a69';
 const TINTA = '#102639';
 const TINTA_SUAVE = '#42566b';
 // Medido, no elegido a ojo: este gris tiene que llegar a 4,5:1 sobre el papel
@@ -74,7 +79,7 @@ const PAPEL = '#ffffff';
  * lo escribió no es un criterio.
  */
 export const PALETA_CORREO = {
-  MARINO, MARINO_HONDO, TURQUESA, SOBRE_MARINO, ACENTO, ACENTO_HONDO,
+  MARINO, TURQUESA, CABECERA, ACENTO, ACENTO_HONDO,
   TINTA, TINTA_SUAVE, APAGADO, BORDE, FONDO, PAPEL, BLANCO: '#ffffff',
 } as const;
 
@@ -118,9 +123,10 @@ function responderA(): string {
 
 /** El cierre, acorde con lo anterior: no se promete una respuesta que no existe. */
 function piePorDefecto(): string {
+  // Va detrás de «FALCON CAD · Central de despacho ·», así que no repite la marca.
   return responderA()
-    ? 'Mensaje automático de FALCON CAD. Si tiene dudas, responda a este correo.'
-    : 'Mensaje automático de FALCON CAD. No responda a este correo.';
+    ? 'Mensaje automático · Puede responder a este correo'
+    : 'Mensaje automático · No responda a este correo';
 }
 
 interface Dato { etiqueta: string; valor: string }
@@ -134,22 +140,27 @@ interface Dato { etiqueta: string; valor: string }
 interface Bloque { titulo: string; texto: string }
 
 /**
- * El marco común de todos los correos.
+ * El marco común de todos los correos: dos tonos.
  *
- * Arriba, la franja marino: marca, saludo y el titular en dos líneas —la
- * segunda en turquesa—, que es lo que se lee antes de decidir si el correo
- * importa. Debajo, papel blanco con una sola acción.
+ * Arriba, la marca sola sobre el fondo. Debajo, una tarjeta partida en dos: la
+ * mitad superior en teal lavado lleva el saludo, el titular, la frase y el
+ * dato que la persona vino a buscar; la inferior, en blanco, lleva la única
+ * acción y nada más. La nota y el pie quedan FUERA de la tarjeta, en gris:
+ * son letra pequeña y tienen que parecerlo.
+ *
+ * El corte entre los dos tonos hace el trabajo que antes hacía una franja
+ * oscura, sin el peso: el ojo encuentra dónde empieza lo que hay que leer y
+ * dónde está lo que hay que pulsar, sin que el correo parezca una valla.
  *
  * Casi todo es opcional porque los cuatro correos no se parecen: la invitación
  * tiene botón y un usuario destacado; el aviso de un ticket no tiene ninguna
- * acción y sí dos bloques de texto largo. Lo único obligatorio es el titular,
- * el preencabezado, la entrada y la nota del pie.
+ * acción y sí dos bloques de texto largo.
  */
 function documento(opciones: {
-  /** «Hola, Juan». Va pequeño encima del titular; se omite si no hay a quién saludar. */
+  /** «Hola, Juan». Pequeño, encima del titular; se omite si no hay a quién saludar. */
   saludo?: string;
   titulo: string;
-  /** Segunda línea del titular, en turquesa. Es lo que dice qué hay que hacer. */
+  /** Segunda línea del titular, en el acento. Dice de qué va, no qué hacer. */
   tituloAcento?: string;
   preencabezado: string;
   entrada: string;
@@ -159,38 +170,50 @@ function documento(opciones: {
   bloques?: Bloque[];
   textoBoton?: string;
   url?: string;
-  /** La letra pequeña bajo el botón: «Vence en 72 horas · Un solo uso». */
+  /** Letra pequeña bajo el botón, a la izquierda: «Vence en 72 horas». */
   bajoBoton?: string;
+  /** Y a la derecha: «Enlace de un solo uso». */
+  bajoBotonDerecha?: string;
   nota: string;
   /** El cierre. Por defecto «no responda»; los correos de un ticket sí se responden. */
   pie?: string;
 }): string {
   const {
-    saludo, titulo, tituloAcento, preencabezado, entrada,
-    destacado, datos, bloques, textoBoton, url, bajoBoton, nota,
+    saludo, titulo, tituloAcento, preencabezado, entrada, destacado, datos,
+    bloques, textoBoton, url, bajoBoton, bajoBotonDerecha, nota,
   } = opciones;
   const pie = opciones.pie ?? piePorDefecto();
   const logo = logoUrl();
 
-  const aguila = !logo ? '' : `
-          <td width="40" style="padding-right:12px;line-height:0" valign="middle">
-            <img src="${logo}" width="40" height="38" alt="" style="display:block;width:40px;height:38px;border:0;background:${MARINO}">
-          </td>`;
+  // El monograma: cuadrado marino con el águila. Con las imágenes bloqueadas
+  // —Outlook, por defecto— el cuadrado sigue pintándose y al lado sigue
+  // estando el nombre escrito, que es lo que dice de quién es el correo.
+  const monograma = `
+        <td width="38" valign="middle" style="padding-right:11px">
+          <table role="presentation" cellpadding="0" cellspacing="0" border="0"><tr>
+            <td width="38" height="38" align="center" valign="middle"
+                style="width:38px;height:38px;background:${MARINO};border-radius:9px;line-height:0">${
+              logo ? `<img src="${logo}" width="26" height="25" alt="" style="display:block;width:26px;height:25px;border:0">` : '&nbsp;'
+            }</td>
+          </tr></table>
+        </td>`;
 
   const hola = !saludo ? '' : `
-      <p class="sobremarino" style="margin:0 0 6px;font-family:${FUENTE};font-size:13.5px;color:${SOBRE_MARINO}">${escapar(saludo)}</p>`;
+      <p style="margin:0 0 8px;font-family:${FUENTE};font-size:14px;font-weight:600;color:${ACENTO}" class="acento">${escapar(saludo)}</p>`;
 
   const segundaLinea = !tituloAcento ? '' : `
-        <span style="display:block;color:${TURQUESA}">${escapar(tituloAcento)}</span>`;
+        <span style="display:block;color:${ACENTO}" class="acento">${escapar(tituloAcento)}</span>`;
 
-  // El dato que se vino a buscar: rótulo pequeño arriba, valor en
-  // monoespaciada debajo. Monoespaciada porque un nombre de usuario se copia a
-  // mano, y ahí la diferencia entre l, 1 e I deja de ser un detalle.
+  // El dato, en una pastilla blanca sobre el teal: se despega del fondo sin
+  // necesidad de un recuadro con borde. Monoespaciada porque un usuario se
+  // copia a mano, y ahí la diferencia entre l, 1 e I deja de ser un detalle.
   const elDestacado = !destacado ? '' : `
-      <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="margin:0 0 26px">
-        <tr><td style="font-family:${FUENTE};font-size:11px;letter-spacing:.09em;text-transform:uppercase;color:${APAGADO};padding:0 0 5px" class="apagado">${escapar(destacado.etiqueta)}</td></tr>
-        <tr><td style="font-family:${MONO};font-size:19px;font-weight:600;color:${TINTA};letter-spacing:.01em" class="tinta">${escapar(destacado.valor)}</td></tr>
-      </table>`;
+      <table role="presentation" cellpadding="0" cellspacing="0" border="0" style="margin:24px 0 0"><tr>
+        <td style="background:${PAPEL};border-radius:10px;padding:11px 15px;font-family:${FUENTE}" class="pastilla">
+          <span style="font-size:13px;color:${APAGADO}" class="apagado">${escapar(destacado.etiqueta)}</span>
+          <span style="font-family:${MONO};font-size:15px;font-weight:600;color:${TINTA};padding-left:8px" class="tinta">${escapar(destacado.valor)}</span>
+        </td>
+      </tr></table>`;
 
   const filas = (datos ?? []).map((d) => `
             <tr>
@@ -200,23 +223,31 @@ function documento(opciones: {
 
   const tabla = !filas ? '' : `
       <table role="presentation" class="linea" width="100%" cellpadding="0" cellspacing="0" border="0"
-             style="font-family:${FUENTE};border-top:1px solid ${BORDE};margin:0 0 26px">${filas}
+             style="font-family:${FUENTE};border-top:1px solid ${BORDE};margin:0 0 24px">${filas}
       </table>`;
 
   const cajas = (bloques ?? []).map((b) => `
       <p class="apagado" style="margin:0 0 7px;font-family:${FUENTE};font-size:11px;letter-spacing:.09em;text-transform:uppercase;color:${APAGADO}">${escapar(b.titulo)}</p>
-      <div class="caja suave" style="margin:0 0 24px;padding:14px 16px;background:${FONDO};border:1px solid ${BORDE};border-radius:10px;font-family:${MONO};font-size:12px;line-height:1.55;color:${TINTA_SUAVE};white-space:pre-wrap;word-break:break-word">${escapar(b.texto)}</div>`).join('');
+      <div class="caja suave" style="margin:0 0 22px;padding:14px 16px;background:${FONDO};border-radius:10px;font-family:${MONO};font-size:12px;line-height:1.55;color:${TINTA_SUAVE};white-space:pre-wrap;word-break:break-word">${escapar(b.texto)}</div>`).join('');
 
+  // Botón de ancho completo, como en el resto del sistema: en un teléfono, un
+  // botón que ocupa la línea entera no se falla con el pulgar.
   const accion = !url ? '' : `
-      <table role="presentation" cellpadding="0" cellspacing="0" border="0" style="margin:0 0 10px"><tr>
-        <td style="background:${ACENTO};border-radius:10px">
-          <a href="${url}" style="display:inline-block;padding:15px 30px;font-family:${FUENTE};font-size:15.5px;font-weight:600;color:#ffffff;text-decoration:none;border-radius:10px;border:1px solid ${ACENTO_HONDO}">${escapar(textoBoton ?? 'Continuar')}</a>
+      <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0"><tr>
+        <td align="center" style="background:${ACENTO};border-radius:10px">
+          <a href="${url}" style="display:block;padding:15px 24px;font-family:${FUENTE};font-size:16px;font-weight:600;color:#ffffff;text-decoration:none;border-radius:10px;border:1px solid ${ACENTO_HONDO}">${escapar(textoBoton ?? 'Continuar')}</a>
         </td>
       </tr></table>
-      ${!bajoBoton ? '' : `<p class="apagado" style="margin:0 0 24px;font-family:${FUENTE};font-size:12.5px;color:${APAGADO}">${bajoBoton}</p>`}
-      <div class="linea" style="border-top:1px solid ${BORDE};margin:${bajoBoton ? '0' : '24px'} 0 20px;font-size:0;line-height:0">&nbsp;</div>
-      <p class="apagado" style="margin:0 0 7px;font-family:${FUENTE};font-size:12.5px;color:${APAGADO}">Si el botón no abre, copie este enlace:</p>
+      ${!bajoBoton && !bajoBotonDerecha ? '' : `
+      <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="margin:14px 0 0"><tr>
+        <td class="apagado" style="font-family:${FUENTE};font-size:13px;color:${APAGADO}">${bajoBoton ?? ''}</td>
+        <td class="apagado" align="right" style="font-family:${FUENTE};font-size:13px;color:${APAGADO}">${bajoBotonDerecha ?? ''}</td>
+      </tr></table>`}
+      <div class="linea" style="border-top:1px solid ${BORDE};margin:22px 0 18px;font-size:0;line-height:0">&nbsp;</div>
+      <p class="apagado" style="margin:0 0 6px;font-family:${FUENTE};font-size:13px;color:${APAGADO}">Si el botón no abre, copie este enlace:</p>
       <p class="enlace" style="margin:0;font-family:${MONO};font-size:12.5px;line-height:1.5;color:${ACENTO};word-break:break-all">${url}</p>`;
+
+  const cuerpo = `${tabla}${cajas}${accion}`;
 
   return `<!doctype html>
 <html lang="es"><head>
@@ -226,19 +257,21 @@ function documento(opciones: {
 <title>${escapar(titulo)}</title>
 <style>
   @media (max-width:620px){
-    .marco{width:100%!important;border-radius:0!important}
-    .relleno{padding-left:24px!important;padding-right:24px!important}
-    .titular{font-size:23px!important}
+    .marco{width:100%!important}
+    .relleno{padding-left:22px!important;padding-right:22px!important}
+    .titular{font-size:24px!important}
   }
   @media (prefers-color-scheme:dark){
     .lienzo{background:#0a131c!important}
-    .marco{background:#16222e!important;border-color:#24323f!important}
+    .cabecera{background:#13303a!important}
+    .cuerpo{background:#16222e!important}
+    .pastilla{background:#0d1c26!important}
     .tinta{color:#e8eef4!important}
     .suave{color:#c3d0dc!important}
     .apagado{color:#9fb0c0!important}
+    .acento,.enlace{color:#56cfe0!important}
     .linea{border-color:#24323f!important}
-    .caja{background:#101a24!important;border-color:#24323f!important}
-    .enlace{color:#56cfe0!important}
+    .caja{background:#101a24!important}
   }
 </style>
 </head>
@@ -250,41 +283,33 @@ function documento(opciones: {
 <tr><td align="center" style="padding:32px 16px">
 
   <table role="presentation" class="marco" width="600" cellpadding="0" cellspacing="0" border="0"
-         style="width:600px;max-width:600px;background:${PAPEL};border-radius:14px">
+         style="width:600px;max-width:600px">
 
-    <!-- Franja de marca y titular -->
-    <tr><td class="relleno" style="padding:22px 36px 26px;background:${MARINO};border-radius:14px 14px 0 0">
-      <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="margin:0 0 22px"><tr>${aguila}
-        <td style="font-family:${FUENTE};font-size:16px;font-weight:700;letter-spacing:.14em;color:#ffffff" valign="middle">FALCON<span style="color:${TURQUESA}">&nbsp;CAD</span></td>
-        <td align="right" style="font-family:${FUENTE};font-size:10.5px;letter-spacing:.09em;text-transform:uppercase;color:${SOBRE_MARINO}" valign="middle">Central de despacho</td>
-      </tr></table>${hola}
-      <h1 class="titular" style="margin:0;font-family:${FUENTE};font-size:27px;line-height:1.26;font-weight:700;color:#ffffff">${escapar(titulo)}${segundaLinea}</h1>
+    <!-- Marca, fuera de la tarjeta -->
+    <tr><td class="relleno" style="padding:0 4px 16px">
+      <table role="presentation" cellpadding="0" cellspacing="0" border="0"><tr>${monograma}
+        <td valign="middle" style="font-family:${FUENTE};font-size:15px;font-weight:700;letter-spacing:.17em;color:${TINTA}" class="tinta">FALCON<span style="color:${ACENTO}" class="acento">&nbsp;CAD</span></td>
+      </tr></table>
     </td></tr>
 
-    <!-- Cuerpo. El relleno de abajo depende de qué termine la sección: el
-         bloque del enlace cierra pegado, mientras que una caja o una tabla ya
-         traen su propio margen y sumarlo dejaría un hueco de medio dedo. -->
-    <tr><td class="relleno" style="padding:30px 36px ${accion ? '32' : '6'}px;font-family:${FUENTE}">
-      <p class="suave" style="margin:0 0 26px;font-size:15.5px;line-height:1.62;color:${TINTA_SUAVE}">${entrada}</p>
-      ${elDestacado}${tabla}${cajas}${accion}
+    <!-- Mitad de arriba: lo que hay que leer -->
+    <tr><td class="relleno cabecera" style="padding:30px 34px 32px;background:${CABECERA};border-radius:16px 16px 0 0;font-family:${FUENTE}">${hola}
+      <h1 class="titular tinta" style="margin:0 0 14px;font-size:29px;line-height:1.22;font-weight:700;color:${TINTA}">${escapar(titulo)}${segundaLinea}</h1>
+      <p class="suave" style="margin:0;font-size:15.5px;line-height:1.6;color:${TINTA_SUAVE}">${entrada}</p>${elDestacado}
     </td></tr>
 
-    <!-- Nota -->
-    <tr><td class="relleno" style="padding:0 36px 30px;font-family:${FUENTE}">
-      <div class="${url ? '' : 'linea'}" style="${url ? '' : `border-top:1px solid ${BORDE};`}padding-top:${url ? '22' : '18'}px">
-        <p class="apagado" style="margin:0;font-size:12.5px;line-height:1.62;color:${APAGADO}">${nota}</p>
-      </div>
+    <!-- Mitad de abajo: lo que hay que hacer -->
+    <tr><td class="relleno cuerpo" style="padding:28px 34px ${accion ? '30' : '8'}px;background:${PAPEL};border-radius:0 0 16px 16px;font-family:${FUENTE}">
+      ${cuerpo}
+    </td></tr>
+
+    <!-- Nota y pie, fuera de la tarjeta -->
+    <tr><td class="relleno" style="padding:20px 6px 0;font-family:${FUENTE}">
+      <p class="apagado" style="margin:0 0 6px;font-size:12.5px;line-height:1.6;color:${APAGADO}">${nota}</p>
+      <p class="apagado" style="margin:0;font-size:12px;line-height:1.6;color:${APAGADO}">FALCON CAD · Central de despacho · ${pie}</p>
     </td></tr>
 
   </table>
-
-  <!-- Pie, fuera de la tarjeta -->
-  <table role="presentation" width="600" cellpadding="0" cellspacing="0" border="0" style="width:600px;max-width:600px" class="marco-pie">
-    <tr><td class="relleno" align="center" style="padding:18px 36px 0;font-family:${FUENTE}">
-      <p class="apagado" style="margin:0;font-size:11.5px;line-height:1.6;color:${APAGADO}">${pie}</p>
-    </td></tr>
-  </table>
-
 </td></tr></table>
 </body></html>`;
 }
@@ -300,6 +325,7 @@ function textoPlano(opciones: {
   bloques?: Bloque[];
   url?: string;
   bajoBoton?: string;
+  bajoBotonDerecha?: string;
   nota: string;
   pie?: string;
 }): string {
@@ -322,10 +348,12 @@ function textoPlano(opciones: {
   }
   if (opciones.url) {
     partes.push(opciones.url, '');
-    if (opciones.bajoBoton) partes.push(sinEtiquetas(opciones.bajoBoton), '');
+    const pequena = [opciones.bajoBoton, opciones.bajoBotonDerecha]
+      .filter(Boolean).map((t) => sinEtiquetas(t as string)).join(' · ');
+    if (pequena) partes.push(pequena, '');
   }
   partes.push(regla, sinEtiquetas(opciones.nota), '');
-  partes.push(opciones.pie ?? piePorDefecto());
+  partes.push(`FALCON CAD · Central de despacho · ${opciones.pie ?? piePorDefecto()}`);
   return partes.join('\n');
 }
 
@@ -333,18 +361,17 @@ function textoPlano(opciones: {
 export function plantillaInvitacion(
   nombre: string, username: string, url: string, horas: number,
 ): MensajeCorreo {
-  const titulo = 'Su acceso está listo.';
-  const acento = 'Falta su contraseña.';
-  const entrada = 'La contraseña que defina será solo suya. Nadie más la conocerá, '
-    + 'tampoco quien creó la cuenta.';
-  const destacado = { etiqueta: 'Su usuario', valor: username };
-  const bajoBoton = `Vence en <strong>${vigencia(horas)}</strong> · Un solo uso`;
-  const nota = 'Si el enlace vence antes de que lo use, pida a su administrador que se lo '
-    + 'reenvíe. Si usted no esperaba este mensaje, ignórelo: nadie puede entrar con él.';
   const comun = {
     saludo: `Hola, ${primerNombre(nombre)}`,
-    titulo, tituloAcento: acento, entrada, destacado,
-    url, bajoBoton, nota,
+    titulo: 'Su cuenta está lista',
+    entrada: 'Solo falta definir su contraseña. Será solo suya: nadie más la conocerá, '
+      + 'tampoco quien creó la cuenta.',
+    destacado: { etiqueta: 'Usuario', valor: username },
+    url,
+    bajoBoton: `Vence en <strong>${vigencia(horas)}</strong>`,
+    bajoBotonDerecha: 'Enlace de <strong>un solo uso</strong>',
+    nota: '¿No esperaba este correo? Ignórelo, nadie puede entrar con él. Si vence, '
+      + 'pida a su administrador que lo reenvíe.',
   };
 
   return {
@@ -353,7 +380,6 @@ export function plantillaInvitacion(
     asunto: `Active su cuenta de FALCON CAD · ${username}`,
     html: documento({
       ...comun,
-      saludo: `Hola, ${primerNombre(nombre)}`,
       preencabezado: `Defina la contraseña de su usuario ${username}. El enlace vence en ${vigencia(horas)}.`,
       textoBoton: 'Definir mi contraseña',
     }),
@@ -365,18 +391,17 @@ export function plantillaInvitacion(
 export function plantillaRecuperacion(
   nombre: string, username: string, url: string, horas: number,
 ): MensajeCorreo {
-  const titulo = 'Recupere su acceso.';
-  const acento = 'Defina una contraseña nueva.';
-  const entrada = `Se recibió una solicitud para restablecer la contraseña del usuario `
-    + `<strong>${escapar(username)}</strong>. Si fue usted, continúe con el botón.`;
-  const destacado = { etiqueta: 'Su usuario', valor: username };
-  const bajoBoton = `Vence en <strong>${vigencia(horas)}</strong> · Un solo uso`;
-  const nota = 'Si no fue usted quien lo solicitó, no haga nada: su contraseña actual sigue '
-    + 'vigente y nadie puede entrar con este mensaje.';
   const comun = {
     saludo: `Hola, ${primerNombre(nombre)}`,
-    titulo, tituloAcento: acento, entrada, destacado,
-    url, bajoBoton, nota,
+    titulo: 'Recupere su acceso',
+    entrada: `Se recibió una solicitud para restablecer la contraseña del usuario `
+      + `<strong>${escapar(username)}</strong>. Si fue usted, continúe con el botón.`,
+    destacado: { etiqueta: 'Usuario', valor: username },
+    url,
+    bajoBoton: `Vence en <strong>${vigencia(horas)}</strong>`,
+    bajoBotonDerecha: 'Enlace de <strong>un solo uso</strong>',
+    nota: 'Si no fue usted quien lo solicitó, no haga nada: su contraseña actual sigue '
+      + 'vigente y nadie puede entrar con este mensaje.',
   };
 
   return {
@@ -447,7 +472,7 @@ export function plantillaTicketMesa(t: TicketCorreo): MensajeCorreo {
       { titulo: 'Contexto técnico', texto: t.contexto },
     ],
     nota,
-    pie: 'Enviado por FALCON CAD desde la propia aplicación.',
+    pie: 'Enviado desde la propia aplicación',
   };
 
   return {
@@ -490,7 +515,7 @@ export function plantillaTicketAcuse(t: TicketCorreo, correoMesa: string): Mensa
     datos,
     bloques: [{ titulo: 'Lo que reportó', texto: t.relato }],
     nota,
-    pie: 'Enviado por FALCON CAD. Puede responder a este correo.',
+    pie: 'Puede responder a este correo',
   };
 
   return {

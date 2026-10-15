@@ -178,4 +178,104 @@ describe('alta por invitación', () => {
     expect(filas[0].correo).toBe('otra@b.co');
     expect(filas[0].correoVerificadoEn).toBeNull();
   });
+
+  // ── Cuentas que ya existían, sin correo ────────────────────────────────
+  //
+  // Son las anteriores a que FALCON tuviera correos: contraseña puesta por un
+  // administrador y ninguna forma de recuperarla solas. Lo que se protege aquí
+  // es que registrar el correo y mandar la invitación sean UNA cosa: el estado
+  // intermedio —correo puesto, invitación sin mandar— no se ve en ninguna
+  // pantalla, porque la fila deja de decir «sin correo» y nadie vuelve a
+  // mirarla, con la persona igual de bloqueada que antes.
+  describe('registrar el correo de una cuenta vieja', () => {
+    /** Una cuenta como las que quedaron de antes: con clave, sin correo. */
+    async function cuentaVieja(): Promise<string> {
+      const u = await servicio.crear(
+        actor,
+        { username: 'jperez', nombre: 'Juan Pérez', rol: 'operador', contrasena: 'ClaveInicial1' } as never,
+      );
+      enviados.length = 0;
+      return u.id;
+    }
+
+    it('pone el correo y manda la invitación de una sola vez', async () => {
+      const id = await cuentaVieja();
+
+      const r = await servicio.registrarCorreo(actor, id, '  JPerez@Muni.GOV.co ');
+
+      expect(r.ok).toBe(true);
+      expect(r.correo).toBe('jperez@muni.gov.co');   // normalizado
+      expect(r.yaTenia).toBe(false);
+      expect(enviados.length).toBe(1);
+      expect(enviados[0].para).toBe('jperez@muni.gov.co');
+      expect(filas[0].correo).toBe('jperez@muni.gov.co');
+      expect(filas[0].invitacionEnviadaEn).toBeInstanceOf(Date);
+    });
+
+    it('la contraseña vieja sigue sirviendo hasta que la persona use el enlace', async () => {
+      // Importa: la cuenta está EN USO. Si registrar el correo cerrara la
+      // sesión o invalidara la clave, el operador se queda fuera del turno por
+      // algo que hizo un administrador en otra pantalla.
+      const id = await cuentaVieja();
+      await servicio.registrarCorreo(actor, id, 'jperez@muni.gov.co');
+      expect(await bcrypt.compare('ClaveInicial1', filas[0].passwordHash)).toBe(true);
+    });
+
+    it('si el envío falla, lo dice y devuelve el enlace para entregarlo a mano', async () => {
+      const id = await cuentaVieja();
+      fallarEnvio = true;
+
+      const r = await servicio.registrarCorreo(actor, id, 'jperez@muni.gov.co');
+
+      expect(r.ok).toBe(false);
+      expect(r.error).toContain('proveedor caído');
+      expect(r.enlace).toContain('/activar/');
+      // Y el correo SÍ queda registrado: el problema fue el envío, no el dato.
+      expect(filas[0].correo).toBe('jperez@muni.gov.co');
+    });
+
+    it('con enviar:false devuelve el enlace sin mandar nada', async () => {
+      const id = await cuentaVieja();
+
+      const r = await servicio.registrarCorreo(actor, id, 'jperez@muni.gov.co', false);
+
+      expect(r.ok).toBe(true);
+      expect(r.enlace).toContain('/activar/');
+      expect(enviados.length).toBe(0);
+    });
+
+    it('un correo mal escrito no toca la cuenta', async () => {
+      const id = await cuentaVieja();
+
+      await expect(servicio.registrarCorreo(actor, id, 'jperez@')).rejects.toThrow(/correo/i);
+
+      expect(filas[0].correo).toBeFalsy();
+      expect(enviados.length).toBe(0);
+    });
+
+    it('sobre una cuenta que YA tenía correo, lo dice y anula los enlaces viejos', async () => {
+      const u = await servicio.crear(
+        actor, { username: 'ana', nombre: 'Ana', rol: 'operador', correo: 'viejo@muni.gov.co' } as never,
+      );
+      enviados.length = 0; anulados.length = 0;
+
+      const r = await servicio.registrarCorreo(actor, u.id, 'nuevo@muni.gov.co');
+
+      expect(r.yaTenia).toBe(true);
+      expect(r.correo).toBe('nuevo@muni.gov.co');
+      // Un enlace vivo que viajó al buzón anterior deja de valer ahora mismo.
+      expect(anulados).toContain(u.id);
+      expect(enviados[0].para).toBe('nuevo@muni.gov.co');
+    });
+
+    it('no deja tocar una cuenta de otra instancia', async () => {
+      const id = await cuentaVieja();
+      const intruso = { sub: 'otro', rol: 'admin', tenant: 'otra-alcaldia' };
+
+      await expect(servicio.registrarCorreo(intruso, id, 'a@b.co')).rejects.toThrow(/tenant/i);
+
+      expect(filas[0].correo).toBeFalsy();
+      expect(enviados.length).toBe(0);
+    });
+  });
 });

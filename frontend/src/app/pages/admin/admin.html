@@ -549,11 +549,33 @@
           }
 
 
+          <!-- Cuentas de antes de que FALCON tuviera correos: tienen una
+               contraseña que puso un administrador y ninguna forma de
+               recuperarla solas. El aviso existe porque, si no se cuentan,
+               nadie se entera de que están ahí hasta que una persona se queda
+               fuera un domingo. -->
+          @if (sinCorreo() > 0) {
+            <div class="aviso-sin-correo" role="status">
+              <div>
+                <strong>{{ sinCorreo() }}</strong>
+                {{ sinCorreo() === 1 ? 'cuenta no tiene correo registrado' : 'cuentas no tienen correo registrado' }}.
+                <span class="tenue">
+                  No pueden recuperar su contraseña solas: si la olvidan, hay que
+                  atenderlas a mano. Regístreles uno y reciben la invitación para
+                  elegir la suya.
+                </span>
+              </div>
+              <button type="button" class="btn btn--ghost mini" (click)="soloSinCorreo.set(!soloSinCorreo())">
+                {{ soloSinCorreo() ? 'Ver todas' : 'Ver solo esas' }}
+              </button>
+            </div>
+          }
+
           <div class="tabla-envoltura">
             <table class="tabla--sistema">
               <thead><tr><th>Usuario</th><th>Nombre</th><th>Rol</th><th>Agencia</th><th>Canales</th><th>Extensión PBX</th><th>Tenant</th><th>Estado</th><th>Contraseña</th><th>Doble factor</th><th>Correo</th><th></th></tr></thead>
               <tbody>
-                @for (u of usuarios(); track u) {
+                @for (u of usuariosVisibles(); track u) {
                   <tr>
                     <td class="mono">{{ u.username }}</td>
                     <td>
@@ -667,8 +689,30 @@
                          de un vistazo: quién no ha activado todavía su cuenta, y
                          a quién no le llegó el correo. -->
                     <td class="col-correo">
-                      @if (!u.correo) {
+                      @if (registrandoCorreo() === u.id) {
+                        <span class="correo-alta">
+                          <input type="email" inputmode="email" autocomplete="off"
+                            [formControl]="correoNuevoCtrl" placeholder="correo@municipio.gov.co"
+                            (keyup.enter)="guardarCorreo(u)"
+                            [attr.aria-label]="'Correo de ' + u.username" />
+                          <button type="button" class="btn btn--primary mini"
+                            [disabled]="correoNuevoCtrl.invalid || !correoNuevoCtrl.value.trim() || guardandoCorreo()"
+                            (click)="guardarCorreo(u)">
+                            {{ guardandoCorreo() ? 'Enviando…' : 'Guardar e invitar' }}
+                          </button>
+                          <button type="button" class="btn btn--ghost mini"
+                            [disabled]="correoNuevoCtrl.invalid || !correoNuevoCtrl.value.trim() || guardandoCorreo()"
+                            (click)="guardarCorreo(u, false)"
+                            title="Registra el correo y devuelve el enlace sin enviarlo, para entregarlo en persona.">
+                            Solo el enlace
+                          </button>
+                          <button type="button" class="btn btn--ghost mini" (click)="cancelarRegistroCorreo()">Cancelar</button>
+                        </span>
+                      } @else if (!u.correo) {
                         <span class="correo-estado correo-estado--sin">Sin correo</span>
+                        <button type="button" class="btn btn--ghost mini" (click)="abrirRegistroCorreo(u)">
+                          Registrar correo
+                        </button>
                       } @else {
                         <span class="correo-dir" [title]="u.correo">{{ u.correo }}</span>
                         @if (u.correoRebotadoEn) {
@@ -684,6 +728,11 @@
                           <button type="button" class="btn btn--ghost mini" (click)="reenviarInvitacion(u)">Reenviar</button>
                           <button type="button" class="btn btn--ghost mini" (click)="obtenerEnlace(u)"
                             title="Genera el enlace sin enviarlo, para dictarlo o entregarlo en persona.">Enlace</button>
+                        }
+                        @if (u.correoRebotadoEn || u.invitacionError) {
+                          <!-- Una dirección que rebota suele ser un dedazo. Se
+                               corrige aquí mismo, que es donde se ve el problema. -->
+                          <button type="button" class="btn btn--ghost mini" (click)="abrirRegistroCorreo(u)">Corregir</button>
                         }
                       }
                     </td>
