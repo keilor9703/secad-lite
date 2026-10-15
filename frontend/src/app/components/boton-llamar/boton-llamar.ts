@@ -50,10 +50,18 @@ import { IconoComponent } from '../../shared/icono/icono';
   `],
 })
 export class BotonLlamarComponent {
-  /** El número del ciudadano. */
-  readonly numero = input<string | null>(null);
+  /**
+   * El número del ciudadano.
+   *
+   * Admite `undefined` además de `null` porque los campos opcionales del
+   * modelo son `string | undefined` y los de un formulario, `string | null`:
+   * un `input` que solo acepte uno de los dos obliga a poner `?? null` en cada
+   * plantilla que lo use, y eso se olvida —se olvidó, y lo encontró la
+   * compilación de producción, que es la única que revisa las plantillas—.
+   */
+  readonly numero = input<string | null | undefined>(null);
   /** El caso desde el que se llama, si lo hay: queda una nota. */
-  readonly casoId = input<string | null>(null);
+  readonly casoId = input<string | null | undefined>(null);
 
   private readonly pbx = inject(PbxService);
   private readonly auth = inject(AuthService);

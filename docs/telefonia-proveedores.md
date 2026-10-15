@@ -187,3 +187,24 @@ tocar código. Un proveedor nuevo que llame a una API debería ofrecer lo mismo.
 
 Para el detalle de Zadarma —su firma, su `zd_echo`, su panel, su mapa de
 eventos y qué falta— ver [`telefonia-zadarma.md`](telefonia-zadarma.md).
+
+---
+
+## 7. Antes de empujar un cambio del frontend
+
+`npx tsc --noEmit` **no revisa las plantillas**. El chequeo estricto de
+plantillas de Angular —el que encuentra un `[numero]="c.telefono"` donde el
+tipo es `string | undefined` y el `input` espera `string | null`— solo corre en
+la compilación de producción. Esto se aprendió por la vía fea: dos commits
+seguidos pasaron las 247 pruebas, pasaron `tsc`, y rompieron el despliegue.
+
+```bash
+cd frontend && npm run verificar    # pruebas + compilación de producción
+```
+
+Y mirar el **presupuesto del paquete**, que es la otra cosa que solo se ve
+ahí. SIP.js pesa unos 260 kB: entró por `import()` dentro del adaptador
+(`transporte-sipjs.ts`) para que solo se baje cuando el operador enciende el
+teléfono, y el panel entra con `@defer`. Sin eso, el paquete inicial pasaba de
+495 kB a 756 y se lo cobraba a todos los municipios —incluidos los que no
+tienen softphone— en la primera carga del día.

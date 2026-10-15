@@ -6,5 +6,11 @@
 <app-videollamada-flotante />
 <!-- El teléfono vive por encima del enrutador: una llamada no se puede caer
      por cambiar de pantalla, y el operador contesta mirando la cola y acaba
-     escribiendo el caso en Recepción. Es la misma conversación. -->
-<app-softphone />
+     escribiendo el caso en Recepción. Es la misma conversación.
+
+     Y entra con `@defer`: no hace falta en la primera pintada —el teléfono se
+     enciende a mano— y así no se le cobra a la primera carga, que es la que
+     se hace desde la sala de despacho a las seis de la mañana. -->
+@defer (on idle) {
+  <app-softphone />
+}

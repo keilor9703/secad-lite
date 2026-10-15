@@ -1,7 +1,15 @@
 import { Injectable } from '@angular/core';
-import { Session, SessionState } from 'sip.js';
-import { SessionManager } from 'sip.js/lib/platform/web/session-manager';
+// Tipos solamente: `import type` se borra al compilar y por eso NO arrastra la
+// biblioteca al paquete inicial. Ver `cargar()`.
+import type { Session, SessionState } from 'sip.js';
+import type { SessionManager } from 'sip.js/lib/platform/web/session-manager';
 import { ConfigSoftphone, OyentesSip, TransporteSip } from './transporte-sip';
+
+/** Lo que hace falta de SIP.js, ya cargado. */
+interface ModuloSip {
+  SessionManager: typeof import('sip.js/lib/platform/web/session-manager').SessionManager;
+  SessionState: typeof SessionState;
+}
 
 /**
  * La pila SIP de verdad: SIP.js sobre WebSocket.
@@ -15,12 +23,28 @@ import { ConfigSoftphone, OyentesSip, TransporteSip } from './transporte-sip';
  * número de quien llama (`remoteIdentity`). Sin ese número no se puede atar la
  * llamada que suena en el navegador con la que está en la cola de FALCON, que
  * es justamente el punto de todo esto.
+ *
+ * ────────────────────────────────────────────────────────────────────────────
+ * LA BIBLIOTECA SE CARGA AL ENCENDER, NO AL ABRIR FALCON
+ *
+ * SIP.js pesa unos 260 kB y el paquete inicial de FALCON estaba en 495 kB con
+ * un presupuesto de 500: meterla ahí lo dejaba en 756 y se lo cobraba a TODOS
+ * —incluidos los municipios cuya planta no da softphone, que hoy son todos—
+ * en la primera carga, que es la que se hace desde la sala de despacho a las
+ * seis de la mañana.
+ *
+ * Así que entra por `import()` dentro de `conectar()`: el compilador la deja
+ * en un trozo aparte que solo se baja cuando el operador oprime *Encender*.
+ * Los `import type` de arriba se borran al compilar y no cuentan.
+ * ────────────────────────────────────────────────────────────────────────────
  */
 @Injectable({ providedIn: 'root' })
 export class TransporteSipJs implements TransporteSip {
   private manager?: SessionManager;
   private sesion?: Session;
   private audio?: HTMLAudioElement;
+  /** La biblioteca, una vez cargada. Se reutiliza entre encendidos. */
+  private sip?: ModuloSip;
 
   usarAudio(elemento: HTMLAudioElement): void {
     this.audio = elemento;
@@ -30,7 +54,13 @@ export class TransporteSipJs implements TransporteSip {
     await this.desconectar();
     oyentes.registro('conectando');
 
-    this.manager = new SessionManager(config.wss, {
+    const sip = await this.cargar();
+    if (!sip) {
+      oyentes.registro('fallo', 'No se pudo cargar el teléfono. Recargue la página e inténtelo otra vez.');
+      return;
+    }
+
+    this.manager = new sip.SessionManager(config.wss, {
       aor: `sip:${config.usuario}@${config.dominio}`,
       media: { constraints: { audio: true, video: false }, remote: { audio: this.audio } },
       userAgentOptions: {
@@ -94,8 +124,30 @@ export class TransporteSipJs implements TransporteSip {
   }
 
   async tono(dtmf: string): Promise<void> {
-    if (this.manager && this.sesion && this.sesion.state === SessionState.Established) {
+    const establecida = this.sip?.SessionState.Established;
+    if (this.manager && this.sesion && this.sesion.state === establecida) {
       await this.manager.sendDTMF(this.sesion, dtmf).catch(() => undefined);
+    }
+  }
+
+  /**
+   * Trae SIP.js la primera vez que se enciende el teléfono.
+   *
+   * Devuelve null si no se pudo bajar —la red se cayó entre la carga de la
+   * página y el clic, o el despliegue borró el trozo viejo— en vez de
+   * reventar: el panel lo dice y el operador recarga.
+   */
+  private async cargar(): Promise<ModuloSip | null> {
+    if (this.sip) return this.sip;
+    try {
+      const [web, nucleo] = await Promise.all([
+        import('sip.js/lib/platform/web/session-manager'),
+        import('sip.js'),
+      ]);
+      this.sip = { SessionManager: web.SessionManager, SessionState: nucleo.SessionState };
+      return this.sip;
+    } catch {
+      return null;
     }
   }
 }
