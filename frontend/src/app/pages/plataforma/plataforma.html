@@ -345,6 +345,20 @@
                     <small class="aviso-pbx">Eso no tiene la forma que espera {{ prov.nombre }}.
                       Revise que no se haya pegado con un espacio o a medias.</small>
                   }
+                  <!-- La dirección del WebSocket se puede comprobar ANTES de
+                       guardarla: no siempre la publica el proveedor, y
+                       equivocarse se descubriría cuando un operador oprime
+                       «Encender» y ve un error que no dice nada. -->
+                  @if (campo.clave === 'sipWss') {
+                    <button type="button" class="btn btn--ghost mini" [disabled]="pbxProbandoWss()"
+                      (click)="probarWssPbx()">
+                      {{ pbxProbandoWss() ? 'Probando…' : 'Probar dirección' }}
+                    </button>
+                    @if (pbxPruebaWss(); as p) {
+                      <small [class.exito]="pbxPruebaWssOk()" [class.error]="!pbxPruebaWssOk()"
+                        role="status">{{ p }}</small>
+                    }
+                  }
                 </label>
               }
             </div>

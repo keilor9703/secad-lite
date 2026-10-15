@@ -24,6 +24,15 @@ const CREDENCIALES: CampoCredencial[] = [
     ejemplo: 'a1b2c3d4e5f6a7b8c9d0',
   },
   {
+    clave: 'sipCuenta',
+    etiqueta: 'Número de cuenta de la centralita',
+    ayuda: 'Los dígitos ANTES del guión en el nombre de cada extensión: en «#598703-101» la cuenta es 598703. Hace falta porque el usuario SIP de la extensión 101 no es «101», es «598703-101». Se ve en Mi centralita → Ajustes de las extensiones.',
+    secreto: false,
+    requerido: false,
+    forma: '^[0-9]{4,12}$',
+    ejemplo: '598703',
+  },
+  {
     clave: 'sipWss',
     etiqueta: 'WebSocket SIP (para contestar en FALCON)',
     ayuda: 'La dirección `wss://…` de señalización de la centralita. OJO: Zadarma NO la publica —su pestaña WebRTC solo ofrece un widget suyo—. Se saca mirando qué WebSocket abre el teléfono web de «Mi centralita» (F12 → Red → WS), o preguntándole al soporte. Sin esto, la telefonía funciona igual pero se contesta en el softphone de siempre.',
@@ -34,10 +43,10 @@ const CREDENCIALES: CampoCredencial[] = [
   {
     clave: 'sipDominio',
     etiqueta: 'Dominio SIP',
-    ayuda: 'Con qué dominio se arma la identidad de cada extensión (`101@dominio`). Es el servidor SIP que aparece junto a los datos de la extensión —el mismo que se configura en MicroSIP—.',
+    ayuda: 'El servidor SIP que aparece en los datos de la extensión, el mismo que se configura en MicroSIP. En las cuentas de Zadarma es `pbx.zadarma.com`.',
     secreto: false,
     requerido: false,
-    ejemplo: 'sip.zadarma.com',
+    ejemplo: 'pbx.zadarma.com',
   },
   {
     clave: 'secreto',
@@ -280,8 +289,25 @@ export class ProveedorZadarma implements ProveedorPbx {
   softphone(cred: CredencialesPbx, extension: string, claveSip: string): ConfigSoftphone | null {
     const wss = cred.sipWss?.trim();
     const dominio = cred.sipDominio?.trim();
-    if (!wss || !dominio || !extension?.trim() || !claveSip) return null;
-    return { wss, dominio, usuario: extension.trim(), clave: claveSip };
+    const cuenta = cred.sipCuenta?.trim();
+    const ext = extension?.trim();
+    if (!wss || !dominio || !cuenta || !ext || !claveSip) return null;
+
+    // EL USUARIO SIP NO ES EL NÚMERO DE LA EXTENSIÓN.
+    //
+    // En Zadarma la extensión 101 se registra como «598703-101»: el número de
+    // cuenta de la centralita, un guión, y la extensión. Se ve en el panel,
+    // en «Ajustes de las extensiones», donde cada una aparece como
+    // «#598703-101 (Extension 101)».
+    //
+    // Registrarse como «101» a secas falla con un rechazo genérico del
+    // servidor SIP que no dice que el usuario esté mal compuesto. Por eso la
+    // cuenta es un campo propio y la composición vive AQUÍ y no en el núcleo:
+    // es una costumbre de Zadarma, no una regla de la telefonía.
+    //
+    // La extensión sigue guardándose en FALCON como «101», que es lo que
+    // mandan sus webhooks y lo que se marca entre extensiones.
+    return { wss, dominio, usuario: `${cuenta}-${ext}`, clave: claveSip };
   }
 
   /** Los campos comunes a todos sus eventos. */

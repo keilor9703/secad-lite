@@ -205,6 +205,59 @@ describe('ProveedorZadarma · su ficha', () => {
   });
 });
 
+/**
+ * La configuración con la que el navegador se registra como teléfono.
+ *
+ * Lo que se protege es el error que estuvo a punto de desplegarse: **el
+ * usuario SIP de la extensión 101 no es «101»**. En Zadarma es
+ * «598703-101» —cuenta de la centralita, guión, extensión—, y registrarse
+ * como «101» a secas falla con un rechazo genérico del servidor SIP que no
+ * dice que el usuario esté mal compuesto. Lo delató una captura del panel.
+ */
+describe('ProveedorZadarma · softphone', () => {
+  const z = new ProveedorZadarma();
+  const CRED = {
+    key: 'k', secreto: 's', sipCuenta: '598703',
+    sipWss: 'wss://ejemplo', sipDominio: 'pbx.zadarma.com',
+  };
+
+  it('compone el usuario SIP con la cuenta y la extensión', () => {
+    expect(z.softphone(CRED, '101', 'clave')).toEqual({
+      wss: 'wss://ejemplo',
+      dominio: 'pbx.zadarma.com',
+      usuario: '598703-101',
+      clave: 'clave',
+    });
+  });
+
+  it('y NO usa la extensión sola, que es lo que nunca se registraría', () => {
+    expect(z.softphone(CRED, '101', 'clave')?.usuario).not.toBe('101');
+  });
+
+  describe('media configuración no sirve: devuelve null', () => {
+    for (const falta of ['sipCuenta', 'sipWss', 'sipDominio'] as const) {
+      it(`sin ${falta}`, () => {
+        expect(z.softphone({ ...CRED, [falta]: '' }, '101', 'clave')).toBeNull();
+      });
+    }
+
+    it('sin extensión', () => {
+      expect(z.softphone(CRED, '', 'clave')).toBeNull();
+    });
+
+    it('sin clave SIP', () => {
+      expect(z.softphone(CRED, '101', '')).toBeNull();
+    });
+  });
+
+  it('la cuenta no es un campo requerido: sin softphone la telefonía funciona igual', () => {
+    // Exigirla dejaría sin encender la planta a quien solo quiere que entren
+    // llamadas a la cola, que es como opera todo el mundo hoy.
+    const cuenta = z.descriptor.credenciales.find((c) => c.clave === 'sipCuenta');
+    expect(cuenta?.requerido).toBe(false);
+  });
+});
+
 describe('la hora de la central', () => {
   it('«2026-10-15 09:12:33» pasa a ISO sin inventar zona horaria', () => {
     expect(fechaIso('2026-10-15 09:12:33')).toBe('2026-10-15T09:12:33');

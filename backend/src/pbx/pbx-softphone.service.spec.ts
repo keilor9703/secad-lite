@@ -26,7 +26,8 @@ describe('PbxSoftphoneService', () => {
   let svc: PbxSoftphoneService;
 
   const CRED_COMPLETAS = {
-    key: 'k', secreto: 's', sipWss: 'wss://wss.ejemplo.com', sipDominio: 'sip.ejemplo.com',
+    key: 'k', secreto: 's', sipCuenta: '598703',
+    sipWss: 'wss://wss.ejemplo.com', sipDominio: 'sip.ejemplo.com',
   };
 
   beforeEach(() => {
@@ -56,7 +57,8 @@ describe('PbxSoftphoneService', () => {
       config: {
         wss: 'wss://wss.ejemplo.com',
         dominio: 'sip.ejemplo.com',
-        usuario: '102',
+        // El usuario SIP lo compone el proveedor: cuenta + extensión.
+        usuario: '598703-102',
         clave: 'clave-sip-de-la-102',
       },
     });
@@ -110,6 +112,12 @@ describe('PbxSoftphoneService', () => {
 
     it('falta el dominio SIP, igual', async () => {
       credenciales = { ...CRED_COMPLETAS, sipDominio: '' };
+      const r = await svc.configDe('itagui', 'pedro');
+      expect(r.disponible).toBe(false);
+    });
+
+    it('falta el número de cuenta: sin él el usuario SIP queda mal compuesto', async () => {
+      credenciales = { ...CRED_COMPLETAS, sipCuenta: '' };
       const r = await svc.configDe('itagui', 'pedro');
       expect(r.disponible).toBe(false);
     });

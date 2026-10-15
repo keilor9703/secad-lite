@@ -9,6 +9,7 @@ import { OpcionComponent } from '../../shared/selector/opcion';
 import { FechaComponent } from '../../shared/fecha/fecha';
 import { ArchivadoService, ResultadoArchivado } from '../../core/archivado.service';
 import { IconoComponent, NombreIcono } from '../../shared/icono/icono';
+import { probarWss } from '../../core/softphone/probar-wss';
 
 /** Las dos mitades del módulo. Ver `PESTANAS` para por qué están separadas. */
 export type PestanaPlataforma = 'tenants' | 'operacion';
@@ -210,6 +211,33 @@ export class PlataformaComponent implements OnInit {
   /** ¿El proveedor elegido sabe hacer esto? La pantalla no ofrece lo demás. */
   pbxPuede(c: CapacidadPbx): boolean {
     return !!this.pbxActual()?.capacidades.includes(c);
+  }
+
+  /** Resultado de probar la dirección del WebSocket; '' mientras no se prueba. */
+  readonly pbxPruebaWss = signal('');
+  readonly pbxPruebaWssOk = signal(false);
+  readonly pbxProbandoWss = signal(false);
+
+  /**
+   * Prueba la dirección del WebSocket SIP ANTES de guardarla.
+   *
+   * La dirección no siempre la publica el proveedor —Zadarma, por ejemplo,
+   * solo documenta su widget— y averiguarla acaba siendo pegar una candidata.
+   * Sin esto, equivocarse se descubre cuando un operador oprime «Encender» y
+   * ve un error de WebSocket; con esto, se descubre aquí y en seis segundos.
+   *
+   * Se prueba desde el NAVEGADOR a propósito: el que se va a registrar es el
+   * navegador, y los proveedores filtran por origen.
+   */
+  async probarWssPbx(): Promise<void> {
+    if (this.pbxProbandoWss()) return;
+    const url = this.pbxBorrador()['sipWss'] ?? this.pbxValor('sipWss');
+    this.pbxProbandoWss.set(true);
+    this.pbxPruebaWss.set('');
+    const r = await probarWss(url);
+    this.pbxProbandoWss.set(false);
+    this.pbxPruebaWssOk.set(r.ok);
+    this.pbxPruebaWss.set(r.mensaje);
   }
 
   /** El nombre legible de una capacidad, para la pantalla. */
