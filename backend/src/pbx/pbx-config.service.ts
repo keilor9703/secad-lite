@@ -63,13 +63,23 @@ export class PbxConfigService {
     const secreto = dto.zadarmaSecreto?.trim();
     if (secreto) fila.zadarmaSecreto = cifrar(secreto, process.env.JWT_SECRET ?? '');
 
-    if (fila.proveedor === 'ZADARMA' && fila.activo && !fila.zadarmaSecreto) {
-      // Sin secreto no se puede verificar NADA de lo que llegue, y aceptar sin
-      // verificar es peor que no tener la integración: cualquiera podría
-      // inyectar llamadas en la cola del 123.
-      throw new BadRequestException(
-        'Para activar Zadarma hace falta el secreto de la API: sin él no se puede verificar la firma de lo que llegue.',
-      );
+    // Sin secreto no se puede verificar NADA de lo que llegue, y aceptar sin
+    // verificar es peor que no tener la integración: cualquiera podría
+    // inyectar llamadas en la cola del 123. Pero eso NO puede impedir
+    // *elegir* Zadarma, porque el campo donde se escribe el secreto solo
+    // aparece una vez elegido — exigirlo antes dejaba la pantalla en un
+    // callejón sin salida, con el proveedor imposible de guardar.
+    //
+    // Así que elegir Zadarma sin secreto es un estado legítimo: queda
+    // seleccionada y APAGADA. Lo que sí se rechaza es encenderla a ciegas.
+    if (fila.proveedor === 'ZADARMA' && !fila.zadarmaSecreto) {
+      if (dto.activo === true) {
+        throw new BadRequestException(
+          'Para activar Zadarma hace falta el secreto de la API: sin él no se puede verificar '
+          + 'la firma de lo que llegue. Guarde el secreto y vuelva a activarla.',
+        );
+      }
+      fila.activo = false;
     }
 
     fila.actualizadoPor = actor;

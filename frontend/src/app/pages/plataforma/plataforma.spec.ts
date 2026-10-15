@@ -1,6 +1,7 @@
-import { TestBed } from '@angular/core/testing';
+import { ComponentFixture, TestBed } from '@angular/core/testing';
+import { provideHttpClient } from '@angular/common/http';
 import { of, throwError } from 'rxjs';
-import { AdminService, ConfigPbxVisible } from '../../core/admin.service';
+import { AdminService, ConfigPbxGuardar, ConfigPbxVisible } from '../../core/admin.service';
 import { ArchivadoService } from '../../core/archivado.service';
 import { PlataformaComponent } from './plataforma';
 
@@ -121,5 +122,110 @@ describe('Plataforma · planta telefónica', () => {
     const c = crear();
     expect(c.urlWebhook()).toContain('/api/pbx/zadarma/');
     expect(c.urlWebhook().endsWith('/')).toBeTrue();
+  });
+});
+
+/**
+ * Y lo mismo, pero mirando la PANTALLA.
+ *
+ * Las pruebas de arriba comprueban la lógica, y pasaban todas mientras el
+ * usuario no podía configurar nada: elegir Zadarma hacía aparecer los campos
+ * de llaves… solo si el backend aceptaba guardar Zadarma, y el backend se
+ * negaba a hacerlo sin el secreto, que es justo lo que se escribe en esos
+ * campos. Un callejón sin salida que ninguna prueba de lógica podía ver,
+ * porque el que lo cerraba era el servidor.
+ *
+ * De ahí esta prueba: recorre el camino del usuario y mira el DOM.
+ */
+describe('Plataforma · configurar Zadarma de punta a punta', () => {
+  /** Un backend de mentira que se comporta como el de verdad. */
+  function backend() {
+    let fila: ConfigPbxVisible = {
+      tenant: 'itagui', proveedor: 'YACO', activo: true, zadarmaKey: null,
+      tieneCredenciales: false, numeroEntrante: null, actualizadoPor: null, actualizadoEn: null,
+    };
+    return (d: ConfigPbxGuardar): ConfigPbxVisible => {
+      if (d.proveedor) fila = { ...fila, proveedor: d.proveedor };
+      if (d.zadarmaSecreto) fila = { ...fila, tieneCredenciales: true };
+      if (typeof d.activo === 'boolean') fila = { ...fila, activo: d.activo };
+      // La regla del servidor: elegida sin secreto queda APAGADA, no rechazada.
+      if (fila.proveedor === 'ZADARMA' && !fila.tieneCredenciales) {
+        if (d.activo === true) throw new Error('hace falta el secreto de la API');
+        fila = { ...fila, activo: false };
+      }
+      return fila;
+    };
+  }
+
+  function montar(): ComponentFixture<PlataformaComponent> {
+    const guardar = backend();
+    TestBed.resetTestingModule();
+    TestBed.configureTestingModule({
+      providers: [
+        // El selector de municipio inyecta GeografiaService, que pide HttpClient.
+        provideHttpClient(),
+        {
+          provide: AdminService,
+          useValue: {
+            listarTenants: () => of([{ codigo: 'itagui', nombre: 'itagui' }]),
+            verConfigSms: () => of(null), verConfigEls: () => of(null), verConfigMfa: () => of(null),
+            verConfigPbx: () => of([]),
+            guardarConfigPbx: (d: ConfigPbxGuardar) => of(guardar(d)),
+          },
+        },
+        { provide: ArchivadoService, useValue: {} },
+      ],
+    });
+    const f = TestBed.createComponent(PlataformaComponent);
+    f.detectChanges();
+    f.componentInstance.pestanaActiva.set('operacion');
+    f.componentInstance.pbxTenant.set('itagui');
+    f.detectChanges();
+    return f;
+  }
+
+  const texto = (f: ComponentFixture<PlataformaComponent>) =>
+    (f.nativeElement as HTMLElement).textContent ?? '';
+
+  it('con YACO no se piden llaves de nadie', () => {
+    const f = montar();
+    expect(texto(f)).not.toContain('Key de la API de Zadarma');
+  });
+
+  it('al elegir Zadarma aparecen los campos para escribir las llaves', () => {
+    // ESTA es la que faltaba. Sin ella, la pantalla se publicó sin forma de
+    // configurar nada y el error solo lo encontró el usuario.
+    const f = montar();
+
+    f.componentInstance.guardarPbx({ proveedor: 'ZADARMA' });
+    f.detectChanges();
+
+    expect(texto(f)).toContain('Key de la API de Zadarma');
+    expect(texto(f)).toContain('Secret');
+    // Y la dirección del webhook, que es lo que se pega en el panel de Zadarma.
+    expect(texto(f)).toContain('/api/pbx/zadarma/');
+  });
+
+  it('y dice que quedó apagada hasta que se guarde el secret', () => {
+    const f = montar();
+
+    f.componentInstance.guardarPbx({ proveedor: 'ZADARMA' });
+    f.detectChanges();
+
+    expect(f.componentInstance.pbxActual()?.activo).toBe(false);
+    expect(texto(f)).toContain('Falta el secret');
+    expect(texto(f)).toContain('apagada');
+  });
+
+  it('con el secret guardado, el aviso desaparece', () => {
+    const f = montar();
+    f.componentInstance.guardarPbx({ proveedor: 'ZADARMA' });
+    f.detectChanges();
+
+    f.componentInstance.guardarPbx({ zadarmaSecreto: '02c715f8970408240309' });
+    f.detectChanges();
+
+    expect(f.componentInstance.pbxActual()?.tieneCredenciales).toBe(true);
+    expect(texto(f)).not.toContain('Falta el secret');
   });
 });

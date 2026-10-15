@@ -158,10 +158,12 @@ Con el superadmin, en **Plataforma → Configuración e integraciones → Planta
 telefónica**:
 
 1. Elija la **instancia**.
-2. Proveedor **Zadarma**, estado **Activa**.
-3. Pegue la **Key** y el **Secret** de Zadarma, y el **número entrante** si ya
-   lo tiene.
-4. El panel arma la **dirección del webhook** y la deja lista para copiar; solo
+2. Proveedor **Zadarma**. Queda elegida y **apagada**: sin el secreto no se
+   puede verificar nada de lo que llegue, así que la pantalla lo dice y espera.
+3. Pegue la **Key** y el **Secret** de Zadarma —los campos aparecen al elegir
+   el proveedor— y el **número entrante** si ya lo tiene.
+4. Ponga el estado en **Activa**.
+5. El panel arma la **dirección del webhook** y la deja lista para copiar; solo
    hay que agregarle al final la API key de esa instancia.
 
 El secreto se guarda cifrado y **no vuelve a bajar al navegador**, ni para

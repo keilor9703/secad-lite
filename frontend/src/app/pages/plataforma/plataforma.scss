@@ -86,3 +86,13 @@
   border: 1px solid var(--border); border-radius: 8px; background: var(--surface);
   font-size: var(--texto-xs); word-break: break-all; user-select: all;
 }
+
+/* Lo que falta para que la planta encienda. No es un error —el usuario está a
+   mitad de configurar— pero tampoco una nota al pie: sin esto, la pantalla
+   parece no haber guardado. */
+.aviso-pbx {
+  margin: 0; padding: 0.6rem 0.75rem;
+  border: 1px solid var(--border); border-left: 3px solid var(--warn);
+  border-radius: 10px; background: var(--surface-2);
+  font-size: var(--texto-sm); line-height: 1.5; color: var(--ink-soft);
+}
