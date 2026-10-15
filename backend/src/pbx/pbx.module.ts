@@ -18,17 +18,19 @@ import { AuthModule } from '../auth/auth.module';
 import { UsuariosModule } from '../usuarios/usuarios.module';
 import { PbxConfigService } from './pbx-config.service';
 import { PbxConfigController } from './pbx-config.controller';
-import { ZadarmaService } from './zadarma/zadarma.service';
 import { ZadarmaController } from './zadarma/zadarma.controller';
+import { AvisosPbxService } from './avisos.service';
+import { PbxCredencialesService } from './pbx-credenciales.service';
 
 /**
  * Integración con la planta telefónica (PBX). Recibe eventos de llamada por
  * webhook (API key del tenant), mantiene la cola en vivo y crea/enlaza casos al
  * atender. Reutiliza CasosService (crear/enlazar) y TenantsService (API key).
  *
- * Dos plantas, un solo modelo de llamada: el webhook genérico que usa YACO y
- * el traductor de Zadarma (`zadarma/`), que convierte sus seis eventos
- * firmados en los dos de siempre. Cuál atiende a cada instancia lo dice
+ * Varias plantas, un solo modelo de llamada. Cada proveedor vive en
+ * `proveedores/` y declara qué sabe hacer y qué credenciales pide; el camino
+ * del aviso —instancia, encendido, firma, traducción, cola, bitácora— es uno
+ * solo (`AvisosPbxService`). Cuál atiende a cada instancia lo dice
  * `config_pbx`; el interruptor general sigue siendo la integración `pbx` del
  * tenant.
  */
@@ -46,7 +48,7 @@ import { ZadarmaController } from './zadarma/zadarma.controller';
   providers: [
     PbxService, PbxGateway, PbxApiKeyGuard, PbxWebhookLogService,
     PbxWebhookRechazoFilter, PbxWebhookExitoInterceptor,
-    PbxConfigService, ZadarmaService,
+    PbxConfigService, PbxCredencialesService, AvisosPbxService,
   ],
   exports: [PbxService],
 })

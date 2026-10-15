@@ -3,8 +3,9 @@ import { Roles } from '../auth/roles.decorator';
 import { Usuario } from '../common/usuario.decorator';
 import { JwtPayload } from '../auth/auth.service';
 import { AuditoriaAdminService } from '../auditoria/auditoria-admin.service';
-import { PbxConfigService, VistaConfigPbx } from './pbx-config.service';
-import { ProveedorPbx } from './config-pbx.entity';
+import { GuardarConfigPbx, PbxConfigService, VistaConfigPbx } from './pbx-config.service';
+import { DescriptorProveedor } from './proveedores/proveedor';
+import { catalogoProveedores } from './proveedores/registro';
 
 /**
  * Qué planta telefónica atiende a cada instancia, y con qué credenciales.
@@ -39,27 +40,36 @@ export class PbxConfigController {
   }
 
   /**
+   * GET /api/plataforma/pbx/proveedores — el catálogo de plantas.
+   *
+   * Es lo que le permite a la pantalla dibujar el formulario sin tener ni un
+   * nombre de proveedor escrito a mano: de aquí salen las etiquetas de los
+   * campos, su ayuda, cuáles son secretos, qué sabe hacer cada proveedor y
+   * dónde se pega la dirección del webhook en SU panel. Dar de alta un
+   * proveedor nuevo no toca el frontend.
+   */
+  @Get('proveedores')
+  proveedores(): DescriptorProveedor[] {
+    return catalogoProveedores();
+  }
+
+  /**
    * POST /api/plataforma/pbx — guarda la planta de una instancia.
    *
-   * El secreto solo se escribe: si no viene en el cuerpo, se conserva el que
-   * había. Así se puede cambiar el proveedor o apagar la integración sin
-   * tener que volver a teclear la credencial —ni que el navegador la haya
-   * recibido nunca para poder reenviarla—.
+   * Los campos secretos solo se escriben: si no vienen en el cuerpo, se
+   * conserva el que había. Así se puede cambiar el proveedor o apagar la
+   * integración sin tener que volver a teclear la credencial —ni que el
+   * navegador la haya recibido nunca para poder reenviarla—.
    */
   @Post()
-  async guardar(@Usuario() actor: JwtPayload, @Body() dto: {
-    tenant?: string;
-    proveedor?: ProveedorPbx;
-    activo?: boolean;
-    zadarmaKey?: string | null;
-    zadarmaSecreto?: string | null;
-    numeroEntrante?: string | null;
-  }) {
+  async guardar(@Usuario() actor: JwtPayload, @Body() dto: GuardarConfigPbx) {
     const vista = await this.config.guardar(dto ?? {}, actor?.sub ?? 'desconocido');
     await this.auditoria.registrar(
       vista.tenant, actor?.sub ?? 'desconocido', 'pbx.config',
       `Planta telefónica: ${vista.proveedor}, ${vista.activo ? 'activa' : 'apagada'}`
-        + (vista.tieneCredenciales ? ', con credenciales' : ', sin credenciales')
+        + (vista.credencialesPuestas.length
+          ? `, credenciales: ${vista.credencialesPuestas.join(', ')}`
+          : ', sin credenciales')
         + (vista.numeroEntrante ? ` · número ${vista.numeroEntrante}` : ''),
     );
     return vista;

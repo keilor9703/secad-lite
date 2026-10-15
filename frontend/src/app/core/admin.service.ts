@@ -142,6 +142,10 @@ export class AdminService {
   guardarConfigPbx(datos: ConfigPbxGuardar): Observable<ConfigPbxVisible> {
     return this.http.post<ConfigPbxVisible>(`${this.base}/plataforma/pbx`, datos);
   }
+  /** El catálogo de plantas: de aquí se arma el formulario, no de la plantilla. */
+  verProveedoresPbx(): Observable<ProveedorPbxVisible[]> {
+    return this.http.get<ProveedorPbxVisible[]>(`${this.base}/plataforma/pbx/proveedores`);
+  }
 
   // --- Config de geolocalización ELS global (solo superadmin desde Plataforma) ---
   verConfigEls(): Observable<ConfigElsVisible> {
@@ -163,18 +167,57 @@ export class AdminService {
   }
 }
 
+/** Lo que una planta telefónica sabe hacer, según su proveedor. */
+export type CapacidadPbx = 'entrantes' | 'marcar' | 'softphone' | 'grabacion';
+
+/**
+ * Un dato que el proveedor necesita, descrito POR ÉL.
+ *
+ * De aquí sale el formulario: la etiqueta, la ayuda, si el campo es de solo
+ * escritura. Antes esto estaba escrito a mano en la plantilla —«Key de la API
+ * de Zadarma»— y cada proveedor nuevo costaba un trozo de pantalla.
+ */
+export interface CampoCredencialPbx {
+  clave: string;
+  etiqueta: string;
+  ayuda: string;
+  /** Cifrado en el servidor; nunca vuelve al navegador, ni truncado. */
+  secreto: boolean;
+  requerido: boolean;
+  /** Fuente de una expresión regular, para avisar de un valor mal pegado. */
+  forma?: string;
+  ejemplo?: string;
+}
+
+/** La ficha de un proveedor: lo que la pantalla necesita para dibujarlo. */
+export interface ProveedorPbxVisible {
+  clave: string;
+  nombre: string;
+  resumen: string;
+  capacidades: CapacidadPbx[];
+  credenciales: CampoCredencialPbx[];
+  /** Ruta del webhook de ese proveedor, si recibe entrantes. */
+  rutaAviso?: string;
+  /** Dónde se pega esa dirección, dicho como lo dice SU panel. */
+  dondeSePega?: string;
+}
+
 /**
  * La planta telefónica de UNA instancia, como se ve en pantalla.
  *
- * El secreto no viaja nunca hacia el navegador, ni truncado: `tieneSecreto`
- * dice si está puesto, y es todo lo que hace falta saber.
+ * Los valores secretos no viajan nunca hacia el navegador, ni truncados:
+ * `credencialesPuestas` dice cuáles están guardados, y es todo lo que hace
+ * falta saber. `faltan` trae las etiquetas de lo que impide encenderla.
  */
 export interface ConfigPbxVisible {
   tenant: string;
-  proveedor: 'YACO' | 'ZADARMA';
+  proveedor: string;
   activo: boolean;
-  zadarmaKey: string | null;
-  tieneCredenciales: boolean;
+  /** Solo los campos NO secretos. */
+  credenciales: Record<string, string>;
+  credencialesPuestas: string[];
+  faltan: string[];
+  capacidades: CapacidadPbx[];
   numeroEntrante: string | null;
   actualizadoPor: string | null;
   actualizadoEn: string | null;
@@ -182,11 +225,14 @@ export interface ConfigPbxVisible {
 
 export interface ConfigPbxGuardar {
   tenant: string;
-  proveedor?: 'YACO' | 'ZADARMA';
+  proveedor?: string;
   activo?: boolean;
-  zadarmaKey?: string | null;
-  /** Solo de escritura: sin valor, se conserva el que había. */
-  zadarmaSecreto?: string | null;
+  /**
+   * Solo los campos que se escribieron. Lo que no venga se conserva —un
+   * formulario que nunca recibió el secreto no puede reenviarlo— y un campo
+   * mandado vacío sí se borra, porque eso es un borrado explícito.
+   */
+  credenciales?: Record<string, string>;
   numeroEntrante?: string | null;
 }
 

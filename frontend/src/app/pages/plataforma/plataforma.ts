@@ -1,7 +1,7 @@
 import { ChangeDetectionStrategy, Component, OnInit, computed, inject, signal } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormControl, FormGroup, FormsModule, ReactiveFormsModule, Validators } from '@angular/forms';
-import { AdminService, ConfigElsGuardar, ConfigElsVisible, ConfigMfaVisible, ConfigPbxGuardar, ConfigPbxVisible, ConfigSmsGuardar, ConfigSmsVisible } from '../../core/admin.service';
+import { AdminService, CampoCredencialPbx, CapacidadPbx, ConfigElsGuardar, ConfigElsVisible, ConfigMfaVisible, ConfigPbxGuardar, ConfigPbxVisible, ConfigSmsGuardar, ConfigSmsVisible, ProveedorPbxVisible } from '../../core/admin.service';
 import { EstadoSuscripcion, PlanTenant, Tenant } from '../../core/models';
 import { SelectorMunicipioComponent } from '../../shared/selector-municipio/selector-municipio';
 import { SelectorComponent } from '../../shared/selector/selector';
@@ -168,28 +168,101 @@ export class PlataformaComponent implements OnInit {
   // cuál.
 
   readonly pbxConfigs = signal<ConfigPbxVisible[]>([]);
+  /** El catálogo de plantas: de aquí sale el formulario, campo por campo. */
+  readonly pbxProveedores = signal<ProveedorPbxVisible[]>([]);
   readonly pbxTenant = signal<string>('');
   readonly pbxError = signal('');
   readonly pbxExito = signal('');
   readonly pbxGuardando = signal(false);
+  /** Lo que se está escribiendo en los campos de credenciales, sin guardar. */
+  readonly pbxBorrador = signal<Record<string, string>>({});
 
   /** La configuración de la instancia elegida; `null` mientras no se elige. */
   readonly pbxActual = computed<ConfigPbxVisible | null>(() => {
     const t = this.pbxTenant();
     if (!t) return null;
-    return this.pbxConfigs().find((c) => c.tenant === t)
-      // Una instancia sin fila todavía: se muestra el valor por defecto, que
-      // es exactamente lo que hace el backend si nunca se guardó nada.
-      ?? { tenant: t, proveedor: 'YACO', activo: true, zadarmaKey: null,
-           tieneCredenciales: false, numeroEntrante: null,
-           actualizadoPor: null, actualizadoEn: null };
+    const guardada = this.pbxConfigs().find((c) => c.tenant === t);
+    if (guardada) return guardada;
+    // Una instancia sin fila todavía: se muestra lo que haría el backend si
+    // nunca se guardó nada —el primer proveedor del registro, encendido—.
+    // Un formulario en blanco haría creer que no hay telefonía, y hay.
+    const porDefecto = this.pbxProveedores()[0];
+    return {
+      tenant: t, proveedor: porDefecto?.clave ?? 'YACO', activo: true,
+      credenciales: {}, credencialesPuestas: [], faltan: [],
+      capacidades: porDefecto?.capacidades ?? [], numeroEntrante: null,
+      actualizadoPor: null, actualizadoEn: null,
+    };
   });
 
-  /** Las que ya quedaron en Zadarma, para verlo de un vistazo. */
-  readonly pbxEnZadarma = computed(() =>
-    this.pbxConfigs().filter((c) => c.proveedor === 'ZADARMA'));
+  /** La ficha del proveedor elegido: etiquetas, ayudas y qué sabe hacer. */
+  readonly pbxProveedor = computed<ProveedorPbxVisible | null>(() => {
+    const clave = this.pbxActual()?.proveedor;
+    return this.pbxProveedores().find((p) => p.clave === clave) ?? null;
+  });
+
+  /** Las instancias agrupadas por proveedor, para verlo de un vistazo. */
+  readonly pbxPorProveedor = computed(() =>
+    this.pbxProveedores()
+      .map((p) => ({ proveedor: p, instancias: this.pbxConfigs().filter((c) => c.proveedor === p.clave) }))
+      .filter((g) => g.instancias.length));
+
+  /** ¿El proveedor elegido sabe hacer esto? La pantalla no ofrece lo demás. */
+  pbxPuede(c: CapacidadPbx): boolean {
+    return !!this.pbxActual()?.capacidades.includes(c);
+  }
+
+  /** El nombre legible de una capacidad, para la pantalla. */
+  nombreCapacidad(c: CapacidadPbx): string {
+    return {
+      entrantes: 'recibir llamadas',
+      marcar: 'llamar desde el caso',
+      softphone: 'contestar aquí mismo',
+      grabacion: 'traer la grabación al caso',
+    }[c] ?? c;
+  }
+
+  /** ¿Ese campo ya tiene algo guardado? Para los secretos es todo lo que se sabe. */
+  pbxPuesta(clave: string): boolean {
+    return !!this.pbxActual()?.credencialesPuestas.includes(clave);
+  }
+
+  /** El valor visible de un campo NO secreto. */
+  pbxValor(clave: string): string {
+    return this.pbxActual()?.credenciales?.[clave] ?? '';
+  }
+
+  /**
+   * ¿Lo escrito tiene la forma que pide el proveedor?
+   *
+   * No bloquea el guardado —si el proveedor cambia el formato, esto no puede
+   * dejar la integración muerta— pero avisa, porque una llave pegada con un
+   * espacio da el mismo error de autenticación que una llave equivocada y sin
+   * esta pista hay que adivinar cuál de los dos es.
+   */
+  pbxFormaDudosa(campo: CampoCredencialPbx): boolean {
+    const v = this.pbxBorrador()[campo.clave];
+    if (!v || !campo.forma) return false;
+    try { return !new RegExp(campo.forma).test(v); } catch { return false; }
+  }
+
+  pbxEscribir(clave: string, valor: string): void {
+    this.pbxBorrador.update((b) => ({ ...b, [clave]: valor }));
+  }
+
+  /** Guarda solo los campos que se escribieron, y limpia el borrador. */
+  guardarCredencialesPbx(): void {
+    const credenciales = this.pbxBorrador();
+    if (!Object.keys(credenciales).length) return;
+    this.pbxBorrador.set({});
+    this.guardarPbx({ credenciales });
+  }
 
   cargarPbx(): void {
+    this.admin.verProveedoresPbx().subscribe({
+      next: (ps) => this.pbxProveedores.set(ps),
+      error: () => this.pbxError.set('No fue posible cargar el catálogo de plantas telefónicas.'),
+    });
     this.admin.verConfigPbx().subscribe({
       next: (cs) => this.pbxConfigs.set(cs),
       error: () => this.pbxError.set('No fue posible cargar la configuración de telefonía.'),
@@ -213,22 +286,29 @@ export class PlataformaComponent implements OnInit {
       },
       error: (e) => {
         this.pbxGuardando.set(false);
-        // El backend se niega a activar Zadarma sin secreto, y el motivo es
-        // justo lo que hay que leer: sin él no se puede verificar nada.
+        // El backend se niega a encender una planta a la que le faltan
+        // credenciales, y el motivo —que nombra los campos que faltan— es
+        // justo lo que hay que leer.
         this.pbxError.set(e?.error?.message ?? 'No fue posible guardar la telefonía.');
       },
     });
   }
 
-  /** La dirección que se pega en el panel de Zadarma. */
+  /** La dirección que se pega en el panel del proveedor elegido. */
   readonly urlWebhook = computed(() => {
+    const ruta = this.pbxProveedor()?.rutaAviso;
+    if (!ruta) return '';
     const origen = typeof window !== 'undefined' ? window.location.origin : 'https://falconcad.com.co';
-    return `${origen}/api/pbx/zadarma/`;
+    return `${origen}${ruta}`;
   });
 
   copiarWebhook(): void {
-    navigator.clipboard.writeText(this.urlWebhook())
-      .then(() => this.pbxExito.set('Dirección copiada. Péguela en Zadarma y agréguele la API key de la instancia al final.'))
+    const url = this.urlWebhook();
+    if (!url) return;
+    const nombre = this.pbxProveedor()?.nombre ?? 'el proveedor';
+    navigator.clipboard.writeText(url)
+      .then(() => this.pbxExito.set(
+        `Dirección copiada. Péguela en ${nombre} y agréguele la API key de la instancia al final.`))
       .catch(() => this.pbxError.set('El navegador no permitió copiar; selecciónela a mano.'));
   }
 

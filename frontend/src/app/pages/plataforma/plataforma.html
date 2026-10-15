@@ -258,15 +258,17 @@
 
     <!-- Planta telefónica. POR INSTANCIA, al revés que el SMS: la línea del
          123 es del municipio —su número, su centralita, su contrato—, así que
-         lo primero que se elige es de cuál se está hablando. -->
+         lo primero que se elige es de cuál se está hablando.
+
+         Y NADA DE ESTE PANEL NOMBRA A UN PROVEEDOR. Los proveedores, sus
+         campos, sus etiquetas, su ayuda y lo que sabe hacer cada uno vienen
+         del catálogo (`GET /api/plataforma/pbx/proveedores`), que a su vez
+         sale del descriptor de cada proveedor en el backend. Antes esto decía
+         «Key de la API de Zadarma» a mano, y dar de alta un proveedor costaba
+         un trozo de pantalla además del código. -->
     <div class="panel panel--col card sms-global">
       <h2><app-icono nombre="telefono" [tam]="17" /> Planta telefónica</h2>
-      <p class="hint">
-        Qué centralita atiende a cada instancia. <strong>YACO</strong> manda el webhook
-        genérico y no necesita credenciales nuestras; <strong>Zadarma</strong> es la
-        centralita que operamos, y ahí sí hacen falta sus llaves para verificar lo que
-        llega y para pedirle grabaciones.
-      </p>
+      <p class="hint">Qué centralita atiende a cada instancia, y con qué credenciales.</p>
 
       @if (pbxError()) { <p class="error">{{ pbxError() }}</p> }
       @if (pbxExito()) { <p class="exito">{{ pbxExito() }}</p> }
@@ -288,8 +290,9 @@
           <label class="campo">
             <span>Proveedor</span>
             <app-selector [valorActual]="cfg.proveedor" (cambio)="guardarPbx({ proveedor: $any($event) })">
-              <app-opcion valor="YACO">YACO (webhook genérico)</app-opcion>
-              <app-opcion valor="ZADARMA">Zadarma</app-opcion>
+              @for (p of pbxProveedores(); track p.clave) {
+                <app-opcion [valor]="p.clave">{{ p.nombre }}</app-opcion>
+              }
             </app-selector>
           </label>
           <label class="campo">
@@ -306,54 +309,88 @@
           </label>
         </div>
 
-        @if (cfg.proveedor === 'ZADARMA') {
-          <div class="t-grid">
-            <label class="campo">
-              <span>Key de la API de Zadarma</span>
-              <input type="text" [value]="cfg.zadarmaKey ?? ''" placeholder="71278d8e6746cb220a36"
-                     (change)="guardarPbx({ zadarmaKey: $any($event.target).value })" />
-            </label>
-            <label class="campo">
-              <span>Secret {{ cfg.tieneCredenciales ? '(configurado ✓)' : '(sin configurar)' }}</span>
-              <!-- Solo de escritura: el campo se vacía al guardar y el secreto
-                   no vuelve a bajar al navegador ni para mostrarlo. -->
-              <input type="password" autocomplete="off" placeholder="Pegue el secret aquí"
-                     (change)="guardarPbx({ zadarmaSecreto: $any($event.target).value }); $any($event.target).value = ''" />
-            </label>
-          </div>
+        @if (pbxProveedor(); as prov) {
+          <p class="hint">{{ prov.resumen }}</p>
 
-          <div class="pbx-webhook">
-            <p class="hint">
-              En Zadarma: <strong>Integraciones y API → Integraciones → Notificaciones de
-              eventos</strong>, campo <strong>«Sobre llamadas a la centralita»</strong>. Pegue
-              esta dirección y agréguele al final la <strong>API key de esta instancia</strong>
-              (la de Administración → Instancias):
-            </p>
-            <code>{{ urlWebhook() }}&lt;API_KEY&gt;</code>
-            <button type="button" class="btn btn--ghost mini" (click)="copiarWebhook()">Copiar dirección</button>
-          </div>
+          <!-- Qué sabe hacer. Dicho aquí, el operador no descubre con un error
+               que su proveedor no puede marcar desde el caso. -->
+          <p class="hint pbx-capacidades">
+            Con {{ prov.nombre }}, FALCON puede:
+            @for (c of prov.capacidades; track c) {
+              <span class="badge on">{{ nombreCapacidad(c) }}</span>
+            }
+            @if (!prov.capacidades.length) { <em>nada todavía</em> }
+          </p>
+
+          <!-- Los campos de credenciales, tal como los declara el proveedor. -->
+          @if (prov.credenciales.length) {
+            <div class="t-grid">
+              @for (campo of prov.credenciales; track campo.clave) {
+                <label class="campo">
+                  <span>
+                    {{ campo.etiqueta }}
+                    @if (campo.secreto) {
+                      {{ pbxPuesta(campo.clave) ? '(configurado ✓)' : '(sin configurar)' }}
+                    }
+                  </span>
+                  <!-- Un campo secreto es solo de escritura: no baja al
+                       navegador ni para mostrarlo, así que nunca trae valor. -->
+                  <input [type]="campo.secreto ? 'password' : 'text'" autocomplete="off"
+                         [value]="campo.secreto ? '' : pbxValor(campo.clave)"
+                         [placeholder]="campo.ejemplo ?? ''"
+                         [attr.aria-label]="campo.etiqueta"
+                         (input)="pbxEscribir(campo.clave, $any($event.target).value)" />
+                  <small class="hint">{{ campo.ayuda }}</small>
+                  @if (pbxFormaDudosa(campo)) {
+                    <small class="aviso-pbx">Eso no tiene la forma que espera {{ prov.nombre }}.
+                      Revise que no se haya pegado con un espacio o a medias.</small>
+                  }
+                </label>
+              }
+            </div>
+            <button type="button" class="btn" [disabled]="pbxGuardando()" (click)="guardarCredencialesPbx()">
+              {{ pbxGuardando() ? 'Guardando…' : 'Guardar credenciales' }}
+            </button>
+          }
+
+          @if (prov.rutaAviso) {
+            <div class="pbx-webhook">
+              <p class="hint">
+                @if (prov.dondeSePega) { En {{ prov.nombre }}: <strong>{{ prov.dondeSePega }}</strong>. }
+                Pegue esta dirección y agréguele al final la <strong>API key de esta
+                instancia</strong> (la de Administración → Instancias):
+              </p>
+              <code>{{ urlWebhook() }}&lt;API_KEY&gt;</code>
+              <button type="button" class="btn btn--ghost mini" (click)="copiarWebhook()">Copiar dirección</button>
+            </div>
+          }
 
           <!-- Qué falta, en cada momento. La pantalla nunca puede quedarse
                callada: la primera configuración real se atascó dos veces por
                no decir qué paso seguía. -->
-          @if (!cfg.tieneCredenciales) {
+          @if (cfg.faltan.length) {
             <p class="aviso-pbx">
-              <strong>Falta el secret</strong>, así que la planta quedó <strong>apagada</strong>:
-              sin él no se puede verificar la firma de lo que llegue, y aceptar sin verificar
-              sería dejar que cualquiera meta llamadas en la cola. Péguelo arriba y la planta
-              se enciende sola.
+              <strong>Falta {{ cfg.faltan.join(', ') }}</strong>, así que la planta quedó
+              <strong>apagada</strong>: sin eso no se puede verificar que lo que llegue venga
+              de verdad de {{ prov.nombre }}, y aceptar sin verificar sería dejar que
+              cualquiera meta llamadas en la cola. Guárdelo arriba y la planta se enciende sola.
             </p>
           } @else if (!cfg.activo) {
             <p class="aviso-pbx">
               Las credenciales están puestas, pero la planta está <strong>apagada</strong>:
-              lo que llegue de Zadarma se anota y no entra a la cola. Ponga el estado en
+              lo que llegue se anota y no entra a la cola. Ponga el estado en
               <em>Activa</em> para empezar a recibir llamadas.
             </p>
           } @else {
             <p class="aviso-pbx aviso-pbx--listo">
-              <strong>Lista.</strong> Falta un paso que se hace en Zadarma, no aquí: pegar la
-              dirección de abajo en su panel. Después, llame y compruebe que la llamada
-              aparece en Recepción.
+              <strong>Lista.</strong>
+              @if (prov.rutaAviso) {
+                Falta un paso que se hace en {{ prov.nombre }}, no aquí: pegar la dirección de
+                arriba en su panel. Después, llame y compruebe que la llamada aparece en
+                Recepción.
+              } @else {
+                Llame y compruebe que la llamada aparece en Recepción.
+              }
             </p>
           }
         }
@@ -367,10 +404,10 @@
         <p class="hint">Elija una instancia para ver o cambiar su planta telefónica.</p>
       }
 
-      @if (pbxEnZadarma().length) {
+      @for (g of pbxPorProveedor(); track g.proveedor.clave) {
         <p class="hint">
-          En Zadarma:
-          @for (c of pbxEnZadarma(); track c.tenant) {
+          En {{ g.proveedor.nombre }}:
+          @for (c of g.instancias; track c.tenant) {
             <strong>{{ c.tenant }}</strong>{{ c.activo ? '' : ' (apagada)' }}@if (!$last) {, }
           }
         </p>

@@ -3,6 +3,14 @@
 Cómo se conecta la centralita de Zadarma, qué está hecho, qué falta, y qué hay
 que tocar en su panel.
 
+> **Zadarma es UNA planta, no el modelo.** FALCON trata a todos los
+> proveedores de telefonía por el mismo puerto: cada uno declara qué sabe
+> hacer y qué credenciales pide, y el camino del aviso —instancia, encendido,
+> firma, traducción, cola, bitácora— es uno solo. Cómo se da de alta un
+> proveedor nuevo está en
+> [`telefonia-proveedores.md`](telefonia-proveedores.md); esta página es el
+> detalle de Zadarma.
+
 > **Para qué sí, y para qué todavía no.** Esto convierte a Zadarma en la planta
 > telefónica de una instancia de FALCON: las llamadas entran a la cola de
 > Recepción, se dirigen al operador que tiene esa extensión y quedan en el
@@ -81,7 +89,11 @@ operador del municipio.
   | `NOTIFY_OUT_START` | Saliente: queda en la bitácora, no entra a la cola |
   | `NOTIFY_RECORD` | Todavía no se usa (ver *Lo que falta*) |
 
-- Configuración por instancia en `config_pbx`, con el secreto **cifrado**.
+- Configuración por instancia en `config_pbx`: las credenciales se guardan como
+  JSON en una sola columna y **lo que el proveedor marca como secreto va
+  cifrado**. Antes eran dos columnas con nombre de Zadarma; ahora los campos
+  los declara su descriptor, y de ahí sale también el formulario de la
+  pantalla —etiquetas, ayudas y cuáles son de solo escritura—.
 - **Dos interruptores**, como las demás integraciones:
   - la integración `pbx` del tenant: si no la tiene, no hay telefonía;
   - `activo` en `config_pbx`: la hay, pero esta planta está apagada ahora mismo.
@@ -189,19 +201,26 @@ telefónica**:
 1. Elija la **instancia**.
 2. Proveedor **Zadarma**. Queda elegida y **apagada**: sin el secreto no se
    puede verificar nada de lo que llegue, así que la pantalla lo dice y espera.
-3. Pegue la **Key** y el **Secret** de Zadarma —los campos aparecen al elegir
-   el proveedor— y el **número entrante** si ya lo tiene. Al guardar el secret
-   **la planta se enciende sola**: la única razón por la que estaba apagada
-   era que faltaba. Si la quiere apagada, se apaga, que es un clic.
-4. El panel dice en cada momento qué falta: *falta el secret* → *apagada* →
-   *lista, falta pegar la dirección en Zadarma*.
+3. Pegue la **Key** y el **Secret** —los campos aparecen al elegir el
+   proveedor, con su ayuda, porque los declara el propio proveedor— y el
+   **número entrante** si ya lo tiene; después, *Guardar credenciales*. Al
+   quedar completas **la planta se enciende sola**: la única razón por la que
+   estaba apagada era que faltaban. Si la quiere apagada, se apaga, que es un
+   clic.
+4. El panel dice en cada momento qué falta, nombrando los campos:
+   *falta Key de la API, Secret de la API* → *apagada* → *lista, falta pegar la
+   dirección en Zadarma*. Y dice también **qué sabe hacer** el proveedor, para
+   no ofrecer lo que no puede.
 5. El panel arma la **dirección del webhook** y la deja lista para copiar; solo
    hay que agregarle al final la API key de esa instancia.
 
 El secreto se guarda cifrado y **no vuelve a bajar al navegador**, ni para
-mostrarlo: el campo dice si está puesto y nada más. Activar Zadarma **sin**
-secreto se rechaza a propósito —sin él no se puede verificar nada de lo que
-llegue— y la pantalla muestra ese motivo tal cual.
+mostrarlo: el campo dice si está puesto y nada más. Eso no es una regla
+escrita para Zadarma —sale de que su descriptor marca ese campo como secreto,
+así que vale igual para cualquier proveedor que venga—. Activar la planta
+**sin** las credenciales requeridas se rechaza a propósito —sin ellas no se
+puede verificar nada de lo que llegue— y la pantalla muestra ese motivo tal
+cual.
 
 Cambiar el proveedor o apagar la integración **no borra** el secreto: el campo
 solo escribe, así que dejarlo vacío conserva el que había.
@@ -303,12 +322,16 @@ Si no hay NINGUNA fila, la petición no llegó: es Zadarma, el DNS o nginx.
 
 | Pieza | Archivo |
 |---|---|
-| Verificación de la firma | `backend/src/pbx/zadarma/zadarma.firma.ts` |
-| Traducción de eventos | `backend/src/pbx/zadarma/zadarma.service.ts` |
-| Endpoint del webhook | `backend/src/pbx/zadarma/zadarma.controller.ts` |
+| Firma de sus webhooks | `backend/src/pbx/zadarma/zadarma.firma.ts` |
+| Firma de las llamadas a su API | `backend/src/pbx/zadarma/zadarma.api.ts` |
+| Su descriptor y su traductor | `backend/src/pbx/proveedores/zadarma.proveedor.ts` |
+| Endpoint del webhook (solo su saludo) | `backend/src/pbx/zadarma/zadarma.controller.ts` |
+| El camino común de un aviso | `backend/src/pbx/avisos.service.ts` |
+| Credenciales: leer, descifrar, guardar | `backend/src/pbx/pbx-credenciales.service.ts` |
 | Configuración por instancia | `backend/src/pbx/config-pbx.entity.ts`, `pbx-config.service.ts` |
-| Pantalla de configuración | `frontend/src/app/pages/plataforma/` (panel «Planta telefónica») |
-| Cola, casos y avisos (comunes a las dos plantas) | `backend/src/pbx/pbx.service.ts` |
+| Pantalla de configuración (armada del catálogo) | `frontend/src/app/pages/plataforma/` |
+| Cola, casos y avisos (comunes a todas las plantas) | `backend/src/pbx/pbx.service.ts` |
+| El puerto y el registro de proveedores | `backend/src/pbx/proveedores/` |
 
 ### El fin de la llamada no tiene un solo nombre
 

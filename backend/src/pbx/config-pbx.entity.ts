@@ -1,15 +1,16 @@
 import { Column, Entity, PrimaryGeneratedColumn, UpdateDateColumn } from 'typeorm';
 
 /**
- * Qué planta telefónica atiende a esta instancia.
+ * La clave del proveedor que atiende a esta instancia.
  *
- * `YACO` es el proveedor con el que opera hoy: manda el webhook genérico de
- * `/api/pbx/webhook` y no necesita credenciales nuestras, solo la API key del
- * tenant. `ZADARMA` es la centralita en la nube que FALCON opera por su
- * cuenta: ahí sí hacen falta las llaves, para verificar lo que llega y para
- * pedirle cosas a su API (grabaciones, llamada saliente).
+ * Es texto libre a propósito: las claves válidas las define el **registro de
+ * proveedores** (`proveedores/registro.ts`), no este tipo. Antes era una unión
+ * `'YACO' | 'ZADARMA'`, y eso obligaba a tocar la entidad —y con ella la
+ * base— para dar de alta un proveedor nuevo. Lo que valida qué se puede
+ * guardar es `CLAVES_PROVEEDOR`; lo que valida qué sabe hacer cada uno, su
+ * descriptor.
  */
-export type ProveedorPbx = 'YACO' | 'ZADARMA';
+export type ClaveProveedorPbx = string;
 
 /**
  * Configuración de la planta telefónica de UNA instancia.
@@ -41,25 +42,33 @@ export class ConfigPbxEntity {
   @Column({ type: 'varchar', length: 64, unique: true })
   tenant!: string;
 
-  @Column({ type: 'varchar', length: 16, default: 'YACO' })
-  proveedor!: ProveedorPbx;
+  @Column({ type: 'varchar', length: 32, default: 'YACO' })
+  proveedor!: ClaveProveedorPbx;
 
   /** Apagado: se registra lo que llegue, pero no se crea ninguna llamada. */
   @Column({ type: 'boolean', default: true })
   activo!: boolean;
 
-  /** Zadarma: la clave de usuario de la API (no es secreta por sí sola). */
-  @Column({ type: 'varchar', length: 120, nullable: true })
-  zadarmaKey?: string | null;
-
   /**
-   * Zadarma: el secreto. CIFRADO en reposo (AES-256-GCM, ver
-   * `common/secretos.ts`) y no como digest, porque hay que poder recuperarlo:
-   * con él se verifica la firma de cada webhook y se firman las llamadas a su
-   * API. Nunca sale hacia el navegador.
+   * Las credenciales del proveedor, como JSON: `{"key": "…", "secreto": "…"}`.
+   *
+   * Antes esto eran dos columnas, `zadarmaKey` y `zadarmaSecreto`. Un
+   * proveedor nuevo costaba dos columnas más, una migración y una rama más
+   * en el servicio de configuración; al tercero, nadie recuerda qué campo usa
+   * cuál. Ahora cada proveedor DECLARA sus campos en su descriptor y aquí se
+   * guarda lo que diga, sin que la base tenga que saber nada de él.
+   *
+   * **Los campos marcados como secretos van CIFRADOS** (AES-256-GCM, ver
+   * `common/secretos.ts`) y no como digest, porque hay que poder recuperarlos:
+   * con ellos se verifica la firma de cada aviso y se firman las llamadas a la
+   * API del proveedor. Cuáles son secretos lo dice el descriptor, no una lista
+   * escrita aquí: así un proveedor nuevo no puede olvidar cifrar el suyo.
+   *
+   * Nada de esto sale hacia el navegador: lo secreto nunca, ni truncado (ver
+   * `VistaConfigPbx`).
    */
-  @Column({ type: 'varchar', length: 500, nullable: true })
-  zadarmaSecreto?: string | null;
+  @Column({ type: 'text', nullable: true })
+  credenciales?: string | null;
 
   /**
    * El número que marca el ciudadano (E.164). Informativo para la pantalla y
