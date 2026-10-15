@@ -1,5 +1,5 @@
 import { BadRequestException, ForbiddenException, Injectable, NotFoundException } from '@nestjs/common';
-import { IsIn, IsISO8601, IsOptional, IsString, MaxLength, ValidateIf } from 'class-validator';
+import { IsBoolean, IsIn, IsISO8601, IsOptional, IsString, MaxLength, ValidateIf } from 'class-validator';
 import { EntityManager, Not } from 'typeorm';
 import { Subject } from 'rxjs';
 import { LlamadaEntity, ORIGENES_LLAMADA, OrigenLlamada } from './llamada.entity';
@@ -86,6 +86,23 @@ export class WebhookLlamadaDto {
    */
   @IsOptional() @IsIn(ORIGENES_LLAMADA, { message: `origen debe ser uno de: ${ORIGENES_LLAMADA.join(', ')}.` })
   origen?: OrigenLlamada;
+
+  /**
+   * La central dice que ALGUIEN contestó, aunque no haya sido desde FALCON.
+   *
+   * Existe por los softphones. Si un operador descuelga en MicroSIP y atiende
+   * al ciudadano sin tocar la aplicación, al colgar la llamada seguía el
+   * camino de «sonando → perdida», y una llamada atendida acababa contada
+   * como perdida en el indicador del municipio. Eso no es un detalle de
+   * presentación: «llamadas perdidas del 123» es una cifra que se reporta.
+   *
+   * Es un campo aparte y no se deduce de `agente` a propósito: hay centrales
+   * que mandan la extensión que se intentó aunque nadie haya contestado, y
+   * deducirlo de ahí escondería perdidas de verdad — que es el error peor de
+   * los dos. Sin este campo, el comportamiento es exactamente el de siempre.
+   */
+  @IsOptional() @IsBoolean()
+  atendidaEnPlanta?: boolean;
 }
 
 /** Quién actúa: lo que necesita este servicio para decidir alcance y permisos. */
@@ -204,13 +221,21 @@ export class PbxService {
         const numero = PbxService.normalizarNumero(crudo);
 
         // Idempotencia: si la central reintenta el mismo evento (mismo callId
-        // aún timbrando), se devuelve la llamada ya registrada en vez de
-        // duplicarla en la cola.
+        // aún timbrando), no se duplica la fila en la cola.
+        //
+        // Pero tampoco se ignora lo que traiga de nuevo. Una central que
+        // cuenta la llamada en varios pasos —Zadarma lo hace: primero «entra
+        // una llamada», después «se la estoy ofreciendo a la extensión 101»—
+        // manda el mismo callId dos veces, y el segundo aviso es el que dice
+        // a QUIÉN hay que avisarle. Devolver la fila tal cual perdía
+        // exactamente ese dato, y la llamada se quedaba anunciada a todo el
+        // mundo. Lo mismo cuando la cola salta al siguiente agente: la
+        // extensión nueva es la verdad, no la anterior.
         if (dto.callId?.trim()) {
           const repetida = await llamadas.findOne({
             where: { tenant: tenant.codigo, callId: dto.callId.trim(), estado: 'sonando' },
           });
-          if (repetida) return repetida;
+          if (repetida) return this.completar(manager, tenant, repetida, dto);
         }
 
         // Si la central ya enrutó (ACD), se resuelve la extensión al funcionario
@@ -242,8 +267,13 @@ export class PbxService {
       if (dto?.evento === 'colgada') {
         const llamada = await this.ubicar(manager, tenant.codigo, dto.callId, dto.numero);
         if (!llamada) throw new NotFoundException('Llamada no encontrada.');
-        if (llamada.estado === 'sonando') llamada.estado = 'perdida';
-        else if (llamada.estado === 'atendida') llamada.estado = 'finalizada';
+        if (llamada.estado === 'sonando') {
+          // Sonando al colgar: perdida, salvo que la central diga que alguien
+          // la contestó por fuera de FALCON (softphone). Ver `atendidaEnPlanta`.
+          llamada.estado = dto.atendidaEnPlanta ? 'finalizada' : 'perdida';
+        } else if (llamada.estado === 'atendida') {
+          llamada.estado = 'finalizada';
+        }
         // Muchas centrales solo saben quién contestó al momento de colgar
         // (resumen final de la llamada) — se acepta también aquí, y no pisa
         // lo que ya se hubiera recibido en 'entrante' si esta vez no lo manda.
@@ -255,6 +285,39 @@ export class PbxService {
 
       throw new BadRequestException('Evento de PBX no reconocido.');
     });
+  }
+
+  /**
+   * Completa una llamada que ya está sonando con lo que trae un aviso
+   * posterior de la misma central (la extensión a la que se la ofrece, el
+   * agente que descolgó).
+   *
+   * Solo guarda y avisa si algo CAMBIÓ de verdad: un reintento idéntico
+   * —que es lo que hace cualquier central cuando no recibe el 200 a tiempo—
+   * no debe volver a hacer sonar el aviso en la pantalla del operador.
+   */
+  private async completar(
+    manager: EntityManager, tenant: TenantEntity, llamada: LlamadaEntity, dto: WebhookLlamadaDto,
+  ): Promise<LlamadaEntity> {
+    const extension = dto.extension?.trim() || null;
+    const agente = dto.agente?.trim() || null;
+    let cambio = false;
+
+    if (extension && extension !== llamada.extension) {
+      llamada.extension = extension;
+      llamada.destinatario =
+        (await this.usuarios.buscarPorExtension(tenant.codigo, extension))?.username ?? null;
+      cambio = true;
+    }
+    if (agente && agente !== llamada.agentePbx) {
+      llamada.agentePbx = agente;
+      cambio = true;
+    }
+    if (!cambio) return llamada;
+
+    const guardada = await manager.getRepository(LlamadaEntity).save(llamada);
+    this.eventos$.next({ tenant: tenant.codigo, tipo: 'cambio', llamada: guardada });
+    return guardada;
   }
 
   /**
