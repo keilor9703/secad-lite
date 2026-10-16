@@ -259,10 +259,17 @@ comercial es menos probable que cumpla. Con B no se depende de la respuesta.
 **Y lo que B cuesta de verdad, dicho sin adornos:** la licencia es gratis, la
 máquina en Bogotá es barata, y el trabajo son dos cosas: escribir el proveedor
 «Asterisk» en FALCON —un archivo, como los demás— y **operar una centralita
-24/7**. Lo primero es una semana. Lo segundo es una responsabilidad
-permanente, y para una línea 123 no es menor: un CAD caído molesta, una
-central de emergencias caída es otra cosa. Eso se presupuesta como persona, no
-como servidor.
+24/7**.
+
+Lo primero resultó ser **1–2 días, no una semana**: Asterisk no necesita
+traductor de eventos porque puede usar el webhook genérico que ya existe, el
+mismo de YACO; solo hay que escribir `softphone()` y `marcar()`. Lo segundo es
+una responsabilidad permanente, y para una línea 123 no es menor: un CAD caído
+molesta, una central de emergencias caída es otra cosa. Eso se presupuesta como
+persona, no como servidor.
+
+El plan completo, fase por fase, está en
+[`telefonia-asterisk-propio.md`](telefonia-asterisk-propio.md).
 
 ---
 
