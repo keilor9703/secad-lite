@@ -266,8 +266,16 @@ pero pierde la mitad de la gracia.
 **Sin DID todavía**, la prueba que sí se puede hacer es entre extensiones:
 regístrese con MicroSIP (o el teléfono web de *Mi centralita*, o la app) en la
 101, marque `102`, conteste en la otra y cuelgue. No es una llamada del
-ciudadano —entra por `NOTIFY_INTERNAL`, no por `NOTIFY_START`— pero recorre
-toda la cadena: URL, firma, cola, operador y cierre.
+ciudadano, pero recorre toda la cadena: URL, firma, cola, operador y cierre.
+
+> **Ojo con el nombre del evento.** Aquí decía que una llamada entre
+> extensiones entra por `NOTIFY_INTERNAL`. **No es lo que hace esta cuenta.**
+> La bitácora de producción del 16/10/2026 no tiene ni un `NOTIFY_INTERNAL`:
+> una 102 → 100 llega como **`NOTIFY_OUT_START`**, porque desde la 102 es una
+> saliente. Es la misma asimetría del fin de llamada (ver §5), ahora en el
+> comienzo. FALCON ahora acepta las dos formas, así que la prueba funciona
+> igual; lo que no se puede es confiar en el nombre del evento para saber la
+> dirección de la llamada.
 
 Con DID, llámelo desde un celular. En los dos casos mire, en este orden:
 
@@ -293,6 +301,7 @@ hizo**, no solo qué falló:
  t       | NOTIFY_ANSWER       | Contestada por la extensión 102
  t       | NOTIFY_OUT_END      | Colgada (answered, 37 s)
  t       | NOTIFY_INTERNAL_END | Ya estaba cerrada (finalizada); no cambió nada
+ t       | NOTIFY_OUT_START    | Interna 102 → 100, dirigida a la extensión 100
  t       | NOTIFY_OUT_START    | Saliente 101 → 573009999999, no entra a la cola
  t       | NOTIFY_START        | Entrante de 573001234567
  t       | NOTIFY_END          | Colgada (no answer, 0 s)
@@ -310,7 +319,8 @@ hizo**, no solo qué falló:
 | `Colgada (…)` | Se cerró la llamada; entre paréntesis, lo que dijo la central |
 | `Ya estaba cerrada (…)` | Aviso de fin repetido —llegan dos—; no cambió nada |
 | `… no estaba en la cola, nada que cerrar` | Fin de una saliente de verdad: nunca creó fila |
-| `Saliente … no entra a la cola` | La marcó un operador; la cola es de lo que entra |
+| `Interna … dirigida a la extensión …` | Llamada entre extensiones: para la que recibe, entra a la cola |
+| `Saliente … no entra a la cola` | La marcó un operador hacia un abonado; la cola es de lo que entra |
 
 Si no hay NINGUNA fila, la petición no llegó: es Zadarma, el DNS o nginx.
 
@@ -465,17 +475,41 @@ configuró», y mandaría a buscar el problema donde no está.
 contestar vuelve a ser dos gestos: el widget es una caja negra y no deja leer
 quién llama ni cuándo se contestó, que es justo lo que ata la llamada con la de
 la cola.
-2. **La grabación al caso.** `NOTIFY_RECORD` avisa que está lista; se pide con
+2. **`NOTIFY_ANSWER` crea filas de la nada, y eso hay que revisar con una
+   llamada real.** Su traducción es `entrante`, y `entrante` hace *upsert*: si
+   no encuentra la llamada por `pbx_call_id`, **la crea**. La intención era
+   anotar quién descolgó en una fila que ya existe. Con el arreglo del comienzo
+   de llamada (§5) la fila ya existe cuando llega el `ANSWER` de una entrante,
+   así que el camino normal queda bien — pero una **saliente de verdad**
+   (operador → ciudadano) también produce un `NOTIFY_ANSWER`, y ahí no hay
+   ninguna fila: se crearía una llamada entrante fantasma en la cola por cada
+   llamada que haga un operador.
+
+   **No se ha corregido a propósito:** no hay en la bitácora ni un
+   `NOTIFY_ANSWER` de una saliente externa, y no se arregla a ciegas un cuerpo
+   que no se ha visto —la decisión depende de qué manda la central en
+   `caller_id` y `destination` en ese caso—. Para capturarlo basta hacer **una**
+   llamada desde el botón «Llamar» de un caso y mirar:
+
+   ```bash
+   cd ~/falcon-deploy
+   docker compose exec -T postgres psql -U falcon -d falcon_cad -c "
+   SELECT evento, left(cuerpo, 400) FROM pbx_webhook_log
+   WHERE evento IN ('NOTIFY_ANSWER','NOTIFY_OUT_START')
+   ORDER BY \"creadoEn\" DESC LIMIT 4;"
+   ```
+
+3. **La grabación al caso.** `NOTIFY_RECORD` avisa que está lista; se pide con
    `/v1/pbx/record/request/` (hay que esperar unos segundos: justo después del
    aviso, el archivo todavía no está) y se guarda como adjunto del caso, con la
    misma política de retención que el video.
-3. ~~**Llamada saliente desde el caso.**~~ Hecho (ver §2). Falta una sola cosa,
+4. ~~**Llamada saliente desde el caso.**~~ Hecho (ver §2). Falta una sola cosa,
    y no es código: **comprobar que el servidor de producción puede SALIR** a
    `api.zadarma.com`. El webhook va en la dirección contraria —lo inicia
    Zadarma—, así que que las llamadas entren no dice nada sobre si se pueden
    originar. Si la salida está cerrada, el botón dice «No se pudo hablar con la
    centralita» y se arregla apuntando `ZADARMA_API_URL` a un proxy de salida.
-4. **El número de verdad.** Hoy no hay DID: la cuenta solo tiene extensiones,
+5. **El número de verdad.** Hoy no hay DID: la cuenta solo tiene extensiones,
    así que se puede probar todo menos la llamada del ciudadano. Para el caso
    **C** de §1.1 —el número en la nube que vendemos nosotros— basta comprar
    uno en Zadarma y ponerlo en *Número entrante* en Plataforma. El 123 del
@@ -505,10 +539,10 @@ se colgó en el softphone y en FALCON **siguió timbrando**; hubo que cerrarla a
 mano por la API.
 
 La causa es que Zadarma cuenta esa llamada desde los dos lados. Para la 102 es
-una entrante (`NOTIFY_INTERNAL`) y FALCON la encola; para la 101, que fue la
-que marcó, es una **saliente**, y su fin llega como `NOTIFY_OUT_END` —que se
-ignoraba, por saliente—. Y a veces llegan los dos finales, el de la pata
-interna y el de la saliente, por la misma llamada.
+una entrante y FALCON la encola; para la 101, que fue la que marcó, es una
+**saliente**, y su fin llega como `NOTIFY_OUT_END` —que se ignoraba, por
+saliente—. Y a veces llegan los dos finales, el de la pata interna y el de la
+saliente, por la misma llamada.
 
 Las dos salidas obvias eran malas: ignorar `NOTIFY_OUT_END` deja la llamada
 colgada en la cola para siempre, y tratarlo como un `colgada` cualquiera
@@ -521,15 +555,36 @@ central sin fin—. Así que lo que decide **no es el nombre del evento sino el
 | `NOTIFY_END`, `NOTIFY_INTERNAL_END`, `NOTIFY_OUT_END` | Sí, abierta | Se cierra |
 | lo mismo | Sí, ya cerrada | Nada; se anota «ya estaba cerrada» |
 | lo mismo | No | Nada; era una saliente de verdad |
-| `NOTIFY_OUT_START` | — | Nada: la cola es de lo que ENTRA |
+| `NOTIFY_OUT_START` a un abonado | — | Nada: la cola es de lo que ENTRA |
+| `NOTIFY_OUT_START` a una extensión | — | Entra a la cola — ver abajo |
 
-Dos detalles que solo se ven con tráfico real:
+Tres detalles que solo se ven con tráfico real:
 
 - En `NOTIFY_OUT_END`, `internal` es la extensión que **marcó**, no la que
   contestó. Tomarla por el agente dejaba la llamada 101→102 atribuida a la
   101 en el historial del municipio.
 - El segundo aviso de fin no vuelve a guardar ni a mover la cola en la
   pantalla del operador, pero sí se distingue en la bitácora.
+- **Y el COMIENZO tiene la misma asimetría**, que costó un segundo hallazgo
+  (16/10/2026). Esta cuenta no manda `NOTIFY_INTERNAL`: una 102 → 100 empieza
+  como `NOTIFY_OUT_START`. Mientras eso se ignoraba por «saliente», la fila de
+  la cola no la creaba el timbrazo sino `NOTIFY_ANSWER` —que llega **cuando ya
+  se contestó**—, así que al contestar dentro de FALCON no había nada con qué
+  emparejar y el softphone decía que la cola estaba vacía. En la bitácora se ve
+  el hueco: `OUT_START 11:55:06`, `ANSWER 11:55:11`.
+
+  Lo que decide ahora es el **destino**, no el nombre del evento: si
+  `destination` tiene menos de siete dígitos es una extensión de la propia
+  centralita, y entonces esa llamada ENTRA para quien la recibe. Con siete o
+  más es un abonado, y sigue sin entrar a la cola. Y la extensión que se encola
+  es `destination`, **no `internal`**: aquí `internal` es otra vez quien marcó.
+
+  **Consecuencia que conviene tener presente:** una llamada de un operador a un
+  compañero entra ahora a la cola de ese compañero. Es lo que hace posible
+  probar sin DID, y es lo que FALCON ya hacía —pero tarde y sin servir para
+  nada—. Si más adelante molesta en una sala con tráfico real, el arreglo es
+  marcarlas como internas y filtrarlas en la cola del despachador, no volver a
+  ignorar el evento.
 
 ### La firma, que es donde se pierde una tarde
 

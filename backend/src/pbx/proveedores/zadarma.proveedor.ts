@@ -181,11 +181,43 @@ export class ProveedorZadarma implements ProveedorPbx {
           esSaliente: evento === 'NOTIFY_OUT_END',
         };
 
-      case 'NOTIFY_OUT_START':
+      case 'NOTIFY_OUT_START': {
+        // ────────────────────────────────────────────────────────────────────
+        // LA MISMA ASIMETRÍA, AHORA EN EL OTRO EXTREMO DE LA LLAMADA
+        //
+        // Ya nos pasó con el fin: una llamada entre extensiones TERMINA como
+        // `NOTIFY_OUT_END` —saliente desde la pata que marcó— y mientras ese
+        // evento se ignoraba, colgar en el teléfono no colgaba en FALCON.
+        //
+        // EMPIEZA igual. La central no manda `NOTIFY_INTERNAL` por una 102 →
+        // 100: manda `NOTIFY_OUT_START`, porque desde la 102 es una saliente.
+        // Y para la 100 es, exactamente, una llamada que entra.
+        //
+        // Mientras esto decía «nada», la fila de la cola no la creaba el
+        // timbrazo sino `NOTIFY_ANSWER`, que llega CUANDO YA SE CONTESTÓ. Es
+        // decir: al contestar en FALCON no había nada con qué emparejar, y el
+        // softphone decía —con razón, pero por la causa equivocada— que la
+        // cola de la instancia estaba vacía. Visto en producción el 16/10/2026
+        // en `pbx_webhook_log`: OUT_START 11:55:06, ANSWER 11:55:11, y la fila
+        // de `llamadas` naciendo en el segundo once.
+        //
+        // La clave es que aquí `internal` es quien MARCÓ y `destination` quien
+        // RECIBE. La extensión que entra a la cola es `destination`. Tomar
+        // `internal` dejaría la llamada dirigida a quien la originó.
+        // ────────────────────────────────────────────────────────────────────
+        const destino = cuerpo.destination;
+        if (!esExtensionInterna(destino)) {
+          return {
+            accion: 'nada',
+            resumen: `Saliente ${cuerpo.internal ?? '?'} → ${destino ?? '?'}, no entra a la cola`,
+          };
+        }
         return {
-          accion: 'nada',
-          resumen: `Saliente ${cuerpo.internal ?? '?'} → ${cuerpo.destination ?? '?'}, no entra a la cola`,
+          accion: 'entrante',
+          llamada: { ...this.datos(cuerpo), extension: destino },
+          resumen: `Interna ${cuerpo.internal ?? '?'} → ${destino}, dirigida a la extensión ${destino}`,
         };
+      }
 
       case 'NOTIFY_RECORD':
         return { accion: 'nada', resumen: 'Grabación disponible; descarga todavía no implementada' };
@@ -320,6 +352,27 @@ export class ProveedorZadarma implements ProveedorPbx {
       origen: 'telefono' as const,
     };
   }
+}
+
+/**
+ * ¿Ese destino es una extensión de la propia centralita, y no un abonado?
+ *
+ * Es lo que distingue una llamada INTERNA —102 → 100, que para la 100 es una
+ * llamada que entra— de la saliente que marca un operador hacia un ciudadano,
+ * que no tiene nada que hacer en la cola de un CAD.
+ *
+ * Misma frontera que `PbxService.esNumeroMarcable`: menos de 7 dígitos no es
+ * un abonado. Se repite aquí en vez de importarla porque un traductor de
+ * proveedor no debe depender del servicio que lo usa; si la regla cambia,
+ * cambia en los dos sitios y las pruebas de los dos lo dicen.
+ *
+ * Un destino vacío NO es interno: no se sabe qué es, y meter en la cola lo que
+ * no se entiende es peor que anotarlo y seguir.
+ */
+export function esExtensionInterna(destino: string | undefined): boolean {
+  const d = String(destino ?? '').trim();
+  if (!d || !/^\d+$/.test(d)) return false;
+  return d.length < 7;
 }
 
 /**

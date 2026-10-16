@@ -1,4 +1,4 @@
-import { ProveedorZadarma, fechaIso } from './zadarma.proveedor';
+import { ProveedorZadarma, esExtensionInterna, fechaIso } from './zadarma.proveedor';
 import { camposSecretos, faltanRequeridas, puede } from './proveedor';
 import { firmar } from '../zadarma/zadarma.firma';
 
@@ -139,6 +139,80 @@ describe('ProveedorZadarma · traducir', () => {
     expect(t.accion).toBe('nada');
     if (t.accion !== 'nada') return;
     expect(t.resumen).toContain('no entra a la cola');
+  });
+
+  /**
+   * LA MISMA ASIMETRÍA QUE EL FIN, AHORA EN EL COMIENZO.
+   *
+   * El caso real (demo, 16/10/2026): llamando 102 → 100 la central NO mandó
+   * `NOTIFY_INTERNAL`. Mandó `NOTIFY_OUT_START` —desde la 102 es una
+   * saliente— y mientras eso decía «nada», la fila de la cola la creaba
+   * `NOTIFY_ANSWER`, que llega CUANDO YA SE CONTESTÓ. Al contestar dentro de
+   * FALCON no había nada con qué emparejar: en `pbx_webhook_log`, OUT_START a
+   * las 11:55:06 y ANSWER a las 11:55:11.
+   */
+  describe('una llamada entre extensiones empieza como SALIENTE y entra a la cola', () => {
+    const INTERNA = {
+      event: 'NOTIFY_OUT_START', internal: '102', destination: '100',
+      caller_id: '102', call_start: '2026-10-16 11:55:06', pbx_call_id: 'in-102-100',
+    };
+
+    it('entra a la cola, no se ignora', () => {
+      const t = z.traducir(INTERNA);
+      expect(t.accion).toBe('entrante');
+    });
+
+    it('dirigida a quien RECIBE, no a quien marcó', () => {
+      // `internal` es la extensión que marcó. Tomarla por destinataria dejaba
+      // la llamada dirigida a quien la originó: la 100 nunca se enteraba.
+      const t = z.traducir(INTERNA);
+      expect(t.accion).toBe('entrante');
+      if (t.accion !== 'entrante') return;
+      expect(t.llamada.extension).toBe('100');
+      expect(t.llamada.numero).toBe('102');
+      expect(t.llamada.callId).toBe('in-102-100');
+    });
+
+    it('un destino que SÍ es un abonado sigue sin entrar', () => {
+      // Esto es lo que protege la cola: la saliente de un operador hacia un
+      // ciudadano no es una llamada entrante de nadie.
+      for (const destino of ['573009999999', '5730099999', '3009999999']) {
+        const t = z.traducir({ ...INTERNA, destination: destino });
+        // El destino va en la aserción para que un fallo diga CUÁL falló.
+        expect({ destino, accion: t.accion }).toEqual({ destino, accion: 'nada' });
+      }
+    });
+
+    it('sin destino, o con un destino que no es un número, tampoco', () => {
+      // No se sabe qué es. Meter en la cola lo que no se entiende es peor que
+      // anotarlo y seguir.
+      for (const destino of [undefined, '', '  ', 'sip:algo@dominio']) {
+        const t = z.traducir({ ...INTERNA, destination: destino });
+        expect({ destino, accion: t.accion }).toEqual({ destino, accion: 'nada' });
+      }
+    });
+  });
+
+  describe('esExtensionInterna', () => {
+    it('una extensión de la centralita sí', () => {
+      for (const d of ['100', '102', '1', '12', '99999', '108']) {
+        expect({ d, interna: esExtensionInterna(d) }).toEqual({ d, interna: true });
+      }
+    });
+
+    it('un abonado no — misma frontera que esNumeroMarcable: 7 dígitos', () => {
+      for (const d of ['1234567', '573001234567', '3001234000']) {
+        expect({ d, interna: esExtensionInterna(d) }).toEqual({ d, interna: false });
+      }
+      // Justo por debajo del piso sigue siendo extensión.
+      expect(esExtensionInterna('123456')).toBe(true);
+    });
+
+    it('lo que no es un número, no', () => {
+      for (const d of [undefined, '', '  ', '+CO.4552575428314811', 'anonymous', '10a']) {
+        expect({ d, interna: esExtensionInterna(d) }).toEqual({ d, interna: false });
+      }
+    });
   });
 
   it('un evento que no sabemos traducir no revienta: queda anotado', () => {
