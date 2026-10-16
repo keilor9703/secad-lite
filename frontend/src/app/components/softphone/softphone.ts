@@ -77,7 +77,7 @@ import { acotar, guardarPosicion, posicionGuardada, posicionPorDefecto } from '.
               </span>
             } @else if (sp.enCurso(); as l) {
               <span class="sp-txt">
-                <strong>En llamada</strong>
+                <strong>{{ sp.sinAudioRemoto() ? 'En llamada · sin audio' : 'En llamada' }}</strong>
                 <small>{{ l.numero || 'número oculto' }}</small>
               </span>
               <span class="sp-acc">
@@ -107,8 +107,13 @@ import { acotar, guardarPosicion, posicionGuardada, posicionPorDefecto } from '.
         <!-- Lo que pasó con la llamada en la cola, o por qué no se puede
              encender. Solo cuando hay algo que decir, y nunca tapando los
              botones: debajo de la barra. -->
-        @if (abierta() && (sp.avisoCola() || sp.motivo())) {
+        @if (abierta() && (sp.sinAudioRemoto() || sp.avisoCola() || sp.motivo())) {
           <p class="sp-aviso" role="status">
+            @if (sp.sinAudioRemoto()) {
+              <strong>No está llegando el audio de la otra parte.</strong>
+              La llamada está en pie y a usted lo oyen, pero no va a oír nada:
+              avise a soporte —es un problema de red, no de la llamada—.
+            }
             {{ sp.avisoCola() || sp.motivo() }}
             @if (sp.avisoCola()) {
               <button type="button" class="sp-enlace" (click)="irARecepcion()">Ir a Recepción</button>
@@ -137,6 +142,8 @@ export class SoftphoneComponent implements AfterViewInit, OnDestroy {
 
   /** Dónde se agarró la barra respecto de su esquina, para que no dé un salto. */
   private agarre = { x: 0, y: 0 };
+  /** El último elemento entregado, para no repetir la entrega en cada cambio. */
+  private audioEntregado?: HTMLAudioElement;
 
   readonly rotulo = computed(() => {
     if (this.sp.entrante()) return 'Entra una llamada. Abrir el teléfono';
@@ -145,6 +152,32 @@ export class SoftphoneComponent implements AfterViewInit, OnDestroy {
   });
 
   constructor() {
+    // ────────────────────────────────────────────────────────────────────────
+    // EL ELEMENTO DE AUDIO SE ENTREGA CUANDO APARECE, NO AL ARRANCAR
+    //
+    // Esto fue una llamada de una sola vía en producción: al operador lo oían
+    // y él no oía nada. La causa no estaba en SIP ni en los servidores ICE,
+    // estaba aquí.
+    //
+    // El `<audio>` vive dentro de `@if (sp.disponible())`, y eso es FALSO en
+    // el primer render: depende de las capacidades de la planta, que llegan
+    // del servidor. `ngAfterViewInit` corre una sola vez, justo entonces, no
+    // encontraba el elemento y nunca se lo entregaba a la pila SIP — así que
+    // el flujo remoto no tenía dónde sonar. El micrófono sí funcionaba porque
+    // se captura por otro camino, y de ahí que fuera de una sola vía.
+    //
+    // Un `effect` sobre el `viewChild` lo entrega en cuanto existe, pase lo
+    // que pase con el orden de arranque. Lo mismo con la posición, que
+    // necesita medir la barra.
+    // ────────────────────────────────────────────────────────────────────────
+    effect(() => {
+      const el = this.audio()?.nativeElement;
+      if (!el || el === this.audioEntregado) return;
+      this.audioEntregado = el;
+      this.sp.usarAudio(el);
+      this.pos.set(acotar(posicionGuardada() ?? posicionPorDefecto(this.medidas()), this.medidas()));
+    });
+
     // Una llamada despliega la barra sola, y al terminar se vuelve a plegar.
     // Es lo que evita tener que ir a buscarla con el ciudadano esperando.
     effect(() => {
@@ -164,9 +197,6 @@ export class SoftphoneComponent implements AfterViewInit, OnDestroy {
   }
 
   ngAfterViewInit(): void {
-    const el = this.audio()?.nativeElement;
-    if (el) this.sp.usarAudio(el);
-    this.pos.set(acotar(posicionGuardada() ?? posicionPorDefecto(this.medidas()), this.medidas()));
     window.addEventListener('resize', this.alRedimensionar);
   }
 

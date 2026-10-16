@@ -4,6 +4,7 @@ import { Injectable } from '@angular/core';
 import type { Session, SessionState } from 'sip.js';
 import type { SessionManager } from 'sip.js/lib/platform/web/session-manager';
 import { ConfigSoftphone, OyentesSip, TransporteSip } from './transporte-sip';
+import { engancharAudioRemoto, soltarAudioRemoto } from './audio-remoto';
 import { iceServers } from '../config-runtime';
 
 /** Lo que hace falta de SIP.js, ya cargado. */
@@ -108,8 +109,14 @@ export class TransporteSipJs implements TransporteSip {
             callId: cabecera(s, 'X-Pbx-Call-Id') ?? cabecera(s, 'X-Call-Id'),
           });
         },
-        onCallAnswered: () => oyentes.establecida(),
-        onCallHangup: () => { this.sesion = undefined; oyentes.terminada(); },
+        onCallAnswered: () => oyentes.establecida(this.engancharAudio(oyentes)),
+        onCallHangup: () => {
+          this.sesion = undefined;
+          // Soltar el flujo: un `<audio>` con un `srcObject` muerto se queda
+          // con la última pista y la siguiente llamada puede no engancharse.
+          soltarAudioRemoto(this.audio);
+          oyentes.terminada();
+        },
       },
     });
 
@@ -118,6 +125,21 @@ export class TransporteSipJs implements TransporteSip {
     } catch (e) {
       oyentes.registro('fallo', (e as Error)?.message ?? 'No fue posible conectar con la centralita.');
     }
+  }
+
+  /**
+   * Toma el flujo remoto de la sesión y lo engancha al elemento de audio.
+   *
+   * El cómo y el por qué están en `audio-remoto.ts`; aquí solo está lo que
+   * depende de SIP.js: de dónde sale el flujo. Devuelve cuántas pistas había
+   * para que el servicio pueda decir «sin audio», y si llegan después,
+   * vuelve a avisar para retractarse.
+   */
+  private engancharAudio(oyentes: OyentesSip): number {
+    const sdh = (this.sesion as unknown as {
+      sessionDescriptionHandler?: { remoteMediaStream?: MediaStream };
+    })?.sessionDescriptionHandler;
+    return engancharAudioRemoto(this.audio, sdh?.remoteMediaStream, (n) => oyentes.establecida(n));
   }
 
   async desconectar(): Promise<void> {

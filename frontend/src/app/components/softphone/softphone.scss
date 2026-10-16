@@ -28,23 +28,50 @@
 .sp--arrastrando { cursor: grabbing; user-select: none; }
 .sp--abierta { padding-right: 0.7rem; border-radius: var(--radius-lg); }
 
-/* Una llamada entrando tiene que verse desde el otro lado de la sala. */
+/* ───────────────────────────────────────────────────────────────────────────
+   UNA LLAMADA ENTRANDO TIENE QUE VERSE DESDE EL OTRO LADO DE LA SALA
+
+   Un halo que late no alcanza: el operador está mirando el mapa, el tablero o
+   el formulario, no la esquina donde vive la barra. Lo que se ve de reojo es
+   el MOVIMIENTO, así que la barra salta —como un teléfono vibrando— además
+   de cambiar de color. Y suena, que es lo que de verdad avisa.
+   ─────────────────────────────────────────────────────────────────────────── */
 .sp--sonando {
   border-color: var(--accent);
-  box-shadow: var(--shadow), 0 0 0 3px var(--accent-soft);
-  animation: sp-latido 1.4s ease-in-out infinite;
+  background: var(--accent-soft);
+  animation: sp-salto 1s ease-in-out infinite;
 }
 .sp--encurso { border-color: var(--accent); }
 
-@keyframes sp-latido {
-  0%, 100% { box-shadow: var(--shadow), 0 0 0 3px var(--accent-soft); }
-  50%      { box-shadow: var(--shadow), 0 0 0 7px transparent; }
+@keyframes sp-salto {
+  0%, 100%  { transform: translateY(0);     box-shadow: var(--shadow), 0 0 0 3px var(--accent-soft); }
+  15%       { transform: translateY(-6px);  box-shadow: var(--shadow), 0 0 0 8px var(--accent-soft); }
+  30%       { transform: translateY(0); }
+  45%       { transform: translateY(-3px); }
+  60%       { transform: translateY(0);     box-shadow: var(--shadow), 0 0 0 10px transparent; }
 }
 
-/* Quien pidió menos movimiento no quiere un teléfono latiendo en pantalla. */
+/* El icono también: el auricular se inclina, como el de un teléfono sonando. */
+.sp--sonando .sp-icono { animation: sp-meneo 0.6s ease-in-out infinite; }
+
+@keyframes sp-meneo {
+  0%, 100% { transform: rotate(-14deg); }
+  50%      { transform: rotate(14deg); }
+}
+
+/* Mientras se arrastra no salta: perseguir una barra que se mueve sola es
+   exactamente lo contrario de poder ponerla donde uno quiere. */
+.sp--arrastrando.sp--sonando,
+.sp--arrastrando .sp-icono { animation: none; }
+
+/* Quien pidió menos movimiento no quiere un teléfono saltando en pantalla.
+   Se queda el color y el halo, que son estáticos —y el sonido, que es el
+   aviso que de verdad no depende de mirar. */
 @media (prefers-reduced-motion: reduce) {
   .sp { transition: none; }
-  .sp--sonando { animation: none; }
+  .sp--sonando,
+  .sp--sonando .sp-icono { animation: none; }
+  .sp--sonando { box-shadow: var(--shadow), 0 0 0 4px var(--accent-soft); }
 }
 
 .sp-icono {

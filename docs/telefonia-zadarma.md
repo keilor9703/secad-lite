@@ -320,6 +320,65 @@ Si no hay NINGUNA fila, la petición no llegó: es Zadarma, el DNS o nginx.
 > interceptor genérico tomaba ese `{ ok: false }` por un éxito. Si está
 > mirando una fila vieja así, no significa que estuviera bien.
 
+### 3.6 El softphone: si no suena, si no se oye, si no aparece en Recepción
+
+Los tres síntomas se vieron juntos la primera vez que se probó en la instancia
+**demo** (16/10/2026), y tienen tres causas distintas. Conviene separarlas
+antes de tocar nada.
+
+**«No suena nada.»** El teléfono de FALCON **suena** —un doble timbrazo cada
+tres segundos— y la barra **salta** además de cambiar de color: el operador
+está mirando el mapa, no la esquina de la pantalla. Si no suena:
+
+- **¿Está encendido?** La barra tiene que decir *registrado*. El sonido se
+  prepara en ese clic y no antes: un `AudioContext` nace suspendido si la
+  pestaña no ha tenido ninguna interacción, así que un teléfono que nunca se
+  encendió a mano tampoco puede sonar.
+- **¿La extensión tiene clave SIP en FALCON?** Administración → el usuario →
+  *clave SIP*. Sin ella el softphone no se registra y la barra lo dice.
+- **¿Hay otro softphone registrado en la misma extensión?** MicroSIP, la app
+  de Zadarma o el teléfono web del panel se registran en la MISMA extensión.
+  Para probar FALCON, ciérrelos: así no hay duda de dónde sonó.
+
+**«Hablo y me oyen, pero no oigo a la otra parte.»** Esto fue un defecto, y
+está corregido. Eran dos cosas, las dos del lado de FALCON:
+
+1. Los servidores ICE iban en una llave que SIP.js ignora en silencio
+   (`iceServers` suelto en vez de dentro de `peerConnectionConfiguration`).
+2. El `<audio>` vive dentro de `@if (disponible())`, que es **falso en el
+   primer render** porque las capacidades de la planta llegan del servidor.
+   `ngAfterViewInit` corría una sola vez, no encontraba el elemento y nunca se
+   lo entregaba a la pila SIP. El micrófono sí funcionaba, porque se captura
+   por otro camino — de ahí que fuera de una sola vía y no mudo del todo.
+
+Ahora el flujo remoto se engancha **explícitamente** al contestar y se cuentan
+las pistas de audio. Si no llega ninguna, la barra lo dice —*«En llamada · sin
+audio»*— en vez de dejar al operador hablando solo. Y si la pista llega tarde
+(SIP.js documenta que el flujo remoto nace sin pistas), el aviso **se
+retracta**: un aviso que no se corrige hace que la segunda vez nadie le crea.
+Si el aviso se queda, el problema es de red —RTP bloqueado, coturn caído— y no
+de la llamada.
+
+**«Contesto y no aparece nada en Recepción.»** Casi siempre es esto: **la
+dirección del webhook lleva la API key de UNA instancia** (§3.2), así que una
+cuenta de Zadarma entrega sus llamadas a **una sola** instancia de FALCON. Si
+la URL pegada en el panel lleva la llave de *itagui* y usted está probando en
+*demo*, la cola de demo está vacía y no hay con qué emparejar la llamada: el
+SIP llegó al navegador, el webhook se fue a la otra instancia.
+
+La barra distingue los dos casos y lo dice con esas palabras:
+
+| Lo que dice la barra | Qué pasó |
+|---|---|
+| «la cola de esta instancia está vacía: la central no le está avisando a FALCON» | La API key de la URL es de otra instancia, o el webhook no está puesto |
+| «ninguna llamada de la cola corresponde a esta» | El webhook sí llega; falló el emparejamiento (número o extensión) |
+| «Tomada para usted. Complete el caso en Recepción» | Todo bien |
+
+Para probar las dos instancias con una sola cuenta de Zadarma hay que cambiar
+la llave de la URL en el panel —o comprar una segunda cuenta—. No hay forma de
+que una cuenta alimente dos instancias a la vez, y es a propósito: la llave en
+la URL es lo que identifica al inquilino antes de verificar la firma.
+
 ---
 
 ## 4. Lo que falta, en orden

@@ -53,8 +53,15 @@ export interface LlamadaSip {
 export interface OyentesSip {
   registro(estado: EstadoSip, motivo?: string): void;
   entrante(llamada: LlamadaSip): void;
-  /** Hay audio en los dos sentidos. */
-  establecida(): void;
+  /**
+   * Hay audio en los dos sentidos.
+   *
+   * `pistasRemotas` es cuántas pistas de audio llegó a enganchar el navegador.
+   * Cero significa que la llamada se estableció y no se va a oír nada —pasó
+   * en producción—, y eso hay que poder decirlo en vez de dejar al operador
+   * hablando solo.
+   */
+  establecida(pistasRemotas: number): void;
   terminada(): void;
 }
 

@@ -6,6 +6,7 @@ import { AuthService } from '../auth.service';
 import { Llamada } from '../models';
 import { ConfigSoftphone, EstadoSip, LlamadaSip } from './transporte-sip';
 import { TransporteSipJs } from './transporte-sipjs';
+import { Timbre } from './timbre';
 
 /** Lo que responde `GET /api/pbx/softphone`. */
 type RespuestaSoftphone =
@@ -72,6 +73,17 @@ export class SoftphoneService {
   readonly silenciado = signal(false);
   /** Qué pasó con la llamada de la cola al contestar. */
   readonly avisoCola = signal('');
+  /**
+   * La llamada se estableció y NO llegó audio de la otra parte.
+   *
+   * Es un estado real y conviene decirlo: pasó en producción —al operador lo
+   * oían y él no oía nada— y el silencio no se distingue de «el ciudadano no
+   * ha dicho nada todavía» hasta que es tarde.
+   */
+  readonly sinAudioRemoto = signal(false);
+
+  /** El timbre. Se prepara al encender, que es el clic que desbloquea el audio. */
+  private readonly timbre = new Timbre();
 
   /** ¿Se puede ofrecer el softphone en la interfaz? */
   readonly disponible = computed(() =>
@@ -94,6 +106,11 @@ export class SoftphoneService {
     this.motivo.set('');
     this.estado.set('conectando');
 
+    // Antes de nada: este método lo dispara un clic del operador, y es el
+    // único momento en que el navegador deja preparar el audio. Si el timbre
+    // se creara al entrar la primera llamada, no sonaría.
+    this.timbre.preparar();
+
     const r = await this.pedirConfig();
     if (!r) {
       this.estado.set('fallo');
@@ -113,20 +130,42 @@ export class SoftphoneService {
         if (motivo) this.motivo.set(motivo);
         else if (estado === 'registrado') this.motivo.set('');
       },
-      entrante: (l) => { this.entrante.set(l); this.avisoCola.set(''); },
-      establecida: () => {
-        this.enCurso.set(this.entrante());
-        this.entrante.set(null);
+      entrante: (l) => {
+        this.entrante.set(l);
+        this.avisoCola.set('');
+        this.sinAudioRemoto.set(false);
+        this.timbre.arrancar();
+      },
+      establecida: (pistasRemotas) => {
+        this.timbre.parar();
+        // Esto puede llegar DOS veces para la misma llamada: una al
+        // establecerse, y otra si el audio remoto aparece tarde —el flujo de
+        // SIP.js nace sin pistas—. La segunda solo viene a corregir el aviso,
+        // así que el paso de «entrando» a «en llamada» se hace una sola vez:
+        // repetirlo dejaría `enCurso` en nulo y la llamada desaparecería de
+        // la barra con el ciudadano al otro lado.
+        const sip = this.entrante();
+        if (sip) {
+          this.enCurso.set(sip);
+          this.entrante.set(null);
+        }
+        // Cero pistas de audio remoto significa que la llamada se estableció
+        // y no se va a oír nada. Decirlo es mejor que dejar al operador
+        // hablando solo.
+        this.sinAudioRemoto.set(pistasRemotas === 0);
       },
       terminada: () => {
+        this.timbre.parar();
         this.entrante.set(null);
         this.enCurso.set(null);
         this.silenciado.set(false);
+        this.sinAudioRemoto.set(false);
       },
     });
   }
 
   async apagar(): Promise<void> {
+    this.timbre.soltar();
     await this.transporte.desconectar();
     this.estado.set('apagado');
     this.extension.set('');
@@ -148,14 +187,25 @@ export class SoftphoneService {
   async contestar(): Promise<void> {
     const sip = this.entrante();
     if (!sip) return;
+    this.timbre.parar();
     await this.transporte.contestar();
 
     const dela = this.deLaCola(sip);
     if (!dela) {
-      this.avisoCola.set(
-        'Contestada. No se encontró esta llamada en la cola de FALCON, así que no quedó tomada: '
-        + 'si va a radicar un caso, tómela a mano en Recepción.',
-      );
+      // DOS CAUSAS MUY DISTINTAS, Y HAY QUE DISTINGUIRLAS.
+      //
+      // Si la cola está vacía, el problema no es el emparejamiento: es que la
+      // central no le está avisando a ESTA instancia. La dirección del
+      // webhook lleva la API key de UNA instancia, así que una cuenta de la
+      // centralita entrega sus llamadas a una sola. Decir «no se encontró» a
+      // secas manda a buscar el error donde no está.
+      const hayCola = this.pbx.llamadas().some((l) => l.estado === 'sonando');
+      this.avisoCola.set(hayCola
+        ? 'Contestada, pero ninguna llamada de la cola corresponde a esta. Si va a radicar un '
+          + 'caso, tómela a mano en Recepción.'
+        : 'Contestada, pero la cola de esta instancia está vacía: la central no le está avisando '
+          + 'a FALCON de esta llamada. Revise que la dirección del webhook en la centralita lleve '
+          + 'la API key de ESTA instancia —una cuenta entrega sus llamadas a una sola—.');
       return;
     }
     this.pbx.reclamar(dela.id).subscribe({
@@ -172,6 +222,10 @@ export class SoftphoneService {
   }
 
   async colgar(): Promise<void> {
+    // Primero callar: colgar tarda un instante en ir y volver por la red, y
+    // un timbre que sigue sonando después de rechazar la llamada es lo que
+    // hace que alguien le baje el volumen al equipo y se pierda la siguiente.
+    this.timbre.parar();
     await this.transporte.colgar();
   }
 

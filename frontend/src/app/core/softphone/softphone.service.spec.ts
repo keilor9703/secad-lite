@@ -272,9 +272,11 @@ describe('SoftphoneService', () => {
       expect(transporte.contestadas).toBe(1);
     });
 
-    it('sin llamada en la cola, se contesta igual y se dice qué hacer', async () => {
-      // El audio es lo urgente; la fila de la cola es nuestro registro. Dejar
-      // al ciudadano esperando por un problema de contabilidad sería absurdo.
+    it('con la cola VACÍA, dice que la central no le avisa a esta instancia', async () => {
+      // Es otra cosa, y mandarlo a revisar el emparejamiento sería mandarlo
+      // a buscar donde no está: la dirección del webhook lleva la API key de
+      // UNA instancia, así que una cuenta de la centralita entrega sus
+      // llamadas a una sola.
       llamadas.set([]);
       await encender();
       transporte.oyentes!.entrante({ numero: '3009999999' });
@@ -283,13 +285,93 @@ describe('SoftphoneService', () => {
 
       expect(transporte.contestadas).toBe(1);
       expect(reclamar).not.toHaveBeenCalled();
-      expect(sp.avisoCola()).toContain('no quedó tomada');
+      expect(sp.avisoCola()).toContain('API key de ESTA instancia');
+    });
+
+    it('con cola pero sin coincidencia, dice eso otro', async () => {
+      llamadas.set([llamada({ id: 'l-ajena', numero: '3001111111', extension: '199' })]);
+      await encender();
+      transporte.oyentes!.entrante({ numero: '3009999999' });
+
+      await sp.contestar();
+
+      expect(sp.avisoCola()).toContain('ninguna llamada de la cola corresponde');
+      expect(sp.avisoCola()).not.toContain('API key');
     });
 
     it('sin llamada entrante no hace nada', async () => {
       await encender();
       await sp.contestar();
       expect(transporte.contestadas).toBe(0);
+    });
+  });
+
+  describe('el timbre y el audio', () => {
+    it('una llamada entrando enciende el timbre, y contestar lo calla', async () => {
+      // Un teléfono que no suena no es un teléfono: en una sala de despacho
+      // el operador está mirando el mapa, no la esquina de la barra.
+      await encender();
+      transporte.oyentes!.entrante({ numero: '3001234567' });
+      expect((sp as unknown as { timbre: { sonando(): boolean } }).timbre.sonando()).toBeTrue();
+
+      await sp.contestar();
+      expect((sp as unknown as { timbre: { sonando(): boolean } }).timbre.sonando()).toBeFalse();
+    });
+
+    it('rechazar también lo calla, y antes de que la red responda', async () => {
+      // Un timbre que sigue sonando después de rechazar es lo que hace que
+      // alguien le baje el volumen al equipo y se pierda la siguiente.
+      await encender();
+      transporte.oyentes!.entrante({ numero: '300' });
+
+      await sp.colgar();
+
+      expect((sp as unknown as { timbre: { sonando(): boolean } }).timbre.sonando()).toBeFalse();
+    });
+
+    it('si no llega audio de la otra parte, se dice', async () => {
+      // Pasó en producción: la llamada en pie, al operador lo oían, y él no
+      // oía nada. El silencio no se distingue de «todavía no ha dicho nada»
+      // hasta que es tarde.
+      await encender();
+      transporte.oyentes!.entrante({ numero: '300' });
+      transporte.oyentes!.establecida(0);
+
+      expect(sp.sinAudioRemoto()).toBeTrue();
+    });
+
+    it('y con audio, no se dice nada', async () => {
+      await encender();
+      transporte.oyentes!.entrante({ numero: '300' });
+      transporte.oyentes!.establecida(1);
+
+      expect(sp.sinAudioRemoto()).toBeFalse();
+    });
+
+    it('si el audio llega tarde, el aviso se retracta y la llamada sigue ahí', async () => {
+      // El flujo remoto de SIP.js nace sin pistas, así que el aviso puede
+      // llegar antes que el audio. Un aviso que no se retracta hace que la
+      // segunda vez nadie le crea — y, peor, corregirlo mal borraba la
+      // llamada de la barra con el ciudadano al otro lado.
+      await encender();
+      transporte.oyentes!.entrante({ numero: '3001234567' });
+      transporte.oyentes!.establecida(0);
+      expect(sp.sinAudioRemoto()).toBeTrue();
+
+      transporte.oyentes!.establecida(1);
+
+      expect(sp.sinAudioRemoto()).toBeFalse();
+      expect(sp.enCurso()).not.toBeNull();
+      expect(sp.entrante()).toBeNull();
+    });
+
+    it('al terminar la llamada se olvida el aviso', async () => {
+      await encender();
+      transporte.oyentes!.entrante({ numero: '300' });
+      transporte.oyentes!.establecida(0);
+      transporte.oyentes!.terminada();
+
+      expect(sp.sinAudioRemoto()).toBeFalse();
     });
   });
 
@@ -301,7 +383,7 @@ describe('SoftphoneService', () => {
       expect(sp.entrante()?.numero).toBe('3001234567');
       expect(sp.enCurso()).toBeNull();
 
-      transporte.oyentes!.establecida();
+      transporte.oyentes!.establecida(1);
       expect(sp.entrante()).toBeNull();
       expect(sp.enCurso()?.numero).toBe('3001234567');
 

@@ -36,7 +36,7 @@ describe('SoftphoneComponent', () => {
           useValue: {
             disponible, estado, entrante, enCurso, contestar,
             motivo: signal(''), avisoCola: signal(''), silenciado: signal(false),
-            extension: signal('102'),
+            sinAudioRemoto: signal(false), extension: signal('102'),
             encender: () => undefined, apagar: () => undefined,
             colgar: () => undefined, alternarSilencio: () => undefined,
             usarAudio: () => undefined,
@@ -194,6 +194,7 @@ describe('SoftphoneComponent', () => {
     // no hay dónde enganchar el audio remoto y la llamada se establece muda,
     // que es exactamente lo que se vio en producción.
     const entregados: HTMLAudioElement[] = [];
+    const disp = signal(false);
     TestBed.resetTestingModule();
     TestBed.configureTestingModule({
       providers: [
@@ -201,10 +202,10 @@ describe('SoftphoneComponent', () => {
         {
           provide: SoftphoneService,
           useValue: {
-            disponible: signal(true), estado: signal('registrado'),
+            disponible: disp, estado: signal('registrado'),
             entrante: signal(null), enCurso: signal(null),
             motivo: signal(''), avisoCola: signal(''), silenciado: signal(false),
-            extension: signal('102'),
+            sinAudioRemoto: signal(false), extension: signal('102'),
             encender: () => undefined, apagar: () => undefined, colgar: () => undefined,
             contestar: () => undefined, alternarSilencio: () => undefined,
             usarAudio: (el: HTMLAudioElement) => entregados.push(el),
@@ -215,8 +216,20 @@ describe('SoftphoneComponent', () => {
     const f = TestBed.createComponent(SoftphoneComponent);
     f.detectChanges();
 
+    // Así llega en producción: las capacidades vienen de la API, de modo que en
+    // el primer render la barra no existe todavía y no hay elemento que
+    // entregar. Esto es lo que dejaba la pila SIP sin dónde poner el audio.
+    expect(entregados.length).toBe(0);
+
+    disp.set(true);
+    f.detectChanges();
+
     expect(entregados.length).toBe(1);
     expect(entregados[0].tagName).toBe('AUDIO');
     expect(entregados[0].autoplay).toBeTrue();
+
+    // Y no se entrega dos veces: cada entrega vuelve a enganchar el flujo.
+    f.detectChanges();
+    expect(entregados.length).toBe(1);
   });
 });
