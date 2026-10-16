@@ -94,16 +94,37 @@ puede cruzar con llamadas anteriores del mismo teléfono, y el campo «Abonado»
 del caso queda inútil. Solo se acepta si no hay absolutamente otra opción, y
 avisándolo.
 
-**Dos límites del camino bueno que hay que cotizar antes de prometer nada:**
+**Lo que hay que pedirle al operador** son exactamente los cuatro datos que
+pide el formulario de *Crear línea complementaria*, y conviene mandárselos
+así de literal:
 
-1. **Un canal simultáneo, gratis.** La *línea externa adicional* trae **una**
-   conexión entrante a la vez. Para un 123 eso significa que el segundo
-   ciudadano que llame no entra. Se sube a 3 o 10 canales por unos **$6 o
-   $16/mes**. No es caro, pero hay que ponerlo en la cotización desde el
-   principio.
-2. **Zadarma no garantiza esa línea**, porque hay equipo de un tercero en
-   medio. Para una línea de emergencias eso es un riesgo que se le dice al
-   municipio por escrito, no se esconde.
+| Campo del panel | Qué es |
+|---|---|
+| **Servidor y puerto** | El servidor SIP del operador y su puerto (5060 por defecto) |
+| **Nombre de usuario** | El usuario SIP del número |
+| **Contraseña** | Su clave SIP |
+| **Dominio SIP** (opcional) | Solo si el operador usa un dominio distinto del servidor |
+
+Y el **Tipo de conexión** se elige según quién llama a quién: **Servidor** es
+«el servidor de Zadarma se conecta a la línea» —el caso normal, el número ya
+habla SIP—; **Puerta de enlace** es «la línea se conecta al servidor de
+Zadarma», que es lo que hace un gateway FXO instalado en la alcaldía.
+
+**Tres límites del camino bueno que hay que cotizar antes de prometer nada:**
+
+1. **El plan gratis es «1 entrante y 0 SALIENTES».** Esto es lo que se pasa por
+   alto: con la línea gratis no se puede **devolver la llamada** por el número
+   del municipio. El botón «Llamar» del caso saldría por la línea principal de
+   Zadarma, mostrándole al ciudadano un número que no es el de su alcaldía —o
+   no saldría—. Para que el CAD funcione completo (entrar y devolver) hace
+   falta mínimo el plan de **3 entrantes y 3 salientes, $6/mes**.
+2. **Un canal entrante es uno.** Para un 123, el segundo ciudadano que llame
+   mientras hay una conversación en curso **no entra**. 3 canales por $6/mes o
+   10 por $16/mes. Barato, pero va en la cotización desde el principio.
+3. **Zadarma no garantiza esa línea**, porque hay equipo de un tercero en
+   medio —lo dice el propio panel, en el recuadro de atención al lado del
+   formulario—. Para una línea de emergencias eso es un riesgo que se le dice
+   al municipio por escrito, no se esconde.
 
 **Y el Caller ID en modo Servidor hay que comprobarlo con tráfico real.**
 Zadarma dice que se «muestra en la centralita y afecta la ejecución de los
@@ -111,6 +132,11 @@ escenarios». Eso es buena señal —los avisos del webhook los emite la
 centralita— pero «se muestra en la centralita» no es literalmente «viaja en el
 `caller_id` del `NOTIFY_START`». Se verifica con una llamada y
 `pbx_webhook_log`; no se promete antes.
+
+**No confundir las dos secciones del panel.** La *Línea principal* es la SIP
+de Zadarma y es donde se enganchan los números **comprados a Zadarma** (botón
+«Conectar el número de teléfono»). El número **del municipio** va abajo, en
+*Líneas externas complementarias*. Son cosas distintas y se cotizan distinto.
 
 **Qué cambia en FALCON: nada.** Cualquiera de estos caminos termina en una
 llamada de la centralita de Zadarma, con los mismos eventos. Lo único que se
