@@ -461,3 +461,58 @@ describe('abonadoDeLlamada', () => {
     expect(abonadoDeLlamada('+CO.4552575428314811').aviso).toContain('Pregúnteselo');
   });
 });
+
+/**
+ * Preguntarle la cola al servidor y ESPERAR la respuesta.
+ *
+ * Hace falta para decidir, no para refrescar: al contestar en el softphone hay
+ * que emparejar la llamada del navegador con la de la cola, y la copia en
+ * memoria puede estar vieja —Socket.IO no reenvía lo que emitió mientras el
+ * cliente estuvo caído—. Lo que se protege aquí es la distinción entre «no hay
+ * llamadas» y «no pude preguntar»: confundirlas hace que FALCON acuse a la
+ * centralita de no avisar cuando lo que falló fue su propia red.
+ */
+describe('PbxService.recargarYEsperar', () => {
+  let pbx: PbxService;
+  let http: HttpTestingController;
+
+  beforeEach(() => {
+    TestBed.configureTestingModule({
+      providers: [
+        provideHttpClient(), provideHttpClientTesting(),
+        { provide: PbxService, useClass: PbxServicePrueba },
+        { provide: AuthService, useValue: { sesion: sesionDe('pedro', ['pbx.usar']) } },
+      ],
+    });
+    pbx = TestBed.inject(PbxService);
+    http = TestBed.inject(HttpTestingController);
+  });
+
+  afterEach(() => http.verify());
+
+  it('devuelve lo que contestó el servidor y deja la cola al día', async () => {
+    const promesa = pbx.recargarYEsperar();
+    http.expectOne((r) => r.url.endsWith('/pbx/llamadas')).flush([LLAMADA]);
+
+    await expectAsync(promesa).toBeResolvedTo([LLAMADA]);
+    expect(pbx.llamadas()).toEqual([LLAMADA]);
+  });
+
+  it('si no se pudo preguntar devuelve null, NO una cola vacía', async () => {
+    pbx.llamadas.set([LLAMADA]);
+
+    const promesa = pbx.recargarYEsperar();
+    http.expectOne((r) => r.url.endsWith('/pbx/llamadas')).error(new ProgressEvent('error'));
+
+    await expectAsync(promesa).toBeResolvedTo(null);
+    // Y no se borra lo que ya se sabía: un error de red no es una cola vacía.
+    expect(pbx.llamadas()).toEqual([LLAMADA]);
+  });
+
+  it('una cola vacía de verdad sí es una lista vacía', async () => {
+    const promesa = pbx.recargarYEsperar();
+    http.expectOne((r) => r.url.endsWith('/pbx/llamadas')).flush([]);
+
+    await expectAsync(promesa).toBeResolvedTo([]);
+  });
+});

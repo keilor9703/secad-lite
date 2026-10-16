@@ -53,6 +53,9 @@ describe('SoftphoneService', () => {
   let paraTrabajar: ReturnType<typeof signal<Llamada | null>>;
   let reclamar: jasmine.Spy;
   let capacidades: string[];
+  /** Lo que contesta el servidor cuando se le vuelve a preguntar la cola. */
+  let alRecargar: () => Llamada[] | null;
+  let recargas: number;
 
   const CONFIG: ConfigSoftphone = {
     wss: 'wss://wss.ejemplo.com', dominio: 'sip.ejemplo.com',
@@ -67,6 +70,8 @@ describe('SoftphoneService', () => {
     paraTrabajar = signal<Llamada | null>(null);
     capacidades = ['entrantes', 'softphone'];
     reclamar = jasmine.createSpy('reclamar').and.callFake((id: string) => of(llamada({ id, destinatario: 'pedro' })));
+    recargas = 0;
+    alRecargar = () => llamadas();
 
     TestBed.configureTestingModule({
       providers: [
@@ -77,6 +82,12 @@ describe('SoftphoneService', () => {
           useValue: {
             llamadas, paraTrabajar, reclamar,
             puede: (c: string) => capacidades.includes(c),
+            recargarYEsperar: async () => {
+              recargas += 1;
+              const v = alRecargar();
+              if (v) llamadas.set(v);
+              return v;
+            },
           },
         },
         {
@@ -295,7 +306,7 @@ describe('SoftphoneService', () => {
 
       await sp.contestar();
 
-      expect(sp.avisoCola()).toContain('ninguna llamada de la cola corresponde');
+      expect(sp.avisoCola()).toContain('ninguna de las llamadas que están timbrando');
       expect(sp.avisoCola()).not.toContain('API key');
     });
 
@@ -303,6 +314,96 @@ describe('SoftphoneService', () => {
       await encender();
       await sp.contestar();
       expect(transporte.contestadas).toBe(0);
+    });
+  });
+
+  describe('cuando la llamada no está en la cola que uno tiene en memoria', () => {
+    /** Contesta una llamada entrante de ese número. */
+    async function contestarEntrante(numero = '3001234567'): Promise<void> {
+      await encender();
+      transporte.oyentes!.entrante({ numero });
+      await sp.contestar();
+    }
+
+    it('se le vuelve a preguntar al servidor, y ahí sí se empareja', async () => {
+      // La cola en memoria la llena Socket.IO, y ese canal tiene huecos: una
+      // red que se cayó, la pantalla suspendida, un despliegue que reinicia
+      // las réplicas. Con la copia vieja se concluía «la central no le avisa a
+      // esta instancia» y eso manda media hora al panel de la centralita por
+      // un aviso que este navegador se perdió.
+      llamadas.set([]);
+      alRecargar = () => [llamada({ id: 'l-9', estado: 'sonando' })];
+
+      await contestarEntrante();
+
+      expect(recargas).toBe(1);
+      expect(reclamar).toHaveBeenCalledWith('l-9');
+    });
+
+    it('si ya estaba en memoria, no se le pregunta al servidor', async () => {
+      // Pedirle la cola en cada llamada contestada sería una petición de más
+      // en el momento de más prisa.
+      llamadas.set([llamada({ id: 'l-1', estado: 'sonando' })]);
+
+      await contestarEntrante();
+
+      expect(recargas).toBe(0);
+      expect(reclamar).toHaveBeenCalledWith('l-1');
+    });
+
+    it('si hay otras timbrando y ninguna es esta, se habla de la extensión', async () => {
+      alRecargar = () => [llamada({ id: 'l-2', numero: '3119998888', estado: 'sonando' })];
+
+      await contestarEntrante('3001234567');
+
+      expect(sp.avisoCola()).toContain('ninguna de las llamadas que están timbrando');
+      expect(sp.avisoCola()).toContain('extensión');
+      expect(reclamar).not.toHaveBeenCalled();
+    });
+
+    it('si hay historial pero nada timbrando, el webhook SÍ llega y se dice', async () => {
+      // Esta distinción es la que evita cambiar una API key que estaba bien:
+      // si hay llamadas anteriores, la llave de la URL es la correcta y lo
+      // que no llegó es el aviso de ESTA llamada.
+      alRecargar = () => [llamada({ id: 'l-3', estado: 'atendida' })];
+
+      await contestarEntrante();
+
+      expect(sp.avisoCola()).toContain('SÍ le llegan');
+      expect(sp.avisoCola()).toContain('pbx_webhook_log');
+    });
+
+    it('si la cola está vacía del todo, se señala la API key del webhook', async () => {
+      alRecargar = () => [];
+
+      await contestarEntrante();
+
+      expect(sp.avisoCola()).toContain('API key de ESTA instancia');
+    });
+
+    it('si no se pudo preguntar, se dice eso y no se culpa a nadie', async () => {
+      // «No sé» y «no hay nada» no son lo mismo. Decir que la cola está vacía
+      // cuando el servidor no contestó es inventarse un diagnóstico.
+      alRecargar = () => null;
+
+      await contestarEntrante();
+
+      expect(sp.avisoCola()).toContain('no se pudo consultar');
+      expect(sp.avisoCola()).not.toContain('API key');
+    });
+
+    it('el audio va primero: ya estaba contestada antes de mirar la cola', async () => {
+      // El ciudadano está al teléfono. Si tomar la llamada en la cola falla
+      // —o si hay que preguntarle la cola al servidor, que tarda—, la
+      // conversación ya tiene que estar en pie. Un diagnóstico no puede
+      // costar la llamada.
+      let contestadasAlPreguntar = -1;
+      alRecargar = () => { contestadasAlPreguntar = transporte.contestadas; return null; };
+
+      await contestarEntrante();
+
+      expect(contestadasAlPreguntar).toBe(1);
+      expect(sp.avisoCola()).toContain('no se pudo consultar');
     });
   });
 

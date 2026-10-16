@@ -359,25 +359,33 @@ retracta**: un aviso que no se corrige hace que la segunda vez nadie le crea.
 Si el aviso se queda, el problema es de red —RTP bloqueado, coturn caído— y no
 de la llamada.
 
-**«Contesto y no aparece nada en Recepción.»** Casi siempre es esto: **la
-dirección del webhook lleva la API key de UNA instancia** (§3.2), así que una
-cuenta de Zadarma entrega sus llamadas a **una sola** instancia de FALCON. Si
-la URL pegada en el panel lleva la llave de *itagui* y usted está probando en
-*demo*, la cola de demo está vacía y no hay con qué emparejar la llamada: el
-SIP llegó al navegador, el webhook se fue a la otra instancia.
+**«Contesto y no aparece nada en Recepción.»** Aquí hay **cuatro** causas con
+cuatro arreglos distintos, y la barra las distingue. Antes de concluir nada,
+FALCON **le vuelve a preguntar la cola al servidor**: la cola que el navegador
+tiene en memoria la llena Socket.IO, y ese canal tiene huecos —una caída de
+red, la pantalla suspendida, un despliegue que reinicia las tres réplicas una
+por una—. Decidir con la copia vieja mandaba media hora al panel de la
+centralita por un aviso que este navegador se perdió.
 
-La barra distingue los dos casos y lo dice con esas palabras:
+| Lo que dice la barra | Qué pasó | Dónde se arregla |
+|---|---|---|
+| «Tomada para usted. Complete el caso en Recepción» | Todo bien | — |
+| «no se pudo consultar la cola de FALCON» | No se sabe: el servidor no contestó. La conversación sí está en pie | Red o servidor, no la centralita |
+| «ninguna de las llamadas que están timbrando corresponde a esta» | El webhook llega bien; falló el emparejamiento | La **extensión** del usuario (§3.4) tiene que ser la misma con la que se registró el teléfono |
+| «esta llamada no entró a la cola… SÍ le llegan avisos» | La API key de la URL **es la correcta** —hay llamadas anteriores—; lo que no llegó es el aviso de ESTA | `pbx_webhook_log`: firma rechazada, o la central no manda evento para este tipo de llamada |
+| «la cola de esta instancia está vacía: nunca ha llegado un aviso» | A esta instancia no le ha llegado nada, nunca | La **API key** de la URL del webhook (§3.2) |
 
-| Lo que dice la barra | Qué pasó |
-|---|---|
-| «la cola de esta instancia está vacía: la central no le está avisando a FALCON» | La API key de la URL es de otra instancia, o el webhook no está puesto |
-| «ninguna llamada de la cola corresponde a esta» | El webhook sí llega; falló el emparejamiento (número o extensión) |
-| «Tomada para usted. Complete el caso en Recepción» | Todo bien |
+Esa distinción entre las dos últimas es la que importa: *«hay historial pero
+nada timbrando»* significa que la llave está bien y no hay que tocarla. Solo
+*«nunca ha llegado un aviso»* señala la llave.
 
-Para probar las dos instancias con una sola cuenta de Zadarma hay que cambiar
-la llave de la URL en el panel —o comprar una segunda cuenta—. No hay forma de
-que una cuenta alimente dos instancias a la vez, y es a propósito: la llave en
-la URL es lo que identifica al inquilino antes de verificar la firma.
+Y sobre la llave: la dirección del webhook lleva la API key de **UNA**
+instancia, así que una cuenta de Zadarma entrega sus llamadas a **una sola**
+instancia de FALCON. Para probar en *demo* con una cuenta que estaba apuntando
+a *itagui* hay que cambiar la llave de la URL en el panel —o comprar una
+segunda cuenta—. No hay forma de que una cuenta alimente dos instancias a la
+vez, y es a propósito: la llave en la URL es lo que identifica al inquilino
+**antes** de verificar la firma.
 
 ---
 

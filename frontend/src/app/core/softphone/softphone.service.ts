@@ -190,23 +190,22 @@ export class SoftphoneService {
     this.timbre.parar();
     await this.transporte.contestar();
 
-    const dela = this.deLaCola(sip);
+    let dela = this.deLaCola(sip);
     if (!dela) {
-      // DOS CAUSAS MUY DISTINTAS, Y HAY QUE DISTINGUIRLAS.
+      // ANTES DE CULPAR A LA CENTRALITA, PREGUNTARLE AL SERVIDOR.
       //
-      // Si la cola está vacía, el problema no es el emparejamiento: es que la
-      // central no le está avisando a ESTA instancia. La dirección del
-      // webhook lleva la API key de UNA instancia, así que una cuenta de la
-      // centralita entrega sus llamadas a una sola. Decir «no se encontró» a
-      // secas manda a buscar el error donde no está.
-      const hayCola = this.pbx.llamadas().some((l) => l.estado === 'sonando');
-      this.avisoCola.set(hayCola
-        ? 'Contestada, pero ninguna llamada de la cola corresponde a esta. Si va a radicar un '
-          + 'caso, tómela a mano en Recepción.'
-        : 'Contestada, pero la cola de esta instancia está vacía: la central no le está avisando '
-          + 'a FALCON de esta llamada. Revise que la dirección del webhook en la centralita lleve '
-          + 'la API key de ESTA instancia —una cuenta entrega sus llamadas a una sola—.');
-      return;
+      // La cola en memoria la llena Socket.IO, y ese canal tiene huecos: una
+      // red que se cayó, la pantalla suspendida, un despliegue que reinicia
+      // las tres réplicas una por una. Si este navegador se perdió el aviso,
+      // la llamada SÍ está en la cola del servidor y la copia local miente.
+      // Concluir con la copia vieja mandaba a revisar la API key del webhook
+      // —media hora en el panel de la centralita— por un aviso perdido.
+      const vista = await this.pbx.recargarYEsperar();
+      dela = this.deLaCola(sip);
+      if (!dela) {
+        this.avisoCola.set(this.porQueNoEstaEnLaCola(vista));
+        return;
+      }
     }
     this.pbx.reclamar(dela.id).subscribe({
       next: (llamada) => {
@@ -241,6 +240,52 @@ export class SoftphoneService {
 
   usarAudio(elemento: HTMLAudioElement): void {
     this.transporte.usarAudio(elemento);
+  }
+
+  /**
+   * POR QUÉ ESTA LLAMADA NO ESTÁ EN LA COLA — cuatro causas, cuatro arreglos.
+   *
+   * Esto se escribe en la barra con el ciudadano al teléfono, así que no puede
+   * decir «no se encontró»: eso manda a buscar a ciegas. Cada caso tiene un
+   * arreglo distinto y en un sitio distinto.
+   *
+   * `vista` es lo que contestó el servidor, o `null` si no se pudo preguntar.
+   * «No sé» y «no hay nada» no son lo mismo y no se dicen igual.
+   */
+  private porQueNoEstaEnLaCola(vista: Llamada[] | null): string {
+    // 1. No se pudo preguntar. Puede que la llamada esté en la cola; no se
+    //    sabe. Lo único seguro es que la conversación está en pie.
+    if (!vista) {
+      return 'Contestada, pero no se pudo consultar la cola de FALCON '
+        + '(¿sin conexión con el servidor?). Si va a radicar un caso, tómela a mano en Recepción.';
+    }
+
+    // 2. Hay llamadas timbrando y ninguna es esta: el webhook llega bien y lo
+    //    que falló fue el emparejamiento (el número que manda la central, o
+    //    la extensión que tiene puesta este usuario).
+    if (vista.some((l) => l.estado === 'sonando')) {
+      return 'Contestada, pero ninguna de las llamadas que están timbrando corresponde a esta. '
+        + 'Revise que la extensión de su usuario sea la misma con la que se registró el teléfono. '
+        + 'Si va a radicar un caso, tómela a mano en Recepción.';
+    }
+
+    // 3. La cola tiene historial pero nada timbrando: a ESTA instancia sí le
+    //    llegan avisos de la central, así que la API key de la URL es la
+    //    correcta. Lo que no llegó es el aviso de ESTA llamada — el evento que
+    //    manda la central para este tipo de llamada, o una firma rechazada.
+    if (vista.length) {
+      return 'Contestada, pero esta llamada no entró a la cola. A esta instancia SÍ le llegan '
+        + 'avisos de la central —hay llamadas anteriores—, así que lo que no llegó es el aviso de '
+        + 'esta: revise en pbx_webhook_log si fue rechazada por firma, o si la central no manda '
+        + 'evento para este tipo de llamada.';
+    }
+
+    // 4. La cola está vacía del todo: ni una llamada, nunca. La dirección del
+    //    webhook lleva la API key de UNA instancia, así que una cuenta de la
+    //    centralita entrega sus llamadas a una sola.
+    return 'Contestada, pero la cola de esta instancia está vacía: nunca ha llegado un aviso de '
+      + 'la central. Revise que la dirección del webhook en la centralita lleve la API key de '
+      + 'ESTA instancia —una cuenta entrega sus llamadas a una sola—.';
   }
 
   /**

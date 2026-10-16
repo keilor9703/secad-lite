@@ -1,6 +1,6 @@
 import { Injectable, computed, inject, signal } from '@angular/core';
 import { HttpClient } from '@angular/common/http';
-import { Observable } from 'rxjs';
+import { Observable, firstValueFrom } from 'rxjs';
 import { io, Socket } from 'socket.io-client';
 import { environment } from '../../environments/environment';
 import { AuthService } from './auth.service';
@@ -352,6 +352,31 @@ export class PbxService {
       next: (ls) => this.llamadas.set(ls),
       error: () => {},
     });
+  }
+
+  /**
+   * Lo mismo, pero esperando la respuesta — y diciendo si se pudo.
+   *
+   * `recargar()` dispara y olvida, que es lo correcto para refrescar una
+   * pantalla. Esto hace falta cuando hay que DECIDIR con la cola en la mano:
+   * al contestar en el softphone hay que emparejar la llamada del navegador
+   * con la de la cola, y la cola en memoria la llena Socket.IO —un canal con
+   * huecos: una red que se cayó, la pantalla suspendida, un despliegue que
+   * reinicia las tres réplicas—. Decidir «no está en la cola» con una copia
+   * vieja manda a buscar el error en la centralita cuando el problema era que
+   * este navegador se perdió el aviso.
+   *
+   * Devuelve `null` si no se pudo preguntar, que no es lo mismo que una cola
+   * vacía: uno es «no hay llamadas», el otro «no sé».
+   */
+  async recargarYEsperar(): Promise<Llamada[] | null> {
+    try {
+      const ls = await firstValueFrom(this.http.get<Llamada[]>(`${this.base}/pbx/llamadas`));
+      this.llamadas.set(ls);
+      return ls;
+    } catch {
+      return null;
+    }
   }
 
   recargarCapacidades(): void {
