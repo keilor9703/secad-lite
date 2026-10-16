@@ -28,6 +28,16 @@ echo "── Datos de la centralita ──────────────�
 read -rp "Dominio de la centralita (ej. centralita.sudominio.com): " DOMINIO
 read -rp "IP pública del servidor: " IP_PUBLICA
 read -rp "URL de FALCON (ej. https://falcon-test.falconcad.com.co): " FALCON_URL
+# Sin esquema, `curl` asume http:// y el servidor redirige a https; como el
+# dialplan llama con -s y sin -L, la redirección no se sigue y EL WEBHOOK
+# NUNCA LLEGA, en silencio. Pasó en la primera instalación real.
+case "$FALCON_URL" in
+  https://*) ;;
+  http://*)  echo "  ⚠ http:// — el webhook viaja sin cifrar y suele redirigir. Use https://." ;;
+  *)         FALCON_URL="https://$FALCON_URL"
+             echo "  → Sin esquema; se usa $FALCON_URL" ;;
+esac
+FALCON_URL="${FALCON_URL%/}"   # sin barra final: el dialplan ya la pone
 
 # La API key y las claves se leen SIN ECO y no se imprimen nunca: quedan en
 # /etc/asterisk, que es donde deben estar, y no en el historial del shell.
@@ -42,6 +52,23 @@ read -rp "Usuario SIP: " USUARIO_TRONCAL
 read -rsp "Clave SIP: " CLAVE_TRONCAL; echo
 read -rp "IP del proveedor (para abrir el 5060 solo a ella): " IP_PROVEEDOR
 
+# ── ¿Están libres los puertos? ─────────────────────────────────────────────
+# Asterisk no avisa bien de esto: si no puede abrir su puerto HTTP, responde
+# «Server Disabled» y se cae TAMBIÉN el 8089, que es el que importa. El
+# mensaje no menciona el puerto ocupado por ningún lado. Pasó en la primera
+# instalación real, con el 8088 tomado por un contenedor.
+echo
+echo "── Puertos ─────────────────────────────────────────────────────────"
+for p in 8089 8090; do
+  if ss -tulnH "sport = :$p" | grep -q .; then
+    echo "  ✖ El puerto $p YA ESTÁ OCUPADO:" >&2
+    ss -tulnp "sport = :$p" | sed 's/^/      /' >&2
+    echo "    Cambie el puerto en http.conf.plantilla y vuelva a correr esto." >&2
+    exit 1
+  fi
+  echo "  ✔ $p libre"
+done
+
 # ── El certificado, donde Asterisk lo pueda leer ───────────────────────────
 # Let's Encrypt lo deja con permisos de root; Asterisk corre como `asterisk`.
 VIVO=/etc/letsencrypt/live/$DOMINIO
@@ -51,8 +78,19 @@ if [[ -d $VIVO ]]; then
   install -o asterisk -g asterisk -m 640 "$VIVO/privkey.pem"   "$LLAVES/$DOMINIO.key"
   echo "  ✔ Certificado copiado a $LLAVES"
 else
-  echo "  ⚠ No encontré $VIVO — el WebSocket NO va a funcionar sin certificado." >&2
-  echo "    sudo certbot certonly --standalone -d $DOMINIO" >&2
+  echo >&2
+  echo "  ✖ No encontré $VIVO." >&2
+  echo "    Sin certificado, Asterisk no abre el 8089 y la barra NO se registra." >&2
+  echo "    No tiene sentido seguir: pida el certificado y vuelva a correr esto." >&2
+  echo >&2
+  echo "    Si el 80 está ocupado por un nginx EN DOCKER, pararlo con" >&2
+  echo "    'systemctl stop nginx' no sirve — el puerto lo tiene docker-proxy:" >&2
+  echo >&2
+  echo "      docker stop \$(docker ps --filter publish=80 -q)" >&2
+  echo "      sudo certbot certonly --standalone -d $DOMINIO" >&2
+  echo "      docker start \$(docker ps -a --filter publish=80 -q)" >&2
+  echo >&2
+  exit 1
 fi
 
 # ── Rellenar las plantillas ────────────────────────────────────────────────
@@ -83,6 +121,19 @@ echo
 echo "── Instalando ──────────────────────────────────────────────────────"
 for f in pjsip.conf extensions.conf http.conf ari.conf; do rellenar "$f"; done
 
+# La troncal SOLO si se dieron los datos. Un bloque con los campos vacíos no
+# es «una troncal apagada»: deja un `match =` sin nada en el type=identify,
+# que es la regla que decide quién puede entregar llamadas por el 5060.
+# Vacía, no protege nada. `pjsip.conf` lo incluye siempre, así que el archivo
+# tiene que existir — vacío si no hay troncal.
+if [[ -n $SERVIDOR_TRONCAL && -n $USUARIO_TRONCAL && -n $IP_PROVEEDOR ]]; then
+  rellenar pjsip-troncal.conf
+else
+  echo "; Sin troncal todavía. Entre extensiones se prueba igual." > "$DESTINO/pjsip-troncal.conf"
+  chown asterisk:asterisk "$DESTINO/pjsip-troncal.conf"; chmod 640 "$DESTINO/pjsip-troncal.conf"
+  echo "  ○ $DESTINO/pjsip-troncal.conf (vacío: faltan datos del operador)"
+fi
+
 echo
 echo "── Recargando ──────────────────────────────────────────────────────"
 systemctl reload asterisk 2>/dev/null || systemctl restart asterisk
@@ -109,10 +160,9 @@ cat <<FIN
 2. EL DNS EN GRIS. Si $DOMINIO está en Cloudflare con la nube naranja, el
    WebSocket no conecta y no hay mensaje que lo explique.
 
-3. FAIL2BAN. Un 5060 expuesto recibe barridos de robo de credenciales a los
-   minutos de existir. Si se cuelan, la factura llega a usted:
-
-     sudo apt install -y fail2ban
+3. FAIL2BAN con el jail de Asterisk activado. Un 5060 expuesto recibe
+   barridos de robo de credenciales a los minutos de existir; si se cuelan,
+   la factura llega a usted.
 
 4. EN FALCON: Plataforma → Planta telefónica → «Asterisk propio», y pegar
      wss://$DOMINIO:8089/ws     y el dominio   $DOMINIO

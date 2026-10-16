@@ -1,17 +1,34 @@
 ;
 ; http.conf — el servidor web de Asterisk
 ;
-; Es quien sirve DOS cosas: el WebSocket por el que se registra la barra de
-; FALCON, y ARI, la API con la que FALCON origina llamadas. Las dos por el
-; mismo 8089.
+; Sirve DOS cosas por el 8089: el WebSocket por el que se registra la barra de
+; FALCON, y ARI, la API con la que FALCON origina llamadas.
 ;
 ; Reemplace: DOMINIO_CENTRALITA
 ;
 
 [general]
 enabled = yes
-bindaddr = 0.0.0.0
-bindport = 8088          ; sin TLS: NO se expone a internet, solo local
+
+;; ─────────────────────────────────────────────────────────────────────────
+;; EL PUERTO SIN TLS: EN LOOPBACK, Y EN UNO QUE NADIE MÁS USE
+;;
+;; Esto costó un desconcierto en la primera instalación real (16/10/2026). La
+;; plantilla traía `bindaddr = 0.0.0.0` y `bindport = 8088`, y en ese servidor
+;; el 8088 YA estaba tomado por un contenedor (`secad-api`). Asterisk no pudo
+;; abrirlo, y `http show status` respondió **«Server Disabled»** — con lo cual
+;; se cae también el 8089, que es el que de verdad importa. El mensaje no
+;; menciona el puerto ocupado por ninguna parte.
+;;
+;; Dos decisiones para que no vuelva a pasar:
+;;  - **127.0.0.1**, no 0.0.0.0: este puerto no tiene TLS y no tiene por qué
+;;    ser alcanzable desde fuera. Sirve para `asterisk -rx` y poco más.
+;;  - **8090** en vez de 8088: menos popular. Si también estuviera ocupado,
+;;    cámbielo — `sudo ss -tulnp | grep 8090` lo dice en un segundo.
+;; ─────────────────────────────────────────────────────────────────────────
+bindaddr = 127.0.0.1
+bindport = 8090
+
 tlsenable = yes
 tlsbindaddr = 0.0.0.0:8089
 ;; El navegador NO acepta un certificado autofirmado para un WebSocket

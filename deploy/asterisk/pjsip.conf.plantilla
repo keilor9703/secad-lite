@@ -77,45 +77,13 @@ remove_existing = yes   ; y la tercera desplaza a la más vieja, no falla
 ;; ─────────────────────────────────────────────────────────────────────────
 ;; LA TRONCAL DEL OPERADOR
 ;;
-;; Esto es lo único que cambia al cambiar de proveedor de telefonía. Toda la
-;; aplicación —FALCON, la barra, los casos— no se entera.
+;; Va en un archivo aparte —`pjsip-troncal.conf`— que `instalar.sh` solo
+;; escribe si usted le dio los datos del operador. Un bloque de troncal con
+;; los campos vacíos no es «una troncal apagada»: es una configuración
+;; inválida. En la primera instalación real dejó un `match =` sin nada en el
+;; `type=identify`, que es la regla que decide QUIÉN puede entregar llamadas
+;; por el 5060 — vacía, no protege nada.
+;;
+;; Es, además, lo único que cambia al cambiar de proveedor de telefonía.
 ;; ─────────────────────────────────────────────────────────────────────────
-
-[troncal]
-type = registration
-transport = transport-udp
-outbound_auth = troncal-auth
-server_uri = sip:SERVIDOR_TRONCAL
-client_uri = sip:USUARIO_TRONCAL@SERVIDOR_TRONCAL
-retry_interval = 60
-
-[troncal-auth]
-type = auth
-auth_type = userpass
-username = USUARIO_TRONCAL
-password = CLAVE_TRONCAL
-
-[troncal]
-type = aor
-contact = sip:SERVIDOR_TRONCAL
-
-[troncal]
-type = endpoint
-transport = transport-udp
-context = entrantes        ; todo lo que entre por la troncal, al dialplan
-disallow = all
-allow = ulaw,alaw
-outbound_auth = troncal-auth
-aors = troncal
-from_user = USUARIO_TRONCAL
-;; Confiar en el identificador de quien llama que manda el operador: es el
-;; número del ciudadano, y sin él el caso nace sin a quién devolverle la
-;; llamada.
-trust_id_inbound = yes
-
-[troncal]
-type = identify
-endpoint = troncal
-;; SOLO el proveedor puede entregar llamadas por aquí. Sin esto, cualquiera
-;; que encuentre el 5060 puede intentar cursar llamadas a su costa.
-match = IP_DEL_PROVEEDOR
+#include pjsip-troncal.conf

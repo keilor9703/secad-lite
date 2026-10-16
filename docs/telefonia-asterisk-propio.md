@@ -278,6 +278,73 @@ con el número que la gente marca.
 
 ---
 
+## 6.5 Lo que salió mal en la primera instalación real (16/10/2026)
+
+Servidor B, `129.80.243.118`. Tres tropiezos, **dos de ellos culpa de las
+plantillas**, y ya están corregidos en el repositorio. Quedan escritos porque
+el síntoma no se parece a la causa en ninguno de los tres.
+
+### El 80 lo tenía Docker, no el nginx del sistema
+
+`certbot --standalone` falló con *«Could not bind TCP port 80»* después de
+`systemctl stop nginx`. Lógico: en ese servidor **nginx corre en un
+contenedor** (`falcon-deploy-nginx-1`), y el puerto lo publica `docker-proxy`.
+Parar el servicio del sistema no suelta nada.
+
+```bash
+docker stop $(docker ps --filter publish=80 -q)
+sudo certbot certonly --standalone -d centralita.appjeylor.com
+docker start $(docker ps -a --filter publish=80 -q)
+```
+
+Eso deja el Falcon de pruebas caído **un minuto**. En un servidor de
+laboratorio es aceptable; en producción se usa el reto DNS-01 o se sirve
+`/.well-known/` desde el propio nginx.
+
+### «Server Disabled», y el mensaje no dice por qué
+
+`http show status` respondió **«Server Disabled»**, con lo cual no hay
+WebSocket ni ARI. La plantilla pedía el puerto **8088 en 0.0.0.0** para el
+HTTP sin TLS, y en ese servidor el 8088 **ya estaba tomado** por el contenedor
+`secad-api`. Asterisk no pudo abrirlo y apagó su servidor web entero — el
+8089 incluido, que es el único que importa. En ningún momento menciona el
+puerto ocupado.
+
+**Corregido:** el puerto sin TLS ahora es **127.0.0.1:8090** —no tiene por qué
+ser alcanzable desde fuera— y `instalar.sh` **comprueba que 8089 y 8090 estén
+libres antes de escribir nada**, y se detiene nombrando al proceso que los
+tiene.
+
+> Faltaba también el certificado, así que no se puede afirmar cuál de las dos
+> cosas apagó el servidor. Las dos había que arreglarlas.
+
+### Una troncal vacía no es una troncal apagada
+
+Al dejar en blanco los datos del operador, las sustituciones dejaron
+`server_uri = sip:` y, peor, **`match =` vacío** en el `type=identify` — que
+es justo la regla que decide quién puede entregar llamadas por el 5060. Vacía
+no protege nada.
+
+**Corregido:** la troncal vive ahora en `pjsip-troncal.conf`, un archivo
+aparte que el script **solo escribe si hay datos**; si no, lo deja vacío y
+Asterisk arranca igual.
+
+### Y un detalle que habría costado una tarde de depuración
+
+A la pregunta de la URL de FALCON se respondió `falconcad.com.co`, **sin
+`https://`**. El dialplan arma `falconcad.com.co/api/pbx/webhook`; `curl`
+asume `http://`, el servidor redirige a HTTPS, y como la llamada va con `-s`
+y sin `-L`, **la redirección no se sigue y el webhook nunca llega** — sin un
+solo mensaje de error en ningún lado. Ahora el script le pone el esquema y lo
+dice.
+
+> Y una advertencia aparte: esa URL era la de **producción**. Una centralita
+> de laboratorio apuntando a la cola de producción mete llamadas de prueba en
+> la instancia que usan de verdad. Use `falcon-test…` y la API key de la
+> instancia de pruebas.
+
+---
+
 ## 7. Fase 6 — Operarla (permanente, y es el costo real)
 
 Lo que de verdad cuesta la opción B no es montarla, es sostenerla:

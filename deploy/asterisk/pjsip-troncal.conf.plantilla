@@ -1,0 +1,44 @@
+; pjsip-troncal.conf — la troncal del operador del municipio.
+;
+; Lo escribe instalar.sh SOLO si se dieron los datos. Si no hay troncal
+; todavía, este archivo queda vacío y Asterisk arranca igual: entre
+; extensiones se puede probar toda la cadena menos el último eslabón.
+;
+[troncal]
+type = registration
+transport = transport-udp
+outbound_auth = troncal-auth
+server_uri = sip:SERVIDOR_TRONCAL
+client_uri = sip:USUARIO_TRONCAL@SERVIDOR_TRONCAL
+retry_interval = 60
+
+[troncal-auth]
+type = auth
+auth_type = userpass
+username = USUARIO_TRONCAL
+password = CLAVE_TRONCAL
+
+[troncal]
+type = aor
+contact = sip:SERVIDOR_TRONCAL
+
+[troncal]
+type = endpoint
+transport = transport-udp
+context = entrantes        ; todo lo que entre por la troncal, al dialplan
+disallow = all
+allow = ulaw,alaw
+outbound_auth = troncal-auth
+aors = troncal
+from_user = USUARIO_TRONCAL
+;; Confiar en el identificador de quien llama que manda el operador: es el
+;; número del ciudadano, y sin él el caso nace sin a quién devolverle la
+;; llamada.
+trust_id_inbound = yes
+
+[troncal]
+type = identify
+endpoint = troncal
+;; SOLO el proveedor puede entregar llamadas por aquí. Sin esto, cualquiera
+;; que encuentre el 5060 puede intentar cursar llamadas a su costa.
+match = IP_DEL_PROVEEDOR
