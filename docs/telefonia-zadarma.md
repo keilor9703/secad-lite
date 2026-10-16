@@ -69,6 +69,11 @@ operador del municipio.
 > esta página, no por la de CTI. YACO sigue siendo quien controla la llamada y
 > quien la baja a FALCON; lo que se construye aquí es la alternativa.
 
+> **¿Cuánto cuesta esto y contra qué se compara?** Los planes de Zadarma para
+> 5, 10 y 20 operadores, qué capa reemplaza exactamente, por qué los minutos
+> pesan más que el plan, y qué evaluar con presencia en Colombia, están en
+> [`telefonia-costos-y-proveedores.md`](telefonia-costos-y-proveedores.md).
+
 ### 1.2 El municipio YA tiene el número: ¿se puede usar sin comprarlo aquí?
 
 La pregunta natural de un municipio del caso **A** o **B**: *«ya tengo mi
