@@ -69,6 +69,61 @@ operador del municipio.
 > esta página, no por la de CTI. YACO sigue siendo quien controla la llamada y
 > quien la baja a FALCON; lo que se construye aquí es la alternativa.
 
+### 1.2 El municipio YA tiene el número: ¿se puede usar sin comprarlo aquí?
+
+La pregunta natural de un municipio del caso **A** o **B**: *«ya tengo mi
+número, ¿no lo puedo poner en Zadarma y listo?»*
+
+**No se puede «poner».** Un número vive en la red del operador al que está
+asignado; no es un dato que se escriba en un panel. Lo que sí se puede es
+**pedirle al operador que entregue esas llamadas** a donde nosotros digamos.
+Hay cuatro caminos y cada uno pide algo distinto del operador:
+
+| Camino | Qué hay que pedirle al operador | Qué se configura | Cuándo sirve |
+|---|---|---|---|
+| **Línea externa, modo «Servidor»** | Credenciales SIP del número (usuario, clave, servidor) | *Mi centralita → Líneas externas*, modo **Servidor**: Zadarma se registra contra el operador | **El camino bueno.** Si el número ya habla SIP, es todo lo que hace falta |
+| **Línea externa, modo «Gateway»** | Nada: la línea es de cobre | Un **gateway VoIP con puerto FXO** físico en la alcaldía + la línea en modo **Gateway** | Línea analógica que el operador no sabe entregar por SIP. Hay hardware y una instalación |
+| **Desvío al número de Zadarma** | Que desvíe su número a un DID nuestro | Nada en Zadarma | **El peor para un CAD** — ver abajo |
+| **Portabilidad** | Portar el número a Zadarma | — | Hay que preguntarlo caso por caso; en Colombia la portabilidad de fijos es restringida |
+
+**El desvío parece la salida fácil y no lo es.** Zadarma dice explícitamente
+que el Caller ID «no se transmite durante el desvío de llamada». Traducido: en
+FALCON toda llamada llegaría con el número del municipio en vez del número del
+ciudadano. En un CAD eso es grave — no se puede devolver la llamada, no se
+puede cruzar con llamadas anteriores del mismo teléfono, y el campo «Abonado»
+del caso queda inútil. Solo se acepta si no hay absolutamente otra opción, y
+avisándolo.
+
+**Dos límites del camino bueno que hay que cotizar antes de prometer nada:**
+
+1. **Un canal simultáneo, gratis.** La *línea externa adicional* trae **una**
+   conexión entrante a la vez. Para un 123 eso significa que el segundo
+   ciudadano que llame no entra. Se sube a 3 o 10 canales por unos **$6 o
+   $16/mes**. No es caro, pero hay que ponerlo en la cotización desde el
+   principio.
+2. **Zadarma no garantiza esa línea**, porque hay equipo de un tercero en
+   medio. Para una línea de emergencias eso es un riesgo que se le dice al
+   municipio por escrito, no se esconde.
+
+**Y el Caller ID en modo Servidor hay que comprobarlo con tráfico real.**
+Zadarma dice que se «muestra en la centralita y afecta la ejecución de los
+escenarios». Eso es buena señal —los avisos del webhook los emite la
+centralita— pero «se muestra en la centralita» no es literalmente «viaja en el
+`caller_id` del `NOTIFY_START`». Se verifica con una llamada y
+`pbx_webhook_log`; no se promete antes.
+
+**Qué cambia en FALCON: nada.** Cualquiera de estos caminos termina en una
+llamada de la centralita de Zadarma, con los mismos eventos. Lo único que se
+toca es el campo *Número entrante* de Plataforma, que es informativo.
+
+**Y si el operador solo ofrece una troncal SIP cruda** —el caso **A** de §1.1,
+el 123— **Zadarma no tiene por qué estar en el medio.** Ahí la troncal baja a
+una centralita propia (Asterisk, FreeSWITCH) y esa centralita se registra en
+FALCON como **un proveedor más**: un archivo en `pbx/proveedores/` y una línea
+en el registro. Para eso se construyó el puerto (ver
+[`telefonia-proveedores.md`](telefonia-proveedores.md)). Es la diferencia entre
+vender FALCON y revender Zadarma.
+
 ---
 
 ## 2. Lo que ya está hecho
