@@ -493,6 +493,80 @@ de la barra CTI y de YACO.
 
 ---
 
+## 8.5 Lo que ELLOS van a preguntar, y qué contestar
+
+> Añadido el 16/10/2026, antes de la reunión en que el proveedor anuncia que
+> **la barra CTI ya está lista**. El §8 son las preguntas que llevamos
+> nosotros; esto es el otro lado de la mesa.
+
+**El hecho nuevo que cambia la reunión:** desde el 16/10/2026 FALCON tiene
+**barra propia** — softphone SIP sobre WebSocket, contesta en el navegador con
+audio en los dos sentidos, probado contra un proveedor real. La barra CTI dejó
+de ser imprescindible. Eso no hay que esconderlo ni restregarlo: cambia qué se
+negocia.
+
+### Las cinco que seguro preguntan
+
+| Preguntan | Se contesta |
+|---|---|
+| **«¿Nos pasan el JWT de sesión para el SSO?»** | **No.** Y con alternativa lista, no como negativa seca: token aparte, otra clave, otra audiencia, 60–120 s, entregado por `postMessage` y **redimido** contra `POST /api/cti/sso/verificar`. El §6 completo. Esta es la pregunta más probable de toda la reunión. |
+| **«¿Dónde embebemos la barra?»** | Hoy **no hay contenedor**. Hay que definir sitio (franja superior del shell), alto, y si es `iframe` o SDK de JavaScript. De la respuesta salen el `frame-src` del CSP y el CORS. |
+| **«¿A qué URL mandamos los eventos?»** | `POST /api/cti/eventos/interaccion`, autenticado con la **`ctiApiKey` del tenant** (prefijo `ck_`, se genera y rota en Administración, guardamos solo el digest). **Una llave por instancia**: una cuenta suya alimenta una instancia nuestra, igual que aprendimos con la PBX. |
+| **«¿Qué campos necesitan?»** | El §5, impreso. Hoy el webhook **solo exige `identificadorInteraccion`** y guarda el payload crudo; lo demás es lo que pedimos nosotros. |
+| **«¿Cuándo pueden integrar?»** | **Sin fecha hasta tener el contrato de payload por escrito.** Lo que falta en FALCON (§7) depende literalmente de lo que contesten hoy. |
+
+### Lo que hay que saber de memoria
+
+- **Ya construido:** integración `cti` contratable por tenant · `ctiApiKey`
+  con rotación · webhook que autentica y guarda en `cti_eventos` · permiso
+  `cti.configurar` · `whatsappHandle` por usuario (ítem 5 de la ficha, **ya
+  hecho**) · `urlGrabacion`/`urlTranscripcion` en el caso gateados por
+  `casos.ver_grabaciones` en los ocho endpoints · `buscarPorExtension` para
+  resolver ACD → operador.
+- **No construido:** la lógica real del webhook (crear o enlazar el caso),
+  el SSO, el embebido del iframe, y la respuesta con el identificador de
+  registro que la ficha exige en los ítems 3.4, 5.5, 7.8, 8.6 y 9.5.
+- **Una debilidad propia que conviene conocer antes de que la encuentren:**
+  `cti_eventos` **no tiene RLS** (§8). Es tabla de staging, pero si preguntan
+  por aislamiento entre municipios, hay que decirlo y tener el plan.
+
+### Las cinco cosas que NO se conceden en la reunión
+
+1. **El JWT de sesión.** Nunca.
+2. **Que la barra sea dueña del caso.** FALCON crea y posee el caso; la barra
+   notifica. Si el caso nace en su plataforma, FALCON pasa a ser una pantalla.
+3. **Un identificador que se genere al contestar.** Tiene que existir **desde
+   que timbra** y repetirse en todos los eventos; si no, no hay correlación
+   posible entre apertura, cierre, grabación y transcripción.
+4. **Fechas de entrega** antes del contrato de payload escrito.
+5. **Que el audio quede amarrado a su barra** si se puede evitar — ver abajo.
+
+### La pregunta que decide el futuro, y hay que hacerla con calma
+
+> *¿Su barra puede trabajar **sin tomar el audio**, dejando que el operador
+> conteste en el softphone de FALCON? ¿O exige ser ella el teléfono?*
+
+- **Si puede convivir:** se usa su barra para lo que aporta (ACD,
+  estadísticas, WhatsApp) y el audio queda del lado de FALCON. Es la mejor
+  combinación.
+- **Si exige el audio:** entonces la decisión es de negocio, no técnica, y
+  vale la pena tener presente que la alternativa ya existe y está probada
+  (ver [`telefonia-costos-y-proveedores.md`](telefonia-costos-y-proveedores.md)).
+
+### Y la pregunta de palanca, que no es técnica
+
+> *¿A nombre de quién está el número E.164 al que hoy se enruta el 123 del
+> municipio?*
+
+Es el **Paso 0** del §7 de
+[`telefonia-cadena-de-la-llamada.md`](telefonia-cadena-de-la-llamada.md). Si
+está a nombre del municipio, toda la negociación cambia de lado. Si está a
+nombre de ellos, el costo de salida es un cambio de enrutamiento y 30 días
+calendario. Conviene preguntarlo sin cargarlo de intención, como un dato
+administrativo.
+
+---
+
 ## 9. Riesgos y notas abiertas
 
 - **`cti_eventos` sin RLS todavía** — aceptable mientras sea solo *staging*
