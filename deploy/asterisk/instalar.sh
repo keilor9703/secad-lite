@@ -60,13 +60,20 @@ read -rp "IP del proveedor (para abrir el 5060 solo a ella): " IP_PROVEEDOR
 echo
 echo "── Puertos ─────────────────────────────────────────────────────────"
 for p in 8089 8090; do
-  if ss -tulnH "sport = :$p" | grep -q .; then
-    echo "  ✖ El puerto $p YA ESTÁ OCUPADO:" >&2
-    ss -tulnp "sport = :$p" | sed 's/^/      /' >&2
+  quien=$(ss -tulnpH "sport = :$p" 2>/dev/null || true)
+  if [[ -z $quien ]]; then
+    echo "  ✔ $p libre"
+  elif grep -q '"asterisk"' <<<"$quien"; then
+    # Es el propio Asterisk, de una instalación anterior. No es un conflicto:
+    # lo suelta al recargar. Sin esta rama, el script se bloqueaba a sí mismo
+    # en la segunda corrida — que es justo cuando más falta hace.
+    echo "  ✔ $p lo tiene el propio Asterisk; lo suelta al recargar"
+  else
+    echo "  ✖ El puerto $p está OCUPADO por otro proceso:" >&2
+    sed 's/^/      /' <<<"$quien" >&2
     echo "    Cambie el puerto en http.conf.plantilla y vuelva a correr esto." >&2
     exit 1
   fi
-  echo "  ✔ $p libre"
 done
 
 # ── El certificado, donde Asterisk lo pueda leer ───────────────────────────
