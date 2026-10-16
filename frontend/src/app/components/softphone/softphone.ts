@@ -1,104 +1,192 @@
 import {
-  AfterViewInit, ChangeDetectionStrategy, Component, ElementRef, inject, viewChild,
+  AfterViewInit, ChangeDetectionStrategy, Component, ElementRef, OnDestroy,
+  computed, effect, inject, signal, viewChild,
 } from '@angular/core';
-import { RouterLink } from '@angular/router';
+import { Router } from '@angular/router';
 import { SoftphoneService } from '../../core/softphone/softphone.service';
 import { IconoComponent } from '../../shared/icono/icono';
+import { acotar, guardarPosicion, posicionGuardada, posicionPorDefecto } from './posicion';
 
 /**
- * El teléfono, dentro de FALCON.
+ * EL TELÉFONO, DENTRO DE FALCON
  *
- * Vive por encima del enrutador —como el panel de videollamada— porque una
- * llamada no se puede caer por cambiar de pantalla: el operador contesta
- * mirando la cola y termina escribiendo el caso en Recepción, y es la misma
+ * ────────────────────────────────────────────────────────────────────────────
+ * PLEGADA ES UN ICONO; LA LLAMADA LA DESPLIEGA
+ *
+ * Un panel permanente en una esquina es un estorbo permanente: en Recepción
+ * tapaba el mapa, y en una sala de despacho lo que se mira todo el día es la
+ * pantalla, no el teléfono.
+ *
+ * Así que en reposo es solo un botón redondo con el auricular y un punto de
+ * color que dice si está listo. Cuando entra una llamada se despliega sola
+ * —se estira a una barra delgada con el número y los botones— y cuando la
+ * llamada termina se vuelve a plegar. El operador no tiene que ir a buscarla
+ * ni que apartarla: aparece cuando hace falta y desaparece cuando no.
+ *
+ * Y se puede arrastrar a donde quiera, porque ninguna esquina es buena para
+ * todos: la posición se recuerda en ese puesto de trabajo. Arranca arriba a
+ * la derecha, bajo la cabecera, que es la única zona que en Recepción no tapa
+ * ni la cola, ni el formulario, ni el mapa.
+ *
+ * ────────────────────────────────────────────────────────────────────────────
+ * VIVE POR ENCIMA DEL ENRUTADOR
+ *
+ * Una llamada no se puede caer por cambiar de pantalla: el operador contesta
+ * mirando la cola y acaba escribiendo el caso en Recepción, y es la misma
  * conversación.
- *
- * Se enciende a mano, y eso es deliberado: registrarse toma el micrófono y
- * hace que la central empiece a entregarle llamadas a este navegador. No es
- * algo que deba pasarle a alguien que entró a consultar un caso.
+ * ────────────────────────────────────────────────────────────────────────────
  */
 @Component({
   selector: 'app-softphone',
   standalone: true,
-  imports: [IconoComponent, RouterLink],
+  imports: [IconoComponent],
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
     @if (sp.disponible()) {
-      <div class="sp" [class.sp--sonando]="!!sp.entrante()">
-        <!-- Donde suena la llamada. Sin controles: los de abajo son los
-             nuestros, y los del navegador invitan a silenciar el altavoz
-             creyendo que se silencia el micrófono. -->
-        <audio #audio autoplay></audio>
+      <div class="sp" #barra
+           [class.sp--abierta]="abierta()"
+           [class.sp--sonando]="!!sp.entrante()"
+           [class.sp--encurso]="!!sp.enCurso()"
+           [class.sp--arrastrando]="arrastrando()"
+           [style.left.px]="pos().x" [style.top.px]="pos().y"
+           (pointerdown)="tomar($event)">
 
-        <div class="sp-cab">
-          <app-icono nombre="telefono" [tam]="15" />
-          <strong>Teléfono</strong>
-          <span class="badge" [class.on]="sp.estado() === 'registrado'">{{ etiquetaEstado() }}</span>
-          @if (sp.estado() === 'apagado') {
-            <button type="button" class="btn btn--ghost mini" (click)="sp.encender()">Encender</button>
-          } @else {
-            <button type="button" class="btn btn--ghost mini" (click)="sp.apagar()">Apagar</button>
-          }
-        </div>
+        <!-- Donde suena la llamada. No lleva controles: los del navegador
+             invitan a silenciar el altavoz creyendo que se silencia el
+             micrófono. Y NO se oculta con display:none — un elemento que no
+             se renderiza puede no reproducir en algunos navegadores. -->
+        <audio #audio autoplay class="sp-audio"></audio>
 
-        @if (sp.motivo(); as m) { <p class="sp-motivo">{{ m }}</p> }
+        <!-- El asa: plegada es el botón; desplegada, lo que se agarra. -->
+        <button type="button" class="sp-icono" [attr.aria-label]="rotulo()"
+                [attr.aria-expanded]="abierta()" (click)="alternar()">
+          <app-icono [nombre]="sp.enCurso() ? 'altavoz' : 'telefono'" [tam]="18" />
+          <span class="sp-punto" [attr.data-estado]="sp.estado()"></span>
+        </button>
 
-        @if (sp.entrante(); as l) {
-          <div class="sp-llamada">
-            <p class="sp-num">Entra una llamada de <strong>{{ l.numero || 'número oculto' }}</strong></p>
-            <!-- Contestar aquí es UN gesto: acepta el audio y toma la llamada
-                 de la cola para este operador. -->
-            <div class="sp-acc">
-              <button type="button" class="btn" (click)="sp.contestar()">Contestar</button>
-              <button type="button" class="btn btn--ghost" (click)="sp.colgar()">Rechazar</button>
-            </div>
-          </div>
-        } @else if (sp.enCurso(); as l) {
-          <div class="sp-llamada">
-            <p class="sp-num">En llamada con <strong>{{ l.numero || 'número oculto' }}</strong></p>
-            <div class="sp-acc">
-              <button type="button" class="btn btn--ghost" (click)="sp.alternarSilencio()">
-                {{ sp.silenciado() ? 'Reactivar micrófono' : 'Silenciar' }}
-              </button>
-              <button type="button" class="btn btn--peligro" (click)="sp.colgar()">Colgar</button>
-            </div>
+        @if (abierta()) {
+          <div class="sp-cuerpo">
+            @if (sp.entrante(); as l) {
+              <span class="sp-txt">
+                <strong>Entra una llamada</strong>
+                <small>{{ l.numero || 'número oculto' }}</small>
+              </span>
+              <span class="sp-acc">
+                <button type="button" class="btn mini" (click)="sp.contestar()">Contestar</button>
+                <button type="button" class="btn btn--ghost mini" (click)="sp.colgar()">Rechazar</button>
+              </span>
+            } @else if (sp.enCurso(); as l) {
+              <span class="sp-txt">
+                <strong>En llamada</strong>
+                <small>{{ l.numero || 'número oculto' }}</small>
+              </span>
+              <span class="sp-acc">
+                <button type="button" class="btn btn--ghost mini" [attr.aria-pressed]="sp.silenciado()"
+                        (click)="sp.alternarSilencio()">
+                  <app-icono [nombre]="sp.silenciado() ? 'micro-off' : 'micro'" [tam]="14" />
+                  {{ sp.silenciado() ? 'Reactivar' : 'Silenciar' }}
+                </button>
+                <button type="button" class="btn btn--danger mini" (click)="sp.colgar()">Colgar</button>
+              </span>
+            } @else {
+              <span class="sp-txt">
+                <strong>Teléfono</strong>
+                <small>{{ etiquetaEstado() }}{{ sp.extension() ? ' · ext. ' + sp.extension() : '' }}</small>
+              </span>
+              <span class="sp-acc">
+                @if (sp.estado() === 'apagado') {
+                  <button type="button" class="btn mini" (click)="sp.encender()">Encender</button>
+                } @else {
+                  <button type="button" class="btn btn--ghost mini" (click)="sp.apagar()">Apagar</button>
+                }
+              </span>
+            }
           </div>
         }
 
-        @if (sp.avisoCola(); as a) {
-          <p class="sp-cola" role="status">
-            {{ a }}
-            <a routerLink="/recepcion">Ir a Recepción</a>
+        <!-- Lo que pasó con la llamada en la cola, o por qué no se puede
+             encender. Solo cuando hay algo que decir, y nunca tapando los
+             botones: debajo de la barra. -->
+        @if (abierta() && (sp.avisoCola() || sp.motivo())) {
+          <p class="sp-aviso" role="status">
+            {{ sp.avisoCola() || sp.motivo() }}
+            @if (sp.avisoCola()) {
+              <button type="button" class="sp-enlace" (click)="irARecepcion()">Ir a Recepción</button>
+            }
           </p>
         }
       </div>
     }
   `,
-  styles: [`
-    .sp {
-      position: fixed; right: 1rem; bottom: 1rem; z-index: 60; width: min(22rem, calc(100vw - 2rem));
-      padding: .7rem .8rem; border-radius: var(--radio, 10px);
-      background: var(--superficie); border: 1px solid var(--borde);
-      box-shadow: 0 6px 24px rgb(0 0 0 / 18%); display: grid; gap: .5rem;
-      padding-bottom: calc(.8rem + env(safe-area-inset-bottom, 0px));
-    }
-    .sp--sonando { border-color: var(--acento); }
-    .sp-cab { display: flex; align-items: center; gap: .45rem; }
-    .sp-cab strong { margin-right: auto; }
-    .sp-motivo, .sp-cola { margin: 0; font-size: .82rem; color: var(--texto-apagado); }
-    .sp-llamada { display: grid; gap: .45rem; }
-    .sp-num { margin: 0; }
-    .sp-acc { display: flex; gap: .4rem; flex-wrap: wrap; }
-    audio { display: none; }
-  `],
+  styleUrl: './softphone.scss',
 })
-export class SoftphoneComponent implements AfterViewInit {
+export class SoftphoneComponent implements AfterViewInit, OnDestroy {
   readonly sp = inject(SoftphoneService);
+  private readonly router = inject(Router);
   private readonly audio = viewChild<ElementRef<HTMLAudioElement>>('audio');
+  private readonly barra = viewChild<ElementRef<HTMLElement>>('barra');
+
+  /** Desplegada o plegada. */
+  readonly abierta = signal(false);
+  readonly arrastrando = signal(false);
+  readonly pos = signal({ x: 0, y: 0 });
+
+  /** Puesta a mano: mientras dure, no se pliega sola. */
+  private fijadaAMano = false;
+  private plegarMasTarde?: ReturnType<typeof setTimeout>;
+
+  /** Dónde se agarró la barra respecto de su esquina, para que no dé un salto. */
+  private agarre = { x: 0, y: 0 };
+
+  readonly rotulo = computed(() => {
+    if (this.sp.entrante()) return 'Entra una llamada. Abrir el teléfono';
+    if (this.sp.enCurso()) return 'En llamada. Abrir el teléfono';
+    return `Teléfono: ${this.etiquetaEstado()}. ${this.abierta() ? 'Plegar' : 'Desplegar'}`;
+  });
+
+  constructor() {
+    // Una llamada despliega la barra sola, y al terminar se vuelve a plegar.
+    // Es lo que evita tener que ir a buscarla con el ciudadano esperando.
+    effect(() => {
+      const hayLlamada = !!this.sp.entrante() || !!this.sp.enCurso();
+      if (hayLlamada) {
+        clearTimeout(this.plegarMasTarde);
+        this.abierta.set(true);
+        return;
+      }
+      if (this.fijadaAMano || !this.abierta()) return;
+      // Un respiro antes de plegar: al colgar queda en pantalla el aviso de
+      // qué pasó con la llamada en la cola, y plegarse al instante se lo
+      // llevaría antes de que nadie lo lea.
+      clearTimeout(this.plegarMasTarde);
+      this.plegarMasTarde = setTimeout(() => this.abierta.set(false), 6000);
+    });
+  }
 
   ngAfterViewInit(): void {
     const el = this.audio()?.nativeElement;
     if (el) this.sp.usarAudio(el);
+    this.pos.set(acotar(posicionGuardada() ?? posicionPorDefecto(this.medidas()), this.medidas()));
+    window.addEventListener('resize', this.alRedimensionar);
+  }
+
+  ngOnDestroy(): void {
+    clearTimeout(this.plegarMasTarde);
+    window.removeEventListener('resize', this.alRedimensionar);
+    window.removeEventListener('pointermove', this.alMover);
+    window.removeEventListener('pointerup', this.alSoltar);
+  }
+
+  alternar(): void {
+    const abriendo = !this.abierta();
+    this.abierta.set(abriendo);
+    // Abrirla a mano la deja abierta; cerrarla a mano devuelve el automatismo.
+    this.fijadaAMano = abriendo;
+    clearTimeout(this.plegarMasTarde);
+  }
+
+  irARecepcion(): void {
+    void this.router.navigate(['/recepcion']);
   }
 
   etiquetaEstado(): string {
@@ -108,5 +196,48 @@ export class SoftphoneComponent implements AfterViewInit {
       registrado: 'listo',
       fallo: 'sin conexión',
     }[this.sp.estado()];
+  }
+
+  /**
+   * Empieza el arrastre, salvo que se haya agarrado un botón.
+   *
+   * Sin esa salvedad, «Contestar» se convierte en un arrastre de dos píxeles
+   * y la llamada no se contesta — con el ciudadano al teléfono.
+   */
+  tomar(e: PointerEvent): void {
+    if ((e.target as HTMLElement)?.closest('button')) return;
+    const caja = this.barra()?.nativeElement.getBoundingClientRect();
+    if (!caja) return;
+    this.agarre = { x: e.clientX - caja.left, y: e.clientY - caja.top };
+    this.arrastrando.set(true);
+    window.addEventListener('pointermove', this.alMover);
+    window.addEventListener('pointerup', this.alSoltar);
+  }
+
+  private readonly alMover = (e: PointerEvent): void => {
+    if (!this.arrastrando()) return;
+    e.preventDefault();
+    this.pos.set(acotar({ x: e.clientX - this.agarre.x, y: e.clientY - this.agarre.y }, this.medidas()));
+  };
+
+  private readonly alSoltar = (): void => {
+    if (!this.arrastrando()) return;
+    this.arrastrando.set(false);
+    window.removeEventListener('pointermove', this.alMover);
+    window.removeEventListener('pointerup', this.alSoltar);
+    guardarPosicion(this.pos());
+  };
+
+  /** Una ventana más pequeña no puede dejar la barra fuera de la pantalla. */
+  private readonly alRedimensionar = (): void => this.pos.set(acotar(this.pos(), this.medidas()));
+
+  private medidas() {
+    const caja = this.barra()?.nativeElement.getBoundingClientRect();
+    return {
+      ventanaAncho: window.innerWidth,
+      ventanaAlto: window.innerHeight,
+      barraAncho: caja?.width || 46,
+      barraAlto: caja?.height || 46,
+    };
   }
 }

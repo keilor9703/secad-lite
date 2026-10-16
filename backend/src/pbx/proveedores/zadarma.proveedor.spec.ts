@@ -226,6 +226,7 @@ describe('ProveedorZadarma · softphone', () => {
       wss: 'wss://ejemplo',
       dominio: 'pbx.zadarma.com',
       usuario: '598703-101',
+      extension: '101',
       clave: 'clave',
     });
   });

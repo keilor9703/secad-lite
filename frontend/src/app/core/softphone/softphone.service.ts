@@ -36,9 +36,15 @@ type RespuestaSoftphone =
  *
  *  1. Si la central manda su identificador en una cabecera del INVITE, se usa
  *     ese: es exacto.
- *  2. Si no —y es lo normal—, se casa por **número**, con la misma
- *     normalización que usa el servidor al guardarla. Entre varias, se
- *     prefiere la que la central dirigió a ESTE operador.
+ *  2. Si no, por **MI EXTENSIÓN**: una llamada que está sonando en la cola
+ *     dirigida a la 102, mientras suena el teléfono registrado COMO la 102,
+ *     es la misma llamada. Es la señal más fuerte que hay y por eso va
+ *     primero —la primera versión casaba solo por número y en la prueba real
+ *     falló: la central mandó la llamada interna sin `caller_id`, la cola
+ *     mostró «Sin número» y no había nada que comparar—.
+ *  3. Y si eso no alcanza, por **número**, con la misma normalización que usa
+ *     el servidor al guardarlo. Entre varias, se prefiere la que la central
+ *     dirigió a este operador.
  *
  * Y si no se encuentra ninguna, la llamada se contesta igual. El audio es lo
  * urgente; la fila de la cola es el registro. Se dice que no se encontró, en
@@ -61,6 +67,8 @@ export class SoftphoneService {
   readonly entrante = signal<LlamadaSip | null>(null);
   /** Hay audio en curso. */
   readonly enCurso = signal<LlamadaSip | null>(null);
+  /** La extensión con la que está registrado este navegador. */
+  readonly extension = signal('');
   readonly silenciado = signal(false);
   /** Qué pasó con la llamada de la cola al contestar. */
   readonly avisoCola = signal('');
@@ -98,6 +106,7 @@ export class SoftphoneService {
       return;
     }
 
+    this.extension.set(r.config.extension ?? '');
     await this.transporte.conectar(r.config, {
       registro: (estado, motivo) => {
         this.estado.set(estado);
@@ -120,6 +129,7 @@ export class SoftphoneService {
   async apagar(): Promise<void> {
     await this.transporte.desconectar();
     this.estado.set('apagado');
+    this.extension.set('');
     this.entrante.set(null);
     this.enCurso.set(null);
     this.silenciado.set(false);
@@ -190,14 +200,32 @@ export class SoftphoneService {
    */
   deLaCola(sip: LlamadaSip): Llamada | null {
     const sonando = this.pbx.llamadas().filter((l) => l.estado === 'sonando');
+    const yo = this.auth.sesion()?.usuario;
+
+    // 1. El identificador de la central, si lo manda: es exacto.
     if (sip.callId) {
       const exacta = sonando.find((l) => l.callId === sip.callId);
       if (exacta) return exacta;
     }
+
+    // 2. MI extensión. Si la central dirigió una llamada a la 102 y está
+    //    sonando el teléfono registrado como la 102, es la misma llamada.
+    //    Va antes que el número porque el número a veces no viene —una
+    //    llamada entre extensiones llegó sin `caller_id` y la cola mostró
+    //    «Sin número»— y la extensión siempre está.
+    const mia = this.extension();
+    if (mia) {
+      const porExtension = sonando.filter((l) => l.extension === mia);
+      if (porExtension.length === 1) return porExtension[0];
+      // Varias a la misma extensión: la que ya es suya, si la hay.
+      const suya = porExtension.find((l) => l.destinatario === yo);
+      if (suya) return suya;
+    }
+
+    // 3. El número de quien llama, normalizado igual que en el servidor.
     const numero = PbxService.normalizarNumero(sip.numero ?? '');
     if (!numero) return null;
     const mismas = sonando.filter((l) => PbxService.normalizarNumero(l.numero) === numero);
-    const yo = this.auth.sesion()?.usuario;
     return mismas.find((l) => l.destinatario === yo) ?? mismas.find((l) => !l.destinatario) ?? mismas[0] ?? null;
   }
 

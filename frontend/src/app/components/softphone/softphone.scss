@@ -1,0 +1,149 @@
+/**
+ * La barra del teléfono.
+ *
+ * Plegada es un botón redondo con el auricular; desplegada, una barra delgada.
+ * El cambio es una transición de ancho, no un cambio de componente: así la
+ * llamada no parpadea cuando la barra se abre sola.
+ */
+.sp {
+  position: fixed;
+  z-index: 70;
+  display: flex;
+  align-items: center;
+  gap: 0.35rem;
+  padding: 0.3rem;
+  border-radius: var(--radius-pill);
+  background: var(--surface);
+  border: 1px solid var(--border);
+  box-shadow: var(--shadow);
+  /* `width` no se anima bien con contenido dentro; se anima el relleno y el
+     contenido aparece ya en su sitio. El movimiento se nota, que es el
+     efecto buscado, sin que los botones bailen. */
+  transition: border-color 0.2s ease, box-shadow 0.2s ease, padding 0.18s ease;
+  touch-action: none;   /* el arrastre es nuestro, no del desplazamiento */
+  cursor: grab;
+  max-width: calc(100vw - 24px);
+}
+
+.sp--arrastrando { cursor: grabbing; user-select: none; }
+.sp--abierta { padding-right: 0.7rem; border-radius: var(--radius-lg); }
+
+/* Una llamada entrando tiene que verse desde el otro lado de la sala. */
+.sp--sonando {
+  border-color: var(--accent);
+  box-shadow: var(--shadow), 0 0 0 3px var(--accent-soft);
+  animation: sp-latido 1.4s ease-in-out infinite;
+}
+.sp--encurso { border-color: var(--accent); }
+
+@keyframes sp-latido {
+  0%, 100% { box-shadow: var(--shadow), 0 0 0 3px var(--accent-soft); }
+  50%      { box-shadow: var(--shadow), 0 0 0 7px transparent; }
+}
+
+/* Quien pidió menos movimiento no quiere un teléfono latiendo en pantalla. */
+@media (prefers-reduced-motion: reduce) {
+  .sp { transition: none; }
+  .sp--sonando { animation: none; }
+}
+
+.sp-icono {
+  position: relative;
+  flex: 0 0 auto;
+  display: grid;
+  place-items: center;
+  width: 38px;
+  height: 38px;
+  border: 0;
+  border-radius: 50%;
+  background: var(--surface-2);
+  color: var(--ink);
+  cursor: pointer;
+}
+.sp-icono:hover { background: var(--accent-soft); }
+.sp--sonando .sp-icono,
+.sp--encurso .sp-icono { background: var(--accent); color: var(--on-accent); }
+
+/* El punto de estado: listo, conectando, sin conexión, apagado. */
+.sp-punto {
+  position: absolute;
+  right: 1px; bottom: 1px;
+  width: 9px; height: 9px;
+  border-radius: 50%;
+  border: 2px solid var(--surface);
+  background: var(--muted);
+}
+.sp-punto[data-estado='registrado'] { background: var(--tag-ok-fg); }
+.sp-punto[data-estado='conectando'] { background: var(--warn); }
+.sp-punto[data-estado='fallo']      { background: var(--danger); }
+
+.sp-cuerpo {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  padding-left: 0.2rem;
+  min-width: 0;
+}
+
+.sp-txt {
+  display: grid;
+  line-height: 1.15;
+  min-width: 0;
+}
+.sp-txt strong { font-size: var(--texto-sm); }
+.sp-txt small { color: var(--muted); font-size: var(--texto-xs); }
+/* Un número largo no puede empujar los botones fuera de la pantalla. */
+.sp-txt small, .sp-txt strong { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+.sp-acc { display: flex; gap: 0.3rem; flex: 0 0 auto; }
+.sp-acc .btn { white-space: nowrap; }
+
+/* El aviso va DEBAJO, en su propia caja: dentro de la barra la estiraría
+   hasta cruzar la pantalla justo cuando hay una llamada en curso. */
+.sp-aviso {
+  position: absolute;
+  top: calc(100% + 0.4rem);
+  right: 0;
+  width: max(16rem, 100%);
+  margin: 0;
+  padding: 0.5rem 0.65rem;
+  border-radius: var(--radius);
+  background: var(--surface);
+  border: 1px solid var(--border);
+  box-shadow: var(--shadow);
+  color: var(--ink-soft);
+  font-size: var(--texto-xs);
+}
+
+.sp-enlace {
+  display: inline;
+  margin-left: 0.3rem;
+  padding: 0;
+  border: 0;
+  background: none;
+  color: var(--accent);
+  text-decoration: underline;
+  cursor: pointer;
+  font: inherit;
+}
+
+/* El elemento donde suena la llamada.
+   El navegador lo oculta por su cuenta —un `<audio>` sin `controls` no se
+   pinta, y eso no se puede cambiar desde aquí— y no importa: un elemento
+   oculto reproduce igual. Lo que sí importa es que exista y que llegue al
+   servicio (`usarAudio`), que es donde la pila SIP engancha el audio remoto.
+   El silencio de la primera prueba real no fue por esto: faltaban los
+   servidores ICE. */
+.sp-audio {
+  position: absolute;
+  width: 1px; height: 1px;
+  opacity: 0;
+  pointer-events: none;
+}
+
+/* En una pantalla de teléfono la barra desplegada ocupa casi todo el ancho;
+   mejor eso que los botones saliéndose por el borde. */
+@media (max-width: 480px) {
+  .sp--abierta { width: calc(100vw - 24px); }
+  .sp-acc .btn { padding-inline: 0.5rem; }
+}

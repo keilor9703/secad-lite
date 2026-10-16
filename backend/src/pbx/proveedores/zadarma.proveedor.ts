@@ -307,7 +307,7 @@ export class ProveedorZadarma implements ProveedorPbx {
     //
     // La extensión sigue guardándose en FALCON como «101», que es lo que
     // mandan sus webhooks y lo que se marca entre extensiones.
-    return { wss, dominio, usuario: `${cuenta}-${ext}`, clave: claveSip };
+    return { wss, dominio, usuario: `${cuenta}-${ext}`, extension: ext, clave: claveSip };
   }
 
   /** Los campos comunes a todos sus eventos. */

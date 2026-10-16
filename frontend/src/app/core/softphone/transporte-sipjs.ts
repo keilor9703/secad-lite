@@ -4,6 +4,7 @@ import { Injectable } from '@angular/core';
 import type { Session, SessionState } from 'sip.js';
 import type { SessionManager } from 'sip.js/lib/platform/web/session-manager';
 import { ConfigSoftphone, OyentesSip, TransporteSip } from './transporte-sip';
+import { iceServers } from '../config-runtime';
 
 /** Lo que hace falta de SIP.js, ya cargado. */
 interface ModuloSip {
@@ -69,7 +70,29 @@ export class TransporteSipJs implements TransporteSip {
         // El navegador no debe anunciar qué es: es un dato que no hace falta
         // para hablar y que sí sirve para buscar vulnerabilidades conocidas.
         userAgentString: 'FALCON CAD',
-        ...(config.ice?.length ? { sessionDescriptionHandlerFactoryOptions: { iceServers: config.ice } } : {}),
+        // ───────────────────────────────────────────────────────────────
+        // SIN ESTO LA LLAMADA SE ESTABLECE Y NO SE OYE NADA
+        //
+        // La señalización (SIP sobre WebSocket) y el audio (RTP) van por
+        // caminos distintos: el primero sale por el WebSocket y funciona
+        // siempre; el segundo tiene que atravesar el NAT de la sala de
+        // despacho, y para eso el navegador necesita servidores ICE. Sin
+        // ellos solo ofrece candidatos de su red local, la central no puede
+        // responderle, y el resultado es exactamente lo que se vio: «En
+        // llamada con 102» y silencio en los dos sentidos.
+        //
+        // La llave importa: va dentro de `peerConnectionConfiguration`. Antes
+        // estaba suelta como `iceServers`, que SIP.js ignora sin decir nada
+        // —un objeto que no entiende no es un error para él—.
+        //
+        // Se usan los MISMOS de la videollamada (`iceServers()`): el STUN y
+        // el coturn de FALCON, con su credencial firmada. Montar un segundo
+        // juego de servidores para el teléfono sería dos cosas que
+        // configurar y una que se olvida.
+        // ───────────────────────────────────────────────────────────────
+        sessionDescriptionHandlerFactoryOptions: {
+          peerConnectionConfiguration: { iceServers: [...(config.ice ?? []), ...iceServers()] },
+        },
       },
       delegate: {
         onServerConnect: () => { void this.manager?.register(); },

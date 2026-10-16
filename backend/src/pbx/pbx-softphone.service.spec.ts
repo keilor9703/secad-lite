@@ -59,6 +59,7 @@ describe('PbxSoftphoneService', () => {
         dominio: 'sip.ejemplo.com',
         // El usuario SIP lo compone el proveedor: cuenta + extensión.
         usuario: '598703-102',
+        extension: '102',
         clave: 'clave-sip-de-la-102',
       },
     });

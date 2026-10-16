@@ -141,8 +141,21 @@ export interface ConfigSoftphone {
   wss: string;
   /** Dominio SIP con el que se arma la identidad del usuario. */
   dominio: string;
-  /** La extensión de este operador. */
+  /**
+   * El usuario con el que se REGISTRA. No siempre es el número de la
+   * extensión: en Zadarma la 101 se registra como «598703-101».
+   */
   usuario: string;
+  /**
+   * El número de la extensión a secas («101»).
+   *
+   * Va aparte del usuario SIP porque es lo que usa el resto de FALCON: la
+   * central lo manda en sus avisos y la cola guarda a qué extensión dirigió
+   * cada llamada. Es lo que permite reconocer que la llamada que suena en el
+   * navegador y la que está en la cola son la misma —mejor que el número de
+   * quien llama, que a veces no viene—.
+   */
+  extension: string;
   /** Su clave SIP. Viaja al navegador por fuerza: es quien se registra. */
   clave: string;
   /** Servidores ICE, si el proveedor exige los suyos. */

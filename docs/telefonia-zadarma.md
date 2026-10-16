@@ -355,16 +355,33 @@ son los datos SIP de cada extensión —los mismos que se ponen en MicroSIP—:
 > usuario y la extensión se sigue guardando como `101`, que es lo que mandan
 > los webhooks y lo que se marca entre extensiones.
 
-Falta **solo la dirección `wss://`**, y esa no aparece en ninguna pantalla. Dos
-formas de conseguirla:
+### La dirección `wss://`, encontrada
 
-1. **Probarla.** Plataforma → Planta telefónica tiene un botón **«Probar
+**`wss://pbxny2.zadarma.com`** — se leyó del teléfono web del propio panel
+(*Llamadas desde el sitio*), con F12 → Red → WS: una conexión WebSocket con
+estado **101** contra ese servidor, abierta por el `jssip.min.js` de Zadarma.
+
+Dos cosas que conviene no perder de vista:
+
+- **Zadarma SÍ admite SIP sobre WebSocket**, y con las credenciales SIP de la
+  extensión: FALCON se registró y estableció una llamada con ella. El widget
+  no era el único camino.
+- **`pbxny2` huele a servidor regional** («ny2»). Puede no ser el mismo para
+  otra cuenta, así que no se escribe en el código: es un campo de
+  configuración, y al lado tiene un botón para comprobarlo.
+
+Si hiciera falta volver a averiguarla —otra cuenta, otro proveedor—:
+
+1. **Mirarla.** Abrir el teléfono web del panel (*Mi centralita → Llamadas
+   desde el sitio*) con F12 → pestaña **Red** → filtro **WS**: la conexión con
+   estado 101 es la dirección.
+2. **Probarla.** Plataforma → Planta telefónica tiene un botón **«Probar
    dirección»** al lado del campo: se pega una candidata y en seis segundos
    dice si contesta y si negocia el protocolo SIP. Se prueba **desde el
    navegador** a propósito, porque el que se va a registrar es el navegador y
    los proveedores filtran por origen —una prueba desde el servidor diría que
    la dirección existe y no diría nada sobre si acepta a FALCON—.
-2. **Preguntarla.** Al soporte de Zadarma: *«necesito registrar un softphone
+3. **Preguntarla.** Al soporte de Zadarma: *«necesito registrar un softphone
    propio (SIP.js) contra `pbx.zadarma.com` desde el navegador, sin usar el
    widget: ¿cuál es la dirección WSS de señalización? ¿Sirve la clave SIP de
    la extensión para registrarse por ese WebSocket, o la señalización solo

@@ -55,7 +55,10 @@ describe('SoftphoneService', () => {
   let capacidades: string[];
 
   const CONFIG: ConfigSoftphone = {
-    wss: 'wss://wss.ejemplo.com', dominio: 'sip.ejemplo.com', usuario: '102', clave: 's3cr3t0',
+    wss: 'wss://wss.ejemplo.com', dominio: 'sip.ejemplo.com',
+    // El usuario SIP y la extensión son cosas distintas: en Zadarma la 102 se
+    // registra como «598703-102».
+    usuario: '598703-102', extension: '102', clave: 's3cr3t0',
   };
 
   beforeEach(() => {
@@ -142,6 +145,24 @@ describe('SoftphoneService', () => {
   });
 
   describe('atar la llamada del navegador con la de la cola', () => {
+    it('por MI EXTENSIÓN, que es la señal más fuerte y la que siempre está', async () => {
+      // Lo encontró la primera prueba real: la central mandó la llamada
+      // interna sin `caller_id`, la cola mostró «Sin número» y casar por
+      // número no tenía con qué. Pero la cola SÍ sabía a qué extensión la
+      // dirigió, y este navegador está registrado como esa extensión.
+      llamadas.set([llamada({ id: 'l-9', numero: '', extension: '102' })]);
+      await encender();
+
+      expect(sp.deLaCola({ numero: '' })?.id).toBe('l-9');
+    });
+
+    it('una llamada dirigida a OTRA extensión no es mía', async () => {
+      llamadas.set([llamada({ id: 'l-otra', numero: '', extension: '103' })]);
+      await encender();
+
+      expect(sp.deLaCola({ numero: '' })).toBeNull();
+    });
+
     it('por número, normalizado igual que en el servidor', async () => {
       // La central manda el `From` crudo; la cola guarda el normalizado.
       // Comparar uno contra otro sin normalizar no casa nunca.
@@ -159,6 +180,16 @@ describe('SoftphoneService', () => {
       await encender();
 
       expect(sp.deLaCola({ numero: '3001111111', callId: 'in-2' })?.id).toBe('l-2');
+    });
+
+    it('entre varias a MI extensión, prefiere la que ya es suya', async () => {
+      llamadas.set([
+        llamada({ id: 'l-otra', numero: '', extension: '102', destinatario: 'ana' }),
+        llamada({ id: 'l-mia', numero: '', extension: '102', destinatario: 'pedro' }),
+      ]);
+      await encender();
+
+      expect(sp.deLaCola({ numero: '' })?.id).toBe('l-mia');
     });
 
     it('entre varias del MISMO número, prefiere la dirigida a este operador', async () => {

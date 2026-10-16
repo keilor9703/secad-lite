@@ -22,11 +22,13 @@ export interface ConfigSoftphone {
   wss: string;
   /** Dominio SIP con el que se arma la identidad (`101@dominio`). */
   dominio: string;
-  /** La extensión de este operador. */
+  /** Con qué usuario se registra. En Zadarma, «598703-101» y no «101». */
   usuario: string;
+  /** El número de la extensión a secas («101»), como lo conoce la cola. */
+  extension: string;
   /** Su clave SIP. */
   clave: string;
-  /** Servidores ICE, si el proveedor exige los suyos. */
+  /** Servidores ICE propios del proveedor, si exige los suyos. */
   ice?: { urls: string | string[]; username?: string; credential?: string }[];
 }
 
