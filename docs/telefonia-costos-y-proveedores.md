@@ -190,6 +190,82 @@ ustedes.
 
 ---
 
+## 4.5 Dónde se compra lo que falta, con nombres
+
+Son **dos piezas** y son **dos mercados distintos**. Conviene no mezclarlos.
+
+### Pieza 1 — La centralita (PBX + ACD + grabación)
+
+**Gratis, software libre, lo corren ustedes.** Los cuatro sirven y los cuatro
+hablan **SIP sobre WebSocket**, que es el requisito que decide (§5.1 de
+[`telefonia-cadena-de-la-llamada.md`](telefonia-cadena-de-la-llamada.md)):
+
+| | Notas |
+|---|---|
+| **Asterisk** (con `chan_pjsip`) | El estándar. Eventos por AMI/ARI, que es de donde saldría el webhook para FALCON |
+| **FreePBX** | Asterisk con interfaz de administración. Menos consola, más pantalla |
+| **Issabel** | El sucesor de Elastix. **Comunidad grande en Colombia y LatAm** — importa para conseguir quién lo opere |
+| **FreeSWITCH** | Más capaz en medios, más difícil de operar |
+
+**Dónde ponerla para que la llamada NO salga de Colombia:** Oracle abrió su
+**región de Bogotá en diciembre de 2023**, alojada en el centro de datos de
+**Claro**. FALCON ya corre en Oracle Cloud, así que es la misma cuenta y otra
+región — no hay que cambiar de proveedor de nube.
+
+> ⚠️ **Verifiquen primero en qué región está FALCON hoy.** Si está en São
+> Paulo o en Estados Unidos, la aplicación ya está fuera del país y la
+> centralita ahí no resolvería nada. Es una comprobación de cinco minutos en
+> la consola de OCI y condiciona todo lo demás.
+
+**De pago, que alguien más la opere:** 3CX (licencia, se puede hospedar en
+Colombia) y los «PBX en la nube» que venden los mismos proveedores de troncal
+de abajo.
+
+### Pieza 2 — La troncal SIP y el número
+
+Aquí **no hay gratis**. Nadie regala numeración colombiana ni minutos. Lo que
+sí hay es mercado, y con poca permanencia:
+
+| Proveedor | Por qué mirarlo |
+|---|---|
+| **Tigo Business** | Operador grande; vende troncal SIP en la nube y dice ser compatible con Cloud PBX y Contact Center |
+| **Claro, ETB, Movistar** | No salieron en la búsqueda pero son los que cargan el 1XY. **Hay que pedirles cotización directa** |
+| **LIWA Empresas** (Bogotá) | 18 años en telefonía IP; troncal por consumo, con numeración o bolsas de minutos |
+| **ColombiaRED** | Dice funcionar con **Asterisk, FreePBX, 3CX**, y **sin contratos ni permanencia** — bueno para un piloto |
+| **AZTEL** | PBX en la nube con numeración DID, activación en minutos, sin permanencia |
+| **Teleone**, **BestVoiper**, **VoIP Mundo** | Mismo perfil: troncal + PBX virtual para empresas |
+
+Todo eso sale de las páginas comerciales de cada proveedor, varias de 2025 o
+antes. **No hay nada verificado de forma independiente** sobre su SLA, su
+calidad ni sus precios: son nombres para pedirles cotización, no una
+recomendación.
+
+### Las dos combinaciones posibles
+
+**A — Todo con un proveedor colombiano.** Troncal y su PBX en la nube, un solo
+contrato. Menos trabajo, pero depende de que ese PBX ofrezca **WSS** y
+**webhooks**, que es justo lo que un PBX comercial empaquetado suele *no*
+exponer, porque su negocio es venderle a usted su propia barra de agente.
+
+**B — Troncal colombiana + centralita propia gratis en OCI Bogotá.** Siempre
+funciona, porque el WSS y los eventos los controlan ustedes. La troncal pasa a
+ser un insumo intercambiable: si un proveedor sube el precio, se cambia sin
+tocar nada.
+
+**Recomendación: B.** No porque sea más barata —que lo es— sino porque los dos
+requisitos que deciden (WSS y webhooks) son exactamente los dos que un PBX
+comercial es menos probable que cumpla. Con B no se depende de la respuesta.
+
+**Y lo que B cuesta de verdad, dicho sin adornos:** la licencia es gratis, la
+máquina en Bogotá es barata, y el trabajo son dos cosas: escribir el proveedor
+«Asterisk» en FALCON —un archivo, como los demás— y **operar una centralita
+24/7**. Lo primero es una semana. Lo segundo es una responsabilidad
+permanente, y para una línea 123 no es menor: un CAD caído molesta, una
+central de emergencias caída es otra cosa. Eso se presupuesta como persona, no
+como servidor.
+
+---
+
 ## 5. Lo que falta averiguar antes de cotizar
 
 Nada de lo de abajo se puede resolver desde el código; son llamadas y correos.
