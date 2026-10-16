@@ -29,21 +29,34 @@ Diez eslabones. FALCON solo toca los dos últimos.
         │
  6. ACD: encola y reparte entre operadores libres   ← hoy: YACO
         │
- 7. El agente contesta (softphone / WebRTC / teléfono)
+ 7. El agente contesta                              ← AHORA: FALCON (16/10/2026)
         │
  8. Grabación: audio, almacenamiento, URL firmada   ← hoy: YACO
         │
  9. CTI: empuja el evento a FALCON  ─────────────────→ POST /api/pbx/webhook
         │                                              POST /api/cti/eventos/interaccion
-10. FALCON: screen-pop, caso, despacho
+10. FALCON: screen-pop, caso, despacho             ← FALCON
             + consulta aparte al proveedor de ELS  ─→ GET /api/els/ubicacion
 ```
 
-**Lo que FALCON hace hoy es el eslabón 10, y nada más.** No habla SIP, no
-transporta audio, no graba. Recibe un webhook con el ANI, el identificador de
-interacción, el operador del ACD y la fecha; con eso abre el formulario. Eso
-no es una limitación: es lo que hace que cambiar de proveedor de telefonía
-sea un cambio de quien empuja el webhook, no una reescritura.
+**FALCON hace hoy los eslabones 7, 9 y 10.** El 7 es nuevo: la barra propia
+se registra como una extensión SIP por WebSocket y contesta la llamada dentro
+del navegador, con audio en los dos sentidos. Está probado contra un proveedor
+real (Zadarma) — ver [`telefonia-zadarma.md`](telefonia-zadarma.md). Eso es lo
+que **elimina la necesidad de la barra CTI de un tercero**, que era el eslabón
+que no se podía comprar suelto.
+
+**Y lo que FALCON NO es, para no confundirse:**
+
+- **FALCON no es una centralita.** No recibe la troncal, no autentica al
+  operador telefónico, no decide qué extensión timbra, no hace IVR, no graba.
+- **La «cola» de Recepción no es un ACD.** Es la lista en pantalla de lo que
+  la centralita ya decidió; el reparto lo hace la centralita, no FALCON.
+- **FALCON no transporta el audio de la troncal.** El audio va del proveedor
+  al navegador del operador; FALCON pone la pantalla y la aplicación.
+
+Dicho al revés, que es como se vende: **FALCON es el CAD y el teléfono del
+operador. Falta quien traiga la llamada y quien la reparta.**
 
 ---
 
@@ -164,12 +177,61 @@ SBC ni PBX**. Montar telefonía propia significa, como mínimo:
 - Un ACD de verdad: colas, habilidades, prioridad, desbordes, supervisión.
 - Grabación con retención, cifrado en reposo y la firma digital que pide la
   ficha técnica.
-- Un softphone WebRTC para el agente, integrado en FALCON.
+- ~~Un softphone WebRTC para el agente, integrado en FALCON.~~ **HECHO**
+  (16/10/2026): la barra se registra por SIP sobre WebSocket y contesta en el
+  navegador, probada contra un proveedor real.
 - Y la parte que nadie presupuesta: **operarlo 24/7**. Un CAD que se cae
   molesta; una central de 123 que se cae es otra cosa.
 
-Lo bueno: FALCON ya tiene WebRTC propio y funcional con coturn, así que el
-softphone no arranca de cero.
+### 5.1 Entonces, ¿qué falta COMPRAR?
+
+Dos cosas, y se pueden comprar juntas a un solo proveedor colombiano:
+
+| Falta | Eslabones | Qué se pide en el mercado |
+|---|---|---|
+| **Quien trae la llamada** | 3 y 4 | *Troncal SIP* + el número E.164 de enrutamiento del 123 |
+| **Quien la recibe y la reparte** | 5, 6 y 8 | *Centralita en la nube* (PBX + ACD + grabación), o *contact center como servicio* |
+
+**El requisito que decide todo, y que hay que preguntar primero:** que esa
+centralita permita que **el navegador del operador se registre como extensión
+SIP por WebSocket (WSS)**. Si lo permite, la barra de FALCON contesta y **no
+hace falta la barra CTI de nadie**. Si no lo permite, hay dos salidas: que el
+proveedor entregue la troncal a una **centralita propia** (Asterisk,
+FreeSWITCH) puesta en Colombia, que sí habla WSS, o volver a depender de la
+barra del tercero — que es justamente lo que se quiere evitar.
+
+Zadarma sirvió para demostrar que el camino existe: acepta WSS con la clave
+SIP de la extensión, y con eso se construyó y se probó toda la barra. Lo que
+no sirve es para el 123, por región y por contratación (§9).
+
+### 5.2 Lo que hay que pedirle a cada proveedor, literal
+
+Para mandar por correo tal cual, a un operador colombiano o a un ITSP:
+
+> Operamos un software propio de despacho de emergencias. **No necesitamos su
+> barra de agente ni su CRM**: el operador contesta dentro de nuestra
+> aplicación web. Necesitamos de ustedes:
+>
+> 1. **Troncal SIP** con *N* canales simultáneos, y el número E.164 al que el
+>    municipio enruta su 1XY.
+> 2. **Centralita en la nube** con cola/ACD que reparta entre extensiones.
+> 3. Que cada operador pueda registrarse como **extensión SIP sobre WebSocket
+>    (WSS)** desde el navegador. ¿Cuál es la dirección `wss://` y sirve la
+>    clave SIP de la extensión?
+> 4. **Eventos de llamada por webhook** (timbra, contesta, cuelga) con el
+>    número de quien llama y un identificador único de llamada. ¿Cómo se firma
+>    el webhook?
+> 5. **API para originar una llamada** desde la extensión de un operador.
+> 6. **Grabación** con almacenamiento, descarga por API y firma digital.
+> 7. Infraestructura **en Colombia**, contrato en español, factura
+>    electrónica DIAN y SLA.
+>
+> Los puntos 3 y 4 son los que deciden: sin ellos tendríamos que poner una
+> centralita propia delante de su troncal.
+
+Con esas respuestas, dar de alta al proveedor en FALCON es escribir un archivo
+en `pbx/proveedores/` y registrarlo — ver
+[`telefonia-proveedores.md`](telefonia-proveedores.md).
 
 ---
 
