@@ -1,0 +1,121 @@
+;
+; pjsip.conf — centralita de FALCON CAD
+;
+; Reemplace: DOMINIO_CENTRALITA, IP_PUBLICA, IP_DEL_PROVEEDOR,
+;            USUARIO_TRONCAL, CLAVE_TRONCAL, SERVIDOR_TRONCAL
+;
+
+;; ─────────────────────────────────────────────────────────────────────────
+;; TRANSPORTES
+;;
+;; Dos, porque son dos mundos: los navegadores de los operadores entran por
+;; WebSocket seguro, y la troncal del operador telefónico por UDP de toda la
+;; vida.
+;; ─────────────────────────────────────────────────────────────────────────
+
+[transport-wss]
+type = transport
+protocol = wss
+bind = 0.0.0.0:8089
+
+[transport-udp]
+type = transport
+protocol = udp
+bind = 0.0.0.0:5060
+;; SIN ESTAS DOS LÍNEAS: AUDIO DE UNA SOLA VÍA.
+;; Asterisk anunciaría su IP privada en el SDP y el audio de vuelta no llega.
+;; Es exactamente el mismo problema que ya se vivió del lado del navegador,
+;; ahora del lado del servidor.
+external_media_address = IP_PUBLICA
+external_signaling_address = IP_PUBLICA
+;; Las redes de adentro, para que Asterisk sepa cuándo NO reescribir.
+local_net = 10.0.0.0/8
+local_net = 172.16.0.0/12
+local_net = 192.168.0.0/16
+
+
+;; ─────────────────────────────────────────────────────────────────────────
+;; UNA EXTENSIÓN POR OPERADOR
+;;
+;; `webrtc = yes` activa de un golpe lo que el navegador exige: ICE, DTLS,
+;; rtcp-mux y AVPF. Sin eso el registro funciona y la llamada no suena.
+;;
+;; Los códecs van en ESTE orden a propósito: el navegador habla Opus, y la
+;; troncal colombiana casi siempre entrega G.711 (ulaw). Asterisk
+;; transcodifica, y eso consume CPU — es la variable que decide el tamaño de
+;; la máquina. Mídala con tráfico antes de prometer capacidad.
+;;
+;; LA CLAVE NO VA AQUÍ EN CLARO EN EL REPOSITORIO. El script la pide y la
+;; escribe en /etc/asterisk. La misma clave se registra en FALCON, en el
+;; campo «clave SIP» del usuario.
+;; ─────────────────────────────────────────────────────────────────────────
+
+[101]
+type = endpoint
+transport = transport-wss
+webrtc = yes
+context = entrantes
+disallow = all
+allow = opus,ulaw
+auth = 101
+aors = 101
+;; El nombre que ve quien recibe una llamada de este operador.
+callerid = Operador 101 <101>
+
+[101]
+type = auth
+auth_type = userpass
+username = 101
+password = CLAVE_DE_LA_101
+
+[101]
+type = aor
+max_contacts = 2        ; el operador puede tener dos pestañas abiertas
+remove_existing = yes   ; y la tercera desplaza a la más vieja, no falla
+
+
+;; ─────────────────────────────────────────────────────────────────────────
+;; LA TRONCAL DEL OPERADOR
+;;
+;; Esto es lo único que cambia al cambiar de proveedor de telefonía. Toda la
+;; aplicación —FALCON, la barra, los casos— no se entera.
+;; ─────────────────────────────────────────────────────────────────────────
+
+[troncal]
+type = registration
+transport = transport-udp
+outbound_auth = troncal-auth
+server_uri = sip:SERVIDOR_TRONCAL
+client_uri = sip:USUARIO_TRONCAL@SERVIDOR_TRONCAL
+retry_interval = 60
+
+[troncal-auth]
+type = auth
+auth_type = userpass
+username = USUARIO_TRONCAL
+password = CLAVE_TRONCAL
+
+[troncal]
+type = aor
+contact = sip:SERVIDOR_TRONCAL
+
+[troncal]
+type = endpoint
+transport = transport-udp
+context = entrantes        ; todo lo que entre por la troncal, al dialplan
+disallow = all
+allow = ulaw,alaw
+outbound_auth = troncal-auth
+aors = troncal
+from_user = USUARIO_TRONCAL
+;; Confiar en el identificador de quien llama que manda el operador: es el
+;; número del ciudadano, y sin él el caso nace sin a quién devolverle la
+;; llamada.
+trust_id_inbound = yes
+
+[troncal]
+type = identify
+endpoint = troncal
+;; SOLO el proveedor puede entregar llamadas por aquí. Sin esto, cualquiera
+;; que encuentre el 5060 puede intentar cursar llamadas a su costa.
+match = IP_DEL_PROVEEDOR

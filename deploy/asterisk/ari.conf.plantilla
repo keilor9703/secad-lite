@@ -1,0 +1,19 @@
+;
+; ari.conf — la cuenta de API con la que FALCON origina llamadas
+;
+; Solo hace falta para el botón «Llamar» del caso. Sin esto, las entrantes y
+; el softphone funcionan igual.
+;
+; Reemplace: CLAVE_ARI  (larga y aleatoria: esta cuenta puede originar
+;                        llamadas, y las llamadas se facturan)
+;
+
+[general]
+enabled = yes
+pretty = yes
+
+[falcon]
+type = user
+read_only = no
+password = CLAVE_ARI
+password_format = plain

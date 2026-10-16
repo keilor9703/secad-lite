@@ -1,6 +1,7 @@
 import { DescriptorProveedor, ProveedorPbx } from './proveedor';
 import { ProveedorZadarma } from './zadarma.proveedor';
 import { ProveedorYaco } from './yaco.proveedor';
+import { ProveedorAsterisk } from './asterisk.proveedor';
 
 /**
  * EL REGISTRO DE PLANTAS TELEFÓNICAS
@@ -17,6 +18,7 @@ import { ProveedorYaco } from './yaco.proveedor';
 const IMPLEMENTACIONES: ProveedorPbx[] = [
   new ProveedorYaco(),
   new ProveedorZadarma(),
+  new ProveedorAsterisk(),
 ];
 
 /** Por clave (`'YACO'`, `'ZADARMA'`), que es lo que guarda `config_pbx`. */

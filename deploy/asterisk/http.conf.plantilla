@@ -1,0 +1,21 @@
+;
+; http.conf — el servidor web de Asterisk
+;
+; Es quien sirve DOS cosas: el WebSocket por el que se registra la barra de
+; FALCON, y ARI, la API con la que FALCON origina llamadas. Las dos por el
+; mismo 8089.
+;
+; Reemplace: DOMINIO_CENTRALITA
+;
+
+[general]
+enabled = yes
+bindaddr = 0.0.0.0
+bindport = 8088          ; sin TLS: NO se expone a internet, solo local
+tlsenable = yes
+tlsbindaddr = 0.0.0.0:8089
+;; El navegador NO acepta un certificado autofirmado para un WebSocket
+;; seguro. Tiene que ser uno real, y hay que renovarlo: si vence, el softphone
+;; deja de registrarse de un día para otro y sin aviso.
+tlscertfile = /etc/asterisk/keys/DOMINIO_CENTRALITA.crt
+tlsprivatekey = /etc/asterisk/keys/DOMINIO_CENTRALITA.key

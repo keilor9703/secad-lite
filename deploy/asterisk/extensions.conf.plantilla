@@ -1,0 +1,72 @@
+;
+; extensions.conf — el dialplan
+;
+; Reemplace: URL_DE_FALCON, API_KEY_DE_LA_INSTANCIA
+;
+
+[general]
+static = yes
+writeprotect = yes
+
+[globals]
+FALCON_URL = URL_DE_FALCON
+FALCON_KEY = API_KEY_DE_LA_INSTANCIA
+
+
+;; ─────────────────────────────────────────────────────────────────────────
+;; LO QUE ENTRA
+;;
+;; AQUÍ ESTÁ EL AHORRO DE TODO EL DISEÑO: no hace falta escribir un traductor
+;; de eventos en FALCON, porque este dialplan habla directamente el modelo de
+;; FALCON contra el webhook genérico —el mismo por donde entran hoy las
+;; llamadas de YACO—. La centralita es nuestra: en vez de que FALCON adivine
+;; el idioma de una central ajena, hablamos bien desde el principio.
+;;
+;; TRES COSAS QUE NO SON ADORNO:
+;;
+;;  1. El `&` del final y el `-m 3`. Sin ellos, si FALCON tarda en responder,
+;;     el dialplan se queda esperando y EL TELÉFONO NO TIMBRA. Avisar nunca
+;;     puede retrasar la llamada.
+;;  2. `${UNIQUEID}` es el callId, y es lo que ata el «entrante» con el
+;;     «colgada» y con la llamada que el navegador ve por SIP. Es el mismo
+;;     papel que cumplía `pbx_call_id` con Zadarma.
+;;  3. La extensión `h` corre SIEMPRE al colgar, conteste quien conteste y
+;;     cuelgue quien cuelgue. Por eso el cierre va ahí y no después del Dial:
+;;     con Zadarma se aprendió por las malas que colgar no cerraba la llamada
+;;     en FALCON.
+;; ─────────────────────────────────────────────────────────────────────────
+
+[entrantes]
+exten => _X.,1,NoOp(FALCON entrante ${CALLERID(num)} -> ${EXTEN} id=${UNIQUEID})
+ same => n,Set(CDR(userfield)=${UNIQUEID})
+ same => n,System(curl -s -m 3 -X POST ${FALCON_URL}/api/pbx/webhook -H "Content-Type: application/json" -H "x-api-key: ${FALCON_KEY}" -d '{"evento":"entrante","callId":"${UNIQUEID}","numero":"${CALLERID(num)}","extension":"${EXTEN}","numeroDestino":"${EXTEN}"}' &)
+ same => n,Dial(PJSIP/${EXTEN},30)
+ same => n,Hangup()
+
+;; Se cuelga: se cierra en FALCON. Pase lo que pase.
+exten => h,1,NoOp(FALCON fin id=${UNIQUEID} estado=${DIALSTATUS})
+ same => n,System(curl -s -m 3 -X POST ${FALCON_URL}/api/pbx/webhook -H "Content-Type: application/json" -H "x-api-key: ${FALCON_KEY}" -d '{"evento":"colgada","callId":"${UNIQUEID}"}' &)
+
+
+;; ─────────────────────────────────────────────────────────────────────────
+;; LO QUE SALE — el botón «Llamar» del caso
+;;
+;; ARI crea el canal del OPERADOR y, cuando descuelga, lo manda aquí para que
+;; marque al ciudadano. Ese orden importa: si se llamara primero al ciudadano,
+;; contestaría a un silencio mientras la central busca a un operador que puede
+;; no estar en su puesto.
+;;
+;; La cola de un CAD es de lo que ENTRA, así que una saliente NO se avisa como
+;; «entrante»: no debe aparecer en la cola de Recepción.
+;; ─────────────────────────────────────────────────────────────────────────
+
+[salientes]
+exten => _X.,1,NoOp(FALCON saliente hacia ${EXTEN})
+ same => n,Set(CALLERID(num)=${CALLERID(num)})
+ same => n,Dial(PJSIP/${EXTEN}@troncal,60)
+ same => n,Hangup()
+
+
+;; Llamadas entre extensiones, para probar sin troncal.
+[internas]
+exten => _1XX,1,Goto(entrantes,${EXTEN},1)

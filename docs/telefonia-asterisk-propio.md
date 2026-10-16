@@ -241,21 +241,28 @@ ORDER BY "creadoEn" DESC LIMIT 10;
 
 ---
 
-## 5. Fase 4 — El proveedor «ASTERISK» en FALCON (1–2 días)
+## 5. Fase 4 — El proveedor «ASTERISK» en FALCON ✅ HECHO
 
-Un archivo en `backend/src/pbx/proveedores/asterisk.proveedor.ts` y una línea
-en `registro.ts`. Ver [`telefonia-proveedores.md`](telefonia-proveedores.md).
+`backend/src/pbx/proveedores/asterisk.proveedor.ts`, registrado en
+`registro.ts`. Ya aparece en Plataforma → Planta telefónica.
 
 - **Capacidades:** `['entrantes', 'marcar', 'softphone']`.
-- **Credenciales que declara:** `wss` (`wss://pbx-lab…:8089/ws`), `dominio`,
-  y para marcar: `ariUrl`, `ariUsuario`, `ariClave` (esta última **secreta**,
-  con lo cual se cifra y nunca se devuelve — el puerto ya hace eso solo).
-- **`softphone()`:** devuelve `usuario = extension`, sin prefijo. Más simple
-  que Zadarma.
-- **`traducir()`: no se implementa.** Las llamadas entran por el webhook
+- **Credenciales:** `wss` y `dominio` (obligatorias); `ariUrl`, `ariUsuario`,
+  `ariClave` (opcionales, solo para el botón «Llamar»; la clave es **secreta**,
+  así que se cifra y nunca vuelve al navegador) y `contextoSaliente`.
+- **`softphone()`:** `usuario = extension`, sin prefijo de cuenta.
+- **`traducir()`: no existe**, a propósito. Las llamadas entran por el webhook
   genérico, como YACO.
-- **`marcar()`:** `POST {ariUrl}/channels` con autenticación básica,
-  `endpoint=PJSIP/{extension}`, y al contestar marca el número.
+- **`marcar()`:** `POST {ariUrl}/channels` con Basic, `endpoint=PJSIP/{ext}`.
+
+Probado y saboteado: ponerle prefijo al usuario SIP, llamar primero al
+ciudadano, meter la clave de ARI en la URL, e intentar marcar sin ARI
+configurado. Las cuatro las atrapa una prueba.
+
+**Y las plantillas de Asterisk están en [`../deploy/asterisk/`](../deploy/asterisk/)**
+— `pjsip.conf`, `extensions.conf`, `http.conf`, `ari.conf` y un `instalar.sh`
+que las rellena preguntando. Lo que sigue en este documento explica qué hace
+cada una y por qué; para montarlo, basta correr el script.
 
 ---
 
@@ -293,7 +300,7 @@ Lo que de verdad cuesta la opción B no es montarla, es sostenerla:
 | 1 | Asterisk + certificado + extensiones | usted | 2–3 días |
 | 2 | Puertos y seguridad (los **dos** cortafuegos) | usted | medio día |
 | 3 | Dialplan que avisa a FALCON | usted | 1 día |
-| 4 | Proveedor «ASTERISK» en FALCON | yo | 1–2 días |
+| 4 | ~~Proveedor «ASTERISK» en FALCON~~ | yo | ✅ **hecho** (16/10/2026) |
 | 5 | Troncal | el operador | 1–3 semanas de trámite |
 | 6 | Operación | alguien, siempre | permanente |
 
