@@ -470,6 +470,44 @@ lo era), y el DNS tiene que apuntar **directo al servidor**. Si está en
 Cloudflare con la nube naranja, no sirve: Cloudflare solo hace de
 intermediario en un puñado de puertos, y el 3478 no está entre ellos.
 
+### chan_sip le roba el WebSocket a PJSIP, y el síntoma engaña
+
+Costó una tarde (18/10/2026) y conviene reconocerlo de inmediato.
+
+Asterisk 18 **todavía trae `chan_sip`**, el driver SIP viejo, y el paquete de
+Debian/Ubuntu lo carga por defecto. Las dos pilas —`chan_sip` y `res_pjsip`—
+compiten por el subprotocolo `sip` del WebSocket, y **gana la que cargue
+primero**.
+
+Cuando gana chan_sip, lo que se ve es:
+
+- el WebSocket conecta bien: `101 Switching Protocols`, `sec-websocket-protocol: sip`;
+- el navegador manda `REGISTER`, recibe el desafío `401` y responde el digest;
+- y Asterisk contesta **`403 Forbidden`**.
+
+Todo apunta a la clave SIP, y la clave está bien: chan_sip simplemente **no
+conoce la extensión**, porque esa vive en `pjsip.conf`.
+
+**Cómo reconocerlo en el trazado**, sin tocar nada:
+
+| | chan_sip (el viejo) | res_pjsip (el bueno) |
+|---|---|---|
+| Etiqueta en `To:` | `;tag=as4b4f731e` — empieza por **`as`** | aleatoria, sin prefijo |
+| `Supported:` | `replaces, timer` | `100rel, timer, replaces, norefersub` |
+
+Si en la misma centralita ve las dos firmas —una en las respuestas a la
+troncal y otra en las del navegador— no son dos configuraciones: **son dos
+pilas**.
+
+**El arreglo** es una línea en `/etc/asterisk/modules.conf`:
+
+```
+noload => chan_sip.so
+```
+
+`instalar.sh` ya la pone. En una instalación hecha antes de eso, se agrega y
+se reinicia (`reload` no basta: hay que descargar el módulo).
+
 ### Y lo entrante no es lo único
 
 Con una troncal estática el tráfico **saliente** ya funciona desde el primer

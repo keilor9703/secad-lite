@@ -141,6 +141,27 @@ else
   echo "  ○ $DESTINO/pjsip-troncal.conf (vacío: faltan datos del operador)"
 fi
 
+# ── Apagar chan_sip, el driver viejo ──────────────────────────────────────
+# Asterisk 18 todavía trae `chan_sip`, y el paquete de Debian lo carga. Las
+# dos pilas —chan_sip y res_pjsip— compiten por el subprotocolo `sip` del
+# WebSocket, y **gana la que cargue primero**.
+#
+# Cuando gana chan_sip, el síntoma no se parece en nada a la causa: el
+# WebSocket conecta («101 Switching Protocols»), el navegador manda su
+# REGISTER, recibe el desafío 401 y luego un **403 Forbidden** — porque
+# chan_sip no conoce la extensión, que vive en pjsip.conf. Se puede pasar una
+# tarde revisando la clave SIP, que está bien.
+#
+# La pista para reconocerlo en un trazado: chan_sip pone etiquetas que
+# empiezan por «as» (`;tag=as4b4f731e`) y anuncia `Supported: replaces,
+# timer`; PJSIP anuncia `Supported: 100rel, timer, replaces, norefersub`.
+if ! grep -qE '^\s*noload\s*=>\s*chan_sip\.so' "$DESTINO/modules.conf" 2>/dev/null; then
+  [[ -f $DESTINO/modules.conf ]] && cp -a "$DESTINO/modules.conf" "$DESTINO/modules.conf.respaldo-$SELLO"
+  printf '\n; Apagado por FALCON: compite con res_pjsip por el WebSocket.\nnoload => chan_sip.so\n' \
+    >> "$DESTINO/modules.conf"
+  echo "  ✔ chan_sip apagado en modules.conf"
+fi
+
 echo
 echo "── Recargando ──────────────────────────────────────────────────────"
 systemctl reload asterisk 2>/dev/null || systemctl restart asterisk
