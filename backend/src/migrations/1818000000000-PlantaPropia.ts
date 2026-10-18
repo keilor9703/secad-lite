@@ -64,6 +64,7 @@ export class PlantaPropia1818000000000 implements MigrationInterface {
         id              uuid PRIMARY KEY DEFAULT uuid_generate_v4(),
         tenant          varchar(64) NOT NULL UNIQUE,
         servidor        varchar(180) NOT NULL,
+        "ipPublica"     varchar(64),
         "dominioSip"    varchar(180) NOT NULL UNIQUE,
         "puertoSip"     int NOT NULL,
         "rtpDesde"      int NOT NULL,

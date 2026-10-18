@@ -97,6 +97,21 @@ export class PlantaAsteriskEntity {
   servidor!: string;
 
   /**
+   * La IP pública del servidor, para el SDP y la señalización.
+   *
+   * Sin ella, AUDIO DE UNA SOLA VÍA: Asterisk anuncia su IP privada y el
+   * audio de vuelta no llega a ninguna parte. Es el mismo fallo que ya se
+   * vivió del lado del navegador, ahora del lado del servidor.
+   *
+   * Nula cuando `servidor` ya es una IP —que es el caso normal en OCI, donde
+   * uno entra por SSH a la pública—: entonces se usa esa, y así no hay dos
+   * campos que puedan discrepar. Solo hace falta llenarla si `servidor` es un
+   * nombre.
+   */
+  @Column({ type: 'varchar', length: 64, nullable: true })
+  ipPublica?: string | null;
+
+  /**
    * El nombre por el que el navegador llega a ESTA planta
    * (`itagui-pbx.falconcad.com.co`). Es también el dominio SIP con el que se
    * arma la identidad del operador (`sip:101@ese-dominio`).
@@ -179,4 +194,20 @@ export function urlAri(
   planta: Pick<PlantaAsteriskEntity, 'dominioSip'>,
 ): string {
   return `https://${planta.dominioSip}/ari`;
+}
+
+/**
+ * La IP que la planta tiene que anunciar.
+ *
+ * Si `servidor` ya es una IP, es esa: en OCI uno entra por SSH a la pública,
+ * así que pedirla dos veces es pedir que un día no coincidan. `ipPublica`
+ * existe para cuando `servidor` es un nombre.
+ */
+export function ipPublicaDe(
+  planta: Pick<PlantaAsteriskEntity, 'servidor' | 'ipPublica'>,
+): string {
+  const explicita = planta.ipPublica?.trim();
+  if (explicita) return explicita;
+  const servidor = planta.servidor?.trim() ?? '';
+  return /^\d{1,3}(\.\d{1,3}){3}$/.test(servidor) ? servidor : '';
 }

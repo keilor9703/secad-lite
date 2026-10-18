@@ -23,6 +23,11 @@ import { AvisosPbxService } from './avisos.service';
 import { PbxCredencialesService } from './pbx-credenciales.service';
 import { PbxSalienteService } from './pbx-saliente.service';
 import { PbxSoftphoneService } from './pbx-softphone.service';
+import { PlantaAsteriskEntity } from './planta/planta-asterisk.entity';
+import { PbxTroncalEntity } from './planta/pbx-troncal.entity';
+import { PbxNumeroEntity } from './planta/pbx-numero.entity';
+import { PlantaService } from './planta/planta.service';
+import { PlantaController } from './planta/planta.controller';
 
 /**
  * Integración con la planta telefónica (PBX). Recibe eventos de llamada por
@@ -39,18 +44,23 @@ import { PbxSoftphoneService } from './pbx-softphone.service';
 @Module({
   imports: [
     AuditoriaModule,
-    TypeOrmModule.forFeature([LlamadaEntity, CasoEntity, PbxWebhookLogEntity, ConfigPbxEntity]),
+    TypeOrmModule.forFeature([
+      LlamadaEntity, CasoEntity, PbxWebhookLogEntity, ConfigPbxEntity,
+      // Nuestra planta: la infraestructura que provisionamos por municipio.
+      PlantaAsteriskEntity, PbxTroncalEntity, PbxNumeroEntity,
+    ]),
     CasosModule,
     TenantsModule,
     AuthModule,
     // Resuelve la extensión de la PBX al username del funcionario.
     UsuariosModule,
   ],
-  controllers: [PbxController, PbxConfigController, ZadarmaController],
+  controllers: [PbxController, PbxConfigController, PlantaController, ZadarmaController],
   providers: [
     PbxService, PbxGateway, PbxApiKeyGuard, PbxWebhookLogService,
     PbxWebhookRechazoFilter, PbxWebhookExitoInterceptor,
     PbxConfigService, PbxCredencialesService, AvisosPbxService, PbxSalienteService, PbxSoftphoneService,
+    PlantaService,
   ],
   exports: [PbxService],
 })

@@ -1,6 +1,6 @@
 import { BadRequestException, ConflictException, ForbiddenException, Injectable, Logger, NotFoundException, OnModuleInit } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { IsNull, Repository } from 'typeorm';
+import { IsNull, Not, Repository } from 'typeorm';
 import * as bcrypt from 'bcryptjs';
 import { randomBytes } from 'node:crypto';
 import { cifrar, descifrar } from '../common/secretos';
@@ -589,6 +589,20 @@ export class UsuariosService implements OnModuleInit {
   }
 
   /** El funcionario dueño de esa extensión en el secad; null si no hay match. */
+  /**
+   * Los funcionarios de una instancia que tienen extensión, para provisionar
+   * la planta: de aquí salen los endpoints SIP y los miembros de la cola.
+   *
+   * Devuelve las entidades y no los DTO porque quien provisiona necesita la
+   * clave SIP cifrada para poder descifrarla; el DTO —con razón— no la lleva.
+   */
+  conExtension(tenant: string): Promise<UsuarioEntity[]> {
+    return this.repo.find({
+      where: { tenant, extension: Not(IsNull()) },
+      order: { extension: 'ASC' },
+    });
+  }
+
   async buscarPorExtension(tenant: string, extension: string): Promise<UsuarioEntity | null> {
     const valor = extension?.trim();
     if (!valor) return null;
