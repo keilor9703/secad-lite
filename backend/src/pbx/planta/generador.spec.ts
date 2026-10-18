@@ -1,3 +1,7 @@
+import { execFileSync } from 'node:child_process';
+import { mkdtempSync, writeFileSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
 import {
   ArchivoGenerado,
   DatosPlanta,
@@ -394,6 +398,92 @@ describe('generador de la configuración de la planta', () => {
       expect(n).toContain('location /ws');
       expect(n).toContain('location /ari/');
       expect(n).toMatch(/location \/ \{\s*return 404;/);
+    });
+  });
+
+  describe('el script que instala la planta', () => {
+    const script = (cambios: Partial<DatosPlanta> = {}): ArchivoGenerado =>
+      generar(cambios).get('aplicar.sh')!;
+
+    it('es válido para bash: un heredoc roto ejecutaría el dialplan como comandos, y como root', () => {
+      const ruta = join(
+        mkdtempSync(join(tmpdir(), 'falcon-planta-')),
+        'aplicar.sh',
+      );
+      writeFileSync(ruta, script().contenido);
+      // `bash -n` solo analiza, no ejecuta. Si el heredoc de cualquier
+      // archivo quedara mal cerrado, aquí se ve; en el servidor se vería
+      // ejecutando lo que viniera después del corte.
+      expect(() => execFileSync('bash', ['-n', ruta])).not.toThrow();
+    });
+
+    it('lleva dentro todos los demás archivos, con su modo', () => {
+      const todos = generarConfiguracion(DATOS);
+      const sh = todos.find((a) => a.ruta === 'aplicar.sh')!;
+      for (const a of todos.filter((x) => x.ruta !== 'aplicar.sh')) {
+        expect(sh.contenido).toContain(`/opt/falcon-pbx/itagui/${a.ruta}`);
+        expect(sh.contenido).toContain(
+          `chmod ${a.modo} "/opt/falcon-pbx/itagui/${a.ruta}"`,
+        );
+      }
+    });
+
+    it('respeta la carpeta que diga quien provisiona: el script y la pantalla no pueden discrepar', () => {
+      expect(script({ carpeta: '/srv/plantas/itagui' }).contenido).toContain(
+        '/srv/plantas/itagui/etc/pjsip.conf',
+      );
+    });
+
+    it('elige otro delimitador si el contenido contiene el suyo', () => {
+      const conTrampa = script({
+        troncales: [{ ...DATOS.troncales[0], nombre: 'FALCON_EOF' }],
+      }).contenido;
+      expect(conTrampa).toContain("<<'FALCON_EOF_1'");
+      const ruta = join(
+        mkdtempSync(join(tmpdir(), 'falcon-planta-')),
+        'trampa.sh',
+      );
+      writeFileSync(ruta, conTrampa);
+      expect(() => execFileSync('bash', ['-n', ruta])).not.toThrow();
+    });
+
+    it('es el archivo más sensible del conjunto y lo trata como tal', () => {
+      const sh = script();
+      expect(sh.modo).toBe('600');
+      expect(sh.secreto).toBe(true);
+      expect(sh.contenido).toContain('shred -u aplicar.sh');
+    });
+
+    it('prueba nginx antes de recargarlo: un nginx caído se lleva a los otros municipios', () => {
+      const c = script().contenido;
+      expect(c.indexOf('nginx -t')).toBeLessThan(
+        c.indexOf('systemctl reload nginx'),
+      );
+    });
+
+    it('reinicia y no recarga: «reload» no descarga módulos, y hay un noload de chan_sip', () => {
+      expect(script().contenido).toContain('docker compose restart');
+    });
+
+    it('exige root y falla pronto, en vez de dejar media planta escrita', () => {
+      const c = script().contenido;
+      expect(c).toContain('set -euo pipefail');
+      expect(c).toContain('Ejecútelo como root');
+    });
+
+    it('dice lo que NO hace, que es donde se queda la gente esperando', () => {
+      const c = script().contenido;
+      expect(c).toContain('abrir en la nube udp 5061');
+      expect(c).toContain('udp 21000-21499');
+      expect(c).toContain('entregue en este servidor:5061');
+    });
+
+    it('comprueba al final lo que suele estar mal', () => {
+      const c = script().contenido;
+      expect(c).toContain('pjsip show transports');
+      expect(c).toContain('pjsip show aors');
+      expect(c).toContain('queue show cola-itagui');
+      expect(c).toContain('module show like chan_sip');
     });
   });
 

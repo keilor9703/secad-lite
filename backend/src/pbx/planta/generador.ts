@@ -121,6 +121,13 @@ export interface DatosPlanta {
   stun?: string;
   /** Segundos que timbra la cola antes de rendirse. */
   timbreCola?: number;
+  /**
+   * La carpeta de la planta en el servidor. La pone quien provisiona, para
+   * que el script de instalación y lo que dice la pantalla no puedan
+   * discrepar — un script que escribe en otra carpeta que la que se enseñó es
+   * media hora buscando archivos.
+   */
+  carpeta?: string;
 }
 
 const STUN_POR_DEFECTO = 'stun.l.google.com:19302';
@@ -153,8 +160,15 @@ export function generarConfiguracion(d: DatosPlanta): ArchivoGenerado[] {
   // es una configuración inválida que deja sin proteger el puerto SIP. En la
   // primera instalación real dejó un `match =` en blanco en el `identify`.
   // Así que si no hay datos, no hay archivo.
-  if (troncal)
+  if (troncal) {
     archivos.splice(1, 0, conClaves('etc/pjsip-troncal.conf', troncal));
+  }
+  // El script va de ÚLTIMO, y de último de verdad: lleva DENTRO a todos los
+  // demás, así que se arma cuando la lista ya está completa —con la troncal
+  // incluida—. Armarlo antes dejaba un script que instalaba la planta sin su
+  // troncal, y eso no falla al aplicar: falla cuando entra la primera
+  // llamada y no hay por dónde.
+  archivos.push(conClaves('aplicar.sh', aplicarSh(d, archivos)));
   return archivos;
 }
 
@@ -760,6 +774,143 @@ server {
   }
 }
 `;
+}
+
+/**
+ * EL SCRIPT QUE INSTALA LA PLANTA — un solo archivo, un solo comando.
+ *
+ * ────────────────────────────────────────────────────────────────────────────
+ * POR QUÉ ESTO Y NO «COPIE ESTOS DIEZ ARCHIVOS AL SERVIDOR»
+ *
+ * Porque copiar diez archivos a mano es exactamente el trabajo que este
+ * módulo existe para quitar, y porque el orden importa: los permisos antes de
+ * arrancar, nginx probado antes de recargar, Asterisk reiniciado y no
+ * recargado —`reload` no descarga módulos, y eso ya nos costó una tarde con
+ * `chan_sip`—.
+ *
+ * Lleva los archivos DENTRO, en heredocs con el delimitador entre comillas
+ * para que el shell no expanda nada: un `${EXTEN}` del dialplan expandido por
+ * bash deja una configuración silenciosamente distinta de la que se revisó en
+ * pantalla.
+ *
+ * ────────────────────────────────────────────────────────────────────────────
+ * LO QUE EL SCRIPT NO HACE, A PROPÓSITO
+ *
+ *  - **No abre puertos en la nube.** Eso vive en la consola del proveedor y
+ *    no en un script; además es la parte que conviene revisar con la cabeza
+ *    fría.
+ *  - **No pide el certificado.** Es un comodín compartido por todas las
+ *    plantas: se emite una vez por servidor, no por municipio.
+ *  - **No borra nada.** Si la carpeta ya existe, sobrescribe los archivos
+ *    generados y deja el resto —grabaciones y registros— donde está.
+ *
+ * Lleva TODAS las claves de la planta, así que es el archivo más sensible del
+ * conjunto: modo 600 y se borra del servidor cuando termina de usarse.
+ */
+function aplicarSh(d: DatosPlanta, archivos: ArchivoGenerado[]): string {
+  const carpeta = (d.carpeta ?? `/opt/falcon-pbx/${d.tenant}`).replace(
+    /\/+$/,
+    '',
+  );
+  const escribir = archivos
+    .map((a) => {
+      const delim = delimitadorPara(a.contenido);
+      return [
+        `install -d -m 755 "$(dirname "${carpeta}/${a.ruta}")"`,
+        `cat > "${carpeta}/${a.ruta}" <<'${delim}'`,
+        a.contenido.replace(/\n$/, ''),
+        delim,
+        `chmod ${a.modo} "${carpeta}/${a.ruta}"`,
+        '',
+      ].join('\n');
+    })
+    .join('\n');
+
+  return `#!/usr/bin/env bash
+#
+# aplicar.sh — instala la planta de «${d.tenant}» en este servidor.
+#
+# GENERADO POR FALCON. Se ejecuta como root, una sola vez:
+#
+#   sudo bash aplicar.sh
+#
+# CONTIENE LAS CLAVES DE ESTA PLANTA. Bórrelo del servidor al terminar:
+#
+#   shred -u aplicar.sh   # o rm -f aplicar.sh
+#
+set -euo pipefail
+
+if [ "\${EUID:-$(id -u)}" -ne 0 ]; then
+  echo "Ejecútelo como root: sudo bash aplicar.sh" >&2
+  exit 1
+fi
+
+echo "➤ Planta de «${d.tenant}» → ${carpeta}"
+install -d -m 755 "${carpeta}" "${carpeta}/etc" "${carpeta}/grabaciones" "${carpeta}/log" "${carpeta}/nginx"
+
+${escribir}
+# ── La imagen, una sola para todos los municipios ───────────────────────────
+if ! docker image inspect falcon-pbx:1 >/dev/null 2>&1; then
+  echo "➤ Falta la imagen falcon-pbx:1. Constrúyala una vez en este servidor:"
+  echo "    docker build -t falcon-pbx:1 /opt/falcon-pbx/imagen"
+  echo "  (el Dockerfile está en deploy/pbx/ del repositorio)"
+  exit 1
+fi
+
+# ── El sitio de nginx ───────────────────────────────────────────────────────
+if [ -d /etc/nginx/sites-enabled ]; then
+  ln -sf "${carpeta}/nginx/${d.dominioSip}.conf" "/etc/nginx/sites-enabled/${d.dominioSip}.conf"
+  # Probar ANTES de recargar: un nginx que no arranca se lleva por delante a
+  # los demás municipios del servidor, que no tienen nada que ver con esto.
+  nginx -t
+  systemctl reload nginx
+  echo "✔ nginx recargado para ${d.dominioSip}"
+else
+  echo "⚠ No encontré /etc/nginx/sites-enabled: enlace el sitio a mano."
+fi
+
+# ── El contenedor ───────────────────────────────────────────────────────────
+cd "${carpeta}"
+docker compose up -d
+# «restart» y no «reload»: reload NO descarga módulos, y la configuración
+# generada incluye un noload de chan_sip que solo surte efecto al reiniciar.
+docker compose restart
+sleep 3
+
+echo
+echo "➤ Comprobaciones"
+docker compose exec -T asterisk asterisk -rx 'pjsip show transports' || true
+docker compose exec -T asterisk asterisk -rx 'pjsip show aors' || true
+docker compose exec -T asterisk asterisk -rx 'queue show ${nombreCola(d.tenant)}' || true
+docker compose exec -T asterisk asterisk -rx 'module show like chan_sip' || true
+
+echo
+echo "✔ Planta de «${d.tenant}» aplicada."
+echo "  SIP udp ${d.puertoSip} · RTP udp ${d.rtpDesde}-${d.rtpHasta} · HTTP 127.0.0.1:${d.puertoHttp}"
+echo "  Operadores: ${d.operadores.map((o) => o.extension).join(', ') || 'ninguno todavía'}"
+echo
+echo "  Falta, y NO lo hace este script:"
+echo "   · abrir en la nube udp ${d.puertoSip} y udp ${d.rtpDesde}-${d.rtpHasta}"
+echo "   · decirle al operador que entregue en este servidor:${d.puertoSip}"
+echo "   · borrar este archivo: shred -u aplicar.sh"
+`;
+}
+
+/**
+ * Un delimitador de heredoc que no aparezca en el contenido.
+ *
+ * Paranoia justificada: si el delimitador apareciera dentro del archivo, el
+ * heredoc se cortaría ahí y el resto del contenido se ejecutaría COMO
+ * COMANDOS. En un script que corre como root.
+ */
+function delimitadorPara(contenido: string): string {
+  let delim = 'FALCON_EOF';
+  let n = 0;
+  while (contenido.includes(delim)) {
+    n += 1;
+    delim = `FALCON_EOF_${n}`;
+  }
+  return delim;
 }
 
 /** `itagui-pbx.falconcad.com.co` → `falconcad.com.co`, que es donde está el comodín. */

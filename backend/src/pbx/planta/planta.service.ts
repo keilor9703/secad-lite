@@ -813,6 +813,7 @@ export class PlantaService {
       falconUrl: (
         process.env.FALCON_URL_PUBLICA ?? 'https://falconcad.com.co'
       ).trim(),
+      carpeta: this.carpetaDe(planta),
       apiKey: secretos.apiKey,
       ariClave: secretos.ariClave,
     };
