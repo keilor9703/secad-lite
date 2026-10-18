@@ -155,20 +155,42 @@ fi
 # La pista para reconocerlo en un trazado: chan_sip pone etiquetas que
 # empiezan por «as» (`;tag=as4b4f731e`) y anuncia `Supported: replaces,
 # timer`; PJSIP anuncia `Supported: 100rel, timer, replaces, norefersub`.
+#
+# Y OJO CON DÓNDE CAE LA LÍNEA. `modules.conf` está por secciones: un `noload`
+# añadido al FINAL del archivo queda fuera de `[modules]` y Asterisk lo ignora
+# **sin decir nada**. Se ve igual que si estuviera puesto —el grep lo
+# encuentra, el archivo lo tiene— y el 403 sigue. Costó un segundo intento.
 if ! grep -qE '^\s*noload\s*=>\s*chan_sip\.so' "$DESTINO/modules.conf" 2>/dev/null; then
-  [[ -f $DESTINO/modules.conf ]] && cp -a "$DESTINO/modules.conf" "$DESTINO/modules.conf.respaldo-$SELLO"
-  printf '\n; Apagado por FALCON: compite con res_pjsip por el WebSocket.\nnoload => chan_sip.so\n' \
-    >> "$DESTINO/modules.conf"
-  echo "  ✔ chan_sip apagado en modules.conf"
+  if [[ -f $DESTINO/modules.conf ]] && grep -q '^\[modules\]' "$DESTINO/modules.conf"; then
+    cp -a "$DESTINO/modules.conf" "$DESTINO/modules.conf.respaldo-$SELLO"
+    sed -i '/^\[modules\]/a ; Apagado por FALCON: compite con res_pjsip por el WebSocket.\nnoload => chan_sip.so' \
+      "$DESTINO/modules.conf"
+    echo "  ✔ chan_sip apagado en modules.conf"
+  else
+    echo "  ⚠ No encontré la sección [modules] en modules.conf." >&2
+    echo "    Agregue 'noload => chan_sip.so' DENTRO de esa sección, a mano." >&2
+  fi
 fi
 
 echo
 echo "── Recargando ──────────────────────────────────────────────────────"
-systemctl reload asterisk 2>/dev/null || systemctl restart asterisk
-sleep 2
+# `reload` NO descarga módulos: para que el `noload` de chan_sip surta efecto
+# hace falta arrancar de nuevo el proceso.
+systemctl restart asterisk
+sleep 3
 
 echo
 echo "── Comprobaciones ──────────────────────────────────────────────────"
+# chan_sip descargado DE VERDAD, no solo escrito en el archivo. Escribir una
+# línea de configuración y dar por hecho que se aplicó es exactamente lo que
+# hizo perder la tarde.
+if asterisk -rx "module show like chan_sip" 2>/dev/null | grep -q 'chan_sip\.so'; then
+  echo "  ⚠ chan_sip SIGUE CARGADO: le va a robar el WebSocket a PJSIP y la" >&2
+  echo "    barra recibirá 403 al registrarse. Compruebe que el 'noload' quedó" >&2
+  echo "    DENTRO de la sección [modules] de $DESTINO/modules.conf." >&2
+else
+  echo "  ✔ chan_sip descargado"
+fi
 asterisk -rx "pjsip show endpoints"      | head -20 || true
 asterisk -rx "pjsip show registrations"  | head -10 || true
 asterisk -rx "http show status"          | head -12 || true
