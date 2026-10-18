@@ -499,14 +499,29 @@ Si en la misma centralita ve las dos firmas —una en las respuestas a la
 troncal y otra en las del navegador— no son dos configuraciones: **son dos
 pilas**.
 
-**El arreglo** es una línea en `/etc/asterisk/modules.conf`:
+**El arreglo** es una línea en `/etc/asterisk/modules.conf` — **dentro de la
+sección `[modules]`**:
 
-```
-noload => chan_sip.so
+```bash
+sudo sed -i '/^\[modules\]/a noload => chan_sip.so' /etc/asterisk/modules.conf
+sudo systemctl restart asterisk      # restart, no reload: hay que descargar el módulo
 ```
 
-`instalar.sh` ya la pone. En una instalación hecha antes de eso, se agrega y
-se reinicia (`reload` no basta: hay que descargar el módulo).
+> **Y ojo con dónde cae esa línea.** `modules.conf` está por secciones: un
+> `noload` añadido al **final del archivo** queda fuera de `[modules]` y
+> Asterisk **lo ignora sin decir nada**. Se ve exactamente igual que si
+> estuviera puesto, y el 403 sigue. Costó un segundo intento.
+
+Para probarlo en el acto, sin reiniciar:
+
+```bash
+sudo asterisk -rx "module unload chan_sip.so"
+```
+
+Si con eso la barra registra, el diagnóstico está confirmado y solo falta
+dejarlo permanente. `instalar.sh` ya lo hace, y además **comprueba que el
+módulo quedó descargado de verdad** en vez de confiar en que escribir la
+línea bastó.
 
 ### Y lo entrante no es lo único
 
