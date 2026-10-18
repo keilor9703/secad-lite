@@ -1,31 +1,40 @@
 ;
 ; rtp.conf — por dónde viaja el audio
 ;
-; Reemplace: RTP_INICIO, RTP_FIN
+; Reemplace: IP_PUBLICA
 ;
-; ───────────────────────────────────────────────────────────────────────────
-; EL RANGO NORMAL ES 10000-20000, Y NO HAY QUE ESTRECHARLO «POR SI ACASO»
-;
-; Hubo la tentación de meterlo dentro del único rango que la nube tenía
-; abierto, para no depender del cortafuegos. Resultó que ese rango tampoco
-; estaba abierto (§6.6), así que estrecharlo no compraba nada y solo reducía
-; las llamadas simultáneas.
-;
-; Lo que hace que el audio entre sin tener el puerto permitido son las reglas
-; STATEFUL de la nube: el primer paquete que Asterisk manda hacia afuera abre
-; el flujo y el retorno entra por ahí. `rtp_symmetric = yes` en el endpoint es
-; lo que lo sostiene. Puede haber un recorte en el primer segundo; se comprueba
-; con una llamada, no se supone.
-;
-; Cada llamada usa DOS puertos (RTP y RTCP).
-; ───────────────────────────────────────────────────────────────────────────
 
 [general]
-rtpstart = RTP_INICIO
-rtpend = RTP_FIN
-;; Checksums de UDP: dejarlos activados cuesta muy poco y detecta corrupción
-;; en el camino, que con un rango prestado es justo lo que uno quiere saber.
-rtpchecksums = yes
-;; El navegador necesita ICE para atravesar el NAT de la sala de despacho.
+;; El rango de siempre. No hay por qué estrecharlo: ver el comentario de
+;; abajo sobre las reglas stateful.
+rtpstart = 10000
+rtpend = 20000
+
+;; ───────────────────────────────────────────────────────────────────────────
+;; SIN ESTO, EL NAVEGADOR CONTESTA Y LA LLAMADA SE CAE
+;;
+;; El navegador exige ICE, y en ICE cada extremo publica las direcciones por
+;; las que se le puede alcanzar. Asterisk, por su cuenta, solo conoce la IP
+;; de su tarjeta de red — que en una nube es **privada** (10.0.0.112). El
+;; navegador recibe esa candidata, no puede alcanzarla, no hay otra, y la
+;; negociación de medios fracasa: la llamada se contesta y se cuelga sola,
+;; sin un error que lo explique.
+;;
+;; `stunaddr` hace que Asterisk le pregunte a un servidor STUN cuál es su IP
+;; vista desde fuera, y publique ESA. Es el mismo problema —y la misma
+;; solución— que el navegador resuelve con los iceServers de FALCON.
+;;
+;; `icesupport` ya viene en «yes» por defecto en Asterisk 18; se escribe
+;; explícito porque de esto depende que haya audio o no.
+;; ───────────────────────────────────────────────────────────────────────────
 icesupport = yes
 stunaddr = stun.l.google.com:19302
+
+;; Y por si el STUN no responde, la dirección a la fuerza. Las dos juntas no
+;; estorban: STUN la descubre, esto la garantiza.
+;; (Si la máquina tiene IP pública directa en su tarjeta, sobra.)
+;; externaddr se configura en el transporte de pjsip.conf
+;; (external_media_address), no aquí.
+
+;; Checksums de UDP: cuestan muy poco y detectan corrupción en el camino.
+rtpchecksums = yes
