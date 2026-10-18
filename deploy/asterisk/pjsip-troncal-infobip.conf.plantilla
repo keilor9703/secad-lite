@@ -1,6 +1,6 @@
 ; pjsip-troncal.conf — Infobip, troncal ESTÁTICA (autenticación por IP)
 ;
-; Reemplace: FQDN_INFOBIP, IP_PUBLICA
+; Reemplace: FQDN_INFOBIP, DID_INFOBIP (su número, en E.164 sin el +)
 ;
 ; ───────────────────────────────────────────────────────────────────────────
 ; POR QUÉ NO HAY USUARIO NI CONTRASEÑA AQUÍ
@@ -31,6 +31,21 @@ disallow = all
 ;; modos. Con ulaw/alaw (PCMU/PCMA) alcanza y es lo que la troncal entrega.
 allow = ulaw,alaw
 aors = troncal
+;; ─────────────────────────────────────────────────────────────────────────
+;; QUIÉN DICE QUE LLAMA — sin esto, toda saliente es un 403
+;;
+;; Visto en la primera prueba real: `channel originate` sin número de origen
+;; manda `From: <sip:anonymous@anonymous.invalid>`, e Infobip contesta
+;; **403 Forbidden** sin más explicación. En una troncal estática el `From`
+;; tiene que presentar un número que la cuenta posea — es por donde factura y
+;; autoriza.
+;;
+;; Se pone el DID de Infobip en los dos sitios: `from_user` arma el `From:` de
+;; la petición SIP, y `callerid` es lo que se presenta cuando el dialplan no
+;; dice otra cosa.
+;; ─────────────────────────────────────────────────────────────────────────
+from_user = DID_INFOBIP
+callerid = DID_INFOBIP <DID_INFOBIP>
 ;; El número de quien llama lo manda Infobip y es el ÚNICO rastro del
 ;; ciudadano. Sin esto, el caso nace sin a quién devolverle la llamada.
 trust_id_inbound = yes

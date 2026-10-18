@@ -37,10 +37,57 @@ FALCON_KEY = API_KEY_DE_LA_INSTANCIA
 ;; ─────────────────────────────────────────────────────────────────────────
 
 [entrantes]
-exten => _X.,1,NoOp(FALCON entrante ${CALLERID(num)} -> ${EXTEN} id=${UNIQUEID})
+;; ─────────────────────────────────────────────────────────────────────────
+;; A QUIÉN TIMBRARLE — y por qué no basta con `Dial(PJSIP/${EXTEN})`
+;;
+;; Entre extensiones, `${EXTEN}` es la extensión marcada y marcarla funciona.
+;; Pero la llamada del CIUDADANO entra por el DID (un 1-833…, un 601…), y
+;; `Dial(PJSIP/18335308128)` intenta llamar a un endpoint que no existe: la
+;; llamada muere sin timbrar en ninguna parte y en el log solo se ve un
+;; «chan_pjsip ... not found» que no se parece a su causa.
+;;
+;; Así que hay que decidir: si lo marcado es una extensión interna, se timbra
+;; esa; cualquier otra cosa es el DID y se timbra al operador.
+;; ─────────────────────────────────────────────────────────────────────────
+
+;; Interna: 101, 102, 103…
+exten => _1XX,1,Set(DESTINO=${EXTEN})
+ same => n,Goto(atender,s,1)
+
+;; Cualquier otra cosa: el ciudadano entrando por el DID.
+;; Con varios operadores, aquí va una cola (`Queue()`) en vez de una extensión
+;; fija; mientras haya uno solo, la 101 es la respuesta honesta.
+exten => _X.,1,Set(DESTINO=101)
+ same => n,Goto(atender,s,1)
+
+
+[atender]
+;; ─────────────────────────────────────────────────────────────────────────
+;; AVISARLE A FALCON Y TIMBRAR
+;;
+;; AQUÍ ESTÁ EL AHORRO DE TODO EL DISEÑO: no hace falta escribir un traductor
+;; de eventos en FALCON, porque esto habla directamente su modelo contra el
+;; webhook genérico —el mismo por donde entran las llamadas de YACO—. La
+;; centralita es nuestra: en vez de que FALCON adivine el idioma de una
+;; central ajena, hablamos bien desde el principio.
+;;
+;; TRES COSAS QUE NO SON ADORNO:
+;;
+;;  1. El `&` del final y el `-m 3`. Sin ellos, si FALCON tarda en responder,
+;;     el dialplan se queda esperando y EL TELÉFONO NO TIMBRA. Avisar nunca
+;;     puede retrasar la llamada.
+;;  2. `${UNIQUEID}` es el callId, y es lo que ata el «entrante» con el
+;;     «colgada» y con la llamada que el navegador ve por SIP. Es el mismo
+;;     papel que cumplía `pbx_call_id` con Zadarma.
+;;  3. La extensión `h` corre SIEMPRE al colgar, conteste quien conteste y
+;;     cuelgue quien cuelgue. Por eso el cierre va ahí y no después del Dial:
+;;     con Zadarma se aprendió por las malas que colgar no cerraba la llamada
+;;     en FALCON.
+;; ─────────────────────────────────────────────────────────────────────────
+exten => s,1,NoOp(FALCON entrante ${CALLERID(num)} -> ${DESTINO} id=${UNIQUEID})
  same => n,Set(CDR(userfield)=${UNIQUEID})
- same => n,System(curl -s -m 3 -X POST ${FALCON_URL}/api/pbx/webhook -H "Content-Type: application/json" -H "x-api-key: ${FALCON_KEY}" -d '{"evento":"entrante","callId":"${UNIQUEID}","numero":"${CALLERID(num)}","extension":"${EXTEN}","numeroDestino":"${EXTEN}"}' &)
- same => n,Dial(PJSIP/${EXTEN},30)
+ same => n,System(curl -s -m 3 -X POST ${FALCON_URL}/api/pbx/webhook -H "Content-Type: application/json" -H "x-api-key: ${FALCON_KEY}" -d '{"evento":"entrante","callId":"${UNIQUEID}","numero":"${CALLERID(num)}","extension":"${DESTINO}"}' &)
+ same => n,Dial(PJSIP/${DESTINO},30)
  same => n,Hangup()
 
 ;; Se cuelga: se cierra en FALCON. Pase lo que pase.
@@ -62,11 +109,6 @@ exten => h,1,NoOp(FALCON fin id=${UNIQUEID} estado=${DIALSTATUS})
 
 [salientes]
 exten => _X.,1,NoOp(FALCON saliente hacia ${EXTEN})
- same => n,Set(CALLERID(num)=${CALLERID(num)})
  same => n,Dial(PJSIP/${EXTEN}@troncal,60)
  same => n,Hangup()
 
-
-;; Llamadas entre extensiones, para probar sin troncal.
-[internas]
-exten => _1XX,1,Goto(entrantes,${EXTEN},1)
