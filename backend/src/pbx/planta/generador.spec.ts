@@ -1,0 +1,406 @@
+import {
+  ArchivoGenerado,
+  DatosPlanta,
+  generarConfiguracion,
+  nombreCola,
+} from './generador';
+
+/**
+ * La configuración que se instala en la planta de un municipio.
+ *
+ * Cada cosa que se protege aquí es un fallo que YA PAGAMOS montando la
+ * centralita a mano, y que una plantilla con huecos vuelve a dejar pasar:
+ *
+ *  1. **Opus antes que ulaw.** La llamada entra, timbra, el operador contesta
+ *     y Asterisk la cuelga él mismo: «Unable to find a codec translation
+ *     path». Solo está en el log.
+ *  2. **La API key en la línea de `System()`.** Visible en `ps aux` para
+ *     cualquier usuario del servidor y escrita en el log en cada llamada.
+ *  3. **Un `match =` vacío en el `identify`.** Es la regla que decide quién
+ *     puede entregar llamadas por el puerto SIP; vacía no protege nada.
+ *  4. **`_X.` no casa con `+18335308128`**, porque `X` es un dígito y el `+`
+ *     no lo es. La central rechaza la llamada por «extensión no encontrada».
+ *  5. **Sin `stunaddr`, el navegador contesta y la llamada se cae**: el
+ *     candidato ICE lleva una IP privada.
+ *  6. **`chan_sip` cargado** se pelea con pjsip por el subprotocolo del
+ *     WebSocket, y el registro del navegador termina en un 403 mudo. Y el
+ *     `noload` tiene que ir DENTRO de `[modules]` o se ignora en silencio.
+ *  7. **HTTP en un puerto ya ocupado** deja a Asterisk «Server Disabled» y se
+ *     lleva también el WebSocket del softphone, sin decir qué pasó.
+ *  8. **Un archivo con claves legible por todos** es un secreto publicado.
+ */
+describe('generador de la configuración de la planta', () => {
+  const DATOS: DatosPlanta = {
+    tenant: 'itagui',
+    dominioSip: 'itagui-pbx.falconcad.com.co',
+    puertoSip: 5061,
+    rtpDesde: 21000,
+    rtpHasta: 21499,
+    puertoHttp: 8101,
+    ipPublica: '129.80.243.118',
+    operadores: [
+      { extension: '101', nombre: 'Puesto 1', clave: 'clave-de-la-101' },
+      { extension: '102', nombre: 'Puesto 2', clave: 'clave-de-la-102' },
+    ],
+    troncales: [
+      {
+        nombre: 'Infobip Bogotá',
+        servidor: '6ad3.latam.sip.voice.infobip.com',
+        puerto: 5060,
+        autenticacion: 'ip',
+        redes: '81.23.252.0/24, 81.23.253.0/24',
+        numeroPresentado: '+18335308128',
+      },
+    ],
+    numeros: [
+      { numero: '+18335308128', tipo: 'did', destino: 'cola' },
+      { numero: '+576042345678', tipo: 'did', destino: '102' },
+    ],
+    falconUrl: 'https://falconcad.com.co/',
+    apiKey: 'fk_la_llave_de_itagui',
+    ariClave: 'clave-de-ari',
+  };
+
+  function generar(
+    cambios: Partial<DatosPlanta> = {},
+  ): Map<string, ArchivoGenerado> {
+    const archivos = generarConfiguracion({ ...DATOS, ...cambios });
+    return new Map(archivos.map((a) => [a.ruta, a]));
+  }
+
+  const contenido = (cambios: Partial<DatosPlanta>, ruta: string): string =>
+    generar(cambios).get(ruta)?.contenido ?? '';
+
+  describe('los códecs y la troncal', () => {
+    it('ulaw, y Opus en ninguna parte: con Opus la central cuelga la llamada ella misma', () => {
+      const todos = generarConfiguracion(DATOS)
+        .map((a) => a.contenido)
+        .join('\n');
+      expect(todos).toContain('allow = ulaw,alaw');
+      expect(todos.toLowerCase()).not.toContain('allow = opus');
+    });
+
+    it('la troncal presenta el DID: sin número de origen, toda saliente es un 403', () => {
+      const t = contenido({}, 'etc/pjsip-troncal.conf');
+      expect(t).toContain('from_user = 18335308128');
+      expect(t).toContain('callerid = 18335308128 <18335308128>');
+    });
+
+    it('el identify lleva las redes del operador, nunca un match vacío', () => {
+      const t = contenido({}, 'etc/pjsip-troncal.conf');
+      expect(t).toContain('type = identify');
+      expect(t).toContain('match = 81.23.252.0/24');
+      expect(t).toContain('match = 81.23.253.0/24');
+      expect(t).not.toMatch(/match\s*=\s*$/m);
+    });
+
+    it('sin redes no escribe un identify a medias, y lo dice', () => {
+      const t = contenido(
+        { troncales: [{ ...DATOS.troncales[0], redes: null }] },
+        'etc/pjsip-troncal.conf',
+      );
+      expect(t).not.toContain('type = identify');
+      expect(t).toContain('SIN REDES DECLARADAS');
+    });
+
+    it('sin troncal no hay archivo de troncal ni include que apunte a la nada', () => {
+      const archivos = generar({ troncales: [] });
+      expect(archivos.has('etc/pjsip-troncal.conf')).toBe(false);
+      expect(archivos.get('etc/pjsip.conf')?.contenido).not.toContain(
+        '#include pjsip-troncal.conf',
+      );
+    });
+
+    it('una troncal con registro lleva su auth y su registration; una por IP, ninguno', () => {
+      const conRegistro = contenido(
+        {
+          troncales: [
+            {
+              nombre: 'Claro',
+              servidor: 'sbc.claro.co',
+              puerto: 5060,
+              autenticacion: 'registro',
+              usuario: 'itagui123',
+              clave: 'secreta',
+              numeroPresentado: '+576042345678',
+            },
+          ],
+        },
+        'etc/pjsip-troncal.conf',
+      );
+      expect(conRegistro).toContain('type = registration');
+      expect(conRegistro).toContain('username = itagui123');
+      expect(conRegistro).toContain('outbound_auth = troncal');
+      expect(contenido({}, 'etc/pjsip-troncal.conf')).not.toContain(
+        'type = registration',
+      );
+    });
+
+    it('avisa cuando la troncal no tiene número que presentar, en vez de generar un 403 silencioso', () => {
+      const t = contenido(
+        { troncales: [{ ...DATOS.troncales[0], numeroPresentado: null }] },
+        'etc/pjsip-troncal.conf',
+      );
+      expect(t).toContain('403');
+      expect(t).not.toContain('from_user =');
+    });
+  });
+
+  describe('la API key y lo demás secreto', () => {
+    it('la API key NO aparece en el dialplan: en ps aux y en el log es una llave filtrada', () => {
+      const dialplan = contenido({}, 'etc/extensions.conf');
+      expect(dialplan).not.toContain(DATOS.apiKey);
+      expect(dialplan).toContain('-K /etc/asterisk/falcon-webhook.conf');
+    });
+
+    it('la API key vive en su archivo, y ese archivo no es legible por todos', () => {
+      const a = generar().get('etc/falcon-webhook.conf')!;
+      expect(a.contenido).toContain(`x-api-key: ${DATOS.apiKey}`);
+      expect(a.modo).toBe('600');
+      expect(a.secreto).toBe(true);
+    });
+
+    it('todo archivo que lleve una clave queda marcado como secreto y sin permiso de lectura general', () => {
+      for (const a of generarConfiguracion(DATOS)) {
+        const lleva = [DATOS.apiKey, DATOS.ariClave, 'clave-de-la-101'].some(
+          (s) => a.contenido.includes(s),
+        );
+        if (lleva) {
+          expect(a.secreto).toBe(true);
+          expect(a.modo).not.toBe('644');
+        }
+      }
+    });
+
+    it('no quedan huecos de plantilla sin llenar', () => {
+      const todos = generarConfiguracion(DATOS)
+        .map((a) => a.contenido)
+        .join('\n');
+      for (const hueco of [
+        'IP_PUBLICA',
+        'CLAVE_',
+        'DID_INFOBIP',
+        'FQDN_INFOBIP',
+        'URL_DE_FALCON',
+      ]) {
+        expect(todos).not.toContain(hueco);
+      }
+    });
+  });
+
+  describe('el dialplan', () => {
+    it('cada número entra con «+» y sin «+»: «X» es un dígito y el «+» no lo es', () => {
+      const dp = contenido({}, 'etc/extensions.conf');
+      expect(dp).toContain('exten => +18335308128,1,Set(DESTINO=cola)');
+      expect(dp).toContain('exten => 18335308128,1,Set(DESTINO=cola)');
+      expect(dp).toContain('exten => +576042345678,1,Set(DESTINO=102)');
+      expect(dp).toContain('exten => _+X.,1,Set(DESTINO=cola)');
+    });
+
+    it('un número que nadie registró también entra: no se rechaza una emergencia', () => {
+      const dp = contenido({ numeros: [] }, 'etc/extensions.conf');
+      expect(dp).toContain('exten => _+X.,1,Set(DESTINO=cola)');
+      expect(dp).toContain('exten => _X.,1,Set(DESTINO=cola)');
+    });
+
+    it('las extensiones internas se marcan entre ellas', () => {
+      expect(contenido({}, 'etc/extensions.conf')).toContain(
+        'exten => _1XX,1,Set(DESTINO=${EXTEN})',
+      );
+    });
+
+    it('avisa a FALCON sin bloquear el timbre: en segundo plano y con tope de 3 segundos', () => {
+      const dp = contenido({}, 'etc/extensions.conf');
+      expect(dp).toContain(
+        'curl -s -m 3 -X POST ${FALCON_URL}/api/pbx/webhook',
+      );
+      expect(dp).toMatch(/"evento":"entrante".*&\)/);
+    });
+
+    it('el aviso de la cola va SIN extensión: todavía no se sabe quién va a contestar', () => {
+      const dp = contenido({}, 'etc/extensions.conf');
+      expect(dp).toContain(
+        'Set(AVISO_EXT=${IF($["${DESTINO}" = "cola"]?:${DESTINO})})',
+      );
+    });
+
+    it('cierra en la extensión h, que corre siempre que se cuelgue', () => {
+      const dp = contenido({}, 'etc/extensions.conf');
+      expect(dp).toContain('exten => h,1,');
+      expect(dp).toMatch(/exten => h,1,[\s\S]*"evento":"colgada"/);
+    });
+
+    it('la URL de FALCON va sin barra final, para no armar «//api»', () => {
+      expect(contenido({}, 'etc/extensions.conf')).toContain(
+        'FALCON_URL = https://falconcad.com.co\n',
+      );
+    });
+
+    it('graba solo cuando la llamada se establece, con el id que FALCON ya conoce', () => {
+      const dp = contenido({}, 'etc/extensions.conf');
+      expect(dp).toContain('MixMonitor(${GRABACIONES}/${UNIQUEID}.wav,b)');
+    });
+
+    it('la saliente conserva el «+» que espera la troncal, y se lo pone si no viene', () => {
+      const dp = contenido({}, 'etc/extensions.conf');
+      expect(dp).toContain('exten => _+X.,1,NoOp(FALCON saliente');
+      expect(dp).toContain('exten => _X.,1,Goto(salientes,+${EXTEN},1)');
+    });
+  });
+
+  describe('la cola de operadores', () => {
+    it('lleva el nombre del municipio, para poder leerlo en los registros', () => {
+      expect(nombreCola('Itagui')).toBe('cola-itagui');
+      expect(contenido({}, 'etc/queues.conf')).toContain('[cola-itagui]');
+      expect(contenido({}, 'etc/extensions.conf')).toContain(
+        'COLA = cola-itagui',
+      );
+    });
+
+    it('timbra en todos los puestos: en una línea de emergencias manda el tiempo de respuesta', () => {
+      expect(contenido({}, 'etc/queues.conf')).toContain('strategy = ringall');
+    });
+
+    it('acepta llamadas aunque no haya nadie conectado', () => {
+      const q = contenido({}, 'etc/queues.conf');
+      expect(q).toContain('joinempty = yes');
+      expect(q).toContain('leavewhenempty = no');
+      expect(q).toContain('maxlen = 0');
+    });
+
+    it('el ciudadano oye timbre y no música: es lo que le dice que su llamada está viva', () => {
+      expect(contenido({}, 'etc/extensions.conf')).toContain(
+        'Queue(${COLA},r,,,120)',
+      );
+    });
+
+    it('los miembros son los operadores con extensión', () => {
+      const q = contenido({}, 'etc/queues.conf');
+      expect(q).toContain('member => PJSIP/101,0,Puesto 1');
+      expect(q).toContain('member => PJSIP/102,0,Puesto 2');
+    });
+
+    it('sin operadores no inventa miembros: dice qué falta', () => {
+      const q = contenido({ operadores: [] }, 'etc/queues.conf');
+      expect(q).not.toContain('member =>');
+      expect(q).toContain('Sin operadores');
+      expect(contenido({ operadores: [] }, 'etc/pjsip.conf')).toContain(
+        'SIN OPERADORES',
+      );
+    });
+  });
+
+  describe('las extensiones de los operadores', () => {
+    it('cada una con su clave, su webrtc y su transporte', () => {
+      const pj = contenido({}, 'etc/pjsip.conf');
+      expect(pj).toContain(
+        '[101]\ntype = endpoint\ntransport = transport-ws\nwebrtc = yes',
+      );
+      expect(pj).toContain('password = clave-de-la-101');
+      expect(pj).toContain('password = clave-de-la-102');
+      expect(pj).toContain('max_contacts = 2');
+    });
+
+    it('un nombre con comillas o «<» no rompe la cabecera SIP', () => {
+      const pj = contenido(
+        {
+          operadores: [
+            { extension: '101', nombre: 'Ana "La <jefe>"; CAD', clave: 'x' },
+          ],
+        },
+        'etc/pjsip.conf',
+      );
+      const linea = pj.split('\n').find((l) => l.startsWith('callerid ='))!;
+      expect(linea).toMatch(/^callerid = [^"<>;,]+ <101>$/);
+      expect(linea).toContain('Ana');
+    });
+  });
+
+  describe('los puertos y los transportes', () => {
+    it('el SIP escucha en el puerto que reparte FALCON, y anuncia la IP pública', () => {
+      const pj = contenido({}, 'etc/pjsip.conf');
+      expect(pj).toContain('bind = 0.0.0.0:5061');
+      expect(pj).toContain('external_media_address = 129.80.243.118');
+      expect(pj).toContain('external_signaling_address = 129.80.243.118');
+    });
+
+    it('el WebSocket solo escucha en 127.0.0.1: el TLS y la cara pública los pone nginx', () => {
+      const pj = contenido({}, 'etc/pjsip.conf');
+      expect(pj).toContain('bind = 127.0.0.1:8101');
+      const http = contenido({}, 'etc/http.conf');
+      expect(http).toContain('bindaddr = 127.0.0.1');
+      expect(http).toContain('bindport = 8101');
+      expect(http).not.toContain('bindaddr = 0.0.0.0');
+    });
+
+    it('el RTP usa la tajada asignada, con ICE y STUN', () => {
+      const rtp = contenido({}, 'etc/rtp.conf');
+      expect(rtp).toContain('rtpstart = 21000');
+      expect(rtp).toContain('rtpend = 21499');
+      expect(rtp).toContain('icesupport = yes');
+      expect(rtp).toContain('stunaddr = stun.l.google.com:19302');
+    });
+
+    it('chan_sip queda fuera, y el noload va DENTRO de [modules]', () => {
+      const m = contenido({}, 'etc/modules.conf');
+      expect(m).toContain('noload => chan_sip.so');
+      // No basta con que aparezca después de [modules]: este archivo está por
+      // secciones, y un noload que caiga en OTRA sección se ignora en
+      // silencio. Así que entre [modules] y el noload no puede haber otra
+      // cabecera de sección.
+      const desde = m.indexOf('[modules]');
+      const hasta = m.indexOf('noload => chan_sip.so');
+      expect(desde).toBeGreaterThanOrEqual(0);
+      expect(desde).toBeLessThan(hasta);
+      expect(m.slice(desde + '[modules]'.length, hasta)).not.toMatch(
+        /^\s*\[[^\]]+\]/m,
+      );
+    });
+  });
+
+  describe('el contenedor y nginx', () => {
+    it('el contenedor va en la red del host y se llama por el municipio', () => {
+      const c = contenido({}, 'docker-compose.yml');
+      expect(c).toContain('network_mode: host');
+      expect(c).toContain('container_name: asterisk-itagui');
+      // Una imagen para todos los municipios: si fuera por municipio,
+      // actualizar Asterisk sería un trabajo por municipio.
+      expect(c).toContain('image: falcon-pbx:1');
+    });
+
+    it('nginx enruta por nombre al puerto de ESTA planta, con el comodín del dominio', () => {
+      const n = generar().get(
+        'nginx/itagui-pbx.falconcad.com.co.conf',
+      )!.contenido;
+      expect(n).toContain('server_name itagui-pbx.falconcad.com.co;');
+      expect(n).toContain('proxy_pass http://127.0.0.1:8101/ws;');
+      expect(n).toContain(
+        '/etc/letsencrypt/live/falconcad.com.co/fullchain.pem',
+      );
+      expect(n).toContain('proxy_set_header Upgrade $http_upgrade;');
+    });
+
+    it('una llamada larga no muere por inactividad de la señalización', () => {
+      const n = generar().get(
+        'nginx/itagui-pbx.falconcad.com.co.conf',
+      )!.contenido;
+      expect(n).toContain('proxy_read_timeout 3600s;');
+    });
+
+    it('de Asterisk no se expone nada más que el WebSocket y ARI', () => {
+      const n = generar().get(
+        'nginx/itagui-pbx.falconcad.com.co.conf',
+      )!.contenido;
+      expect(n).toContain('location /ws');
+      expect(n).toContain('location /ari/');
+      expect(n).toMatch(/location \/ \{\s*return 404;/);
+    });
+  });
+
+  it('todo archivo dice que lo generó FALCON, para que nadie lo edite en el servidor', () => {
+    for (const a of generarConfiguracion(DATOS)) {
+      expect(a.contenido).toContain('GENERADO POR FALCON');
+      expect(a.contenido.length).toBeGreaterThan(80);
+    }
+  });
+});
