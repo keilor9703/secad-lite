@@ -9,8 +9,15 @@ static = yes
 writeprotect = yes
 
 [globals]
+;; La URL no es secreta. La API key SÍ, y por eso NO está aquí: va en
+;; /etc/asterisk/falcon-webhook.conf, que curl lee con -K.
+;;
+;; El motivo es concreto: lo que se pasa en la línea de `System()` aparece en
+;; la lista de procesos del servidor (`ps aux`), visible para cualquier
+;; usuario de la máquina, y además queda escrito en el log de Asterisk cada
+;; vez que entra una llamada. Una llave de API en el log es una llave
+;; filtrada.
 FALCON_URL = URL_DE_FALCON
-FALCON_KEY = API_KEY_DE_LA_INSTANCIA
 
 
 ;; ─────────────────────────────────────────────────────────────────────────
@@ -101,13 +108,13 @@ exten => _X.,1,Set(DESTINO=101)
 ;; ─────────────────────────────────────────────────────────────────────────
 exten => s,1,NoOp(FALCON entrante ${CALLERID(num)} -> ${DESTINO} id=${UNIQUEID})
  same => n,Set(CDR(userfield)=${UNIQUEID})
- same => n,System(curl -s -m 3 -X POST ${FALCON_URL}/api/pbx/webhook -H "Content-Type: application/json" -H "x-api-key: ${FALCON_KEY}" -d '{"evento":"entrante","callId":"${UNIQUEID}","numero":"${CALLERID(num)}","extension":"${DESTINO}"}' &)
+ same => n,System(curl -s -m 3 -X POST ${FALCON_URL}/api/pbx/webhook -K /etc/asterisk/falcon-webhook.conf -d '{"evento":"entrante","callId":"${UNIQUEID}","numero":"${CALLERID(num)}","extension":"${DESTINO}"}' &)
  same => n,Dial(PJSIP/${DESTINO},30)
  same => n,Hangup()
 
 ;; Se cuelga: se cierra en FALCON. Pase lo que pase.
 exten => h,1,NoOp(FALCON fin id=${UNIQUEID} estado=${DIALSTATUS})
- same => n,System(curl -s -m 3 -X POST ${FALCON_URL}/api/pbx/webhook -H "Content-Type: application/json" -H "x-api-key: ${FALCON_KEY}" -d '{"evento":"colgada","callId":"${UNIQUEID}"}' &)
+ same => n,System(curl -s -m 3 -X POST ${FALCON_URL}/api/pbx/webhook -K /etc/asterisk/falcon-webhook.conf -d '{"evento":"colgada","callId":"${UNIQUEID}"}' &)
 
 
 ;; ─────────────────────────────────────────────────────────────────────────

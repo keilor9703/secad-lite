@@ -124,6 +124,24 @@ rellenar() {
   echo "  ✔ $final"
 }
 
+# ── La API key, fuera de la línea de comandos ─────────────────────────────
+# El dialplan llama a curl con `-K` sobre este archivo en vez de poner la
+# llave en la línea de `System()`. Si fuera en la línea, aparecería en `ps
+# aux` —visible para cualquier usuario de la máquina— y quedaría escrita en
+# el log de Asterisk en CADA llamada entrante. Una llave en el log es una
+# llave filtrada.
+cat > "$DESTINO/falcon-webhook.conf" <<CURL
+# Opciones de curl para avisarle a FALCON. Lo lee el dialplan con -K.
+header = "Content-Type: application/json"
+header = "x-api-key: $FALCON_KEY"
+silent
+max-time = 3
+request = POST
+CURL
+chown asterisk:asterisk "$DESTINO/falcon-webhook.conf"
+chmod 600 "$DESTINO/falcon-webhook.conf"
+echo "  ✔ $DESTINO/falcon-webhook.conf (la API key, solo legible por asterisk)"
+
 echo
 echo "── Instalando ──────────────────────────────────────────────────────"
 for f in pjsip.conf extensions.conf http.conf ari.conf; do rellenar "$f"; done

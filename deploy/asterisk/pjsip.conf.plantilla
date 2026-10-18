@@ -56,7 +56,27 @@ transport = transport-wss
 webrtc = yes
 context = entrantes
 disallow = all
-allow = opus,ulaw
+;; ─────────────────────────────────────────────────────────────────────────
+;; ULAW, NO OPUS — y no es por simplificar
+;;
+;; La tentación es poner `opus` primero: es mejor códec y el navegador lo
+;; habla nativo. Pero el paquete de Asterisk de Debian/Ubuntu **no trae el
+;; codificador de Opus** (`asterisk-opus` es un paquete aparte, ni siquiera
+;; recomendado), y la troncal entrega **ulaw**. Resultado en la primera
+;; llamada real:
+;;
+;;   WARNING: Unable to find a codec translation path: (opus) -> (ulaw)
+;;   WARNING: Had to drop call because I couldn't make ... compatible
+;;
+;; La llamada entra, timbra, el operador contesta — y Asterisk la cuelga él
+;; mismo. El mensaje está en el log, pero en la pantalla no se ve nada.
+;;
+;; Y aunque se instalara `asterisk-opus`, **no conviene**: la troncal es ulaw
+;; de 8 kHz, así que transcodificar opus↔ulaw gasta CPU y añade latencia para
+;; una calidad que el otro tramo ya limitó. Ulaw de punta a punta es mejor,
+;; no solo más fácil.
+;; ─────────────────────────────────────────────────────────────────────────
+allow = ulaw,alaw
 auth = 101
 aors = 101
 ;; El nombre que ve quien recibe una llamada de este operador.
