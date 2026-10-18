@@ -57,6 +57,10 @@ force_rport = yes
 rewrite_contact = yes
 direct_media = no
 
+;; Nota sobre el formato: Infobip entrega el número marcado en E.164 **con
+;; el `+`** (`+18335308128`), y espera lo mismo al salir. El dialplan tiene
+;; que contemplar las dos formas — ver el comentario de `extensions.conf`.
+
 [troncal]
 type = identify
 endpoint = troncal

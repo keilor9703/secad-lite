@@ -54,9 +54,24 @@ FALCON_KEY = API_KEY_DE_LA_INSTANCIA
 exten => _1XX,1,Set(DESTINO=${EXTEN})
  same => n,Goto(atender,s,1)
 
-;; Cualquier otra cosa: el ciudadano entrando por el DID.
+;; ─────────────────────────────────────────────────────────────────────────
+;; EL CIUDADANO, ENTRANDO POR EL DID — Y POR QUÉ HAY DOS PATRONES
+;;
+;; `X` en un patrón de Asterisk significa **un dígito del 0 al 9**, y el `+`
+;; no lo es. Con solo `_X.`, un DID en E.164 —que es como lo manda Infobip,
+;; `+18335308128`— no casa con NADA y la central rechaza la llamada:
+;;
+;;   Call to extension '+18335308128' rejected because extension not found
+;;
+;; El mensaje dice la verdad y aun así despista, porque uno lee «_X. casa con
+;; cualquier cosa» y no es así. Por eso van los dos: con `+` y sin `+`.
+;;
 ;; Con varios operadores, aquí va una cola (`Queue()`) en vez de una extensión
 ;; fija; mientras haya uno solo, la 101 es la respuesta honesta.
+;; ─────────────────────────────────────────────────────────────────────────
+exten => _+X.,1,Set(DESTINO=101)
+ same => n,Goto(atender,s,1)
+
 exten => _X.,1,Set(DESTINO=101)
  same => n,Goto(atender,s,1)
 
