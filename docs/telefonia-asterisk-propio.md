@@ -446,6 +446,30 @@ compra nada.
 - **La barra del operador no necesita puerto nuevo**: el WebSocket se publica
   por el **443 de nginx**, que ya estaba abierto (§6.7).
 
+### Un puerto abierto puede servir para DOS cosas
+
+Cuando lo único que entra es un puerto, conviene recordar que **SIP va por UDP
+y el WebSocket por TCP**. Son protocolos distintos: los dos pueden usar el
+mismo número sin chocar.
+
+Aquí el único puerto permitido era el 3478 (el de coturn, abierto en UDP y en
+TCP). Con coturn apagado quedaron los dos libres:
+
+| Servicio | Protocolo | Puerto |
+|---|---|---|
+| SIP de la troncal | **UDP** | 3478 |
+| WebSocket de la barra | **TCP** | 3478 |
+
+Eso evitó tener que montar un proxy de WebSocket en nginx —que habría
+obligado a tocar el `docker-compose` de otro servicio, montar el certificado
+dentro del contenedor y recrearlo— para un servidor de pruebas. La barra se
+conecta a `wss://centralita.ejemplo.com:3478/ws` y ya.
+
+**Dos condiciones:** el certificado tiene que ser válido para ese nombre (ya
+lo era), y el DNS tiene que apuntar **directo al servidor**. Si está en
+Cloudflare con la nube naranja, no sirve: Cloudflare solo hace de
+intermediario en un puñado de puertos, y el 3478 no está entre ellos.
+
 ### Y lo entrante no es lo único
 
 Con una troncal estática el tráfico **saliente** ya funciona desde el primer

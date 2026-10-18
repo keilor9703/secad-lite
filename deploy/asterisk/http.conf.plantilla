@@ -30,6 +30,21 @@ bindaddr = 127.0.0.1
 bindport = 8090
 
 tlsenable = yes
+;; ─────────────────────────────────────────────────────────────────────────
+;; EL PUERTO DEL WEBSOCKET: 8089 SI SE PUEDE, EL QUE HAYA SI NO
+;;
+;; 8089 es el de siempre y es el que conviene. Pero si el cortafuegos de la
+;; nube no se puede tocar (§6.6), el WebSocket tiene que salir por un puerto
+;; YA abierto, o la barra del operador no se registra desde fuera del
+;; servidor y toda la centralita queda inútil para lo que se montó.
+;;
+;; El truco que funcionó: **SIP va por UDP y el WebSocket por TCP**, así que
+;; los dos pueden usar el MISMO número de puerto sin chocar. Si lo único
+;; abierto es el 3478 —el de coturn, que es UDP y TCP—, SIP toma el UDP y el
+;; WebSocket el TCP. Un puerto abierto, dos servicios.
+;;
+;; Al recuperar la consola, esto vuelve al 8089 y coturn recupera el suyo.
+;; ─────────────────────────────────────────────────────────────────────────
 tlsbindaddr = 0.0.0.0:8089
 ;; El navegador NO acepta un certificado autofirmado para un WebSocket
 ;; seguro. Tiene que ser uno real, y hay que renovarlo: si vence, el softphone
