@@ -1,0 +1,51 @@
+; pjsip-troncal.conf — Infobip, troncal ESTÁTICA (autenticación por IP)
+;
+; Reemplace: FQDN_INFOBIP, IP_PUBLICA
+;
+; ───────────────────────────────────────────────────────────────────────────
+; POR QUÉ NO HAY USUARIO NI CONTRASEÑA AQUÍ
+;
+; La troncal es de tipo «Estático»: Infobip confía en la IP de origen, que ya
+; está declarada en su panel (*Hosts de origen*). No hay registro ni `type=auth`
+; — y por eso tampoco hay nada secreto en este archivo.
+;
+; La contrapartida es que lo ENTRANTE depende de que Infobip pueda alcanzar
+; nuestro puerto SIP. Ahí está todo el problema cuando no se puede abrir un
+; puerto nuevo; ver `docs/telefonia-asterisk-propio.md` §6.6.
+; ───────────────────────────────────────────────────────────────────────────
+
+[troncal]
+type = aor
+contact = sip:FQDN_INFOBIP
+;; Un OPTIONS cada minuto: así se sabe que la troncal está viva ANTES de que
+;; entre una llamada y no después. `pjsip show aors` lo muestra.
+qualify_frequency = 60
+
+[troncal]
+type = endpoint
+transport = transport-udp
+context = entrantes
+disallow = all
+;; G729 NO, aunque Infobip lo ofrezca: el paquete de Ubuntu no trae el
+;; codificador, y como el navegador habla Opus hay que transcodificar de todos
+;; modos. Con ulaw/alaw (PCMU/PCMA) alcanza y es lo que la troncal entrega.
+allow = ulaw,alaw
+aors = troncal
+;; El número de quien llama lo manda Infobip y es el ÚNICO rastro del
+;; ciudadano. Sin esto, el caso nace sin a quién devolverle la llamada.
+trust_id_inbound = yes
+;; NAT y cortafuegos: contestar siempre a donde llegó el paquete, no a lo que
+;; diga el SDP. Es lo que hace que el audio vuelva por el agujero que ya se
+;; abrió, sin depender de que el puerto esté explícitamente permitido.
+rtp_symmetric = yes
+force_rport = yes
+rewrite_contact = yes
+direct_media = no
+
+[troncal]
+type = identify
+endpoint = troncal
+;; SOLO el SBC de Infobip puede entregar llamadas por este puerto. Sin esto,
+;; cualquiera que lo encuentre puede intentar cursar llamadas a su costa.
+match = 81.23.252.0/24
+match = 81.23.253.0/24

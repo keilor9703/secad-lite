@@ -1,0 +1,27 @@
+;
+; rtp.conf — por dónde viaja el audio
+;
+; Reemplace: RTP_INICIO, RTP_FIN
+;
+; ───────────────────────────────────────────────────────────────────────────
+; ESTE ARCHIVO EXISTE POR UNA RESTRICCIÓN, NO POR GUSTO
+;
+; Lo normal es 10000–20000. Aquí el rango es estrecho y en un sitio raro
+; porque en el servidor de pruebas NO se pueden abrir puertos nuevos en la
+; nube (ver `docs/telefonia-asterisk-propio.md` §6.6): hay que caber dentro
+; del único rango que ya estaba permitido, el de coturn.
+;
+; Cada llamada usa DOS puertos (RTP y RTCP), así que el número de llamadas
+; simultáneas que aguanta este rango es (RTP_FIN - RTP_INICIO) / 2.
+; Cuando se pueda abrir un rango propio, esto vuelve a 10000–20000.
+; ───────────────────────────────────────────────────────────────────────────
+
+[general]
+rtpstart = RTP_INICIO
+rtpend = RTP_FIN
+;; Checksums de UDP: dejarlos activados cuesta muy poco y detecta corrupción
+;; en el camino, que con un rango prestado es justo lo que uno quiere saber.
+rtpchecksums = yes
+;; El navegador necesita ICE para atravesar el NAT de la sala de despacho.
+icesupport = yes
+stunaddr = stun.l.google.com:19302

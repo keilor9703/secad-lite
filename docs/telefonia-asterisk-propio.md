@@ -345,6 +345,86 @@ dice.
 
 ---
 
+## 6.6 Montarla sin poder abrir puertos en la nube
+
+Pasó de verdad (18/10/2026): se perdió el teléfono con el 2FA de Oracle y la
+consola quedó inaccesible durante días. Sin consola no se tocan las *Security
+Lists*, y **SIP necesita un puerto de entrada**. Se resolvió, y el método
+sirve para cualquier servidor con el cortafuegos de la nube cerrado.
+
+### Primero: distinguir CUÁL de los dos cortafuegos bloquea
+
+`tcpdump` captura **antes** de `iptables`. Eso lo convierte en el instrumento
+que separa los dos:
+
+```bash
+# en el servidor que recibe
+sudo tcpdump -ni any udp port 49200
+# desde otra máquina
+echo prueba | nc -u -w2 LA_IP 49200
+```
+
+| Lo que ve | Quién bloquea | ¿Se puede arreglar sin consola? |
+|---|---|---|
+| tcpdump no ve nada | La nube (Security List / NSG) | **No** |
+| tcpdump lo ve, el servicio no contesta | `iptables` del servidor | **Sí** |
+
+Para TCP, desde otra máquina, el mismo diagnóstico sale de `nc -vz`:
+**«connection refused»** significa que la nube **sí** lo permite y no hay nadie
+escuchando; **timeout** significa que la nube lo bloquea.
+
+### Después: encontrar el rango que YA está abierto
+
+El truco es buscar un servicio que funcione desde internet y ver por dónde
+entra. En este servidor fue **coturn**: la videollamada funciona, luego los
+puertos de relevo de coturn están permitidos a la fuerza.
+
+```bash
+sudo grep -E "^(listening-port|min-port|max-port)" /etc/turnserver.conf
+# listening-port=3478
+# min-port=49152
+# max-port=49252
+```
+
+Ciento un puertos abiertos, que nadie estaba usando de forma permanente.
+Suficiente. El reparto que se hizo:
+
+| Para | Puertos | Dónde se configura |
+|---|---|---|
+| coturn (estrechado) | 49152–49199 | `/etc/turnserver.conf` → `max-port=49199` |
+| **SIP de Asterisk** | **49200** | `pjsip.conf` **y el panel del proveedor** |
+| RTP de Asterisk | 49201–49252 | `/etc/asterisk/rtp.conf` |
+
+Cada llamada usa **dos** puertos de RTP, así que 52 puertos son ~26 tramos
+simultáneos — de sobra para una troncal de 10 canales.
+
+### Lo que hay que saber de este arreglo
+
+- **Es prestado, y se devuelve.** Cuando vuelva la consola, lo correcto es
+  abrir 5060/udp y 10000–20000/udp y devolverle a coturn su rango. Queda
+  anotado para que nadie se encuentre esto dentro de un año sin saber por qué.
+- **Estrechar coturn reduce las sesiones TURN simultáneas** de la
+  videollamada. Hay que **volver a probar una videollamada** después de
+  reiniciarlo; no se asume.
+- **Reiniciar coturn corta las videollamadas en curso.** No se hace en hora
+  pico.
+- **El proveedor tiene que aceptar un puerto distinto del 5060.** En Infobip
+  es *Direcciones IP → Hosts de destino → Puerto*, y es editable. Si un
+  proveedor no lo permite, la única salida es una troncal **con registro**
+  (el PBX inicia la conexión hacia afuera y el retorno entra por el flujo ya
+  establecido), que no necesita ningún puerto de entrada.
+- **La barra del operador no necesita puerto nuevo**: el WebSocket se publica
+  por el **443 de nginx**, que ya estaba abierto (§6.7).
+
+### Y lo entrante no es lo único
+
+Con una troncal estática el tráfico **saliente** ya funciona desde el primer
+día: el proveedor autoriza por IP de origen, y salir nunca estuvo bloqueado.
+Así que el botón «Llamar» del caso se puede probar **antes** que las
+entrantes, y conviene: separa los problemas en dos mitades.
+
+---
+
 ## 7. Fase 6 — Operarla (permanente, y es el costo real)
 
 Lo que de verdad cuesta la opción B no es montarla, es sostenerla:
