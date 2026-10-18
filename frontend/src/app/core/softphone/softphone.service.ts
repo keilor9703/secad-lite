@@ -82,6 +82,22 @@ export class SoftphoneService {
    */
   readonly sinAudioRemoto = signal(false);
 
+  /**
+   * ¿El aviso de la cola es un FALLO que el operador todavía tiene que leer?
+   *
+   * Los dos tipos de aviso viven en la misma línea de la barra y se borran
+   * distinto, y por eso hace falta distinguirlos:
+   *
+   *  - El acuse («Tomada para usted») es feedback del momento: al colgar ya
+   *    no dice nada, y dejarlo colgando debajo de una barra plegada se ve
+   *    roto.
+   *  - El diagnóstico («la cola de esta instancia está vacía…») es algo que
+   *    hay que ATENDER. Las llamadas son cortas; si se borra al colgar, el
+   *    operador puede no alcanzar a leerlo nunca. Ese dura hasta la
+   *    siguiente llamada.
+   */
+  private avisoEsFallo = false;
+
   /** El timbre. Se prepara al encender, que es el clic que desbloquea el audio. */
   private readonly timbre = new Timbre();
 
@@ -132,6 +148,7 @@ export class SoftphoneService {
       },
       entrante: (l) => {
         this.entrante.set(l);
+        this.avisoEsFallo = false;
         this.avisoCola.set('');
         this.sinAudioRemoto.set(false);
         this.timbre.arrancar();
@@ -160,6 +177,8 @@ export class SoftphoneService {
         this.enCurso.set(null);
         this.silenciado.set(false);
         this.sinAudioRemoto.set(false);
+        // El acuse de la cola muere con la llamada; el diagnóstico no.
+        if (!this.avisoEsFallo) this.avisoCola.set('');
       },
     });
   }
@@ -203,6 +222,7 @@ export class SoftphoneService {
       const vista = await this.pbx.recargarYEsperar();
       dela = this.deLaCola(sip);
       if (!dela) {
+        this.avisoEsFallo = true;
         this.avisoCola.set(this.porQueNoEstaEnLaCola(vista));
         return;
       }
@@ -212,11 +232,15 @@ export class SoftphoneService {
         // El traspaso a Recepción: de un solo uso, para que el formulario se
         // llene con esta llamada y no se vuelva a llenar solo después.
         this.pbx.paraTrabajar.set(llamada);
+        this.avisoEsFallo = false;
         this.avisoCola.set(`Tomada para usted. Complete el caso en Recepción (${llamada.numero}).`);
       },
-      error: (e) => this.avisoCola.set(
-        `Contestada, pero no quedó tomada en FALCON: ${e?.error?.message ?? 'el servidor no respondió'}.`,
-      ),
+      error: (e) => {
+        this.avisoEsFallo = true;
+        this.avisoCola.set(
+          `Contestada, pero no quedó tomada en FALCON: ${e?.error?.message ?? 'el servidor no respondió'}.`,
+        );
+      },
     });
   }
 

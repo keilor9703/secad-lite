@@ -1,4 +1,4 @@
-import { ChangeDetectionStrategy, Component, OnInit, computed, effect, inject, signal } from '@angular/core';
+import { ChangeDetectionStrategy, Component, OnInit, computed, effect, inject, signal, untracked } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormControl, FormGroup, ReactiveFormsModule, Validators } from '@angular/forms';
 import { Observable, firstValueFrom } from 'rxjs';
@@ -407,6 +407,36 @@ export class RecepcionComponent implements OnInit {
       this.cargar();
       this.cargarMunicipioPorDefecto();
     });
+    // ───────────────────────────────────────────────────────────────────────
+    // CONTESTAR EN LA BARRA ES TOMAR LA LLAMADA — no hay un segundo clic
+    //
+    // Cuando el operador contesta en el softphone de FALCON, FALCON sabe las
+    // dos cosas que hacen falta: QUÉ llamada es y QUIÉN la contestó. Pedirle
+    // además que oprima «Tomar llamada» es pedirle que repita algo que ya
+    // hizo, con el ciudadano hablando. Así que el formulario se llena solo.
+    //
+    // Esto NO se decide por proveedor. Lo decide el hecho de haber contestado
+    // DENTRO de FALCON: con la misma planta, un operador que descuelgue en
+    // MicroSIP deja a FALCON sin saber quién atendió, y ahí el botón «Tomar
+    // llamada» sigue siendo necesario. El puente es `paraTrabajar`, que solo
+    // se escribe cuando se contestó en la barra.
+    //
+    // Y esto es un `effect`, no una lectura en `ngOnInit`, porque ese era el
+    // defecto: el operador ESTÁ en Recepción esperando llamadas, así que
+    // `ngOnInit` ya corrió hace rato cuando la llamada entra. Leer una vez al
+    // arrancar funciona solo si el operador llega después — justo el caso
+    // menos frecuente. Es el mismo error que ya nos costó el audio de una
+    // sola vía: leer al arrancar en vez de reaccionar cuando llega.
+    //
+    // `untracked` porque `tomarLlamada` lee y escribe otras señales (el
+    // formulario, la consulta de ubicación): sin él, cualquiera de ellas
+    // volvería a disparar este efecto y la llamada se tomaría dos veces.
+    // ───────────────────────────────────────────────────────────────────────
+    effect(() => {
+      const delSoftphone = this.pbx.paraTrabajar();
+      if (delSoftphone) untracked(() => this.tomarLlamada(delSoftphone));
+    });
+
     // El asistente de tipificación reacciona a lo que se va escribiendo en el relato.
     this.form.controls.descripcion.valueChanges.subscribe((v) => this.relato.set(v));
 
@@ -510,15 +540,6 @@ export class RecepcionComponent implements OnInit {
   // --- Formulario -------------------------------------------------------------
 
   ngOnInit(): void {
-    // Si el operador acaba de contestar en el softphone, esa llamada ya quedó
-    // tomada para él: se trae al formulario aquí, que es donde se escribe el
-    // caso mientras se habla. El traspaso es de UN SOLO USO (lo borra
-    // `tomarLlamada`): si se quedara puesto, el formulario volvería a
-    // llenarse solo cada vez que entrara a la pantalla, incluso después de
-    // haber soltado la llamada a propósito.
-    const delSoftphone = this.pbx.paraTrabajar();
-    if (delSoftphone) this.tomarLlamada(delSoftphone);
-
     // El mapa y el buscador se preparan una vez pintado el formulario, que ya
     // está a la vista. Se decide UNA sola vez qué motor de mapa usar (Google
     // si hay clave, Leaflet/OSM si no) — ambos comparten el mismo contenedor

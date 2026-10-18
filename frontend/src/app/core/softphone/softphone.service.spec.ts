@@ -466,6 +466,47 @@ describe('SoftphoneService', () => {
       expect(sp.entrante()).toBeNull();
     });
 
+    it('el acuse de la cola desaparece al colgar', async () => {
+      // "Tomada para usted" es feedback del momento. Al colgar ya no dice
+      // nada, y colgando debajo de una barra plegada se ve roto.
+      llamadas.set([llamada({ id: 'l-1', estado: 'sonando' })]);
+      await encender();
+      transporte.oyentes!.entrante({ numero: '3001234567' });
+      await sp.contestar();
+      expect(sp.avisoCola()).toContain('Tomada para usted');
+
+      transporte.oyentes!.terminada();
+
+      expect(sp.avisoCola()).toBe('');
+    });
+
+    it('pero el DIAGNÓSTICO sobrevive al cuelgue', async () => {
+      // Las llamadas son cortas. Un «la cola de esta instancia está vacía»
+      // que se borra al colgar es un aviso que el operador puede no alcanzar
+      // a leer nunca — y es justo el que hay que atender.
+      alRecargar = () => [];
+      await encender();
+      transporte.oyentes!.entrante({ numero: '3001234567' });
+      await sp.contestar();
+      expect(sp.avisoCola()).toContain('API key de ESTA instancia');
+
+      transporte.oyentes!.terminada();
+
+      expect(sp.avisoCola()).toContain('API key de ESTA instancia');
+    });
+
+    it('y la siguiente llamada sí lo borra', async () => {
+      alRecargar = () => [];
+      await encender();
+      transporte.oyentes!.entrante({ numero: '3001234567' });
+      await sp.contestar();
+      transporte.oyentes!.terminada();
+
+      transporte.oyentes!.entrante({ numero: '3009999999' });
+
+      expect(sp.avisoCola()).toBe('');
+    });
+
     it('al terminar la llamada se olvida el aviso', async () => {
       await encender();
       transporte.oyentes!.entrante({ numero: '300' });
