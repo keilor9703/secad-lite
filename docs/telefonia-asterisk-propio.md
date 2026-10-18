@@ -373,11 +373,11 @@ Para TCP, desde otra máquina, el mismo diagnóstico sale de `nc -vz`:
 **«connection refused»** significa que la nube **sí** lo permite y no hay nadie
 escuchando; **timeout** significa que la nube lo bloquea.
 
-### Después: encontrar el rango que YA está abierto
+### Después: encontrar qué está abierto — MIDIENDO, no deduciendo
 
-El truco es buscar un servicio que funcione desde internet y ver por dónde
-entra. En este servidor fue **coturn**: la videollamada funciona, luego los
-puertos de relevo de coturn están permitidos a la fuerza.
+El instinto es buscar un servicio que funcione desde internet y colarse por su
+puerta. Aquí el candidato era **coturn**: si la videollamada funciona, su rango
+de relevo tiene que estar permitido.
 
 ```bash
 sudo grep -E "^(listening-port|min-port|max-port)" /etc/turnserver.conf
@@ -386,28 +386,58 @@ sudo grep -E "^(listening-port|min-port|max-port)" /etc/turnserver.conf
 # max-port=49252
 ```
 
-Ciento un puertos abiertos, que nadie estaba usando de forma permanente.
-Suficiente. El reparto que se hizo:
+**Esa deducción resultó FALSA**, y conviene que quede escrita porque es una
+trampa elegante. Al medirlo de verdad:
 
-| Para | Puertos | Dónde se configura |
-|---|---|---|
-| coturn (estrechado) | 49152–49199 | `/etc/turnserver.conf` → `max-port=49199` |
-| **SIP de Asterisk** | **49200** | `pjsip.conf` **y el panel del proveedor** |
-| RTP de Asterisk | 49201–49252 | `/etc/asterisk/rtp.conf` |
+| Puerto | ¿Llega? |
+|---|---|
+| **3478/udp** (escucha de coturn) | **sí** |
+| 49152, 49200, 49252 (relevo de coturn) | no |
+| 5060, 10000 | no |
 
-Cada llamada usa **dos** puertos de RTP, así que 52 puertos son ~26 tramos
-simultáneos — de sobra para una troncal de 10 canales.
+Solo está abierto el puerto de **escucha**. El rango de **relevo** no.
+
+Y eso no es un detalle del experimento: significa que **el TURN de ese
+servidor nunca ha relevado nada**. El navegador del otro extremo no puede
+mandarle media al relevo. Las videollamadas que funcionan son las que se
+arreglan con STUN; las que necesitan relevo —NAT simétrico, redes
+corporativas, algunas móviles— **vienen fallando en silencio**. Buscando un
+puerto para SIP se encontró un defecto de la videollamada.
+
+> **La lección de método, que es la que vale:** un resultado negativo no
+> significa nada sin un control positivo. El primer `tcpdump` no vio el
+> paquete y se dio por cerrado el puerto, cuando igual de probable era que
+> `nc` no lo hubiera enviado. Mandar paquetes a varios puertos **incluyendo
+> uno que se sabe abierto**, en una sola corrida, cuesta lo mismo y la
+> diferencia es saber si el instrumento funciona.
+
+### Y entonces, con un solo puerto abierto
+
+Cuando lo único que entra es el puerto de un servicio que ya está corriendo,
+quedan dos caminos y hay que elegir con los ojos abiertos:
+
+| Camino | Qué cuesta |
+|---|---|
+| **Quitarle el puerto a ese servicio** | Aquí: parar coturn y darle el 3478 a Asterisk. Se pierde el STUN propio — pero el relevo, que es lo que de verdad importaba, ya no funcionaba |
+| **Troncal CON REGISTRO** | El PBX abre la conexión hacia afuera y no hace falta ningún puerto de entrada. Es la solución correcta, y la única que sigue siéndolo cuando vuelva la consola |
+
+**El RTP es otra historia, y con suerte no hace falta abrirlo.** Las reglas de
+OCI son *stateful*: el primer paquete que Asterisk manda hacia afuera abre el
+flujo, y el retorno entra por ahí aunque el puerto no esté permitido. Con
+`rtp_symmetric = yes` es el comportamiento normal. Puede haber un recorte en
+el primer segundo. **No se promete: se comprueba con una llamada.** Por eso el
+rango de `rtp.conf` se deja en el 10000–20000 de siempre y no se mete con
+calzador en un rango prestado: si ninguno está abierto, el rango estrecho no
+compra nada.
 
 ### Lo que hay que saber de este arreglo
 
 - **Es prestado, y se devuelve.** Cuando vuelva la consola, lo correcto es
-  abrir 5060/udp y 10000–20000/udp y devolverle a coturn su rango. Queda
+  abrir 5060/udp y 10000–20000/udp, devolverle a coturn su puerto **y abrirle
+  por fin su rango de relevo**, que es el defecto que esto destapó. Queda
   anotado para que nadie se encuentre esto dentro de un año sin saber por qué.
-- **Estrechar coturn reduce las sesiones TURN simultáneas** de la
-  videollamada. Hay que **volver a probar una videollamada** después de
-  reiniciarlo; no se asume.
-- **Reiniciar coturn corta las videollamadas en curso.** No se hace en hora
-  pico.
+- **Parar coturn corta las videollamadas en curso** y deja sin STUN propio a
+  esa instancia. No se hace en hora pico.
 - **El proveedor tiene que aceptar un puerto distinto del 5060.** En Infobip
   es *Direcciones IP → Hosts de destino → Puerto*, y es editable. Si un
   proveedor no lo permite, la única salida es una troncal **con registro**

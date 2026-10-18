@@ -4,16 +4,20 @@
 ; Reemplace: RTP_INICIO, RTP_FIN
 ;
 ; ───────────────────────────────────────────────────────────────────────────
-; ESTE ARCHIVO EXISTE POR UNA RESTRICCIÓN, NO POR GUSTO
+; EL RANGO NORMAL ES 10000-20000, Y NO HAY QUE ESTRECHARLO «POR SI ACASO»
 ;
-; Lo normal es 10000–20000. Aquí el rango es estrecho y en un sitio raro
-; porque en el servidor de pruebas NO se pueden abrir puertos nuevos en la
-; nube (ver `docs/telefonia-asterisk-propio.md` §6.6): hay que caber dentro
-; del único rango que ya estaba permitido, el de coturn.
+; Hubo la tentación de meterlo dentro del único rango que la nube tenía
+; abierto, para no depender del cortafuegos. Resultó que ese rango tampoco
+; estaba abierto (§6.6), así que estrecharlo no compraba nada y solo reducía
+; las llamadas simultáneas.
 ;
-; Cada llamada usa DOS puertos (RTP y RTCP), así que el número de llamadas
-; simultáneas que aguanta este rango es (RTP_FIN - RTP_INICIO) / 2.
-; Cuando se pueda abrir un rango propio, esto vuelve a 10000–20000.
+; Lo que hace que el audio entre sin tener el puerto permitido son las reglas
+; STATEFUL de la nube: el primer paquete que Asterisk manda hacia afuera abre
+; el flujo y el retorno entra por ahí. `rtp_symmetric = yes` en el endpoint es
+; lo que lo sostiene. Puede haber un recorte en el primer segundo; se comprueba
+; con una llamada, no se supone.
+;
+; Cada llamada usa DOS puertos (RTP y RTCP).
 ; ───────────────────────────────────────────────────────────────────────────
 
 [general]
