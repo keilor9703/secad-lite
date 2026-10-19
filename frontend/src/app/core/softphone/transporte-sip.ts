@@ -69,7 +69,14 @@ export interface OyentesSip {
 export interface TransporteSip {
   conectar(config: ConfigSoftphone, oyentes: OyentesSip): Promise<void>;
   desconectar(): Promise<void>;
-  contestar(): Promise<void>;
+  /**
+   * Contesta la llamada que está entrando, y devuelve cuántos milisegundos
+   * tardó. Casi todo ese tiempo es el navegador recolectando candidatos ICE:
+   * es el número que distingue «el navegador tardó en contestar» de «la
+   * central tardó en unir el audio», que desde la silla del operador se ven
+   * exactamente igual.
+   */
+  contestar(): Promise<number>;
   colgar(): Promise<void>;
   silenciar(silenciado: boolean): void;
   tono(dtmf: string): Promise<void>;

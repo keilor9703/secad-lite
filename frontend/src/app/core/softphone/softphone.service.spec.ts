@@ -25,7 +25,25 @@ class TransporteFalso {
     oyentes.registro('registrado');
   }
   async desconectar(): Promise<void> { this.oyentes = undefined; }
-  async contestar(): Promise<void> { this.contestadas += 1; }
+  /** Lo que tarda en contestar, para poder probar la espera que ve el operador. */
+  demoraMs = 0;
+  /** Si está puesto, contestar falla con este motivo. */
+  falla?: string;
+  /**
+   * Con esto puesto, contestar se queda a medias hasta que la prueba lo
+   * suelte. Es lo que permite mirar el estado INTERMEDIO —el que ve el
+   * operador mientras espera—, que es justo lo que no existía.
+   */
+  pausarContestar = false;
+  private pendiente?: () => void;
+  soltarContestar(): void { this.pendiente?.(); this.pendiente = undefined; }
+
+  async contestar(): Promise<number> {
+    this.contestadas += 1;
+    if (this.pausarContestar) await new Promise<void>((r) => { this.pendiente = r; });
+    if (this.falla) throw new Error(this.falla);
+    return this.demoraMs;
+  }
   async colgar(): Promise<void> { this.colgadas += 1; }
   silenciar(s: boolean): void { this.silencios.push(s); }
   async tono(t: string): Promise<void> { this.tonos.push(t); }
@@ -314,6 +332,118 @@ describe('SoftphoneService', () => {
       await encender();
       await sp.contestar();
       expect(transporte.contestadas).toBe(0);
+    });
+  });
+
+  /**
+   * LO QUE EL OPERADOR VE MIENTRAS ESPERA.
+   *
+   * Contestar no es instantáneo: antes de que la respuesta SDP pueda salir,
+   * el navegador tiene que recolectar sus candidatos ICE. En producción eso
+   * tardaba cinco segundos —el tope de SIP.js, agotado entero porque el
+   * relevo del coturn está cerrado— y la barra no cambiaba NADA en ese
+   * rato: ni el texto, ni el botón. El operador volvía a oprimir, porque
+   * cualquiera lo haría.
+   *
+   * Y el segundo clic no era inofensivo: llamaba a `answer()` sobre una
+   * sesión que ya no estaba entrando, SIP.js lo rechazaba, y ese rechazo
+   * abortaba el resto de `contestar()` —el que reclama la llamada en la
+   * cola—. Insistir podía dejar la llamada contestada y sin tomar.
+   */
+  describe('mientras se contesta', () => {
+    async function entrar(): Promise<void> {
+      llamadas.set([llamada()]);
+      await encender();
+      transporte.oyentes!.entrante({ numero: '3001234567' });
+    }
+
+    it('el estado cambia en el acto, sin esperar a que la central confirme', async () => {
+      await entrar();
+      transporte.pausarContestar = true;
+
+      const contestando = sp.contestar();
+      expect(sp.contestando()).toBe(true);
+      // Y todavía NO está en llamada: eso lo dice la central.
+      expect(sp.enCurso()).toBeNull();
+
+      transporte.soltarContestar();
+      await contestando;
+    });
+
+    it('el timbre se calla en el acto, no cuando termine de conectar', async () => {
+      await entrar();
+      transporte.pausarContestar = true;
+      const contestando = sp.contestar();
+      expect(sp.entrante()).not.toBeNull();
+      transporte.soltarContestar();
+      await contestando;
+    });
+
+    it('insistir no vuelve a contestar: un solo intento por llamada', async () => {
+      await entrar();
+      transporte.pausarContestar = true;
+
+      const primero = sp.contestar();
+      await sp.contestar();
+      await sp.contestar();
+      expect(transporte.contestadas).toBe(1);
+
+      transporte.soltarContestar();
+      await primero;
+    });
+
+    it('al establecerse deja de estar «contestando»', async () => {
+      await entrar();
+      await sp.contestar();
+      transporte.oyentes!.establecida(1);
+
+      expect(sp.contestando()).toBe(false);
+      expect(sp.enCurso()).not.toBeNull();
+    });
+
+    it('si el ciudadano cuelga mientras se contestaba, la barra vuelve a su sitio', async () => {
+      await entrar();
+      transporte.pausarContestar = true;
+      const contestando = sp.contestar();
+
+      transporte.oyentes!.terminada();
+      expect(sp.contestando()).toBe(false);
+      expect(sp.entrante()).toBeNull();
+
+      transporte.soltarContestar();
+      await contestando;
+    });
+
+    it('si contestar falla, lo dice y no se queda en «Contestando…» para siempre', async () => {
+      await entrar();
+      transporte.falla = 'la centralita rechazó la respuesta';
+
+      await sp.contestar();
+
+      expect(sp.contestando()).toBe(false);
+      expect(sp.avisoCola()).toContain('No se pudo contestar');
+      expect(sp.avisoCola()).toContain('la centralita rechazó la respuesta');
+    });
+
+    it('y tras un fallo se puede volver a intentar: el bloqueo no es permanente', async () => {
+      await entrar();
+      transporte.falla = 'falló una vez';
+      await sp.contestar();
+
+      transporte.falla = undefined;
+      await sp.contestar();
+
+      expect(transporte.contestadas).toBe(2);
+      expect(sp.contestando()).toBe(true);
+    });
+
+    it('anota cuánto tardó: es lo que distingue al navegador de la central', async () => {
+      await entrar();
+      transporte.demoraMs = 1480;
+
+      await sp.contestar();
+
+      expect(sp.demoraContestarMs()).toBe(1480);
     });
   });
 

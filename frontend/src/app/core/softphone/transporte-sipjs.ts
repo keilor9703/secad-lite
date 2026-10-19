@@ -7,6 +7,13 @@ import { ConfigSoftphone, OyentesSip, TransporteSip } from './transporte-sip';
 import { engancharAudioRemoto, soltarAudioRemoto } from './audio-remoto';
 import { iceServers } from '../config-runtime';
 
+/**
+ * Cuánto se espera a la recolección de candidatos ICE antes de contestar.
+ * Ver el comentario largo en las opciones del `UserAgent`: es la diferencia
+ * entre contestar al instante y contestar cinco segundos después.
+ */
+export const ESPERA_ICE_MS = 1500;
+
 /** Lo que hace falta de SIP.js, ya cargado. */
 interface ModuloSip {
   SessionManager: typeof import('sip.js/lib/platform/web/session-manager').SessionManager;
@@ -40,6 +47,88 @@ interface ModuloSip {
  * Los `import type` de arriba se borran al compilar y no cuentan.
  * ────────────────────────────────────────────────────────────────────────────
  */
+/**
+ * Lo que SIP.js necesita saber para armar el audio: por dónde atravesar el
+ * NAT, y cuánto esperar antes de contestar.
+ *
+ * Está aparte y exportada para poder PROBARLA: el número de espera decide si
+ * contestar es inmediato o tarda cinco segundos, y un número así no puede
+ * vivir sin una prueba que lo sujete.
+ */
+export function opcionesMedios(
+  config: ConfigSoftphone,
+  fuenteIce: () => RTCIceServer[] = iceServers,
+): {
+  readonly peerConnectionConfiguration: { iceServers: RTCIceServer[] };
+  iceGatheringTimeout: number;
+} {
+  return {
+    /**
+     * UN GETTER, Y NO UN VALOR, Y NO ES UN ADORNO.
+     *
+     * SIP.js lee estas opciones UNA VEZ por llamada —la fábrica del manejador
+     * de medios se invoca al crear cada sesión—, pero el objeto se le entrega
+     * al construir el `UserAgent`, o sea al ENCENDER la barra. Con un valor
+     * fijo, las credenciales de TURN que se leyeron a las 6 de la mañana son
+     * las que se usan a las 4 de la tarde; están firmadas con vencimiento, así
+     * que a media jornada el relevo empieza a contestar «no autorizado» y el
+     * navegador se queda reintentando —justo el retraso que esto intenta
+     * evitar—.
+     *
+     * Con el getter, cada llamada toma las vigentes.
+     */
+    get peerConnectionConfiguration(): { iceServers: RTCIceServer[] } {
+      return { iceServers: [...(config.ice ?? []), ...fuenteIce()] };
+    },
+  // ───────────────────────────────────────────────────────────────
+  // POR QUÉ CONTESTAR TARDABA CINCO SEGUNDOS
+  //
+  // SIP no manda candidatos ICE a cuentagotas como el navegador:
+  // la respuesta SDP sale UNA vez, con los candidatos que haya, y
+  // hasta que no sale, el que llama no oye nada. Así que SIP.js
+  // espera a que el navegador termine de recolectar candidatos
+  // antes de contestar — y su tope por defecto es 5000 ms.
+  //
+  // Y en producción esos cinco segundos se gastaban ENTEROS: el
+  // operador oprimía «Contestar», no pasaba nada, y la llamada se
+  // conectaba cinco o seis segundos después. Eso solo pasa si la
+  // recolección no termina, y la recolección no termina cuando algún
+  // servidor ICE no contesta: el navegador reintenta con espera
+  // creciente hasta rendirse.
+  //
+  // CUÁL de ellos no contesta NO está establecido todavía, y conviene
+  // no escribir aquí una causa que no se midió. Los candidatos:
+  //  · el coturn no alcanzable desde la red de la sala de despacho;
+  //  · una credencial de TURN que ya venció —se leen al ENCENDER la
+  //    barra, y la barra se queda encendida todo el turno—;
+  //  · una URL de TURN sobre TLS/TCP filtrada por el cortafuegos.
+  //
+  // Para saberlo: la consola anota «contestar tardó N ms» en cada
+  // llamada, y `chrome://webrtc-internals` dice qué candidato se quedó
+  // esperando. Con el tope en 1500 ms el operador ya no lo sufre
+  // mientras se averigua, que es lo que había que resolver primero.
+  //
+  // El número no es a ojo:
+  //  · Los candidatos que SÍ importan llegan en decenas de
+  //    milisegundos: el local, de inmediato; el público (srflx),
+  //    en un ida y vuelta al STUN.
+  //  · Bajarlo mucho más —200, 500 ms— es arriesgado: si se
+  //    contesta ANTES de tener el candidato público, la central
+  //    solo recibe direcciones privadas y la llamada se establece
+  //    SIN AUDIO, que es peor que lenta.
+  //  · 1500 ms deja margen de sobra para una resolución de DNS
+  //    fría y un reintento de STUN, y recorta la espera a la
+  //    tercera parte.
+  //
+  // El día que el servidor ICE que falla conteste, la recolección
+  // terminará sola en milisegundos y este tope dejará de notarse:
+  // es un techo, no un retardo. Mientras, es lo que hace que
+  // contestar se sienta inmediato.
+  // ───────────────────────────────────────────────────────────────
+    iceGatheringTimeout: ESPERA_ICE_MS,
+  };
+}
+
 @Injectable({ providedIn: 'root' })
 export class TransporteSipJs implements TransporteSip {
   private manager?: SessionManager;
@@ -91,9 +180,7 @@ export class TransporteSipJs implements TransporteSip {
         // juego de servidores para el teléfono sería dos cosas que
         // configurar y una que se olvida.
         // ───────────────────────────────────────────────────────────────
-        sessionDescriptionHandlerFactoryOptions: {
-          peerConnectionConfiguration: { iceServers: [...(config.ice ?? []), ...iceServers()] },
-        },
+        sessionDescriptionHandlerFactoryOptions: opcionesMedios(config),
       },
       delegate: {
         onServerConnect: () => { void this.manager?.register(); },
@@ -151,8 +238,18 @@ export class TransporteSipJs implements TransporteSip {
     await m.disconnect().catch(() => undefined);
   }
 
-  async contestar(): Promise<void> {
+  /**
+   * Contesta, y dice CUÁNTO tardó.
+   *
+   * La medida no es adorno: casi todo ese tiempo es el navegador
+   * recolectando candidatos ICE, y es el único número que distingue «el
+   * navegador tardó en contestar» de «la central tardó en unir el audio».
+   * Sin él, las dos cosas se ven igual desde la silla del operador.
+   */
+  async contestar(): Promise<number> {
+    const desde = Date.now();
     if (this.manager && this.sesion) await this.manager.answer(this.sesion);
+    return Date.now() - desde;
   }
 
   async colgar(): Promise<void> {

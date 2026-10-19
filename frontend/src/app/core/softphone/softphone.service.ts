@@ -8,6 +8,15 @@ import { ConfigSoftphone, EstadoSip, LlamadaSip } from './transporte-sip';
 import { TransporteSipJs } from './transporte-sipjs';
 import { Timbre } from './timbre';
 
+/**
+ * A partir de aquí, contestar tarda lo suficiente para que el operador lo
+ * note y vuelva a oprimir. No es un límite que se imponga a nada: es el
+ * umbral para dejarlo anotado en la consola, porque una demora así siempre
+ * tiene una causa —hoy, la recolección de candidatos ICE contra un relevo
+ * cerrado— y conviene que quede rastro.
+ */
+const DEMORA_QUE_SE_NOTA_MS = 400;
+
 /** Lo que responde `GET /api/pbx/softphone`. */
 type RespuestaSoftphone =
   | { disponible: true; config: ConfigSoftphone }
@@ -83,6 +92,31 @@ export class SoftphoneService {
   readonly sinAudioRemoto = signal(false);
 
   /**
+   * SE OPRIMIÓ «CONTESTAR» Y TODAVÍA NO HAY AUDIO.
+   *
+   * Existe porque sin él la barra no cambiaba NADA al oprimir el botón: el
+   * paso a «En llamada» solo ocurre cuando la central confirma, y antes de
+   * eso el navegador tiene que recolectar sus candidatos ICE. Eso tarda —hoy
+   * más de lo que debería (ver `ESPERA_ICE_MS`)— y el operador, que no ve
+   * ninguna reacción, vuelve a oprimir creyendo que su clic no entró.
+   *
+   * Dicho de otro modo: el retraso es un problema de red, pero «parece que no
+   * hice nada» es un problema de la interfaz, y se arregla aquí.
+   */
+  readonly contestando = signal(false);
+
+  /**
+   * Cuánto tardó la última vez en contestar, en milisegundos.
+   *
+   * Es el número que separa dos causas que desde la silla del operador se ven
+   * iguales: si son ~1500 ms, es el navegador recolectando candidatos; si es
+   * casi cero y el audio igual tarda, el que tarda es la central o la
+   * troncal. No se muestra en la barra —al operador no le sirve— pero queda
+   * en la consola y disponible para el informe de soporte.
+   */
+  readonly demoraContestarMs = signal(0);
+
+  /**
    * ¿El aviso de la cola es un FALLO que el operador todavía tiene que leer?
    *
    * Los dos tipos de aviso viven en la misma línea de la barra y se borran
@@ -155,6 +189,7 @@ export class SoftphoneService {
       },
       establecida: (pistasRemotas) => {
         this.timbre.parar();
+        this.contestando.set(false);
         // Esto puede llegar DOS veces para la misma llamada: una al
         // establecerse, y otra si el audio remoto aparece tarde —el flujo de
         // SIP.js nace sin pistas—. La segunda solo viene a corregir el aviso,
@@ -173,6 +208,10 @@ export class SoftphoneService {
       },
       terminada: () => {
         this.timbre.parar();
+        // Si la llamada se cae MIENTRAS se contestaba —el ciudadano colgó en
+        // esos segundos, que es de lo más normal— la barra tiene que volver a
+        // su sitio y no quedarse en «Contestando…» para siempre.
+        this.contestando.set(false);
         this.entrante.set(null);
         this.enCurso.set(null);
         this.silenciado.set(false);
@@ -206,8 +245,40 @@ export class SoftphoneService {
   async contestar(): Promise<void> {
     const sip = this.entrante();
     if (!sip) return;
+    // ────────────────────────────────────────────────────────────────────────
+    // UN SOLO INTENTO, Y REACCIÓN INMEDIATA
+    //
+    // Contestar no es instantáneo: el navegador tiene que recolectar sus
+    // candidatos ICE antes de que la respuesta SDP pueda salir. Sin este
+    // estado la barra se quedaba idéntica durante esos segundos, el operador
+    // volvía a oprimir —porque cualquiera lo haría— y el segundo clic llamaba
+    // a `answer()` sobre una sesión que ya no estaba entrando: SIP.js lo
+    // rechaza, y ese rechazo abortaba el resto de ESTA función, que es la que
+    // reclama la llamada en la cola. O sea que insistir no solo no ayudaba:
+    // podía dejar la llamada contestada y sin tomar.
+    // ────────────────────────────────────────────────────────────────────────
+    if (this.contestando()) return;
+    this.contestando.set(true);
     this.timbre.parar();
-    await this.transporte.contestar();
+    try {
+      const ms = await this.transporte.contestar();
+      this.demoraContestarMs.set(ms);
+      if (ms > DEMORA_QUE_SE_NOTA_MS) {
+        // Queda en la consola del operador, que es lo que se pega en un
+        // reporte de soporte. No se le pone en pantalla: saber que su
+        // teléfono tardó 1,6 s no le sirve con un ciudadano al otro lado.
+        console.info(`[softphone] contestar tardó ${ms} ms (recolección de candidatos ICE)`);
+      }
+    } catch (e) {
+      // Falló el contestar mismo: sin esto la barra se quedaba en
+      // «Contestando…» hasta que alguien recargara la página.
+      this.contestando.set(false);
+      this.avisoEsFallo = true;
+      this.avisoCola.set(
+        `No se pudo contestar: ${(e as Error)?.message ?? 'la centralita no respondió'}.`,
+      );
+      return;
+    }
 
     let dela = this.deLaCola(sip);
     if (!dela) {

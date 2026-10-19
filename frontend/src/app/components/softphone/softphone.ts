@@ -45,7 +45,8 @@ import { acotar, guardarPosicion, posicionGuardada, posicionPorDefecto } from '.
     @if (sp.disponible()) {
       <div class="sp" #barra
            [class.sp--abierta]="abierta()"
-           [class.sp--sonando]="!!sp.entrante()"
+           [class.sp--sonando]="!!sp.entrante() && !sp.contestando()"
+           [class.sp--contestando]="sp.contestando()"
            [class.sp--encurso]="!!sp.enCurso()"
            [class.sp--arrastrando]="arrastrando()"
            [style.left.px]="pos().x" [style.top.px]="pos().y"
@@ -68,11 +69,24 @@ import { acotar, guardarPosicion, posicionGuardada, posicionPorDefecto } from '.
           <div class="sp-cuerpo">
             @if (sp.entrante(); as l) {
               <span class="sp-txt">
-                <strong>Entra una llamada</strong>
-                <small>{{ l.numero || 'número oculto' }}</small>
+                <!-- El clic tiene que verse AL INSTANTE. Contestar tarda lo
+                     que el navegador tarde en recolectar sus candidatos ICE,
+                     y sin este cambio la barra se quedaba idéntica: el
+                     operador volvía a oprimir creyendo que no había entrado
+                     su clic, y el segundo clic podía dejar la llamada
+                     contestada y sin tomar en la cola. -->
+                <strong>{{ sp.contestando() ? 'Contestando…' : 'Entra una llamada' }}</strong>
+                <small>
+                  {{ l.numero || 'número oculto' }}{{ sp.contestando() ? ' · conectando el audio' : '' }}
+                </small>
               </span>
               <span class="sp-acc">
-                <button type="button" class="btn mini" (click)="sp.contestar()">Contestar</button>
+                <button type="button" class="btn mini" [disabled]="sp.contestando()"
+                        (click)="sp.contestar()">
+                  {{ sp.contestando() ? 'Conectando…' : 'Contestar' }}
+                </button>
+                <!-- Rechazar SIGUE habilitado: si el audio no conecta, colgar
+                     es la única salida que le queda al operador. -->
                 <button type="button" class="btn btn--ghost mini" (click)="sp.colgar()">Rechazar</button>
               </span>
             } @else if (sp.enCurso(); as l) {
@@ -146,6 +160,7 @@ export class SoftphoneComponent implements AfterViewInit, OnDestroy {
   private audioEntregado?: HTMLAudioElement;
 
   readonly rotulo = computed(() => {
+    if (this.sp.contestando()) return 'Contestando, conectando el audio. Abrir el teléfono';
     if (this.sp.entrante()) return 'Entra una llamada. Abrir el teléfono';
     if (this.sp.enCurso()) return 'En llamada. Abrir el teléfono';
     return `Teléfono: ${this.etiquetaEstado()}. ${this.abierta() ? 'Plegar' : 'Desplegar'}`;

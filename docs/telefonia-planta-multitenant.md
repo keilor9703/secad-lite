@@ -246,7 +246,56 @@ la centralita.
 
 ---
 
-## 8. Qué falta
+## 8. Si contestar tarda
+
+El síntoma: el operador oprime **Contestar**, no pasa nada, y la llamada se
+conecta cinco o seis segundos después. Pasó en la primera prueba con la línea
+de Infobip, y la causa no es la troncal.
+
+**Dónde se van esos segundos.** SIP no manda candidatos ICE a cuentagotas como
+el navegador: la respuesta SDP sale UNA vez, con los candidatos que haya, así
+que SIP.js espera a que el navegador termine de recolectarlos antes de
+contestar. Su tope por defecto son **5000 ms**, y se agotan enteros cuando la
+recolección no termina — y no termina cuando algún servidor ICE no contesta: el
+navegador reintenta con espera creciente hasta rendirse.
+
+Lo que se hizo:
+
+- **El tope bajó a 1500 ms** (`ESPERA_ICE_MS`). No menos: si se contesta antes
+  de tener el candidato público (srflx), la central solo recibe direcciones
+  privadas y la llamada se establece **sin audio**, que es peor que lenta.
+- **La barra reacciona en el acto** («Contestando… · conectando el audio», el
+  botón deshabilitado). El retraso es de red, pero «parece que no hice nada» es
+  de la interfaz.
+- **Un solo intento por llamada.** Insistir llamaba a `answer()` sobre una
+  sesión que ya no estaba entrando; SIP.js lo rechazaba y ese rechazo abortaba
+  el resto del contestar — el que reclama la llamada en la cola. Insistir podía
+  dejar la llamada contestada y sin tomar.
+- **Las credenciales de TURN se leen en cada llamada**, no al encender la
+  barra. Van firmadas con vencimiento y la barra se queda encendida todo el
+  turno: con un valor congelado, a media jornada el relevo contesta «no
+  autorizado» y el navegador se queda reintentando.
+
+**Qué falta por averiguar: CUÁL servidor ICE no contesta.** No está medido, y
+conviene no dar por buena una causa que no se comprobó. Los candidatos: el
+coturn no alcanzable desde la red de la sala, una credencial vencida (ya
+mitigado), o una URL de TURN sobre TLS/TCP filtrada.
+
+Cómo saberlo, en la próxima llamada:
+
+1. En la consola del navegador del operador: `[softphone] contestar tardó N ms`.
+   Si son ~1500 ms, es la recolección y sigue faltando el servidor que no
+   contesta. Si son ~100 ms y el audio igual tarda, **el que tarda es la central
+   o la troncal**, y hay que mirar allá.
+2. En `chrome://webrtc-internals`, durante la llamada: qué candidato se quedó
+   esperando y cuál ganó.
+3. Si el relevo no se usa nunca, revisar que el rango de relevo del coturn esté
+   abierto en el cortafuegos de la nube. Hoy **no lo está** en el servidor de
+   pruebas; en producción no se ha medido.
+
+---
+
+## 9. Qué falta
 
 Por orden de lo que más duele:
 

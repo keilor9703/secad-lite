@@ -43,6 +43,20 @@
 }
 .sp--encurso { border-color: var(--accent); }
 
+/* Contestando: ni timbrando ni en llamada todavía. El borde ya es el del
+   acento —el clic surtió efecto— y un latido lento dice que está trabajando,
+   sin el salto del timbre, que a esta altura sería mentira: ya nadie tiene
+   que correr a contestar. */
+.sp--contestando {
+  border-color: var(--accent);
+  animation: sp-latido 1.2s ease-in-out infinite;
+}
+
+@keyframes sp-latido {
+  0%, 100% { box-shadow: var(--shadow), 0 0 0 0 var(--accent-soft); }
+  50% { box-shadow: var(--shadow), 0 0 0 5px var(--accent-soft); }
+}
+
 @keyframes sp-salto {
   0%, 100%  { transform: translateY(0);     box-shadow: var(--shadow), 0 0 0 3px var(--accent-soft); }
   15%       { transform: translateY(-6px);  box-shadow: var(--shadow), 0 0 0 8px var(--accent-soft); }
@@ -70,6 +84,7 @@
 @media (prefers-reduced-motion: reduce) {
   .sp { transition: none; }
   .sp--sonando,
+  .sp--contestando,
   .sp--sonando .sp-icono { animation: none; }
   .sp--sonando { box-shadow: var(--shadow), 0 0 0 4px var(--accent-soft); }
 }

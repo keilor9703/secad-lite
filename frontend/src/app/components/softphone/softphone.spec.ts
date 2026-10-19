@@ -18,6 +18,7 @@ describe('SoftphoneComponent', () => {
   let enCurso: ReturnType<typeof signal<LlamadaSip | null>>;
   let estado: ReturnType<typeof signal<string>>;
   let disponible: ReturnType<typeof signal<boolean>>;
+  let contestando: ReturnType<typeof signal<boolean>>;
   let contestar: jasmine.Spy;
 
   function montar(): ComponentFixture<SoftphoneComponent> {
@@ -25,6 +26,7 @@ describe('SoftphoneComponent', () => {
     enCurso = signal<LlamadaSip | null>(null);
     estado = signal('registrado');
     disponible = signal(true);
+    contestando = signal(false);
     contestar = jasmine.createSpy('contestar');
 
     TestBed.resetTestingModule();
@@ -34,7 +36,7 @@ describe('SoftphoneComponent', () => {
         {
           provide: SoftphoneService,
           useValue: {
-            disponible, estado, entrante, enCurso, contestar,
+            disponible, estado, entrante, enCurso, contestar, contestando,
             motivo: signal(''), avisoCola: signal(''), silenciado: signal(false),
             sinAudioRemoto: signal(false), extension: signal('102'),
             encender: () => undefined, apagar: () => undefined,
@@ -203,7 +205,7 @@ describe('SoftphoneComponent', () => {
           provide: SoftphoneService,
           useValue: {
             disponible: disp, estado: signal('registrado'),
-            entrante: signal(null), enCurso: signal(null),
+            entrante: signal(null), enCurso: signal(null), contestando: signal(false),
             motivo: signal(''), avisoCola: signal(''), silenciado: signal(false),
             sinAudioRemoto: signal(false), extension: signal('102'),
             encender: () => undefined, apagar: () => undefined, colgar: () => undefined,
@@ -231,5 +233,63 @@ describe('SoftphoneComponent', () => {
     // Y no se entrega dos veces: cada entrega vuelve a enganchar el flujo.
     f.detectChanges();
     expect(entregados.length).toBe(1);
+  });
+  /**
+   * EL CLIC TIENE QUE VERSE AL INSTANTE.
+   *
+   * Contestar tarda lo que el navegador tarde en recolectar candidatos ICE.
+   * Antes, en ese rato la barra se quedaba idéntica —«Entra una llamada» y el
+   * botón «Contestar» intacto—, así que el operador volvía a oprimir creyendo
+   * que su clic no había entrado.
+   */
+  describe('mientras se contesta', () => {
+    it('lo dice, y el botón deja de invitar a oprimirlo otra vez', () => {
+      const f = montar();
+      entrante.set({ numero: '3001234567' });
+      f.componentInstance.abierta.set(true);
+      contestando.set(true);
+      f.detectChanges();
+
+      const txt: string = f.nativeElement.textContent;
+      expect(txt).toContain('Contestando');
+      expect(txt).toContain('conectando el audio');
+
+      const botones: HTMLButtonElement[] = Array.from(f.nativeElement.querySelectorAll('.sp-acc button'));
+      const contestarBtn = botones.find((b) => (b.textContent ?? '').includes('Conectando'))!;
+      expect(contestarBtn).toBeTruthy();
+      expect(contestarBtn.disabled).toBe(true);
+    });
+
+    it('«Rechazar» SIGUE habilitado: si el audio no conecta, colgar es la salida', () => {
+      const f = montar();
+      entrante.set({ numero: '3001234567' });
+      f.componentInstance.abierta.set(true);
+      contestando.set(true);
+      f.detectChanges();
+
+      const botones: HTMLButtonElement[] = Array.from(f.nativeElement.querySelectorAll('.sp-acc button'));
+      const rechazar = botones.find((b) => (b.textContent ?? '').includes('Rechazar'))!;
+      expect(rechazar.disabled).toBe(false);
+    });
+
+    it('la barra deja de timbrar: a esta altura ya nadie tiene que correr', () => {
+      const f = montar();
+      entrante.set({ numero: '3001234567' });
+      f.detectChanges();
+      expect(f.nativeElement.querySelector('.sp--sonando')).toBeTruthy();
+
+      contestando.set(true);
+      f.detectChanges();
+      expect(f.nativeElement.querySelector('.sp--sonando')).toBeNull();
+      expect(f.nativeElement.querySelector('.sp--contestando')).toBeTruthy();
+    });
+
+    it('y plegada, el rótulo dice en qué va', () => {
+      const f = montar();
+      entrante.set({ numero: '3001234567' });
+      contestando.set(true);
+      f.detectChanges();
+      expect(f.componentInstance.rotulo()).toContain('Contestando');
+    });
   });
 });
