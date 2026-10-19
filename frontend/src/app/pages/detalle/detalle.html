@@ -122,6 +122,10 @@
               @if (c.descripcion) {
                 <p class="desc">{{ c.descripcion }}</p>
               }
+              <!-- La grabación de la llamada que originó el caso. El componente
+              no aparece si no hay ninguna, o si esta cuenta no puede verlas
+              —eso lo decide el servidor, que las omite del listado—. -->
+              <app-grabacion-llamada [casoId]="c.id" />
               <!-- Remisión a otra entidad: un caso cerrado no se remite más — nada que atender ya. -->
               @if (c.estado !== 'cerrado') {
               <div class="remitir-caja">

@@ -1,5 +1,6 @@
 import { ChangeDetectionStrategy, Component, ElementRef, OnDestroy, OnInit, computed, effect, inject, input, output, signal, viewChild } from '@angular/core';
 import { GrabacionEnCustodia, cuerpoDeError, leerCustodia } from './custodia';
+import { GrabacionLlamadaComponent } from './grabacion-llamada';
 import { CommonModule } from '@angular/common';
 import { FormControl, FormGroup, ReactiveFormsModule, Validators } from '@angular/forms';
 import { ActivatedRoute, RouterLink } from '@angular/router';
@@ -29,7 +30,7 @@ export type TabDetalle = 'ficha' | 'despacho' | 'whatsapp' | 'chat' | 'videollam
 @Component({
   selector: 'app-detalle',
   standalone: true,
-  imports: [CommonModule, ReactiveFormsModule, RouterLink, SelectorComponent, OpcionComponent, DictadoComponent, IconoComponent, BotonLlamarComponent],
+  imports: [CommonModule, ReactiveFormsModule, RouterLink, SelectorComponent, OpcionComponent, DictadoComponent, IconoComponent, BotonLlamarComponent, GrabacionLlamadaComponent],
   templateUrl: './detalle.html',
   styleUrl: './detalle.scss',
   changeDetection: ChangeDetectionStrategy.OnPush,
