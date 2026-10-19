@@ -523,6 +523,27 @@ describe('generador de la configuración de la planta', () => {
       expect(() => execFileSync('bash', ['-n', ruta])).not.toThrow();
     });
 
+    it('construye la imagen si falta, en vez de mandar a buscar el repositorio', () => {
+      const c = script().contenido;
+      // El servidor de telefonía no tiene por qué tener una copia del
+      // repositorio ni credenciales de git: lo único que llega es este
+      // archivo, y trae el Dockerfile dentro.
+      expect(c).toContain('docker build -t falcon-pbx:1');
+      expect(c).toContain('/opt/falcon-pbx/itagui/imagen');
+      expect(c).not.toContain('del repositorio');
+      expect(generar().has('imagen/Dockerfile')).toBe(true);
+    });
+
+    it('la imagen trae lo que el dialplan y la grabación necesitan', () => {
+      const d = contenido({}, 'imagen/Dockerfile');
+      // curl es como el dialplan avisa a FALCON; lame es lo que hace que la
+      // grabación cueste cinco veces menos al viajar y al guardarse.
+      expect(d).toContain('asterisk');
+      expect(d).toContain('curl');
+      expect(d).toContain('lame');
+      expect(d).toContain('CMD ["asterisk", "-f", "-vvv"]');
+    });
+
     it('es el archivo más sensible del conjunto y lo trata como tal', () => {
       const sh = script();
       expect(sh.modo).toBe('600');
