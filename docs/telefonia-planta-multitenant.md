@@ -140,10 +140,15 @@ dos pasos marcados con 🖐, que viven fuera de FALCON.
     falla, la lista de «qué le falta a esta planta» y los archivos en pantalla
     son el primer sitio donde mirar.
 
-La primera vez en un servidor, además: construir la imagen una sola vez
-(`docker build -t falcon-pbx:1 /opt/falcon-pbx/imagen`, Dockerfile en
-`deploy/pbx/`) y emitir el certificado comodín. Las dos cosas son por servidor,
-no por municipio.
+**En el servidor de telefonía no hay nada que actualizar con `git`.** La
+configuración la genera FALCON y el paquete trae todo lo que hace falta —
+incluido el `Dockerfile`, que `aplicar.sh` construye la primera vez—. Lo único
+que viaja a ese servidor es `aplicar.sh`.
+
+Lo que sí es por servidor y una sola vez: el **certificado comodín** y el
+registro DNS de cada `<instancia>-pbx`. Sin el nombre y el certificado, el
+navegador del operador no puede registrarse —entra por nginx en el 443, por
+nombre— y la planta queda sin softphone aunque la troncal funcione.
 
 ---
 
