@@ -28,6 +28,8 @@ import { PbxTroncalEntity } from './planta/pbx-troncal.entity';
 import { PbxNumeroEntity } from './planta/pbx-numero.entity';
 import { PlantaService } from './planta/planta.service';
 import { PlantaController } from './planta/planta.controller';
+import { PbxGrabacionService } from './pbx-grabacion.service';
+import { ArchivosModule } from '../archivos/archivos.module';
 
 /**
  * Integración con la planta telefónica (PBX). Recibe eventos de llamada por
@@ -54,13 +56,16 @@ import { PlantaController } from './planta/planta.controller';
     AuthModule,
     // Resuelve la extensión de la PBX al username del funcionario.
     UsuariosModule,
+    // La grabación de la llamada entra por donde ya entran los adjuntos: con
+    // su permiso, su archivado, su hash y su custodia.
+    ArchivosModule,
   ],
   controllers: [PbxController, PbxConfigController, PlantaController, ZadarmaController],
   providers: [
     PbxService, PbxGateway, PbxApiKeyGuard, PbxWebhookLogService,
     PbxWebhookRechazoFilter, PbxWebhookExitoInterceptor,
     PbxConfigService, PbxCredencialesService, AvisosPbxService, PbxSalienteService, PbxSoftphoneService,
-    PlantaService,
+    PlantaService, PbxGrabacionService,
   ],
   exports: [PbxService],
 })

@@ -151,6 +151,8 @@ export function generarConfiguracion(d: DatosPlanta): ArchivoGenerado[] {
     texto('etc/http.conf', httpConf(d)),
     texto('etc/modules.conf', modulesConf()),
     conClaves('etc/falcon-webhook.conf', webhookConf(d)),
+    conClaves('etc/falcon-api.conf', apiConf(d)),
+    texto('etc/subir-grabacion.sh', subirGrabacionSh(d)),
     conClaves('etc/ari.conf', ariConf(d)),
     texto('docker-compose.yml', composeYml(d)),
     texto(`nginx/${d.dominioSip}.conf`, nginxSite(d)),
@@ -490,7 +492,7 @@ exten => s,1,NoOp(FALCON entrante \${CALLERID(num)} -> \${DESTINO} id=\${UNIQUEI
 ;; el \${UNIQUEID}, que es el mismo identificador que FALCON guarda en la
 ;; llamada — es lo que permitirá adjuntarla al caso sin adivinar.
 ;; ─────────────────────────────────────────────────────────────────────────
- same => n,MixMonitor(\${GRABACIONES}/\${UNIQUEID}.wav,b)
+ same => n,MixMonitor(\${GRABACIONES}/\${UNIQUEID}.wav,b,bash /etc/asterisk/subir-grabacion.sh ^{UNIQUEID})
  same => n,GotoIf($["\${DESTINO}" = "cola"]?cola:directo)
 
  same => n(cola),Queue(\${COLA},r,,,${timbre})
@@ -773,6 +775,134 @@ server {
     return 404;
   }
 }
+`;
+}
+
+/**
+ * La credencial para SUBIR archivos, aparte de la del webhook.
+ *
+ * Son dos archivos y no uno por una razón concreta: el del webhook fija
+ * `Content-Type: application/json`, que es lo que el aviso necesita y lo que
+ * ROMPERÍA una subida multipart —curl tiene que poner ahí su propio
+ * `multipart/form-data` con el límite—. Un solo archivo compartido haría que
+ * la grabación se subiera con un tipo que el servidor no sabe desarmar, y el
+ * error sería un 400 que no se parece a su causa.
+ */
+function apiConf(d: DatosPlanta): string {
+  return `# falcon-api.conf — credencial de la planta de «${d.tenant}» para SUBIR archivos
+#
+# GENERADO POR FALCON. Modo 600.
+#
+# Es la misma API key del webhook, en un archivo aparte y SIN Content-Type: la
+# subida de la grabación es multipart y curl tiene que poner el suyo.
+header = "x-api-key: ${d.apiKey}"
+`;
+}
+
+/**
+ * EL SCRIPT QUE SUBE LA GRABACIÓN — lo ejecuta MixMonitor al terminar.
+ *
+ * ────────────────────────────────────────────────────────────────────────────
+ * TRES DECISIONES QUE NO SON DE ESTILO
+ *
+ *  1. **Solo borra cuando FALCON confirma.** Si la subida falla —la red, un
+ *     caso que todavía no existe, FALCON caído—, el archivo se queda en la
+ *     planta. Una grabación de una llamada al 123 no se pierde porque un POST
+ *     devolvió 500; y un archivo que sobra es visible, mientras que uno
+ *     borrado no vuelve.
+ *  2. **Comprime si puede, y si no sube el WAV.** Un WAV de 8 kHz son ~960 KB
+ *     por minuto; en MP3 a 24 kbps, ~180 KB. Con `lame` presente comprime, y
+ *     sin él sube el WAV igual: la grabación no depende de que un paquete
+ *     esté instalado.
+ *  3. **No corre con `set -e`.** Lo ejecuta Asterisk y su salida no la lee
+ *     nadie en el momento: lo que hace falta es que cada paso que falle quede
+ *     ESCRITO con su motivo, no que el script muera en el primero.
+ *
+ * ────────────────────────────────────────────────────────────────────────────
+ * LO QUE NO SUBE, A PROPÓSITO
+ *
+ * Las SALIENTES. El dialplan las graba —son evidencia igual— pero no las
+ * sube, porque FALCON no registra todavía la llamada saliente como una
+ * llamada propia y no habría a qué atarla: el servidor respondería «no hay
+ * ninguna llamada con ese callId» y el archivo se quedaría aquí de todos
+ * modos. Quedan en el volumen de grabaciones de la planta.
+ */
+function subirGrabacionSh(d: DatosPlanta): string {
+  const url = `${d.falconUrl.replace(/\/+$/, '')}/api/pbx/grabacion`;
+  return `#!/usr/bin/env bash
+#
+# subir-grabacion.sh — planta de «${d.tenant}»
+#
+# GENERADO POR FALCON. Lo ejecuta MixMonitor al terminar de grabar:
+#
+#   MixMonitor(archivo.wav,b,bash /etc/asterisk/subir-grabacion.sh ^{UNIQUEID})
+#
+# Sube la grabación al caso de esa llamada. Solo borra el archivo local cuando
+# FALCON confirma que lo recibió.
+#
+# Sin «set -e» a propósito: lo que hace falta es que cada fallo quede escrito,
+# no que el script muera en el primero.
+set -uo pipefail
+
+ID="\${1:-}"
+DIR="/var/spool/asterisk/monitor"
+LOG="/var/log/asterisk/falcon-grabaciones.log"
+URL="${url}"
+
+anotar() { echo "$(date '+%Y-%m-%d %H:%M:%S') [\$ID] \$*" >> "\$LOG" 2>/dev/null || true; }
+
+if [ -z "\$ID" ]; then
+  anotar "sin UNIQUEID: no hay nada que subir"
+  exit 0
+fi
+
+WAV="\$DIR/\$ID.wav"
+if [ ! -s "\$WAV" ]; then
+  anotar "no existe o está vacío: \$WAV"
+  exit 0
+fi
+
+# Duración aproximada, solo para la descripción: MixMonitor escribe WAV de
+# 8 kHz, 16 bits, mono — 16000 bytes por segundo, menos la cabecera.
+BYTES="$(stat -c %s "\$WAV" 2>/dev/null || echo 0)"
+SEGUNDOS="$(( (BYTES > 44 ? BYTES - 44 : 0) / 16000 ))"
+
+# Comprimir si se puede; si no, se sube el WAV tal cual.
+SUBIR="\$WAV"
+TEMPORAL=""
+if command -v lame >/dev/null 2>&1; then
+  MP3="\$DIR/\$ID.mp3"
+  if lame --quiet -m m -b 24 "\$WAV" "\$MP3" 2>/dev/null && [ -s "\$MP3" ]; then
+    SUBIR="\$MP3"
+    TEMPORAL="\$MP3"
+  else
+    anotar "lame falló; se sube el WAV"
+    rm -f "\$MP3"
+  fi
+fi
+
+CUERPO="$(mktemp)"
+CODIGO="$(curl -sS -m 300 -o "\$CUERPO" -w '%{http_code}' \\
+  -K /etc/asterisk/falcon-api.conf \\
+  -F "file=@\$SUBIR" \\
+  -F "callId=\$ID" \\
+  -F "segundos=\$SEGUNDOS" \\
+  "\$URL" 2>>"\$LOG")"
+
+case "\$CODIGO" in
+  2*)
+    anotar "subida ok (\$CODIGO, \$(stat -c %s "\$SUBIR" 2>/dev/null || echo '?') bytes): \$(head -c 300 "\$CUERPO")"
+    # Ahora sí: FALCON la tiene, con su hash y su copia.
+    rm -f "\$WAV" "\$TEMPORAL"
+    ;;
+  *)
+    # Se CONSERVA el WAV. Lo que sobra se ve; lo que se borró, no vuelve.
+    anotar "no se pudo subir (\$CODIGO): \$(head -c 300 "\$CUERPO")"
+    anotar "se conserva \$WAV para reintentar a mano"
+    [ -n "\$TEMPORAL" ] && rm -f "\$TEMPORAL"
+    ;;
+esac
+rm -f "\$CUERPO"
 `;
 }
 

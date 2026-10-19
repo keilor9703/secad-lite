@@ -1,4 +1,7 @@
-import { Body, Controller, Get, Param, Post, UseFilters, UseGuards, UseInterceptors } from '@nestjs/common';
+import {
+  Body, Controller, Get, Param, Post, UploadedFile, UseFilters, UseGuards, UseInterceptors,
+} from '@nestjs/common';
+import { FileInterceptor } from '@nestjs/platform-express';
 import { Throttle, ThrottlerGuard } from '@nestjs/throttler';
 import { ActorPbx, PbxService, WebhookLlamadaDto } from './pbx.service';
 import { TenantsService } from '../tenants/tenants.service';
@@ -19,6 +22,16 @@ import { PbxSalienteService, ResultadoLlamar } from './pbx-saliente.service';
 import { PbxCredencialesService } from './pbx-credenciales.service';
 import { PbxSoftphoneService } from './pbx-softphone.service';
 import { descriptor as descriptorDe } from './proveedores/registro';
+import { PbxGrabacionService, VistaGrabacionRecibida } from './pbx-grabacion.service';
+import { MAX_BYTES_CHUNK } from '../archivos/archivos.service';
+
+/** Lo que deja multer en la petición. Igual que en el controlador de archivos. */
+interface ArchivoSubido {
+  originalname: string;
+  mimetype: string;
+  size: number;
+  buffer: Buffer;
+}
 
 @RequiereIntegracion('pbx')
 @Controller('pbx')
@@ -30,6 +43,7 @@ export class PbxController {
     private readonly saliente: PbxSalienteService,
     private readonly credenciales: PbxCredencialesService,
     private readonly softphoneSvc: PbxSoftphoneService,
+    private readonly grabaciones: PbxGrabacionService,
   ) {}
 
   /**
@@ -82,6 +96,37 @@ export class PbxController {
   @Post('webhook')
   webhook(@PbxTenant() tenant: TenantEntity, @Body() dto: WebhookLlamadaDto) {
     return this.pbx.webhook(tenant, dto);
+  }
+
+  /**
+   * POST /api/pbx/grabacion — la planta sube la grabación de una llamada.
+   *
+   * Autenticada con la API key de la instancia, igual que el webhook: es la
+   * misma central hablando por el mismo camino. No lleva sesión de usuario
+   * porque no hay ninguna persona detrás —la manda `MixMonitor` al terminar
+   * de grabar—.
+   *
+   * La grabación queda como archivo del CASO, con `origen = GRABACION`, así
+   * que hereda el permiso `casos.ver_grabaciones`, el archivado, el hash y la
+   * custodia que ya rigen para las grabaciones de videollamada. Ver
+   * `PbxGrabacionService` para las dos negativas que son situaciones normales.
+   */
+  @Public()
+  @UseGuards(PbxApiKeyGuard)
+  @UseInterceptors(FileInterceptor('file', { limits: { fileSize: MAX_BYTES_CHUNK } }))
+  @Post('grabacion')
+  grabacion(
+    @PbxTenant() tenant: TenantEntity,
+    @UploadedFile() archivo: ArchivoSubido | undefined,
+    @Body() dto: { callId?: string; segundos?: string },
+  ): Promise<VistaGrabacionRecibida> {
+    return this.grabaciones.recibir(tenant, {
+      callId: dto?.callId,
+      nombre: archivo?.originalname,
+      tipoMime: archivo?.mimetype,
+      segundos: Number(dto?.segundos) || undefined,
+      contenido: archivo?.buffer,
+    });
   }
 
   /**

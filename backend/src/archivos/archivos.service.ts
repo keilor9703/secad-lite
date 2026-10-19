@@ -50,6 +50,7 @@ export class ArchivosService {
       origen?: OrigenArchivo;
       descripcion?: string | null;
       videoSesionId?: string | null;
+      llamadaId?: string | null;
     },
   ): Promise<ArchivoEntity> {
     if (!datos.casoId) throw new BadRequestException('Falta el caso.');
@@ -66,6 +67,7 @@ export class ArchivosService {
           origen: datos.origen ?? 'ADJUNTO',
           descripcion: datos.descripcion ?? null,
           videoSesionId: datos.videoSesionId ?? null,
+          llamadaId: datos.llamadaId ?? null,
           bytes: '0',
           estado: 'EN_CURSO',
         }),
@@ -144,7 +146,16 @@ export class ArchivosService {
   /** Sube un archivo de una sola vez (el caso del adjunto normal). */
   async subirCompleto(
     tenant: string,
-    datos: { casoId: string; nombre: string; tipoMime: string; usuario: string; descripcion?: string | null },
+    datos: {
+      casoId: string; nombre: string; tipoMime: string; usuario: string;
+      descripcion?: string | null;
+      // La grabación de una llamada entra por aquí, y entra COMPLETA: no es
+      // un navegador grabando por trozos, es un archivo que ya existe en la
+      // planta. Por eso `origen` y `llamadaId` tienen que poder viajar en la
+      // subida de una sola vez y no solo en `crear`.
+      origen?: OrigenArchivo;
+      llamadaId?: string | null;
+    },
     contenido: Buffer,
   ): Promise<ArchivoEntity> {
     if (!contenido?.length) throw new BadRequestException('El archivo está vacío.');

@@ -401,6 +401,82 @@ describe('generador de la configuración de la planta', () => {
     });
   });
 
+  describe('la grabación de la llamada', () => {
+    it('graba solo cuando la llamada se establece y avisa a FALCON al terminar', () => {
+      const dp = contenido({}, 'etc/extensions.conf');
+      expect(dp).toContain(
+        'MixMonitor(${GRABACIONES}/${UNIQUEID}.wav,b,bash /etc/asterisk/subir-grabacion.sh ^{UNIQUEID})',
+      );
+    });
+
+    it('la saliente se graba pero NO se sube: FALCON no tiene esa llamada registrada', () => {
+      const dp = contenido({}, 'etc/extensions.conf');
+      const salientes = dp.slice(dp.indexOf('[salientes]'));
+      expect(salientes).toContain('MixMonitor(');
+      expect(salientes).not.toContain('subir-grabacion.sh');
+    });
+
+    it('el script de subida es válido para bash', () => {
+      const ruta = join(
+        mkdtempSync(join(tmpdir(), 'falcon-grab-')),
+        'subir.sh',
+      );
+      writeFileSync(ruta, contenido({}, 'etc/subir-grabacion.sh'));
+      expect(() => execFileSync('bash', ['-n', ruta])).not.toThrow();
+    });
+
+    it('sube con la credencial SIN Content-Type: la del webhook rompería el multipart', () => {
+      const sh = contenido({}, 'etc/subir-grabacion.sh');
+      expect(sh).toContain('-K /etc/asterisk/falcon-api.conf');
+      expect(sh).not.toContain('falcon-webhook.conf');
+
+      const api = generar().get('etc/falcon-api.conf')!;
+      expect(api.contenido).toContain('x-api-key: fk_la_llave_de_itagui');
+      // Lo que no puede llevar es la CABECERA; nombrarla en el comentario que
+      // explica por qué no está es justamente lo que se quiere.
+      expect(api.contenido).not.toMatch(/^header\s*=\s*"Content-Type/m);
+      expect(api.modo).toBe('600');
+      expect(api.secreto).toBe(true);
+
+      // Y la del webhook sigue llevándolo, que es lo que el aviso necesita.
+      expect(generar().get('etc/falcon-webhook.conf')!.contenido).toMatch(
+        /^header\s*=\s*"Content-Type: application\/json"/m,
+      );
+    });
+
+    it('va al endpoint de grabaciones de ESTA instancia', () => {
+      expect(contenido({}, 'etc/subir-grabacion.sh')).toContain(
+        'URL="https://falconcad.com.co/api/pbx/grabacion"',
+      );
+    });
+
+    it('SOLO borra el archivo local cuando FALCON confirma', () => {
+      const sh = contenido({}, 'etc/subir-grabacion.sh');
+      const dosXX = sh.slice(sh.indexOf('  2*)'), sh.indexOf('  *)'));
+      const fallo = sh.slice(sh.indexOf('  *)'));
+      // En el camino bueno se borra el WAV; en el malo se conserva y se dice.
+      expect(dosXX).toContain('rm -f "$WAV"');
+      expect(fallo).not.toContain('rm -f "$WAV"');
+      expect(fallo).toContain('se conserva');
+    });
+
+    it('comprime si puede y sube el WAV si no: la grabación no depende de un paquete', () => {
+      const sh = contenido({}, 'etc/subir-grabacion.sh');
+      expect(sh).toContain('command -v lame');
+      expect(sh).toContain('SUBIR="$WAV"');
+      expect(sh).toContain('se sube el WAV');
+    });
+
+    it('deja escrito cada fallo con su motivo: nadie está mirando cuando pasa', () => {
+      const sh = contenido({}, 'etc/subir-grabacion.sh');
+      expect(sh).toContain('falcon-grabaciones.log');
+      // Sin `set -e`: lo que hace falta es que cada paso que falle quede
+      // anotado, no que el script muera en el primero.
+      expect(sh).toContain('set -uo pipefail');
+      expect(sh).not.toContain('set -euo pipefail');
+    });
+  });
+
   describe('el script que instala la planta', () => {
     const script = (cambios: Partial<DatosPlanta> = {}): ArchivoGenerado =>
       generar(cambios).get('aplicar.sh')!;

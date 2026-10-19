@@ -23,11 +23,16 @@
 FROM debian:bookworm-slim
 
 # `curl` no es un extra: es como el dialplan le avisa a FALCON de cada llamada.
+# `lame` tampoco es un extra: la grabación de una llamada en WAV de 8 kHz son
+# ~960 KB por minuto, y en MP3 a 24 kbps unos 180 KB. Son los mismos bytes que
+# después viajan a FALCON y se guardan en la base del municipio. El script de
+# subida funciona sin él —sube el WAV— pero con él cuesta cinco veces menos.
 RUN apt-get update \
  && apt-get install -y --no-install-recommends \
       asterisk \
       curl \
       ca-certificates \
+      lame \
  && rm -rf /var/lib/apt/lists/*
 
 # Las grabaciones y los registros salen por volúmenes; la configuración entra

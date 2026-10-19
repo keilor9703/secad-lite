@@ -101,6 +101,17 @@ export class ArchivoEntity {
   @Column({ type: 'uuid', nullable: true })
   videoSesionId?: string | null;
 
+  /**
+   * Llamada de la que salió, cuando la grabación es de una llamada telefónica
+   * de nuestra planta. El papel es el mismo que `videoSesionId` para el video:
+   * permite ir de la llamada a su grabación sin buscar por nombre de archivo.
+   *
+   * Una llamada tiene UNA grabación —hay un único parcial en la base que lo
+   * garantiza, y es lo que hace idempotente el reintento de la planta—.
+   */
+  @Column({ type: 'uuid', nullable: true })
+  llamadaId?: string | null;
+
   @CreateDateColumn({ type: 'timestamptz' })
   creadoEn!: Date;
 
