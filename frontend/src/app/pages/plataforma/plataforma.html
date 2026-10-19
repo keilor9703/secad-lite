@@ -547,4 +547,11 @@
     </div>
   }
 
+
+  @if (pestanaActiva() === 'planta') {
+    <div role="tabpanel" id="panel-planta" aria-labelledby="tab-planta">
+      <app-planta-admin />
+    </div>
+  }
+
 </section>

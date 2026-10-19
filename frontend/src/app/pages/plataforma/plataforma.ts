@@ -10,9 +10,10 @@ import { FechaComponent } from '../../shared/fecha/fecha';
 import { ArchivadoService, ResultadoArchivado } from '../../core/archivado.service';
 import { IconoComponent, NombreIcono } from '../../shared/icono/icono';
 import { probarWss } from '../../core/softphone/probar-wss';
+import { PlantaAdminComponent } from './planta/planta-admin';
 
-/** Las dos mitades del módulo. Ver `PESTANAS` para por qué están separadas. */
-export type PestanaPlataforma = 'tenants' | 'operacion';
+/** Las partes del módulo. Ver `pestanas` para por qué están separadas. */
+export type PestanaPlataforma = 'tenants' | 'operacion' | 'planta';
 
 /**
  * Supervisión de la plataforma: es la vista del dueño de FALCON CAD, no la del
@@ -23,7 +24,7 @@ export type PestanaPlataforma = 'tenants' | 'operacion';
 @Component({
   selector: 'app-plataforma',
   standalone: true,
-  imports: [CommonModule, ReactiveFormsModule, FormsModule, SelectorMunicipioComponent, SelectorComponent, OpcionComponent, FechaComponent, IconoComponent],
+  imports: [CommonModule, ReactiveFormsModule, FormsModule, SelectorMunicipioComponent, SelectorComponent, OpcionComponent, FechaComponent, IconoComponent, PlantaAdminComponent],
   templateUrl: './plataforma.html',
   styleUrl: './plataforma.scss',
   changeDetection: ChangeDetectionStrategy.OnPush,
@@ -73,6 +74,11 @@ export class PlataformaComponent implements OnInit {
   readonly pestanas: ReadonlyArray<{ id: PestanaPlataforma; etiqueta: string; icono: NombreIcono }> = [
     { id: 'tenants', etiqueta: 'Instancias', icono: 'plataforma' },
     { id: 'operacion', etiqueta: 'Configuración e integraciones', icono: 'enlace' },
+    // Aparte de «Configuración e integraciones» a propósito: esa pestaña dice
+    // CON QUÉ planta habla FALCON —sea nuestra o de un tercero—, y esta otra
+    // es la infraestructura que provisionamos nosotros. Se usan en momentos
+    // distintos: una al vender, la otra al montar el servidor.
+    { id: 'planta', etiqueta: 'Nuestras centralitas', icono: 'telefono' },
   ];
   readonly pestanaActiva = signal<PestanaPlataforma>('tenants');
 

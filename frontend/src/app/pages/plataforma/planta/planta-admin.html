@@ -1,0 +1,416 @@
+<section class="planta">
+  <div class="panel panel--col card">
+    <h2>Nuestras centralitas</h2>
+    <p class="hint">
+      Una planta por municipio, sobre un servidor compartido. FALCON reparte los puertos,
+      genera la configuración y la deja lista para instalar con un solo comando. Los puertos
+      de cada planta no se eligen a mano: en un mismo servidor, dos iguales dejan un municipio
+      sin teléfono.
+    </p>
+
+    <form class="alta" [formGroup]="altaForm" (ngSubmit)="crear()">
+      <div class="field">
+        <label for="alta-tenant">Instancia</label>
+        @if (sinPlanta().length) {
+          <app-selector formControlName="tenant" [ariaLabel]="'Instancia'">
+            <app-opcion [valor]="''">Elija la instancia…</app-opcion>
+            @for (t of sinPlanta(); track t.codigo) {
+              <app-opcion [valor]="t.codigo">{{ t.nombre }} ({{ t.codigo }})</app-opcion>
+            }
+          </app-selector>
+        } @else {
+          <input id="alta-tenant" formControlName="tenant" placeholder="código de la instancia" />
+        }
+      </div>
+      <div class="field">
+        <label for="alta-servidor">Servidor</label>
+        <input id="alta-servidor" formControlName="servidor" placeholder="IP o nombre (SSH)"
+          [attr.list]="servidores().length ? 'planta-servidores' : null" />
+        @if (servidores().length) {
+          <datalist id="planta-servidores">
+            @for (s of servidores(); track s) { <option [value]="s"></option> }
+          </datalist>
+        }
+      </div>
+      <div class="field">
+        <label for="alta-ip">IP pública</label>
+        <input id="alta-ip" formControlName="ipPublica" placeholder="solo si el servidor es un nombre" />
+      </div>
+      <div class="field">
+        <label for="alta-dominio">Nombre de la planta</label>
+        <input id="alta-dominio" formControlName="dominioSip" placeholder="se deriva del código" />
+      </div>
+      <button type="submit" class="btn btn--primary" [disabled]="altaForm.invalid || guardando()">
+        Dar de alta
+      </button>
+    </form>
+  </div>
+
+  @if (error()) { <p class="error">{{ error() }}</p> }
+
+  @if (!plantas().length && !cargando()) {
+    <div class="estado-vacio card">
+      <app-icono nombre="telefono" [tam]="28" />
+      <strong>Todavía no hay plantas nuestras</strong>
+      <p>
+        Dé de alta la primera: se le reservan sus puertos en el servidor y queda en borrador
+        hasta que aplique la configuración.
+      </p>
+    </div>
+  }
+
+  @for (p of plantas(); track p.tenant) {
+    <div class="card planta-fila">
+      <button type="button" class="cab" (click)="abrir(p.tenant)"
+        [attr.aria-expanded]="abierta() === p.tenant">
+        <span class="quien">
+          <app-icono [nombre]="abierta() === p.tenant ? 'flecha-abajo' : 'flecha-der'" [tam]="14" />
+          <strong>{{ p.tenant }}</strong>
+          <span class="badge badge--liso {{ tono(p.estado) }}">{{ p.estado }}</span>
+        </span>
+        <span class="datos">
+          <span>{{ p.servidor }}</span>
+          <span class="mono">SIP {{ p.puertoSip }} · RTP {{ p.rtpDesde }}-{{ p.rtpHasta }} · HTTP {{ p.puertoHttp }}</span>
+          <span>{{ p.operadores }} operador(es), {{ p.operadoresConClave }} con clave</span>
+        </span>
+        @if (p.faltan.length) {
+          <span class="badge badge--warn badge--mini">le falta {{ p.faltan.length }}</span>
+        } @else {
+          <span class="badge badge--ok badge--mini">lista</span>
+        }
+      </button>
+
+      @if (abierta() === p.tenant) {
+        <div class="detalle">
+          @if (p.faltan.length) {
+            <div class="faltan">
+              <strong>Para que esta planta atienda una llamada falta:</strong>
+              <ol>
+                @for (f of p.faltan; track f) { <li>{{ f }}</li> }
+              </ol>
+            </div>
+          }
+
+          <!-- Datos del servidor -->
+          <form class="bloque" [formGroup]="datosForm" (ngSubmit)="guardarDatos()">
+            <h3>Servidor y nombre</h3>
+            <div class="rejilla">
+              <div class="field">
+                <label for="d-servidor">Servidor</label>
+                <input id="d-servidor" formControlName="servidor" />
+              </div>
+              <div class="field">
+                <label for="d-ip">IP pública</label>
+                <input id="d-ip" formControlName="ipPublica" [placeholder]="p.ipPublica || 'hace falta'" />
+              </div>
+              <div class="field">
+                <label for="d-dominio">Nombre (lo que enruta nginx)</label>
+                <input id="d-dominio" formControlName="dominioSip" />
+              </div>
+              <div class="field ancho">
+                <label for="d-notas">Notas</label>
+                <input id="d-notas" formControlName="notas"
+                  placeholder="p. ej. escucha SIP en el 3478 porque el 5060 no se pudo abrir" />
+              </div>
+            </div>
+            <p class="hint mono">
+              Softphone: {{ p.wss }} · ARI: {{ p.ari }} · contenedor: {{ p.contenedor }}
+            </p>
+            <div class="acciones">
+              <button type="submit" class="btn mini" [disabled]="guardando()">Guardar</button>
+              <app-selector [valorActual]="p.estado" (cambio)="cambiarEstado($any($event))"
+                [ariaLabel]="'Estado de la planta'">
+                @for (e of estados; track e) { <app-opcion [valor]="e">{{ e }}</app-opcion> }
+              </app-selector>
+              @if (p.estado === 'borrador') {
+                <button type="button" class="btn mini btn--danger" (click)="eliminar(p)">Borrar</button>
+              }
+            </div>
+          </form>
+
+          <!-- Puertos -->
+          <div class="bloque">
+            <h3>Puertos en {{ p.servidor }}</h3>
+            @if (!editandoPuertos()) {
+              <p class="mono">
+                SIP udp {{ p.puertoSip }} · RTP udp {{ p.rtpDesde }}-{{ p.rtpHasta }}
+                · HTTP 127.0.0.1:{{ p.puertoHttp }}
+              </p>
+              <p class="hint">
+                Los reparte FALCON para que dos municipios no se pisen. Edítelos solo para
+                registrar una planta que ya existe con otros puertos.
+              </p>
+              <button type="button" class="btn mini" (click)="editandoPuertos.set(true)">
+                Editar los puertos
+              </button>
+            } @else {
+              <form [formGroup]="puertosForm" (ngSubmit)="guardarPuertos()">
+                <div class="rejilla">
+                  <div class="field">
+                    <label for="p-sip">SIP (udp)</label>
+                    <input id="p-sip" type="number" formControlName="puertoSip" />
+                  </div>
+                  <div class="field">
+                    <label for="p-rtpd">RTP desde</label>
+                    <input id="p-rtpd" type="number" formControlName="rtpDesde" />
+                  </div>
+                  <div class="field">
+                    <label for="p-rtph">RTP hasta</label>
+                    <input id="p-rtph" type="number" formControlName="rtpHasta" />
+                  </div>
+                  <div class="field">
+                    <label for="p-http">HTTP/ARI</label>
+                    <input id="p-http" type="number" formControlName="puertoHttp" />
+                  </div>
+                </div>
+                <div class="acciones">
+                  <button type="submit" class="btn btn--primary mini" [disabled]="guardando()">Guardar</button>
+                  <button type="button" class="btn mini btn--ghost" (click)="editandoPuertos.set(false)">
+                    Cancelar
+                  </button>
+                </div>
+              </form>
+            }
+          </div>
+
+          <!-- Troncales -->
+          <div class="bloque">
+            <h3>Troncales <span class="hint">por dónde entra la llamada del ciudadano</span></h3>
+            @if (p.troncales.length) {
+              <div class="tabla-envoltura">
+                <table class="tabla--sistema">
+                  <thead>
+                    <tr>
+                      <th>Nombre</th><th>Operador</th><th>Servidor</th><th>Autenticación</th>
+                      <th>Redes del SBC</th><th>Canales</th><th></th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    @for (t of p.troncales; track t.id) {
+                      <tr>
+                        <td>
+                          {{ t.nombre }}
+                          @if (!t.activa) { <span class="badge badge--mini badge--warn">apagada</span> }
+                        </td>
+                        <td>{{ t.proveedor }}</td>
+                        <td class="mono">{{ t.servidor }}:{{ t.puerto }}</td>
+                        <td>
+                          {{ t.autenticacion }}
+                          @if (t.autenticacion !== 'ip') {
+                            <span class="hint">{{ t.usuario }} {{ t.clavePuesta ? '· clave puesta' : '· sin clave' }}</span>
+                          }
+                        </td>
+                        <td class="mono">
+                          @if (t.redes.length) { {{ t.redes.join(' ') }} }
+                          @else { <span class="badge badge--mini badge--danger">sin redes: no recibe</span> }
+                        </td>
+                        <td>{{ t.canales }}</td>
+                        <td class="acciones-celda">
+                          <button type="button" class="btn mini" (click)="editarTroncal(t)">Editar</button>
+                          <button type="button" class="btn mini btn--ghost" (click)="eliminarTroncal(t)">Borrar</button>
+                        </td>
+                      </tr>
+                    }
+                  </tbody>
+                </table>
+              </div>
+            } @else {
+              <p class="sin-dato">Ninguna todavía. Sin troncal no entra ninguna llamada.</p>
+            }
+
+            <form [formGroup]="troncalForm" (ngSubmit)="guardarTroncal()">
+              <h4>{{ troncalEditando() ? 'Editar la troncal' : 'Agregar una troncal' }}</h4>
+              <div class="rejilla">
+                <div class="field">
+                  <label for="t-nombre">Nombre</label>
+                  <input id="t-nombre" formControlName="nombre" placeholder="Infobip Bogotá" />
+                </div>
+                <div class="field">
+                  <label for="t-proveedor">Operador</label>
+                  <input id="t-proveedor" formControlName="proveedor" placeholder="INFOBIP" />
+                </div>
+                <div class="field">
+                  <label for="t-servidor">Servidor (SBC)</label>
+                  <input id="t-servidor" formControlName="servidor" placeholder="…latam.sip.voice.infobip.com" />
+                </div>
+                <div class="field">
+                  <label for="t-puerto">Puerto</label>
+                  <input id="t-puerto" type="number" formControlName="puerto" />
+                </div>
+                <div class="field">
+                  <label for="t-auth">Autenticación</label>
+                  <app-selector formControlName="autenticacion" [ariaLabel]="'Autenticación de la troncal'">
+                    @for (a of autenticaciones; track a) { <app-opcion [valor]="a">{{ a }}</app-opcion> }
+                  </app-selector>
+                </div>
+                <div class="field">
+                  <label for="t-usuario">Usuario</label>
+                  <input id="t-usuario" formControlName="usuario"
+                    [disabled]="troncalForm.controls.autenticacion.value === 'ip'" />
+                </div>
+                <div class="field">
+                  <label for="t-clave">Clave</label>
+                  <input id="t-clave" type="password" formControlName="clave" autocomplete="new-password"
+                    placeholder="vacío = conservar la guardada" />
+                </div>
+                <div class="field ancho">
+                  <label for="t-redes">Subredes del SBC (CIDR)</label>
+                  <input id="t-redes" formControlName="redes" placeholder="81.23.252.0/24, 81.23.253.0/24" />
+                </div>
+                <div class="field">
+                  <label for="t-canales">Canales</label>
+                  <input id="t-canales" type="number" formControlName="canales" />
+                </div>
+                <div class="field">
+                  <label for="t-prioridad">Prioridad</label>
+                  <input id="t-prioridad" type="number" formControlName="prioridad" />
+                </div>
+                <label class="check">
+                  <input type="checkbox" formControlName="activa" /> Activa
+                </label>
+              </div>
+              <div class="acciones">
+                <button type="submit" class="btn btn--primary mini" [disabled]="troncalForm.invalid || guardando()">
+                  {{ troncalEditando() ? 'Guardar' : 'Agregar' }}
+                </button>
+                @if (troncalEditando()) {
+                  <button type="button" class="btn mini btn--ghost" (click)="editarTroncal(null)">Cancelar</button>
+                }
+              </div>
+            </form>
+          </div>
+
+          <!-- Números -->
+          <div class="bloque">
+            <h3>Números <span class="hint">lo que marca el ciudadano</span></h3>
+            @if (p.numeros.length) {
+              <div class="tabla-envoltura">
+                <table class="tabla--sistema">
+                  <thead>
+                    <tr><th>Número</th><th>Tipo</th><th>Entra a</th><th>Descripción</th><th></th></tr>
+                  </thead>
+                  <tbody>
+                    @for (n of p.numeros; track n.id) {
+                      <tr>
+                        <td class="mono">
+                          {{ n.numero }}
+                          @if (!n.activo) { <span class="badge badge--mini badge--warn">apagado</span> }
+                        </td>
+                        <td>{{ n.tipo === 'did' ? 'DID' : 'corto' }}</td>
+                        <td>{{ n.destino === 'cola' ? 'la cola de operadores' : 'extensión ' + n.destino }}</td>
+                        <td>{{ n.descripcion || '—' }}</td>
+                        <td class="acciones-celda">
+                          <button type="button" class="btn mini" (click)="editarNumero(n)">Editar</button>
+                          <button type="button" class="btn mini btn--ghost" (click)="eliminarNumero(n)">Borrar</button>
+                        </td>
+                      </tr>
+                    }
+                  </tbody>
+                </table>
+              </div>
+            } @else {
+              <p class="sin-dato">Ninguno todavía.</p>
+            }
+
+            <form [formGroup]="numeroForm" (ngSubmit)="guardarNumero()">
+              <h4>{{ numeroEditando() ? 'Editar el número' : 'Agregar un número' }}</h4>
+              <div class="rejilla">
+                <div class="field">
+                  <label for="n-numero">Número</label>
+                  <input id="n-numero" formControlName="numero" placeholder="+573001234567 o 123" />
+                </div>
+                <div class="field">
+                  <label for="n-tipo">Tipo</label>
+                  <app-selector formControlName="tipo" [ariaLabel]="'Tipo de número'">
+                    @for (t of tipos; track t) {
+                      <app-opcion [valor]="t">{{ t === 'did' ? 'DID (marcable desde cualquier parte)' : 'Corto (123, 1XY)' }}</app-opcion>
+                    }
+                  </app-selector>
+                </div>
+                <div class="field">
+                  <label for="n-troncal">Entra por</label>
+                  <app-selector formControlName="troncalId" [ariaLabel]="'Troncal del número'">
+                    <app-opcion [valor]="null">Sin troncal / por convenio</app-opcion>
+                    @for (t of p.troncales; track t.id) { <app-opcion [valor]="t.id">{{ t.nombre }}</app-opcion> }
+                  </app-selector>
+                </div>
+                <div class="field">
+                  <label for="n-destino">Destino</label>
+                  <input id="n-destino" formControlName="destino" placeholder="cola, o una extensión" />
+                </div>
+                <div class="field ancho">
+                  <label for="n-desc">Descripción</label>
+                  <input id="n-desc" formControlName="descripcion" placeholder="Línea del 123" />
+                </div>
+                <label class="check"><input type="checkbox" formControlName="activo" /> Activo</label>
+              </div>
+              <div class="acciones">
+                <button type="submit" class="btn btn--primary mini" [disabled]="numeroForm.invalid || guardando()">
+                  {{ numeroEditando() ? 'Guardar' : 'Agregar' }}
+                </button>
+                @if (numeroEditando()) {
+                  <button type="button" class="btn mini btn--ghost" (click)="editarNumero(null)">Cancelar</button>
+                }
+              </div>
+            </form>
+          </div>
+
+          <!-- La configuración -->
+          <div class="bloque">
+            <h3>La configuración del servidor</h3>
+            <div class="acciones">
+              <button type="button" class="btn mini" (click)="verConfiguracion()">
+                Ver la configuración
+              </button>
+              <button type="button" class="btn btn--primary mini" (click)="aplicar()">
+                Aplicar: generar y renovar la API key
+              </button>
+            </div>
+            <p class="hint">
+              Ver no toca nada y enseña las claves sustituidas. Aplicar entrega los archivos de
+              verdad y renueva la API key de la instancia —FALCON guarda su digest, no la clave—,
+              así que la central no podrá avisar hasta que instale los archivos nuevos.
+            </p>
+
+            @if (config(); as c) {
+              <div class="config">
+                <p class="hint mono">Carpeta en el servidor: {{ c.carpeta }}</p>
+                @for (a of c.advertencias; track a) {
+                  <p class="aviso">{{ a }}</p>
+                }
+                @if (!c.previa) {
+                  <p class="aviso aviso--hacer">
+                    Copie <strong>aplicar.sh</strong> al servidor y ejecútelo:
+                    <code>sudo bash aplicar.sh</code>. Lleva dentro todos los demás archivos y
+                    todas las claves de la planta: bórrelo al terminar.
+                  </p>
+                }
+                <nav class="archivos" aria-label="Archivos generados">
+                  @for (a of c.archivos; track a.ruta) {
+                    <button type="button" [class.activo]="archivoAbierto() === a.ruta"
+                      (click)="archivoAbierto.set(a.ruta)">
+                      {{ a.ruta }}
+                      @if (a.secreto) { <span class="badge badge--mini badge--danger">{{ a.modo }}</span> }
+                    </button>
+                  }
+                </nav>
+                @if (archivo(archivoAbierto()); as a) {
+                  <div class="visor">
+                    <div class="visor-cab">
+                      <span class="mono">{{ c.carpeta }}/{{ a.ruta }}</span>
+                      <span class="acciones">
+                        <button type="button" class="btn mini" (click)="copiar(a)">Copiar</button>
+                        <button type="button" class="btn mini" (click)="descargar(a)">Descargar</button>
+                      </span>
+                    </div>
+                    <pre>{{ a.contenido }}</pre>
+                  </div>
+                }
+              </div>
+            }
+          </div>
+        </div>
+      }
+    </div>
+  }
+</section>
