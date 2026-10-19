@@ -1,5 +1,5 @@
 import { execFileSync } from 'node:child_process';
-import { mkdtempSync, writeFileSync } from 'node:fs';
+import { mkdtempSync, readFileSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import {
@@ -581,6 +581,53 @@ describe('generador de la configuración de la planta', () => {
       expect(c).toContain('pjsip show aors');
       expect(c).toContain('queue show cola-itagui');
       expect(c).toContain('module show like chan_sip');
+    });
+  });
+
+  /**
+   * LA COPIA DE LA INSTALACIÓN A MANO NO PUEDE DIVERGIR EN LO QUE IMPORTA.
+   *
+   * `deploy/asterisk/activar-grabacion.sh` enciende la grabación en la
+   * centralita que instalamos a mano, sin migrarla al contenedor, y para eso
+   * lleva su propia copia del script de subida. Son dos copias, y dos copias
+   * de algo que nadie mira a diario es una que se queda vieja.
+   *
+   * No se exige que sean iguales —la de aquí lleva rutas de la planta
+   * generada— sino que cumplan las tres cosas por las que ese script existe.
+   * Si alguna se pierde en una de las dos, esto lo dice.
+   */
+  describe('la copia para la instalación a mano', () => {
+    // El script lleva el de subida DENTRO, en un heredoc sin comillas, así
+    // que sus `$` vienen escapados (`\$WAV`). Se desescapan para poder
+    // comparar lo que importa y no la forma de incrustarlo.
+    const aMano = readFileSync(
+      join(__dirname, '..', '..', '..', '..', 'deploy', 'asterisk', 'activar-grabacion.sh'),
+      'utf8',
+    ).replace(/\\\$/g, '$');
+
+    it('solo borra el archivo local cuando FALCON confirma', () => {
+      const dosXX = aMano.slice(aMano.indexOf('  2*)'), aMano.indexOf('  *)'));
+      const fallo = aMano.slice(aMano.indexOf('  *)'));
+      expect(dosXX).toContain('rm -f "$WAV"');
+      expect(fallo).not.toContain('rm -f "$WAV"');
+      expect(fallo).toContain('se conserva');
+    });
+
+    it('comprime si puede y sube el WAV si no', () => {
+      expect(aMano).toContain('command -v lame');
+      expect(aMano).toContain('se sube el WAV');
+    });
+
+    it('sube con la credencial sin Content-Type, no con la del webhook', () => {
+      expect(aMano).toContain('-K /etc/asterisk/falcon-api.conf');
+      // Y NO rota la llave: reutiliza la que la centralita ya tiene, para no
+      // dejar el webhook mudo a cambio de encender la grabación.
+      expect(aMano).toContain('no se rota');
+    });
+
+    it('deja cada fallo escrito, porque nadie está mirando cuando pasa', () => {
+      expect(aMano).toContain('falcon-grabaciones.log');
+      expect(aMano).toContain('set -uo pipefail');
     });
   });
 

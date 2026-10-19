@@ -251,6 +251,39 @@ la centralita.
 
 ---
 
+## 7.1. Encender la grabación SIN migrar al contenedor
+
+La centralita que instalamos a mano sigue atendiendo las llamadas, y migrarla
+al contenedor exige el nombre DNS y el certificado comodín. Mientras eso llega,
+la grabación —que es lo único nuevo que vive en esa máquina— se enciende con un
+comando:
+
+```bash
+ssh ubuntu@129.80.243.118
+cd /tmp/falcon-ast && git pull
+sudo bash deploy/asterisk/activar-grabacion.sh
+```
+
+Qué hace, y nada más que eso: escribe `/etc/asterisk/falcon-api.conf` (la
+credencial para SUBIR, aparte de la del webhook porque esa fija
+`Content-Type: application/json` y rompería el multipart), escribe
+`/etc/asterisk/subir-grabacion.sh`, crea `/var/spool/asterisk/monitor/`,
+instala `lame` si falta y agrega **una línea** al dialplan, con respaldo
+fechado y sin repetirla si ya está. Recarga el dialplan; no reinicia Asterisk.
+
+Lo que NO hace: tocar `pjsip.conf`, el puerto SIP, la troncal o los módulos, y
+**no rota ninguna credencial** — reutiliza la API key que la centralita ya
+tiene, así que el webhook sigue avisando igual. Si no encuentra el `Dial` del
+contexto que atiende, no toca nada y dice qué línea agregar a mano.
+
+> La planta generada por FALCON trae su propia copia de ese script. Son dos, y
+> hay una prueba en el repositorio que vigila que no divergan en lo que
+> importa: que solo borre el archivo local cuando FALCON confirma, que
+> comprima si puede, que use la credencial correcta y que deje cada fallo
+> escrito.
+
+---
+
 ## 8. Si contestar tarda
 
 El síntoma: el operador oprime **Contestar**, no pasa nada, y la llamada se
