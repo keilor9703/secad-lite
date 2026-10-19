@@ -5,6 +5,14 @@
 >
 > Escrito el 16/10/2026. Los comandos están pensados para Ubuntu en Oracle
 > Cloud, que es donde corre todo hoy.
+>
+> **Esto es el montaje A MANO, y es el que llevó a la primera llamada real.**
+> Desde el 19/10/2026 la configuración la GENERA FALCON por municipio
+> —puertos, dialplan, cola, nginx y un `aplicar.sh` que lo instala todo—; ver
+> [`telefonia-planta-multitenant.md`](telefonia-planta-multitenant.md). Este
+> documento se queda porque explica POR QUÉ cada archivo dice lo que dice, y
+> porque es la referencia cuando algo no cuadra. Las plantillas de
+> `deploy/asterisk/` ya no son la fuente de verdad.
 
 ---
 

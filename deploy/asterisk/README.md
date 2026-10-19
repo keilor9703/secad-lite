@@ -1,3 +1,15 @@
+> ⚠ **Estas plantillas ya no son la fuente de verdad.**
+>
+> Desde el 19/10/2026 la configuración de cada planta la genera FALCON a
+> partir de sus tablas (`backend/src/pbx/planta/generador.ts`), y se instala
+> con el `aplicar.sh` que esa misma generación produce. Ver
+> `docs/telefonia-planta-multitenant.md`.
+>
+> Lo de aquí se conserva como referencia del montaje manual —es lo que llevó a
+> la primera llamada real de punta a punta— y porque los comentarios explican
+> por qué cada línea dice lo que dice. Si edita algo aquí, no cambia ninguna
+> planta.
+
 # Plantillas de la centralita propia (Asterisk)
 
 Para montar la **opción B**: troncal colombiana + Asterisk que operamos
