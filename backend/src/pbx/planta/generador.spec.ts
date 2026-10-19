@@ -545,6 +545,18 @@ describe('generador de la configuración de la planta', () => {
       expect(generar().has('imagen/Dockerfile')).toBe(true);
     });
 
+    it('parte de Ubuntu: Debian 12 retiró el paquete de Asterisk', () => {
+      const d = contenido({}, 'imagen/Dockerfile');
+      // «Package 'asterisk' has no installation candidate»: la imagen no se
+      // podía construir. Ubuntu 22.04 es además la distribución donde corre
+      // hoy la centralita instalada a mano.
+      expect(d).toContain('FROM ubuntu:22.04');
+      expect(d).not.toContain('debian');
+      // Y sin frontend interactivo, o la construcción se cuelga esperando la
+      // zona horaria.
+      expect(d).toContain('DEBIAN_FRONTEND=noninteractive');
+    });
+
     it('la imagen trae lo que el dialplan y la grabación necesitan', () => {
       const d = contenido({}, 'imagen/Dockerfile');
       // curl es como el dialplan avisa a FALCON; lame es lo que hace que la

@@ -341,6 +341,7 @@ milisegundos y el tope de 1500 ms deja de notarse: es un techo, no un retardo.
 
 | Síntoma | Dónde mirar |
 |---|---|
+| `Package 'asterisk' has no installation candidate` al construir la imagen | El Dockerfile parte de Debian: Debian 12 retiró ese paquete. Vuelve a aplicar desde FALCON para traer el corregido (Ubuntu 22.04), o corrige el `FROM` en `/opt/falcon-pbx/<instancia>/imagen/Dockerfile` y construye a mano |
 | La llamada no entra | `docker logs asterisk-demo --tail 50`. Si no hay nada, el SIP no está llegando: revisa el puerto en Infobip (paso 6) y las reglas 1 y 2 |
 | Entra pero no aparece en la cola de FALCON | La API key: ¿instalaste los archivos nuevos después de Aplicar? `docker exec asterisk-demo cat /etc/asterisk/falcon-webhook.conf` |
 | El softphone no se registra | El nombre y el certificado: `curl -I https://demo-pbx.falconcad.com.co/ws`. Y que nginx haya recargado |

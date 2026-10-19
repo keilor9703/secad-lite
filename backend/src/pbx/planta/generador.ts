@@ -1084,9 +1084,16 @@ echo "   · borrar este archivo: shred -u aplicar.sh"
  * es lo que se monta en `/etc/asterisk`. Si fuera por municipio, actualizar
  * Asterisk sería un trabajo por municipio.
  *
- * El Asterisk de Debian y no una imagen de terceros: es el que está probado
- * en nuestra instalación a mano, con una llamada real de punta a punta, y una
- * etiqueta de Docker Hub puede cambiar o desaparecer sin avisar.
+ * UBUNTU 22.04, Y NO DEBIAN. Debian 12 (bookworm) **retiró el paquete
+ * `asterisk`**: la imagen falla al construirse con «Package 'asterisk' has no
+ * installation candidate». Lo descubrimos aplicando. Ubuntu 22.04 sí lo trae,
+ * y es exactamente el que corre hoy en el servidor —la instalación a mano se
+ * hizo con el `apt` de esa misma Ubuntu, y con ella entró la primera llamada
+ * real de punta a punta—. O sea que no es una elección: es la que está
+ * probada.
+ *
+ * Y el paquete de la distribución, no una imagen de terceros: una etiqueta de
+ * Docker Hub puede cambiar o desaparecer sin avisar.
  */
 function dockerfile(): string {
   return `# Dockerfile — imagen de las plantas de FALCON
@@ -1096,7 +1103,14 @@ function dockerfile(): string {
 #
 #   docker build -t falcon-pbx:1 /opt/falcon-pbx/<instancia>/imagen
 #
-FROM debian:bookworm-slim
+# Ubuntu 22.04 y NO Debian: Debian 12 retiró el paquete «asterisk» y la
+# imagen no se puede construir. Ubuntu 22.04 sí lo trae, y es el mismo que
+# corre hoy en el servidor instalado a mano.
+FROM ubuntu:22.04
+
+# Sin esto, algún paquete abre el diálogo de la zona horaria y la construcción
+# se queda esperando a alguien que nunca va a contestar.
+ENV DEBIAN_FRONTEND=noninteractive
 
 # «curl» no es un extra: es como el dialplan le avisa a FALCON de cada
 # llamada. «lame» tampoco: la grabación de una llamada en WAV de 8 kHz son
@@ -1109,6 +1123,7 @@ RUN apt-get update \\
       curl \\
       ca-certificates \\
       lame \\
+      tzdata \\
  && rm -rf /var/lib/apt/lists/*
 
 # NO se instalan las locuciones: el dialplan no reproduce ninguna. El
