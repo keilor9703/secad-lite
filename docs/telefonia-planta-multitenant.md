@@ -197,20 +197,66 @@ troncal, es suya.
 
 ---
 
-## 7. Qué falta
+## 7. La grabación de la llamada
+
+Graba `MixMonitor` con la opción `b` —solo cuando la llamada queda
+establecida, así no quedan cientos de archivos de cero segundos— y al terminar
+dispara `subir-grabacion.sh`, que la **sube a FALCON**. Queda como **archivo
+del caso**, con `origen = GRABACION` y atada a la llamada.
+
+**No es una URL, y esa es la decisión.** `casos.urlGrabacion` se queda para una
+central ajena, que graba en su almacenamiento y entrega un enlace. Para la
+planta propia no sirve: el archivo lo tiene nuestro contenedor en un volumen al
+que nadie llega desde internet. Entrando por `archivos` hereda cuatro cosas que
+una URL no da: el permiso `casos.ver_grabaciones`, el archivado al
+almacenamiento de objetos sin borrar nada, el SHA-256 calculado antes de
+liberar los bytes —lo que permite demostrar años después que lo que se oye es
+byte a byte lo que se grabó— y el barrido de subidas cortadas.
+
+Lo que hay que saber al operar:
+
+- **La planta empuja; FALCON no va a buscar.** La planta solo tiene abierto el
+  puerto SIP hacia fuera, y abrirle uno para que FALCON le lea archivos sería
+  abrir una puerta para leer archivos del servidor. Usa el mismo `curl` con la
+  API key de la instancia que el dialplan, pero con **otro archivo de
+  credencial** (`falcon-api.conf`): el del webhook fija
+  `Content-Type: application/json`, que rompería el multipart.
+- **Solo borra el archivo local cuando FALCON confirma.** Si la subida falla
+  —la red, FALCON caído, un caso que todavía no existe— el WAV se queda en la
+  planta y queda anotado en `/var/log/asterisk/falcon-grabaciones.log`. Un
+  archivo que sobra se ve; uno borrado no vuelve.
+- **Dos negativas son situaciones normales**, no errores: que la llamada no
+  esté en FALCON (la central atendió algo de lo que FALCON no se enteró) y que
+  la llamada no haya quedado en un caso (el operador contestó y no guardó). En
+  `archivos` no hay archivos sueltos, y esa invariante no se rompe por una
+  grabación.
+- **Comprime si puede.** Con `lame` en la imagen, un minuto de llamada pasa de
+  ~960 KB (WAV de 8 kHz) a ~180 KB. Sin `lame` sube el WAV igual.
+- **El reintento no duplica.** Un único parcial en la base garantiza una sola
+  grabación por llamada, excluyendo los `FALLIDO` para que un intento cortado
+  no bloquee al que sí va a funcionar.
+- **Las salientes se graban pero no se suben.** FALCON todavía no registra la
+  saliente como llamada propia, así que no habría a qué atarla; quedan en el
+  volumen de la planta. Es la razón por la que ese volumen hay que vigilarlo.
+
+En FALCON se oye en la ficha del caso, con cuatro estados: por oír, sonando,
+«en el archivo permanente» —existe e íntegra, con el nombre que hay que pedirle
+al administrador— y «subida incompleta», que significa que el archivo sigue en
+la centralita.
+
+---
+
+## 8. Qué falta
 
 Por orden de lo que más duele:
 
-1. **Subir la grabación y enlazarla al caso.** El `MixMonitor` ya graba —solo
-   cuando la llamada se establece, y con el `${UNIQUEID}` por nombre, que es el
-   identificador que FALCON guarda— pero el archivo se queda en el volumen del
-   municipio. Falta el camino de subida y el enlace a `urlGrabacion`, con el
-   permiso `casos.ver_grabaciones` que ya existe.
-2. **Un número de respaldo para la cola**: si nadie contesta en X segundos,
+1. **Un número de respaldo para la cola**: si nadie contesta en X segundos,
    timbrar a un celular. Hoy el ciudadano oye timbre hasta que la cola se rinde.
-3. **El diagnóstico desde la pantalla**: «¿está viva la troncal?», «¿quién está
+2. **El diagnóstico desde la pantalla**: «¿está viva la troncal?», «¿quién está
    registrado?» —hoy eso se ve con `pjsip show aors` por SSH—.
-4. **Aplicar por SSH desde FALCON**, para no copiar el script a mano.
+3. **Aplicar por SSH desde FALCON**, para no copiar el script a mano.
+4. **La saliente como llamada propia de FALCON**, que es lo que falta para
+   poder subir también su grabación.
 5. **Puertos reservados por servidor**: hoy el asignador solo sabe de las
    plantas, no de los otros servicios del host. Las bandas se eligieron lejos
    de lo que sabemos que hay (coturn en el 3478, `secad-api` en el 8088), y los
