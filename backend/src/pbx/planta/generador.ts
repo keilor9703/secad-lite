@@ -1003,15 +1003,47 @@ if ! docker image inspect falcon-pbx:1 >/dev/null 2>&1; then
 fi
 
 # ── El sitio de nginx ───────────────────────────────────────────────────────
-if [ -d /etc/nginx/sites-enabled ]; then
+#
+# Solo si el nginx DEL SISTEMA es el que está sirviendo el 443. En un servidor
+# donde el 443 lo tiene otra cosa —un contenedor, Traefik, el nginx de otro
+# despliegue— enlazar aquí no hace nada: el archivo queda escrito y el
+# navegador sigue sin llegar. Peor todavía, «systemctl reload nginx» sobre un
+# nginx detenido falla, y con «set -e» abortaría la instalación ANTES de
+# levantar la planta.
+#
+# Así que esto se decide mirando quién tiene el 443, y si no es el nginx del
+# sistema, se dice exactamente qué falta y se SIGUE: la planta queda
+# funcionando para la troncal, que es lo que no puede esperar; el softphone
+# entra en cuanto se enganche el sitio.
+QUIEN_443="$(ss -lntpH 'sport = :443' 2>/dev/null | head -1)"
+if systemctl is-active --quiet nginx 2>/dev/null && [ -d /etc/nginx/sites-enabled ]; then
   ln -sf "${carpeta}/nginx/${d.dominioSip}.conf" "/etc/nginx/sites-enabled/${d.dominioSip}.conf"
   # Probar ANTES de recargar: un nginx que no arranca se lleva por delante a
   # los demás municipios del servidor, que no tienen nada que ver con esto.
-  nginx -t
-  systemctl reload nginx
-  echo "✔ nginx recargado para ${d.dominioSip}"
+  if nginx -t; then
+    systemctl reload nginx
+    echo "✔ nginx recargado para ${d.dominioSip}"
+  else
+    echo "⚠ La configuración de nginx no pasó la prueba; NO se recargó."
+    echo "  El sitio quedó enlazado en /etc/nginx/sites-enabled/${d.dominioSip}.conf"
+  fi
 else
-  echo "⚠ No encontré /etc/nginx/sites-enabled: enlace el sitio a mano."
+  echo
+  echo "⚠ El nginx del sistema no está sirviendo el 443, así que no enlacé nada."
+  if [ -n "\$QUIEN_443" ]; then
+    echo "  Quien lo tiene: \$QUIEN_443"
+  fi
+  echo "  El sitio de esta planta está en:"
+  echo "    ${carpeta}/nginx/${d.dominioSip}.conf"
+  echo "  Cópielo a la configuración de QUIEN sirve el 443 y recárguelo. Si es"
+  echo "  un contenedor de nginx, suele ser algo como:"
+  echo "    docker cp ${carpeta}/nginx/${d.dominioSip}.conf <contenedor>:/etc/nginx/conf.d/"
+  echo "    docker exec <contenedor> nginx -t && docker exec <contenedor> nginx -s reload"
+  echo "  Ese contenedor necesita ver /etc/letsencrypt (el certificado) y poder"
+  echo "  alcanzar 127.0.0.1:${d.puertoHttp} del host."
+  echo "  Mientras tanto la planta YA atiende la troncal; lo que falta es el"
+  echo "  softphone del navegador."
+  echo
 fi
 
 # ── El contenedor ───────────────────────────────────────────────────────────

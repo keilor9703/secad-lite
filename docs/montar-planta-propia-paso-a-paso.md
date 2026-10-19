@@ -121,6 +121,12 @@ sudo iptables -L INPUT -n --line-numbers | head -20
 
 ## Paso 3 · El nombre DNS
 
+> **En el servidor B esto YA ESTÁ.** `centralita.appjeylor.com` resuelve a esa
+> máquina y tiene certificado válido (`sudo certbot certificates` lo confirma).
+> Usa ese nombre al registrar la planta y sáltate los pasos 3 y 4. Lo que sigue
+> es para el PRÓXIMO municipio.
+
+
 **Qué es:** un registro que hace que `demo-pbx.falconcad.com.co` apunte al
 servidor B. Lo necesita el navegador del operador para llegar a *esta* planta
 y no a otra, y lo necesita el certificado del paso 4.
@@ -214,6 +220,52 @@ En FALCON, como superadmin: **Plataforma → Nuestras centralitas**.
 
 En el panel de Infobip → **Troncales SIP** → tu troncal → **Host de destino**:
 cambia el puerto de `3478` a **`5060`** (la IP sigue siendo la misma).
+
+---
+
+## Paso 6.5 · Si el 443 lo tiene otro servicio (el caso del servidor B)
+
+En el servidor B el 443 no lo tiene el nginx del sistema —que está detenido—
+sino el contenedor `falcon-deploy-nginx-1`, el del FALCON de pruebas que vive
+en esa misma máquina. `aplicar.sh` lo detecta, no enlaza nada y lo dice; la
+planta queda atendiendo la troncal igual, y lo que falta es el camino del
+navegador.
+
+Para engancharlo, después del paso 7:
+
+```bash
+# ¿Ese nginx ve el certificado y la configuración desde el host?
+docker inspect falcon-deploy-nginx-1 --format '{{range .Mounts}}{{.Source}} -> {{.Destination}}
+{{end}}'
+```
+
+- **Si ya monta `/etc/letsencrypt`** y algún directorio de configuración
+  (`conf.d`, `sites-enabled`), copia ahí el sitio generado y recarga:
+
+  ```bash
+  sudo cp /opt/falcon-pbx/demo/nginx/centralita.appjeylor.com.conf <el directorio montado>/
+  docker exec falcon-deploy-nginx-1 nginx -t && docker exec falcon-deploy-nginx-1 nginx -s reload
+  ```
+
+- **Si no monta el certificado**, agrégale los dos volúmenes en
+  `~/falcon-deploy/docker-compose.yml`, servicio `nginx`:
+
+  ```yaml
+      volumes:
+        - /etc/letsencrypt:/etc/letsencrypt:ro
+        - ./nginx/conf.d:/etc/nginx/conf.d:ro
+  ```
+
+  y recréalo: `cd ~/falcon-deploy && docker compose up -d --no-deps nginx`.
+
+El contenedor tiene que poder alcanzar `127.0.0.1:8100` del **host**. Si corre
+en red bridge, en el `proxy_pass` del sitio generado cambia `127.0.0.1` por
+`host.docker.internal` y agrégale al servicio:
+
+```yaml
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+```
 
 ---
 

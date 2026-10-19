@@ -564,8 +564,27 @@ describe('generador de la configuración de la planta', () => {
 
     it('prueba nginx antes de recargarlo: un nginx caído se lleva a los otros municipios', () => {
       const c = script().contenido;
-      expect(c.indexOf('nginx -t')).toBeLessThan(
-        c.indexOf('systemctl reload nginx'),
+      // La ORDEN, no la palabra: el comentario que explica por qué no se
+      // recarga un nginx detenido también dice «systemctl reload nginx», y
+      // buscar la palabra suelta hacía que esta prueba se midiera contra su
+      // propia explicación.
+      expect(c.indexOf('if nginx -t; then')).toBeLessThan(
+        c.indexOf('\n    systemctl reload nginx'),
+      );
+    });
+
+    it('si el 443 no es del nginx del sistema, no enlaza nada y dice qué falta', () => {
+      const c = script().contenido;
+      // Enlazar en un nginx que no sirve el 443 no hace nada —el archivo queda
+      // escrito y el navegador sigue sin llegar— y recargar uno detenido
+      // abortaría la instalación antes de levantar la planta.
+      expect(c).toContain('systemctl is-active --quiet nginx');
+      expect(c).toContain('no está sirviendo el 443');
+      expect(c).toContain('docker cp');
+      // Y la planta se levanta igual: la troncal es lo que no puede esperar.
+      expect(c).toContain('la planta YA atiende la troncal');
+      expect(c.indexOf('no está sirviendo el 443')).toBeLessThan(
+        c.indexOf('docker compose up -d'),
       );
     });
 
