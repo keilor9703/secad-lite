@@ -748,8 +748,18 @@ server {
   listen [::]:443 ssl;
   server_name ${d.dominioSip};
 
-  ssl_certificate     /etc/letsencrypt/live/${dominioComodin(d.dominioSip)}/fullchain.pem;
-  ssl_certificate_key /etc/letsencrypt/live/${dominioComodin(d.dominioSip)}/privkey.pem;
+  # El certificado de ESTE nombre, que es el que deja certbot con una sola
+  # orden y se renueva solo:
+  #
+  #   sudo certbot certonly --nginx -d ${d.dominioSip}
+  #
+  # Un comodín (*.${dominioPadre(d.dominioSip)}) ahorraría una orden por
+  # municipio, pero Let's Encrypt solo lo emite validando por DNS, o sea
+  # configurando la API del proveedor de DNS. Para unos pocos municipios no se
+  # paga; cuando sean diez, se emite el comodín y estas dos líneas pasan a
+  # apuntar a /etc/letsencrypt/live/${dominioPadre(d.dominioSip)}/.
+  ssl_certificate     /etc/letsencrypt/live/${d.dominioSip}/fullchain.pem;
+  ssl_certificate_key /etc/letsencrypt/live/${d.dominioSip}/privkey.pem;
 
   # El WebSocket del softphone. El audio NO pasa por aquí: va directo por ICE
   # contra la IP pública del servidor.
@@ -1103,8 +1113,8 @@ function delimitadorPara(contenido: string): string {
   return delim;
 }
 
-/** `itagui-pbx.falconcad.com.co` → `falconcad.com.co`, que es donde está el comodín. */
-function dominioComodin(dominio: string): string {
+/** `itagui-pbx.falconcad.com.co` → `falconcad.com.co`: solo para los avisos. */
+function dominioPadre(dominio: string): string {
   const partes = dominio.split('.');
   return partes.length > 2 ? partes.slice(1).join('.') : dominio;
 }

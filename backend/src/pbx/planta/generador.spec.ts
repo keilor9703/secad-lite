@@ -372,14 +372,25 @@ describe('generador de la configuración de la planta', () => {
       expect(c).toContain('image: falcon-pbx:1');
     });
 
-    it('nginx enruta por nombre al puerto de ESTA planta, con el comodín del dominio', () => {
+    it('nginx enruta por nombre al puerto de ESTA planta, con su propio certificado', () => {
       const n = generar().get(
         'nginx/itagui-pbx.falconcad.com.co.conf',
       )!.contenido;
       expect(n).toContain('server_name itagui-pbx.falconcad.com.co;');
       expect(n).toContain('proxy_pass http://127.0.0.1:8101/ws;');
+      // El certificado de ESTE nombre: es el que deja `certbot certonly
+      // --nginx -d <nombre>` sin configurar la API de ningún DNS. Un comodín
+      // solo se emite validando por DNS, y para unos pocos municipios no se
+      // paga esa complicación.
       expect(n).toContain(
-        '/etc/letsencrypt/live/falconcad.com.co/fullchain.pem',
+        '/etc/letsencrypt/live/itagui-pbx.falconcad.com.co/fullchain.pem',
+      );
+      expect(n).toContain(
+        '/etc/letsencrypt/live/itagui-pbx.falconcad.com.co/privkey.pem',
+      );
+      // Y la orden exacta queda escrita en el archivo, para no ir a buscarla.
+      expect(n).toContain(
+        'certbot certonly --nginx -d itagui-pbx.falconcad.com.co',
       );
       expect(n).toContain('proxy_set_header Upgrade $http_upgrade;');
     });
@@ -601,7 +612,16 @@ describe('generador de la configuración de la planta', () => {
     // que sus `$` vienen escapados (`\$WAV`). Se desescapan para poder
     // comparar lo que importa y no la forma de incrustarlo.
     const aMano = readFileSync(
-      join(__dirname, '..', '..', '..', '..', 'deploy', 'asterisk', 'activar-grabacion.sh'),
+      join(
+        __dirname,
+        '..',
+        '..',
+        '..',
+        '..',
+        'deploy',
+        'asterisk',
+        'activar-grabacion.sh',
+      ),
       'utf8',
     ).replace(/\\\$/g, '$');
 
