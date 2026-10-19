@@ -149,6 +149,8 @@ export function generarConfiguracion(d: DatosPlanta): ArchivoGenerado[] {
     texto('etc/queues.conf', queuesConf(d)),
     texto('etc/rtp.conf', rtpConf(d)),
     texto('etc/http.conf', httpConf(d)),
+    texto('etc/asterisk.conf', asteriskConf(d)),
+    texto('etc/logger.conf', loggerConf(d)),
     texto('etc/modules.conf', modulesConf()),
     conClaves('etc/falcon-webhook.conf', webhookConf(d)),
     conClaves('etc/falcon-api.conf', apiConf(d)),
@@ -657,6 +659,69 @@ autoload = yes
 ;; hay que reiniciar.
 ;; ─────────────────────────────────────────────────────────────────────────
 noload => chan_sip.so
+`;
+}
+
+function asteriskConf(d: DatosPlanta): string {
+  return `${encabezado(d, 'asterisk.conf')};; ─────────────────────────────────────────────────────────────────────────
+;; POR QUÉ ESTE ARCHIVO EXISTE
+;;
+;; El contenedor monta la carpeta «etc/» de la planta COMO /etc/asterisk, así
+;; que tapa la que trae el paquete: lo que no generemos aquí, no existe allá
+;; dentro. Sin este archivo, Asterisk arranca con sus valores de compilación
+;; —funciona— pero cada \`asterisk -rx\` empieza con:
+;;
+;;   Unable to open specified master config file '/etc/asterisk/asterisk.conf',
+;;   using built-in defaults
+;;
+;; y eso hace que toda comprobación parezca una falla. Además deja el arranque
+;; dependiendo de con qué rutas se compiló la imagen, que es justo lo que no
+;; queremos que cambie cuando cambie la imagen base.
+;; ─────────────────────────────────────────────────────────────────────────
+[directories](!)
+astetcdir => /etc/asterisk
+astvarlibdir => /var/lib/asterisk
+astdbdir => /var/lib/asterisk
+astkeydir => /var/lib/asterisk
+astdatadir => /var/lib/asterisk
+astagidir => /var/lib/asterisk/agi-bin
+astspooldir => /var/spool/asterisk
+astrundir => /var/run/asterisk
+astlogdir => /var/log/asterisk
+
+;; astmoddir NO se pone, y es a propósito: es la única ruta que, mal puesta,
+;; deja a Asterisk sin cargar un solo módulo —es decir, la planta muerta sin
+;; decir por qué—. El valor de compilación de la imagen ya es el correcto
+;; (quedó comprobado: con este archivo ausente, res_pjsip cargó), y omitirlo
+;; es lo que lo mantiene correcto si mañana la imagen base cambia de ruta.
+
+[options]
+;; Nada aquí: el verbose lo pone el \`CMD\` de la imagen (\`asterisk -f -vvv\`) y
+;; el resto son los valores de siempre. Este archivo está para FIJAR LAS RUTAS,
+;; no para cambiar comportamiento; si algún día hace falta una opción, va aquí
+;; con el motivo escrito al lado.
+`;
+}
+
+function loggerConf(d: DatosPlanta): string {
+  return `${encabezado(d, 'logger.conf')}[general]
+dateformat = %F %T
+
+[logfiles]
+;; Sin este archivo, Asterisk solo habla por consola: la carpeta «log/» de la
+;; planta se queda vacía y un problema de hace dos horas no se puede mirar.
+console => notice,warning,error
+messages => notice,warning,error
+
+;; «full» (que incluye debug y verbose) queda APAGADO a propósito: en una
+;; planta con tráfico crece en gigas y el disco de este servidor lo comparten
+;; todas las plantas. Para un rato de diagnóstico se enciende en vivo, sin
+;; tocar el archivo ni reiniciar:
+;;   asterisk -rx 'logger add channel /var/log/asterisk/diag verbose,debug'
+;;   asterisk -rx 'logger remove channel /var/log/asterisk/diag'
+;;
+;; Y los archivos NO rotan por tamaño: rotan cuando se lo piden.
+;;   asterisk -rx 'logger rotate'
 `;
 }
 

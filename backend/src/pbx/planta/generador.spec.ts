@@ -360,6 +360,47 @@ describe('generador de la configuración de la planta', () => {
         /^\s*\[[^\]]+\]/m,
       );
     });
+
+    it('el asterisk.conf fija las rutas, porque el montaje tapa el del paquete', () => {
+      // La carpeta «etc/» de la planta se monta COMO /etc/asterisk: lo que no
+      // generemos, no existe en el contenedor. Sin este archivo Asterisk
+      // arranca con los valores con que se compiló la imagen, y cada
+      // `asterisk -rx` empieza con «Unable to open specified master config
+      // file» — que hace que toda comprobación parezca una falla.
+      const a = contenido({}, 'etc/asterisk.conf');
+      expect(a).toContain('[directories]');
+      expect(a).toContain('astetcdir => /etc/asterisk');
+      // Las tres rutas que el compose monta como volumen tienen que coincidir
+      // con lo que dice este archivo, o Asterisk escribe donde nadie mira.
+      expect(a).toContain('astspooldir => /var/spool/asterisk');
+      expect(a).toContain('astlogdir => /var/log/asterisk');
+    });
+
+    it('el asterisk.conf NO fija astmoddir', () => {
+      // Es la única ruta que, mal puesta, deja a Asterisk sin cargar un solo
+      // módulo: la planta muerta y sin decir por qué. El valor de compilación
+      // de la imagen ya es el correcto, y omitirlo es lo que lo mantiene
+      // correcto si la imagen base cambia de ruta. Esto NO es una omisión: es
+      // la decisión, y este test está para que nadie la «complete».
+      const a = contenido({}, 'etc/asterisk.conf');
+      // `contenido` devuelve '' cuando el archivo no existe, así que una
+      // negación sola pasaría también si el archivo faltara.
+      expect(a).toContain('[directories]');
+      expect(a).not.toContain('astmoddir =');
+    });
+
+    it('el logger.conf manda a archivo, y deja «full» apagado', () => {
+      // Sin logger.conf Asterisk solo habla por consola: la carpeta «log/» de
+      // la planta queda vacía y un problema de hace dos horas no se puede
+      // mirar.
+      const l = contenido({}, 'etc/logger.conf');
+      expect(l).toContain('[logfiles]');
+      expect(l).toMatch(/^messages => /m);
+      // «full» lleva debug y verbose: en una planta con tráfico crece en gigas
+      // y el disco lo comparten todas las plantas del servidor. Se enciende en
+      // vivo cuando hace falta, no por archivo.
+      expect(l).not.toMatch(/^full => /m);
+    });
   });
 
   describe('el contenedor y nginx', () => {
