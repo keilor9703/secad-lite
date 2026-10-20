@@ -74,6 +74,10 @@ Infobip, y ese día hay que resolver antes el Opus y la grabación.
 
 ### Paso a paso
 
+> **El trámite completo, desde cero y sin dar nada por sabido, está en
+> [`whatsapp-alta-paso-a-paso.md`](whatsapp-alta-paso-a-paso.md).** Lo de aquí
+> abajo es el resumen.
+
 **Lo que se hace en Infobip** (el municipio, o nosotros con su cuenta):
 
 1. **Tener el número de WhatsApp dado de alta como *sender*.** O el que la
