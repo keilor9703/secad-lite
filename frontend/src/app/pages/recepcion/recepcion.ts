@@ -38,12 +38,14 @@ import {
 } from '../../core/models';
 import { PIN_ALTO, PIN_ANCHO, pinCasoSvg } from '../../shared/mapa/pin-caso';
 import { IconoComponent, NombreIcono } from '../../shared/icono/icono';
+import { CtiHostComponent } from '../../components/cti/cti-host';
 
 @Component({
   selector: 'app-recepcion',
   standalone: true,
   imports: [CommonModule, ReactiveFormsModule, RouterLink, AutocompletarComponent, SelectorComponent, OpcionComponent,
-    DictadoComponent, AnclajeVideollamadaDirective, IconoComponent, BotonLlamarComponent],
+    DictadoComponent, AnclajeVideollamadaDirective, IconoComponent, BotonLlamarComponent,
+    CtiHostComponent],
   templateUrl: './recepcion.html',
   styleUrl: './recepcion.scss',
   changeDetection: ChangeDetectionStrategy.OnPush,
@@ -74,17 +76,9 @@ export class RecepcionComponent implements OnInit {
   /** Igual que en Despacho: basta con que el tenant la tenga contratada (Plataforma), ningún permiso de rol aparte. */
   readonly tieneVideollamada = computed(() => this.auth.tieneIntegracion('videollamada'));
 
-  /** Llamadas timbrando: de aquí arranca el trabajo de quien recepciona. */
-  readonly sonando = this.pbx.sonando;
-  readonly sonidoActivo = this.pbx.sonidoActivo;
-  /** Si el canal en vivo está caído, una cola vacía no significa «no hay llamadas». */
-  readonly enVivo = this.pbx.enVivo;
-  /** Solo se avisa de un canal caído si se esperaba que existiera. */
-  readonly canalEsperado = this.pbx.canalEsperado;
-  /** ¿Es de este puesto? Las de otro puesto se ven más apagadas (solo las ve la supervisión). */
-  esMia(l: Llamada): boolean { return this.pbx.esMia(l); }
-  /** ¿Lo que mandó la central es un abonado, o un identificador suyo? */
-  esMarcable(valor: string): boolean { return PbxService.esNumeroMarcable(valor); }
+  /* La cola de llamadas, su aviso sonoro y el estado del canal en vivo se
+     fueron a `app-cti` con el resto del teléfono: la cola es del teléfono y
+     no de esta pantalla. Lo que queda aquí es recepcionar el caso. */
 
   /**
    * Teléfono que se le propone a la videollamada. Null si lo que hay en Abonado
@@ -96,7 +90,6 @@ export class RecepcionComponent implements OnInit {
     const v = (this.form.controls.telefono.value ?? '').trim();
     return PbxService.esNumeroMarcable(v) ? v : null;
   }
-  alternarSonido(): void { this.pbx.alternarSonido(); }
 
   /**
    * Lo que este operador acaba de tomar. Es la confirmación de su trabajo: la
@@ -202,9 +195,6 @@ export class RecepcionComponent implements OnInit {
     return PbxService.esNumeroMarcable(this.form.controls.telefono.value ?? '');
   }
 
-  esLaLlamadaEnCurso(l: Llamada): boolean {
-    return this.llamadaEnCurso()?.id === l.id;
-  }
 
   /**
    * Toma la llamada: desaparece de la cola de los demás operadores (nadie
@@ -300,8 +290,6 @@ export class RecepcionComponent implements OnInit {
 
   /** Nombre del funcionario que recepciona, para el encabezado del formulario. */
   readonly sesionUsuario = computed(() => this.auth.sesion()?.nombre ?? '');
-  /** Su username: para distinguir en la cola una llamada dirigida a otro. */
-  readonly miUsuario = computed(() => this.auth.sesion()?.usuario ?? '');
 
   /** Entidad de origen: la del funcionario, fija y no editable. */
   readonly agenciaOrigen = computed(() => {
@@ -1381,13 +1369,6 @@ export class RecepcionComponent implements OnInit {
 
   canalLabel(c: Canal): string {
     return { llamada: 'Llamada', chat: 'Chat', whatsapp: 'WhatsApp', whatsapp_llamada: 'Llamada WhatsApp', integracion: 'Integración' }[c];
-  }
-  /** Ícono de una llamada EN COLA (todavía sin caso), según su `origen`. */
-  origenIcono(o: OrigenLlamada): NombreIcono {
-    return ({ telefono: 'telefono', whatsapp_chat: 'chat', whatsapp_llamada: 'telefono' } as Record<OrigenLlamada, NombreIcono>)[o];
-  }
-  origenLabel(o: OrigenLlamada): string {
-    return { telefono: 'Llamada telefónica', whatsapp_chat: 'Chat de WhatsApp', whatsapp_llamada: 'Llamada de WhatsApp' }[o];
   }
   /** A qué "Medio de comunicación" corresponde cada origen — mismo mapeo que ya usa el backend al crear el caso. */
   private canalDeOrigen(o: OrigenLlamada): Canal {

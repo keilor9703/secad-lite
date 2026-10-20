@@ -4,6 +4,13 @@
       <h1>Recepción</h1>
       <p>Bandeja de casos entrantes · multicanal · multi-agencia</p>
     </div>
+    <!-- Los contadores de casos son de la PÁGINA, no del puesto: por eso
+         viven aquí y no al lado del teléfono. -->
+    <dl class="rec-cifras">
+      <div><dt>Total</dt><dd>{{ total() }}</dd></div>
+      <div><dt>Nuevos</dt><dd>{{ nuevos() }}</dd></div>
+      <div><dt>En gestión</dt><dd>{{ enGestion() }}</dd></div>
+    </dl>
   </header>
 
   @if (error()) {
@@ -15,87 +22,16 @@
     bloque independiente (no comparte filas de grilla con el formulario)
     para que su alto no dependa de lo largo que sea el formulario. -->
     <aside class="rec-side">
-      <!-- Llamadas timbrando: el punto de partida del trabajo de recepción -->
-      <div class="entrantes card">
-        <h2>
-          <span class="titulo">Llamadas en espera</span>
-          <span class="n">{{ sonando().length }}</span>
-          <button type="button" class="btn btn--ghost mini timbre" (click)="alternarSonido()"
-            [title]="sonidoActivo() ? 'Silenciar el aviso de llamada entrante' : 'Activar el aviso sonoro de llamada entrante'"
-            [attr.aria-label]="sonidoActivo() ? 'Silenciar aviso de llamada entrante' : 'Activar aviso sonoro de llamada entrante'">
-            @if (sonidoActivo()) { <app-icono nombre="campana" [tam]="15" /> } @else { <app-icono nombre="campana-off" [tam]="15" /> }
-          </button>
-        </h2>
-        <!-- Apilada, no en una sola fila: el destinatario que manda la central
-        puede ser un correo largo, y en una fila empujaba el botón fuera de la
-        tarjeta. Aquí el número manda, la pista va debajo recortada, y el botón
-        ocupa el ancho — un blanco grande, que es lo que se necesita cuando un
-        teléfono está timbrando. -->
-        @for (l of sonando(); track l) {
-          <div class="llam" [class.llam--mia]="esLaLlamadaEnCurso(l)"
-            [class.llam--ajena]="!esMia(l)">
-            <div class="llam-cab">
-              <span class="llam-icono" role="img" [attr.aria-label]="origenLabel(l.origen)"><app-icono [nombre]="origenIcono(l.origen)" [tam]="16" /></span>
-              <!-- Lo que manda la central no siempre es un abonado: para los
-              contactos de WhatsApp manda un identificador de sesión. Mostrarlo
-              en grande como «el número» invita a marcarlo. -->
-              @if (esMarcable(l.numero)) {
-                <span class="num mono">{{ l.numero }}</span>
-              } @else {
-                <span class="num num--sin">Sin número</span>
-              }
-            </div>
-            @if (!esMarcable(l.numero)) {
-              <p class="llam-id mono" [title]="l.numero">{{ l.numero }}</p>
-            }
-
-            <!-- En su propia línea, no al lado del número: compitiendo por el
-            ancho partía el número en dos renglones, y ese número es justo lo
-            que el operador lee en voz alta. -->
-            @if (esLaLlamadaEnCurso(l)) {
-              <span class="en-form">En el formulario</span>
-            }
-
-            <!-- La central ya la dirigió a alguien: se ve solo si usted la supervisa,
-            no si es la suya (esa ya llegó sin necesidad de esta pista). Recortada
-            con elipsis y el valor completo en el title: un correo largo no puede
-            descuadrar la tarjeta. -->
-            @if (l.destinatario && l.destinatario !== miUsuario()) {
-              <p class="para" [title]="l.destinatario">Dirigida a {{ l.destinatario }}</p>
-            }
-
-            @if (!esLaLlamadaEnCurso(l)) {
-              <button type="button" class="btn btn--primary llam-tomar"
-                (click)="tomarLlamada(l)" title="Trae el número al formulario para completar el caso">
-                Tomar llamada
-              </button>
-            }
-          </div>
-        }
-        <!-- Una cola vacía con el canal caído no quiere decir «no hay llamadas»,
-        quiere decir «dejé de enterarme». El operador tiene que poder
-        distinguirlas sin refrescar para averiguarlo.
-
-        Se exige `canalEsperado()`: una instancia sin planta telefónica no tiene
-        canal que se caiga, y anunciarle «reconectando» para siempre es avisar
-        de una avería inexistente. -->
-        @if (canalEsperado() && !enVivo()) {
-          <p class="sin-vivo" role="status">
-            <app-icono nombre="alerta" [tam]="14" /> Sin conexión en vivo: reconectando. Puede que una llamada entrante tarde en aparecer.
-          </p>
-        }
-        @if (!sonando().length) {
-          <p class="sin-llamadas">
-            No hay llamadas en espera. Puede recepcionar un caso a mano en el formulario.
-          </p>
-        }
-      </div>
-
-      <div class="kpis">
-        <div class="kpi"><span class="n">{{ total() }}</span><span class="l">Total</span></div>
-        <div class="kpi"><span class="n">{{ nuevos() }}</span><span class="l">Nuevos</span></div>
-        <div class="kpi"><span class="n">{{ enGestion() }}</span><span class="l">En gestión</span></div>
-      </div>
+      <!-- EL TELÉFONO DEL OPERADOR.
+           Antes aquí había tres bloques —la cola, tres contadores de casos y
+           las últimas recepciones— y ninguno era el teléfono, que es lo que
+           el operador necesita tener a la mano mientras atiende. La cola vive
+           ahora DENTRO del teléfono, donde además dice cuánto lleva
+           esperando cada llamada; los contadores subieron al encabezado,
+           que es información de la página y no del puesto.
+           Cuál teléfono se enseña lo decide `app-cti-host` según el
+           proveedor de la instancia: el nuestro o el del tercero. -->
+      <app-cti-host (tomar)="tomarLlamada($event)" />
 
       @if (!veTodo()) {
         <p class="alcance">

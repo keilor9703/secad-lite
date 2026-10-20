@@ -1,0 +1,205 @@
+<!--
+  EL PANEL DE TELEFONÍA. Lea el porqué de cada decisión en `cti.ts`.
+
+  El orden de arriba abajo no es casual: quién soy → cómo está el turno → qué
+  tengo que hacer AHORA → qué espera → el teclado. Lo urgente está siempre en
+  el mismo sitio, para que no haya que buscarlo con un ciudadano al teléfono.
+-->
+<section class="cti" [attr.data-situacion]="situacion()">
+
+  <!-- ── Quién está en el puesto ─────────────────────────────────────────── -->
+  <header class="cti-cab">
+    <span class="cti-chapa" aria-hidden="true">{{ iniciales() }}</span>
+    <span class="cti-quien">
+      <strong class="cti-nombre" [title]="nombre()">{{ nombre() }}</strong>
+      <span class="cti-ext mono">{{ sp.extension() ? 'ext. ' + sp.extension() : 'sin extensión' }}</span>
+    </span>
+    <span class="cti-estado" [attr.data-situacion]="situacion()">
+      <span class="cti-punto" aria-hidden="true"></span>
+      {{ rotuloSituacion() }}
+    </span>
+  </header>
+
+  @if (sp.motivo(); as m) {
+    <p class="cti-motivo" role="status">
+      <app-icono nombre="alerta" [tam]="14" /> {{ m }}
+    </p>
+  }
+
+  <!-- ── Las dos cifras que se miran de reojo ────────────────────────────── -->
+  <div class="cti-cifras">
+    <div class="cti-cifra">
+      <span class="n">{{ enEspera().length }}</span>
+      <span class="l">En espera</span>
+    </div>
+    <div class="cti-cifra">
+      <span class="n">{{ atendidasHoy() }}</span>
+      <span class="l">Atendidas hoy</span>
+    </div>
+  </div>
+
+  <!-- ── LO QUE HAY QUE HACER AHORA ──────────────────────────────────────── -->
+  <div class="cti-foco">
+
+    @if (sp.enCurso(); as l) {
+      <!-- En conversación -->
+      <p class="cti-rotulo">{{ sp.sinAudioRemoto() ? 'En llamada · sin audio' : 'En llamada' }}</p>
+      <p class="cti-numero mono">{{ l.numero || 'número oculto' }}</p>
+      <p class="cti-reloj mono" aria-live="off">{{ duracion() }}</p>
+
+      <div class="cti-acciones">
+        <button type="button" class="cti-btn" [attr.aria-pressed]="sp.silenciado()"
+                (click)="sp.alternarSilencio()">
+          <app-icono [nombre]="sp.silenciado() ? 'micro-off' : 'micro'" [tam]="16" />
+          {{ sp.silenciado() ? 'Reactivar' : 'Silenciar' }}
+        </button>
+
+        @if (sp.companeros().length) {
+          <button type="button" class="cti-btn"
+                  [attr.aria-expanded]="eligiendoDestino()"
+                  [disabled]="sp.transfiriendo()"
+                  (click)="alternarTransferir()">
+            <app-icono nombre="remitir" [tam]="16" />
+            {{ sp.transfiriendo() ? 'Pasando…' : 'Pasar a' }}
+          </button>
+        }
+
+        <button type="button" class="cti-btn cti-btn--colgar" (click)="sp.colgar()">
+          <app-icono nombre="telefono" [tam]="16" />
+          Colgar
+        </button>
+      </div>
+
+      @if (eligiendoDestino()) {
+        <div class="cti-destinos">
+          <!-- Se dice ANTES de elegir, no después: una vez oprimido, la
+               llamada ya salió. Y se dice lo que de verdad pasa —vuelve a la
+               sala— en vez de un «¿está seguro?» que nadie lee. -->
+          <p class="cti-nota">La llamada pasa de inmediato. Si no contesta, vuelve a la sala.</p>
+          @for (c of sp.companeros(); track c.extension) {
+            <button type="button" class="cti-destino" [disabled]="sp.transfiriendo()"
+                    (click)="pasarA(c.extension)">
+              <strong>{{ c.nombre }}</strong>
+              <span class="mono">ext. {{ c.extension }}</span>
+            </button>
+          }
+        </div>
+      }
+
+    } @else if (sp.entrante(); as l) {
+      <!-- Timbrando. La saliente propia NO se anuncia como una emergencia:
+           es la llamada que el operador acaba de pedir desde un caso. -->
+      <p class="cti-rotulo">
+        {{ sp.contestando() ? 'Contestando…' : (sp.esMiSaliente() ? 'Su llamada saliente' : 'Entra una llamada') }}
+      </p>
+
+      @if (sp.esMiSaliente()) {
+        <p class="cti-numero mono">{{ sp.destinoSaliente() || 'el número del caso' }}</p>
+        <p class="cti-pista">Descuelgue y la central marca.</p>
+      } @else {
+        <p class="cti-numero mono">{{ l.numero || 'número oculto' }}</p>
+      }
+
+      <div class="cti-acciones">
+        <button type="button" class="cti-btn cti-btn--contestar"
+                [disabled]="sp.contestando()" (click)="sp.contestar()">
+          <app-icono nombre="telefono" [tam]="16" />
+          {{ sp.contestando() ? 'Conectando…' : (sp.esMiSaliente() ? 'Descolgar' : 'Contestar') }}
+        </button>
+        <!-- Sigue habilitado durante «Conectando…»: si el audio no engancha,
+             colgar es la única salida que le queda al operador. -->
+        <button type="button" class="cti-btn cti-btn--colgar" (click)="sp.colgar()">
+          {{ sp.esMiSaliente() ? 'Desistir' : 'Rechazar' }}
+        </button>
+      </div>
+
+    } @else {
+      <!-- Libre -->
+      <p class="cti-libre">
+        <app-icono nombre="telefono" [tam]="20" />
+        {{ enEspera().length ? 'Hay llamadas esperando' : 'Sin llamadas' }}
+      </p>
+    }
+
+    @if (sp.avisoCola(); as a) {
+      <p class="cti-aviso" role="status">{{ a }}</p>
+    }
+  </div>
+
+  <!-- ── LA COLA, con lo único que sirve para decidir: cuánto lleva ──────── -->
+  <div class="cti-cola">
+    <h3 class="cti-h3">
+      En espera
+      <button type="button" class="cti-icono" (click)="alternarSonido()"
+              [title]="sonidoActivo() ? 'Silenciar el aviso de llamada entrante' : 'Activar el aviso de llamada entrante'"
+              [attr.aria-label]="sonidoActivo() ? 'Silenciar aviso de llamada entrante' : 'Activar aviso de llamada entrante'">
+        <app-icono [nombre]="sonidoActivo() ? 'campana' : 'campana-off'" [tam]="15" />
+      </button>
+    </h3>
+
+    @for (l of enEspera(); track l.id) {
+      <div class="cti-fila">
+        <app-icono [nombre]="iconoOrigen(l)" [tam]="15" />
+        @if (marcable(l.numero)) {
+          <span class="cti-fnum mono">{{ l.numero }}</span>
+        } @else {
+          <span class="cti-fnum cti-fnum--sin" [title]="l.numero">Sin número</span>
+        }
+        <!-- La espera en vivo. Un contador dice «5 en cola» y eso no deja
+             decidir nada: no dice si el primero lleva seis segundos o seis
+             minutos. -->
+        <span class="cti-fespera mono">{{ espera(l) }}</span>
+        <button type="button" class="cti-tomar" (click)="tomarDeLaCola(l)">Tomar</button>
+      </div>
+    } @empty {
+      <p class="cti-vacio">Nadie esperando. Puede recepcionar un caso a mano.</p>
+    }
+
+    @if (canalEsperado() && !enVivo()) {
+      <!-- Una cola vacía con el canal caído no quiere decir «no hay
+           llamadas», quiere decir «dejé de enterarme». -->
+      <p class="cti-motivo" role="status">
+        <app-icono nombre="alerta" [tam]="14" />
+        Sin conexión en vivo: una llamada entrante puede tardar en aparecer.
+      </p>
+    }
+  </div>
+
+  <!-- ── El teclado: tonos en llamada, marcar cuando no la hay ───────────── -->
+  <div class="cti-teclado">
+    <button type="button" class="cti-abrir" [attr.aria-expanded]="tecleando()"
+            (click)="alternarTeclado()">
+      <app-icono nombre="puntos" [tam]="15" />
+      {{ sp.enCurso() ? 'Tonos' : 'Marcar' }}
+      <app-icono [nombre]="tecleando() ? 'contraer' : 'expandir'" [tam]="14" />
+    </button>
+
+    @if (tecleando()) {
+      @if (!sp.enCurso()) {
+        <div class="cti-marcado">
+          <span class="mono">{{ marcado() || '—' }}</span>
+          <button type="button" class="cti-icono" (click)="borrarUna()"
+                  [disabled]="!marcado()" aria-label="Borrar el último dígito">
+            <app-icono nombre="flecha-izq" [tam]="15" />
+          </button>
+        </div>
+      }
+
+      <div class="cti-teclas">
+        @for (t of teclas; track t) {
+          <button type="button" class="cti-tecla mono" (click)="tecla(t)">{{ t }}</button>
+        }
+      </div>
+
+      @if (!sp.enCurso()) {
+        <button type="button" class="cti-btn cti-btn--contestar cti-llamar"
+                [disabled]="!marcado()" (click)="llamarAlMarcado()">
+          <app-icono nombre="telefono" [tam]="16" /> Llamar
+        </button>
+        @if (avisoMarcado(); as a) {
+          <p class="cti-aviso" role="status">{{ a }}</p>
+        }
+      }
+    }
+  </div>
+</section>

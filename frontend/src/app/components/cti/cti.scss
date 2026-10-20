@@ -1,0 +1,450 @@
+/*
+  EL PANEL DE TELEFONÍA.
+
+  Todo el color sale de los tokens del sistema (`docs/sistema-de-diseno.md`):
+  no hay un solo literal de color aquí, que es lo que hace que el panel
+  funcione igual en el tema claro y en el oscuro sin una segunda hoja.
+
+  La jerarquía se construye con UN acento y nada más: el número de la llamada
+  en curso. Todo lo demás —cifras, cola, teclado— se queda en los neutros.
+  Un panel donde cada bloque pide atención es un panel donde no se encuentra
+  nada, y este se mira de reojo mientras se habla con un ciudadano.
+*/
+
+.cti {
+  display: flex;
+  flex-direction: column;
+  gap: var(--esp-3);
+  padding: var(--esp-4);
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+}
+
+.cti-audio {
+  /* No se oculta con display:none: un elemento que no se renderiza puede no
+     reproducir en algunos navegadores, y entonces la llamada entra muda. */
+  width: 0;
+  height: 0;
+  opacity: 0;
+  position: absolute;
+}
+
+/* ── Quién está en el puesto ─────────────────────────────────────────────── */
+
+.cti-cab {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  grid-template-areas: 'chapa quien' 'estado estado';
+  align-items: center;
+  gap: var(--esp-2);
+}
+
+.cti-chapa {
+  grid-area: chapa;
+  display: grid;
+  place-items: center;
+  width: 34px;
+  height: 34px;
+  border-radius: var(--radius-pill);
+  background: var(--accent-soft);
+  color: var(--accent);
+  font-size: var(--texto-sm);
+  font-weight: 650;
+  letter-spacing: 0.02em;
+}
+
+.cti-quien {
+  grid-area: quien;
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+
+.cti-nombre {
+  font-size: var(--texto-base);
+  color: var(--ink);
+  /* Un nombre largo recorta; no empuja el estado fuera del panel. */
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.cti-ext {
+  font-size: var(--texto-xs);
+  color: var(--muted);
+}
+
+.cti-estado {
+  grid-area: estado;
+  display: inline-flex;
+  align-items: center;
+  gap: var(--esp-1);
+  padding: 2px var(--esp-2);
+  border-radius: var(--radius-pill);
+  background: var(--surface-2);
+  color: var(--ink-soft);
+  font-size: var(--texto-xs);
+  justify-self: start;
+}
+
+.cti-punto {
+  width: 7px;
+  height: 7px;
+  border-radius: var(--radius-pill);
+  background: var(--muted);
+}
+
+/* El color vive en el punto, no en el texto: así el estado se reconoce de
+   reojo sin que una palabra de color compita con el número de la llamada. */
+.cti-estado[data-situacion='conectado'] .cti-punto,
+.cti-estado[data-situacion='en-llamada'] .cti-punto { background: var(--ok); }
+.cti-estado[data-situacion='timbrando'] .cti-punto,
+.cti-estado[data-situacion='saliente'] .cti-punto { background: var(--accent); }
+.cti-estado[data-situacion='conectando'] .cti-punto { background: var(--warn); }
+.cti-estado[data-situacion='caido'] .cti-punto { background: var(--danger); }
+
+.cti-motivo {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--esp-1);
+  margin: 0;
+  font-size: var(--texto-sm);
+  color: var(--warn);
+}
+
+/* ── Las cifras ──────────────────────────────────────────────────────────── */
+
+.cti-cifras {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: var(--esp-2);
+}
+
+.cti-cifra {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: var(--esp-2);
+  background: var(--surface-2);
+  border-radius: var(--radius-sm);
+
+  .n {
+    font-size: var(--texto-xl);
+    font-weight: 650;
+    color: var(--ink);
+    font-variant-numeric: tabular-nums;
+    line-height: 1.1;
+  }
+
+  .l {
+    font-size: var(--texto-xs);
+    color: var(--muted);
+    text-align: center;
+  }
+}
+
+/* ── El foco: lo que hay que hacer ahora ─────────────────────────────────── */
+
+.cti-foco {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--esp-2);
+  padding: var(--esp-4) var(--esp-3);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  text-align: center;
+}
+
+/* Mientras timbra, el borde marca el panel entero. Es lo único que parpadea
+   en toda la pantalla: si parpadearan dos cosas, no parpadearía ninguna. */
+.cti[data-situacion='timbrando'] .cti-foco {
+  border-color: var(--accent);
+  animation: cti-latido 1.4s ease-in-out infinite;
+}
+
+.cti[data-situacion='en-llamada'] .cti-foco { border-color: var(--ok); }
+.cti[data-situacion='saliente'] .cti-foco { border-color: var(--border-2); }
+
+@keyframes cti-latido {
+  0%, 100% { box-shadow: 0 0 0 0 var(--accent-soft); }
+  50% { box-shadow: 0 0 0 5px var(--accent-soft); }
+}
+
+/* Quien no quiere animaciones no las tiene: el borde de color ya distingue
+   el estado por sí solo. */
+@media (prefers-reduced-motion: reduce) {
+  .cti[data-situacion='timbrando'] .cti-foco { animation: none; }
+}
+
+.cti-rotulo {
+  margin: 0;
+  font-size: var(--texto-xs);
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+
+.cti-numero {
+  margin: 0;
+  font-size: var(--texto-lg);
+  font-weight: 650;
+  color: var(--ink);
+  /* Un número largo se parte antes que ensanchar el panel. */
+  overflow-wrap: anywhere;
+}
+
+.cti-reloj {
+  margin: 0;
+  font-size: var(--texto-sm);
+  color: var(--ink-soft);
+  font-variant-numeric: tabular-nums;
+}
+
+.cti-pista,
+.cti-aviso {
+  margin: 0;
+  font-size: var(--texto-sm);
+  color: var(--muted);
+}
+
+.cti-libre {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--esp-1);
+  margin: 0;
+  color: var(--muted);
+  font-size: var(--texto-sm);
+}
+
+/* ── Los botones de la llamada ───────────────────────────────────────────── */
+
+.cti-acciones {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: var(--esp-2);
+  width: 100%;
+}
+
+.cti-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--esp-1);
+  padding: var(--esp-2) var(--esp-3);
+  border: 1px solid var(--border-2);
+  border-radius: var(--radius-sm);
+  background: var(--surface);
+  color: var(--ink);
+  font: inherit;
+  font-size: var(--texto-sm);
+  cursor: pointer;
+
+  &:hover:not(:disabled) { background: var(--surface-2); }
+  &:disabled { opacity: 0.55; cursor: default; }
+}
+
+.cti-btn--contestar {
+  background: var(--accent);
+  border-color: var(--accent);
+  color: var(--on-accent);
+
+  &:hover:not(:disabled) { background: var(--accent-deep); }
+}
+
+.cti-btn--colgar {
+  background: var(--danger);
+  border-color: var(--danger);
+  color: var(--on-accent);
+
+  /* El auricular colgado: el mismo icono girado, que es como se lee «colgar»
+     en cualquier teléfono desde hace cincuenta años. */
+  app-icono { transform: rotate(135deg); }
+  &:hover:not(:disabled) { filter: brightness(0.92); }
+}
+
+/* ── Pasar la llamada ────────────────────────────────────────────────────── */
+
+.cti-destinos {
+  display: flex;
+  flex-direction: column;
+  gap: var(--esp-1);
+  width: 100%;
+  text-align: left;
+}
+
+.cti-nota {
+  margin: 0;
+  font-size: var(--texto-xs);
+  color: var(--muted);
+}
+
+.cti-destino {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  gap: var(--esp-2);
+  padding: var(--esp-2);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  background: var(--surface);
+  color: var(--ink);
+  font: inherit;
+  font-size: var(--texto-sm);
+  cursor: pointer;
+
+  span { color: var(--muted); font-size: var(--texto-xs); }
+  &:hover:not(:disabled) { background: var(--surface-2); }
+  &:disabled { opacity: 0.55; cursor: default; }
+}
+
+/* ── La cola ─────────────────────────────────────────────────────────────── */
+
+.cti-h3 {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--esp-2);
+  margin: 0;
+  font-size: var(--texto-xs);
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--muted);
+  font-weight: 600;
+}
+
+.cti-cola {
+  display: flex;
+  flex-direction: column;
+  gap: var(--esp-2);
+}
+
+.cti-fila {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto auto;
+  align-items: center;
+  gap: var(--esp-2);
+  padding: var(--esp-2);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  color: var(--ink-soft);
+}
+
+.cti-fnum {
+  font-size: var(--texto-sm);
+  color: var(--ink);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.cti-fnum--sin { color: var(--muted); font-style: italic; }
+
+.cti-fespera {
+  font-size: var(--texto-xs);
+  color: var(--muted);
+  font-variant-numeric: tabular-nums;
+}
+
+.cti-tomar {
+  padding: var(--esp-1) var(--esp-2);
+  border: 1px solid var(--accent);
+  border-radius: var(--radius-sm);
+  background: var(--accent);
+  color: var(--on-accent);
+  font: inherit;
+  font-size: var(--texto-xs);
+  cursor: pointer;
+
+  &:hover { background: var(--accent-deep); }
+}
+
+.cti-vacio {
+  margin: 0;
+  font-size: var(--texto-sm);
+  color: var(--muted);
+}
+
+/* ── El teclado ──────────────────────────────────────────────────────────── */
+
+.cti-teclado {
+  display: flex;
+  flex-direction: column;
+  gap: var(--esp-2);
+  padding-top: var(--esp-2);
+  border-top: 1px solid var(--border);
+}
+
+.cti-abrir {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--esp-1);
+  padding: var(--esp-2);
+  border: 1px solid var(--border-2);
+  border-radius: var(--radius-sm);
+  background: var(--surface);
+  color: var(--ink-soft);
+  font: inherit;
+  font-size: var(--texto-sm);
+  cursor: pointer;
+
+  &:hover { background: var(--surface-2); }
+}
+
+.cti-icono {
+  display: inline-grid;
+  place-items: center;
+  padding: var(--esp-1);
+  border: 0;
+  border-radius: var(--radius-sm);
+  background: transparent;
+  color: var(--muted);
+  cursor: pointer;
+
+  &:hover:not(:disabled) { color: var(--ink); background: var(--surface-2); }
+  &:disabled { opacity: 0.45; cursor: default; }
+}
+
+.cti-marcado {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--esp-2);
+  padding: var(--esp-2);
+  background: var(--surface-2);
+  border-radius: var(--radius-sm);
+
+  span {
+    font-size: var(--texto-md);
+    color: var(--ink);
+    font-variant-numeric: tabular-nums;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+}
+
+.cti-teclas {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: var(--esp-2);
+}
+
+.cti-tecla {
+  padding: var(--esp-2) 0;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  background: var(--surface);
+  color: var(--ink);
+  font: inherit;
+  font-size: var(--texto-md);
+  cursor: pointer;
+
+  &:hover { background: var(--surface-2); }
+  &:active { background: var(--accent-soft); }
+}
+
+.cti-llamar { justify-content: center; }

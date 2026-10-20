@@ -4,13 +4,19 @@
      sobreviva a cambiar de pantalla. Dentro de la página del caso, navegar
      destruía el componente y tumbaba la llamada. -->
 <app-videollamada-flotante />
-<!-- El teléfono vive por encima del enrutador: una llamada no se puede caer
-     por cambiar de pantalla, y el operador contesta mirando la cola y acaba
-     escribiendo el caso en Recepción. Es la misma conversación.
+<!-- SOLO EL AUDIO del teléfono vive por encima del enrutador; la interfaz
+     está en Recepción (ver `app-cti-host`).
 
-     Y entra con `@defer`: no hace falta en la primera pintada —el teléfono se
-     enciende a mano— y así no se le cobra a la primera carga, que es la que
-     se hace desde la sala de despacho a las seis de la mañana. -->
+     Separarlos no es un capricho de arquitectura: el enrutador destruye el
+     panel al cambiar de pantalla, y con él se iría el elemento donde suena la
+     llamada. La sesión SIP sobreviviría —la lleva un servicio de raíz— pero
+     la conversación se quedaría muda, que es la peor forma de fallar: sin un
+     mensaje, y en mitad de una emergencia. -->
 @defer (on idle) {
-  <app-softphone />
+  <!-- Con `@defer`: el audio no hace falta en la primera pintada —el
+       teléfono se enciende al entrar a Recepción— y así SIP.js no se le cobra
+       a la primera carga, que es la que se hace desde la sala de despacho a
+       las seis de la mañana. Sin esto, el paquete inicial se pasa del
+       presupuesto. -->
+  <app-cti-audio />
 }

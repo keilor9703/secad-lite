@@ -1,5 +1,26 @@
 .rec { display: flex; flex-direction: column; gap: 1.1rem; }
 
+/* Los contadores de casos, en el encabezado.
+ *
+ * Son de la página —cuántos casos hay— y no del puesto, así que se leen de
+ * reojo y en una línea, no en tres cajas que compiten con el teléfono. */
+.rec-cifras {
+  display: flex;
+  gap: var(--esp-4);
+  margin: 0;
+  align-items: baseline;
+
+  div { display: flex; align-items: baseline; gap: var(--esp-1); }
+  dt { font-size: var(--texto-xs); color: var(--muted); text-transform: uppercase; letter-spacing: 0.05em; }
+  dd {
+    margin: 0;
+    font-size: var(--texto-md);
+    font-weight: 650;
+    color: var(--ink);
+    font-variant-numeric: tabular-nums;
+  }
+}
+
 /* 4. KPIs */
 /* Tres indicadores que son UN conjunto y tienen que leerse como tal.
  *
@@ -297,118 +318,14 @@
 
 .alcance { margin: 0; font-size: var(--texto-sm); color: var(--muted); }
 
-/* 3. Panel "Llamadas en espera" */
-.entrantes { padding: 1rem 1.1rem; display: flex; flex-direction: column; gap: 0.55rem; }
+/* 3. El teléfono del operador
+ *
+ * El panel «Llamadas en espera» que vivía aquí —con sus tarjetas de llamada,
+ * su contador y su campana— se fue entero a `app-cti`: la cola es del
+ * teléfono, no de la página, y dentro del teléfono además puede decir cuánto
+ * lleva esperando cada una, que es lo único que sirve para decidir a quién
+ * atender primero. Aquí no queda estilo porque el componente trae el suyo. */
 
-/* El título en UNA línea: antes se partía en «Llamadas en / espera» porque
-   competía por el ancho con el contador y la campana en una columna angosta.
-   Se le quitó el 📞 del encabezado —cada llamada ya lleva el ícono de su
-   origen, repetirlo arriba no decía nada— y con eso cabe entero. */
-.entrantes h2 {
-  display: flex; align-items: center; gap: 0.45rem;
-  margin: 0; font-size: var(--texto-md); font-weight: 700;
-}
-.entrantes h2 .titulo { flex: 1 1 auto; min-width: 0; white-space: nowrap; }
-
-@keyframes pulse-danger { 0%, 100% { transform: scale(1); } 50% { transform: scale(1.08); } }
-.entrantes .n {
-  flex: 0 0 auto;
-  font-family: var(--mono); background: var(--tag-danger-bg); color: var(--tag-danger-fg);
-  border-radius: 999px; padding: 0.1rem 0.55rem; font-weight: 700; font-size: var(--texto-sm);
-  animation: pulse-danger 1.5s infinite;
-}
-.entrantes .timbre { flex: 0 0 auto; font-size: var(--texto-md); padding: 0.25rem 0.45rem; }
-
-/* Cada llamada, una tarjeta dentro de la tarjeta: se lee como una unidad y el
-   contenido se apila en vez de pelear por una sola fila. La franja de acento a
-   la izquierda es lo único que grita; el resto se mantiene callado. */
-.llam {
-  display: flex; flex-direction: column; gap: 0.45rem;
-  padding: 0.6rem 0.7rem;
-  border: 1px solid var(--border);
-  border-left: 3px solid var(--accent);
-  border-radius: var(--radius-sm);
-  background: var(--surface-2);
-}
-.llam--mia { border-left-color: var(--ok); }
-
-/* De otro puesto: solo la ve la supervisión, y se nota que no es suya. Apagada,
-   no escondida — está ahí por si ese puesto está vacío y hay que auxiliarlo. */
-.llam--ajena { border-left-color: var(--border-2, var(--border)); opacity: 0.78; }
-
-/* Sin abonado: el hueco se nombra en vez de rellenarse con el identificador de
-   la central, que no se puede marcar. El identificador va debajo, en pequeño,
-   porque sigue sirviendo para rastrear la llamada en la central. */
-.llam .num--sin { color: var(--muted); font-weight: 600; font-size: var(--texto-md); }
-.llam-id {
-  margin: 0; font-size: var(--texto-2xs); color: var(--muted);
-  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
-}
-
-/* Qué tan de fiar es el punto del mapa. Mismo peso visual que el aviso del
-   abonado: los dos dicen «esto que ve no es tan bueno como parece». */
-.rec-dir-aviso {
-  display: block; margin-top: 0.35rem;
-  padding: 0.35rem 0.5rem; border-radius: var(--radius-sm);
-  background: color-mix(in srgb, var(--warn) 14%, transparent);
-  color: var(--ink); font-size: var(--texto-xs); line-height: 1.35;
-}
-
-/* Las dos ubicaciones propuestas, cuando las fuentes no concuerdan. Dos
-   tarjetas que se pueden tocar: la decisión es de un clic, no de leer y
-   escribir coordenadas a mano. */
-.rec-dir-opciones { display: grid; gap: 0.35rem; margin-top: 0.4rem; }
-.rec-dir-opcion {
-  display: grid; gap: 0.1rem; text-align: left;
-  padding: 0.5rem 0.6rem;
-  border: 1px solid var(--border); border-left: 3px solid var(--accent);
-  border-radius: var(--radius-sm);
-  background: var(--surface-2); color: var(--ink); cursor: pointer;
-  font: inherit;
-
-  &:hover { border-color: var(--accent); }
-  .fuente { font-size: var(--texto-2xs); letter-spacing: 0.06em; text-transform: uppercase; color: var(--accent); }
-  .etiqueta { font-size: var(--texto-base); font-weight: 600; }
-  .detalle { font-size: var(--texto-xs); color: var(--muted); }
-}
-
-/* El aviso de «la central no mandó el número»: una advertencia, no una pista
-   más. El operador tiene que pedirle el número al ciudadano. */
-.rec-sin-numero {
-  display: block; margin-top: 0.3rem;
-  padding: 0.35rem 0.5rem; border-radius: var(--radius-sm);
-  background: color-mix(in srgb, var(--warn) 14%, transparent);
-  color: var(--ink); font-size: var(--texto-xs); line-height: 1.35;
-}
-
-.llam-cab { display: flex; align-items: center; gap: 0.45rem; min-width: 0; }
-.llam-icono { flex: 0 0 auto; font-size: var(--texto-md); line-height: 1; }
-
-/* `anywhere`: un identificador largo parte de línea en vez de desbordar. */
-.llam .num {
-  flex: 1 1 auto; min-width: 0;
-  font-size: var(--texto-lg); font-weight: 700; letter-spacing: 0.02em;
-  overflow-wrap: anywhere;
-}
-
-/* Recortada con elipsis; el valor completo queda en el `title`. */
-.llam .para {
-  margin: 0;
-  font-size: var(--texto-xs); color: var(--muted);
-  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
-}
-
-/* A lo ancho: con un teléfono timbrando, el blanco grande gana al botón bonito. */
-.llam-tomar { width: 100%; padding: 0.4rem 0.6rem; font-size: var(--texto-base); }
-.llam-tomar:active { transform: scale(0.98); }
-
-.en-form {
-  align-self: flex-start;
-  font-size: var(--texto-xs); font-weight: 600;
-  color: var(--tag-ok-fg, var(--ok)); background: var(--tag-ok-bg, transparent);
-  border-radius: 999px; padding: 0.15rem 0.55rem;
-}
-.sin-llamadas { margin: 0; font-size: var(--texto-base); color: var(--muted); }
 
 /* 5. Últimas recepciones (.mias) */
 .mias { padding: 0.8rem 1rem; display: flex; flex-direction: column; gap: 0.3rem; }

@@ -136,6 +136,16 @@ export class SoftphoneService {
   readonly sinAudioRemoto = signal(false);
 
   /**
+   * Cuándo se estableció el audio de la llamada en curso. Nulo = no hay.
+   *
+   * Es la hora de ESTE navegador y no la que FALCON registró: si el operador
+   * recarga a mitad de llamada, el cronómetro vuelve a cero. Es lo honesto —lo
+   * único que este navegador sabe de verdad es desde cuándo tiene audio— y es
+   * preferible a enseñar una duración inventada.
+   */
+  readonly enCursoDesde = signal<number | null>(null);
+
+  /**
    * SE OPRIMIÓ «CONTESTAR» Y TODAVÍA NO HAY AUDIO.
    *
    * Existe porque sin él la barra no cambiaba NADA al oprimir el botón: el
@@ -252,6 +262,7 @@ export class SoftphoneService {
         const sip = this.entrante();
         if (sip) {
           this.enCurso.set(sip);
+          this.enCursoDesde.set(Date.now());
           this.entrante.set(null);
         }
         // Cero pistas de audio remoto significa que la llamada se estableció
@@ -267,6 +278,7 @@ export class SoftphoneService {
         this.contestando.set(false);
         this.entrante.set(null);
         this.enCurso.set(null);
+        this.enCursoDesde.set(null);
         this.silenciado.set(false);
         this.sinAudioRemoto.set(false);
         // El acuse de la cola muere con la llamada; el diagnóstico no.
@@ -282,6 +294,7 @@ export class SoftphoneService {
     this.extension.set('');
     this.entrante.set(null);
     this.enCurso.set(null);
+    this.enCursoDesde.set(null);
     this.silenciado.set(false);
     this.motivo.set('');
     this.avisoCola.set('');

@@ -1,16 +1,59 @@
-/* Nuestras centralitas. Lo que no está aquí lo pone el sistema: `.card`,
-   `.panel`, `.btn`, `.badge`, `.field`, `.tabla--sistema`, `.estado-vacio`. */
+/*
+  NUESTRAS CENTRALITAS.
 
-.planta { display: flex; flex-direction: column; gap: var(--esp-3); min-width: 0; }
+  ─────────────────────────────────────────────────────────────────────────────
+  POR QUÉ ESTA HOJA SE REESCRIBIÓ ENTERA
+
+  La anterior referenciaba SIETE tokens que no existen en `styles.scss`:
+  `--border-1`, `--radio-md`, `--radio-sm`, `--surface-1`, `--fuente-mono`,
+  `--txt-sm` y `--txt-2`. En CSS eso no falla ni avisa: la declaración
+  simplemente no se aplica. El resultado era una pantalla sin bordes, con las
+  esquinas cuadradas, los realces transparentes, la fuente monoespaciada caída
+  al respaldo del sistema y varios tamaños de letra sin definir — es decir,
+  rota, pero rota de la forma más difícil de diagnosticar, porque el código
+  parecía correcto.
+
+  Y `.detalle` estaba declarada dos veces con dos significados: el panel
+  desplegado de una planta, y el párrafo de lo que midió el monitoreo. La
+  segunda le metía margen y tamaño de párrafo al panel entero. Ahora el
+  párrafo se llama `.salud-medido`.
+
+  Los nombres buenos están en `docs/sistema-de-diseno.md`, §2 y §4.
+
+  ─────────────────────────────────────────────────────────────────────────────
+  CÓMO SE ORDENA LA PANTALLA
+
+  Una planta es una ficha. Cerrada dice lo único que se mira de pasada: quién
+  es, si atiende y dónde vive. Abierta son secciones con el mismo tratamiento
+  —título, contenido, un borde— para que se recorran sin releer: estado,
+  servidor, puertos, troncales, números, configuración.
+
+  El color se reserva para el estado. Todo lo demás es neutro: en una pantalla
+  de administración, cada cosa de color es una cosa que parece urgente.
+*/
+
+.planta {
+  display: flex;
+  flex-direction: column;
+  gap: var(--esp-4);
+  min-width: 0;
+}
+
+/* ── Alta de una planta nueva ────────────────────────────────────────────── */
 
 .alta {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  grid-template-columns: repeat(auto-fit, minmax(190px, 1fr));
   gap: var(--esp-3);
   align-items: end;
 }
 
-.planta-fila { padding: 0; overflow: hidden; }
+/* ── La ficha de una planta ──────────────────────────────────────────────── */
+
+.planta-fila {
+  padding: 0;
+  overflow: hidden;
+}
 
 /* La cabecera es un botón entero: la fila completa abre la planta, que es lo
    que uno intenta hacer con el ratón antes de buscar un icono. */
@@ -28,17 +71,25 @@
   text-align: left;
   color: inherit;
   font: inherit;
-}
-.cab:hover { background: var(--surface-2); }
-.cab:focus-visible { outline: 2px solid var(--accent); outline-offset: -2px; }
-.cab .quien { display: flex; align-items: center; gap: var(--esp-2); min-width: 0; }
-.cab .datos {
-  display: flex;
-  flex-direction: column;
-  gap: 0.1rem;
-  font-size: var(--texto-sm);
-  color: var(--muted);
-  min-width: 0;
+
+  &:hover { background: var(--surface-2); }
+  &:focus-visible { outline: 2px solid var(--accent); outline-offset: -2px; }
+
+  .quien {
+    display: flex;
+    align-items: center;
+    gap: var(--esp-2);
+    min-width: 0;
+  }
+
+  .datos {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    font-size: var(--texto-sm);
+    color: var(--muted);
+    min-width: 0;
+  }
 }
 
 .detalle {
@@ -46,90 +97,220 @@
   flex-direction: column;
   gap: var(--esp-4);
   padding: var(--pad-tarjeta);
-  border-top: 1px solid var(--border-1);
+  border-top: 1px solid var(--border);
   background: var(--surface-2);
 }
 
-.bloque { display: flex; flex-direction: column; gap: var(--esp-2); min-width: 0; }
-.bloque h3 {
-  margin: 0;
-  font-size: var(--texto-md);
-  font-weight: 600;
+/* ── Cada sección de la ficha ────────────────────────────────────────────── */
+
+.bloque {
   display: flex;
-  align-items: baseline;
-  gap: var(--esp-2);
-  flex-wrap: wrap;
+  flex-direction: column;
+  gap: var(--esp-3);
+  min-width: 0;
+  /* Cada sección es una superficie propia sobre el realce del panel. Sin
+     esto, seis secciones seguidas se leían como una sola lista larguísima. */
+  padding: var(--esp-4);
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+
+  h3 {
+    margin: 0;
+    font-size: var(--texto-md);
+    font-weight: 600;
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: var(--esp-2);
+    flex-wrap: wrap;
+    /* Una línea bajo el título separa el encabezado del contenido sin gastar
+       un color ni un fondo. */
+    padding-bottom: var(--esp-2);
+    border-bottom: 1px solid var(--border);
+  }
+
+  h4 {
+    margin: var(--esp-2) 0 0;
+    font-size: var(--texto-xs);
+    font-weight: 600;
+    letter-spacing: 0.05em;
+    text-transform: uppercase;
+    color: var(--muted);
+  }
+
+  .hint {
+    font-size: var(--texto-sm);
+    font-weight: 400;
+    color: var(--muted);
+  }
 }
-.bloque h4 {
-  margin: var(--esp-2) 0 0;
-  font-size: var(--texto-sm);
-  font-weight: 600;
-  color: var(--ink-soft);
-}
+
+/* ── Formularios ─────────────────────────────────────────────────────────── */
 
 .rejilla {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(170px, 1fr));
+  grid-template-columns: repeat(auto-fit, minmax(190px, 1fr));
   gap: var(--esp-3);
   align-items: end;
+
+  .ancho { grid-column: 1 / -1; }
 }
-.rejilla .ancho { grid-column: 1 / -1; }
 
-.check { display: flex; align-items: center; gap: 0.4rem; font-size: var(--texto-sm); }
+/* La casilla ocupa su propia celda y NO se parte: antes «Activa» caía en dos
+   renglones —«Acti / va»— porque heredaba el ancho estrecho de la rejilla. */
+.check {
+  display: flex;
+  align-items: center;
+  gap: var(--esp-2);
+  font-size: var(--texto-base);
+  color: var(--ink);
+  white-space: nowrap;
+  /* Alineada con los campos de al lado, que tienen etiqueta encima. */
+  padding-bottom: var(--esp-2);
 
-.acciones { display: flex; align-items: center; gap: var(--esp-2); flex-wrap: wrap; }
-.acciones-celda { display: flex; gap: 0.3rem; white-space: nowrap; }
+  input { flex: none; }
+}
 
-/* Lo que le falta a la planta va en la parte de arriba y numerado: es una
-   lista de tareas en orden, no una advertencia suelta. */
+.acciones {
+  display: flex;
+  align-items: center;
+  gap: var(--esp-2);
+  flex-wrap: wrap;
+}
+
+.acciones-celda {
+  display: flex;
+  gap: var(--esp-1);
+  white-space: nowrap;
+}
+
+/* ── Lo que le falta a la planta ─────────────────────────────────────────── */
+
+/* En la parte de arriba y numerado: es una lista de tareas en orden, no una
+   advertencia suelta. */
 .faltan {
   display: flex;
   flex-direction: column;
-  gap: 0.3rem;
+  gap: var(--esp-1);
   padding: var(--esp-3);
-  border-radius: var(--radio-md);
+  border-radius: var(--radius-sm);
   background: var(--tag-warn-bg);
   color: var(--tag-warn-fg);
   font-size: var(--texto-sm);
+
+  ol { margin: 0; padding-left: var(--esp-5); }
 }
-.faltan ol { margin: 0; padding-left: 1.2rem; }
 
 .aviso {
   margin: 0;
   padding: var(--esp-2) var(--esp-3);
-  border-radius: var(--radio-md);
+  border-radius: var(--radius-sm);
   background: var(--tag-warn-bg);
   color: var(--tag-warn-fg);
   font-size: var(--texto-sm);
+
+  code { font-family: var(--mono); }
 }
-.aviso--hacer { background: var(--tag-teal-bg); color: var(--tag-teal-fg); }
-.aviso code { font-family: var(--fuente-mono, monospace); }
 
-.config { display: flex; flex-direction: column; gap: var(--esp-2); min-width: 0; }
+.aviso--hacer {
+  background: var(--tag-teal-bg);
+  color: var(--tag-teal-fg);
+}
 
-.archivos { display: flex; flex-wrap: wrap; gap: 0.3rem; }
-.archivos button {
-  display: inline-flex;
+/* ── Estado de la planta ─────────────────────────────────────────────────── */
+
+/* Sobrio a propósito: esto se mira cuando algo va mal, y una pantalla llena
+   de color no ayuda a leer. */
+.estado-linea {
+  display: flex;
+  flex-wrap: wrap;
   align-items: center;
-  gap: 0.3rem;
-  padding: 0.25rem 0.6rem;
-  border: 1px solid var(--border-1);
-  border-radius: var(--radio-sm);
-  background: var(--surface-1);
-  color: var(--ink-soft);
-  font-size: var(--texto-xs);
-  font-family: var(--fuente-mono, monospace);
-  cursor: pointer;
+  gap: var(--esp-2);
+  margin: 0;
 }
-.archivos button.activo { border-color: var(--accent); color: var(--ink); }
-.archivos button:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
 
-.visor {
-  border: 1px solid var(--border-1);
-  border-radius: var(--radio-md);
-  background: var(--surface-1);
+.fallas {
+  margin: 0;
+  padding-left: var(--esp-5);
+  display: flex;
+  flex-direction: column;
+  gap: var(--esp-1);
+  font-size: var(--texto-sm);
+  color: var(--ink-soft);
+}
+
+.desde {
+  margin: 0;
+  font-size: var(--texto-sm);
+  color: var(--muted);
+}
+
+/* El párrafo de lo que midió el monitoreo. Se llamaba `.detalle`, igual que
+   el panel desplegado de la planta, y le imponía su margen y su tamaño. */
+.salud-medido {
+  margin: var(--esp-2) 0 0;
+  font-size: var(--texto-sm);
+  color: var(--muted);
+  /* Un detalle largo no puede ensanchar la ficha. */
+  overflow-wrap: anywhere;
+}
+
+.vacio-mini {
+  margin: 0;
+  font-size: var(--texto-sm);
+  color: var(--muted);
+}
+
+/* ── La configuración generada ───────────────────────────────────────────── */
+
+.config {
+  display: flex;
+  flex-direction: column;
+  gap: var(--esp-2);
   min-width: 0;
 }
+
+.archivos {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--esp-1);
+
+  button {
+    display: inline-flex;
+    align-items: center;
+    gap: var(--esp-1);
+    padding: var(--esp-1) var(--esp-2);
+    border: 1px solid var(--border-2);
+    border-radius: var(--radius-sm);
+    background: var(--surface);
+    color: var(--ink-soft);
+    font-size: var(--texto-xs);
+    font-family: var(--mono);
+    cursor: pointer;
+
+    &:hover { background: var(--surface-2); color: var(--ink); }
+    &:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+  }
+
+  /* El archivo abierto se marca con el acento y con peso, no solo con el
+     borde: un borde de un color sobre otro borde del mismo grosor no se ve. */
+  button.activo {
+    border-color: var(--accent);
+    background: var(--accent-soft);
+    color: var(--accent);
+    font-weight: 600;
+  }
+}
+
+.visor {
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  background: var(--surface);
+  min-width: 0;
+  overflow: hidden;
+}
+
 .visor-cab {
   display: flex;
   align-items: center;
@@ -137,10 +318,12 @@
   gap: var(--esp-3);
   flex-wrap: wrap;
   padding: var(--esp-2) var(--esp-3);
-  border-bottom: 1px solid var(--border-1);
+  border-bottom: 1px solid var(--border);
+  background: var(--surface-2);
   font-size: var(--texto-xs);
   color: var(--muted);
 }
+
 /* El contenido se lee tal cual, con su sangría: es un archivo de
    configuración, no prosa. Y en su propio desplazamiento, para que una línea
    larga no ensanche la página entera. */
@@ -149,50 +332,31 @@
   padding: var(--esp-3);
   overflow-x: auto;
   max-height: 60vh;
-  font-family: var(--fuente-mono, monospace);
+  font-family: var(--mono);
   font-size: var(--texto-xs);
   line-height: 1.5;
   white-space: pre;
 }
 
-.mono { font-family: var(--fuente-mono, monospace); font-size: var(--texto-xs); }
-
-// ── Estado de la planta ────────────────────────────────────────────────────
-// Lo que antes solo se veía entrando por SSH. Sobrio a propósito: esto se mira
-// cuando algo va mal, y una pantalla llena de color no ayuda a leer.
-.estado-linea {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: var(--esp-2);
-  margin: var(--esp-2) 0;
+.mono {
+  font-family: var(--mono);
+  font-size: var(--texto-xs);
 }
 
-.fallas {
-  margin: var(--esp-2) 0;
-  padding-left: var(--esp-4);
-  display: flex;
-  flex-direction: column;
-  gap: var(--esp-1);
-  font-size: var(--txt-sm);
+/* ── Tablas ──────────────────────────────────────────────────────────────── */
+
+/* Una tabla ancha se desplaza DENTRO de su envoltura. Sin esto, la tabla de
+   troncales —que lleva CIDR y nombres de SBC larguísimos— ensanchaba la
+   página entera y aparecía una barra horizontal en todo el módulo. */
+.tabla-envoltura {
+  overflow-x: auto;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
 }
 
-.desde {
-  margin: var(--esp-1) 0;
-  font-size: var(--txt-sm);
-  color: var(--txt-2);
-}
-
-.detalle {
-  margin: var(--esp-2) 0 0;
-  font-size: var(--txt-sm);
-  color: var(--txt-2);
-  // Un detalle largo no puede ensanchar la ficha.
-  overflow-wrap: anywhere;
-}
-
-.vacio-mini {
-  margin: var(--esp-2) 0;
-  font-size: var(--txt-sm);
-  color: var(--txt-2);
+.tabla-envoltura .tabla--sistema {
+  margin: 0;
+  /* Los números de una columna se comparan en vertical; con cifras de ancho
+     variable no se alinean y hay que leerlas una por una. */
+  font-variant-numeric: tabular-nums;
 }
