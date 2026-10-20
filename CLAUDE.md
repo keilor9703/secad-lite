@@ -282,6 +282,7 @@ Detalle completo, con respaldos, 2FA, TURN y archivado:
 ### Integraciones y API
 | | |
 |---|---|
+| [`omnicanalidad.md`](docs/omnicanalidad.md) | **Qué falta para que la emergencia entre por donde el ciudadano quiera.** Llamada de WhatsApp, filtro de mensajes, caso único, cola única |
 | [`integraciones-externas.md`](docs/integraciones-externas.md) | **Referencia técnica**: URL, cabeceras, cuerpo y respuesta de cada endpoint |
 | [`importacion.md`](docs/importacion.md) | Carga masiva de catálogos e histórico |
 
