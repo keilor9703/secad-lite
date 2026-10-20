@@ -103,7 +103,11 @@ export class DashboardComponent implements OnDestroy {
    * misma lista.
    */
   llamadaConsultable(clave: string): boolean {
-    return clave === 'atendida' || clave === 'perdida';
+    // Las desbordadas también: son justo las que hay que revisar en calma,
+    // porque cada una es un ciudadano que llamó y la sala no tomó.
+    return (
+      clave === 'atendida' || clave === 'perdida' || clave === 'desbordada'
+    );
   }
 
   exportarCsv(): void {
@@ -125,7 +129,8 @@ export class DashboardComponent implements OnDestroy {
   /** Mismo orden fijo en el que se pintan los canales — el color identifica el canal, nunca su puesto. */
   private readonly canalOrden: string[] = ['llamada', 'chat', 'whatsapp', 'whatsapp_llamada', 'integracion'];
   private readonly estadoLlamadaLabels: Record<string, string> = {
-    sonando: 'Timbrando', atendida: 'Atendidas', perdida: 'Perdidas', finalizada: 'Finalizadas',
+    sonando: 'Timbrando', atendida: 'Atendidas', perdida: 'Perdidas',
+    desbordada: 'Al respaldo', finalizada: 'Finalizadas',
   };
 
   readonly porEstado = computed<Barra[]>(() => this.aBarras(this.resumen()?.porEstado, this.estadoLabels));

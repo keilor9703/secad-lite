@@ -456,6 +456,76 @@ describe('generador de la configuración de la planta', () => {
       expect(otro).toContain('ice_deny = 172.16.0.0/12');
     });
 
+    it('sin número de respaldo NO emite tramo de desborde', () => {
+      // Marcar a un número vacío manda la llamada a un error de la troncal en
+      // vez de a un timbre, que es peor que colgar.
+      const ext = contenido({}, 'etc/extensions.conf');
+      expect(ext).not.toContain('n(desborde)');
+      expect(ext).not.toContain('"desborde"');
+    });
+
+    it('con número de respaldo, la cola agotada marca hacia allá', () => {
+      const ext = contenido(
+        { numeroDesborde: '+573001234567' },
+        'etc/extensions.conf',
+      );
+      expect(ext).toContain('n(desborde)');
+      expect(ext).toContain('Dial(PJSIP/+573001234567@troncal,60)');
+    });
+
+    it('desborda también con la sala VACÍA, que es lo que de verdad asusta', () => {
+      // TIMEOUT es que timbró y nadie contestó. JOINEMPTY y LEAVEEMPTY son que
+      // no había un solo operador conectado: la madrugada. Dejar caer la
+      // llamada justo ahí es dejarla caer cuando el respaldo es lo único que
+      // hay.
+      const ext = contenido(
+        { numeroDesborde: '+573001234567' },
+        'etc/extensions.conf',
+      );
+      expect(ext).toContain('"${QUEUESTATUS}" = "TIMEOUT"');
+      expect(ext).toContain('"${QUEUESTATUS}" = "JOINEMPTY"');
+      expect(ext).toContain('"${QUEUESTATUS}" = "LEAVEEMPTY"');
+    });
+
+    it('avisa a FALCON ANTES de marcar, y sin esperarlo', () => {
+      // Si FALCON está caído, la llamada igual tiene que desbordarse. La
+      // telefonía nunca espera al software: por eso el «&».
+      const ext = contenido(
+        { numeroDesborde: '+573001234567' },
+        'etc/extensions.conf',
+      );
+      const aviso = ext.indexOf('"evento":"desborde"');
+      const marca = ext.indexOf('Dial(PJSIP/+573001234567@troncal');
+      expect(aviso).toBeGreaterThan(0);
+      expect(aviso).toBeLessThan(marca);
+      // El «&» está en la misma línea del curl, no en cualquier parte.
+      const linea = ext.slice(ext.lastIndexOf('\n', aviso) + 1);
+      expect(linea.slice(0, linea.indexOf('\n'))).toContain('&)');
+    });
+
+    it('la API key del desborde tampoco va en la línea de comandos', () => {
+      // Lo que se pasa en la línea de System() aparece en «ps aux» para
+      // cualquier usuario del servidor y se escribe en el log de cada llamada.
+      const ext = contenido(
+        { numeroDesborde: '+573001234567' },
+        'etc/extensions.conf',
+      );
+      const linea = ext
+        .split('\n')
+        .find((l) => l.includes('"evento":"desborde"'))!;
+      expect(linea).toContain('-K /etc/asterisk/falcon-webhook.conf');
+      expect(linea).not.toContain('x-api-key');
+    });
+
+    it('la espera en cola sale de los datos, no de un número clavado', () => {
+      expect(contenido({ timbreCola: 45 }, 'etc/extensions.conf')).toContain(
+        'Queue(${COLA},r,,,45)',
+      );
+      expect(contenido({}, 'etc/extensions.conf')).toContain(
+        'Queue(${COLA},r,,,120)',
+      );
+    });
+
     it('chan_sip queda fuera, y el noload va DENTRO de [modules]', () => {
       const m = contenido({}, 'etc/modules.conf');
       expect(m).toContain('noload => chan_sip.so');

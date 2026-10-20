@@ -23,9 +23,18 @@ import { TenantRlsService } from '../common/tenant-rls.service';
  * siquiera al servicio.
  */
 export class WebhookLlamadaDto {
-  /** 'entrante' cuando timbra; 'colgada' cuando termina antes/después de atender. */
-  @IsIn(['entrante', 'colgada'], { message: 'evento debe ser "entrante" o "colgada".' })
-  evento!: 'entrante' | 'colgada';
+  /**
+   * Qué pasó con la llamada.
+   *
+   *  - `entrante`  — está timbrando.
+   *  - `desborde`  — nadie en la sala contestó y la central la mandó al número
+   *                  de respaldo. NO es lo mismo que perderla.
+   *  - `colgada`   — terminó, antes o después de atenderla.
+   */
+  @IsIn(['entrante', 'desborde', 'colgada'], {
+    message: 'evento debe ser "entrante", "desborde" o "colgada".',
+  })
+  evento!: 'entrante' | 'desborde' | 'colgada';
 
   @IsOptional() @IsString() @MaxLength(120)
   callId?: string;
@@ -278,6 +287,12 @@ export class PbxService {
         return llamada;
       }
 
+      if (dto?.evento === 'desborde') {
+        const llamada = await this.desbordar(manager, tenant.codigo, dto);
+        if (!llamada) throw new NotFoundException('Llamada no encontrada.');
+        return llamada;
+      }
+
       if (dto?.evento === 'colgada') {
         const cierre = await this.colgar(manager, tenant.codigo, dto);
         // El webhook genérico sí responde 404: ahí un `colgada` que no ubica
@@ -288,6 +303,36 @@ export class PbxService {
 
       throw new BadRequestException('Evento de PBX no reconocido.');
     });
+  }
+
+  /**
+   * Marca que la llamada se fue al número de respaldo.
+   *
+   * Lo manda el plan de marcación cuando la cola se agota sin que nadie
+   * conteste. Es el aviso que convierte «se perdió» en «nadie en la sala la
+   * tomó, y se mandó al respaldo»: en una línea de emergencia esa diferencia
+   * es lo único que importa de la llamada que no se atendió.
+   *
+   * Solo avanza desde `sonando`. Si ya estaba atendida, el desborde llegó
+   * tarde —la central y FALCON cuentan la misma llamada por caminos
+   * distintos— y pisar el estado sería perder el que vale.
+   */
+  private async desbordar(
+    manager: EntityManager,
+    tenant: string,
+    dto: WebhookLlamadaDto,
+  ): Promise<LlamadaEntity | null> {
+    const llamada = await this.ubicar(manager, tenant, dto.callId, dto.numero);
+    if (!llamada) return null;
+    if (llamada.estado !== 'sonando') return llamada;
+
+    llamada.estado = 'desbordada';
+    if (dto.numeroDestino?.trim())
+      llamada.numeroDestino = dto.numeroDestino.trim();
+
+    const guardada = await manager.getRepository(LlamadaEntity).save(llamada);
+    this.eventos$.next({ tenant, tipo: 'cambio', llamada: guardada });
+    return guardada;
   }
 
   /**
@@ -330,6 +375,12 @@ export class PbxService {
       // Sonando al colgar: perdida, salvo que la central diga que alguien
       // la contestó por fuera de FALCON (softphone). Ver `atendidaEnPlanta`.
       llamada.estado = dto.atendidaEnPlanta ? 'finalizada' : 'perdida';
+    } else if (llamada.estado === 'desbordada') {
+      // Una desbordada NO vuelve a «perdida» al colgar: eso borraría el único
+      // dato que la distingue —que sí se hizo algo con ella— y la dejaría
+      // contada como una llamada que nadie atendió. Solo avanza si el número
+      // de respaldo la contestó de verdad.
+      if (dto.atendidaEnPlanta) llamada.estado = 'finalizada';
     } else if (llamada.estado === 'atendida') {
       llamada.estado = 'finalizada';
     }

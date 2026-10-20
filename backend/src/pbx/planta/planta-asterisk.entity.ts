@@ -190,6 +190,32 @@ export class PlantaAsteriskEntity {
   @Column({ type: 'varchar', length: 64, nullable: true })
   ipInterna?: string | null;
 
+  /**
+   * A dónde va la llamada cuando nadie en la sala contesta. Nulo = a ninguna
+   * parte, y entonces se cae.
+   *
+   * Es la diferencia entre «no alcanzamos a contestar» y «nadie se enteró de
+   * que había una llamada». En una línea de emergencia es lo único que no se
+   * puede permitir, y por eso la llamada desbordada queda registrada COMO
+   * desbordada y no como perdida.
+   *
+   * Un celular de turno, otra sala, el número de un supervisor. Sale por la
+   * misma troncal que las salientes, así que tiene que ser marcable desde
+   * ella: un número que la troncal rechace deja la llamada peor que colgada.
+   */
+  @Column({ type: 'varchar', length: 24, nullable: true })
+  numeroDesborde?: string | null;
+
+  /**
+   * Cuántos segundos timbra en la sala antes de rendirse. Nulo = 120.
+   *
+   * Es el único número de esta tabla que se decide por política y no por
+   * infraestructura: cuánto es razonable que un ciudadano espere antes de que
+   * la llamada se vaya al respaldo.
+   */
+  @Column({ type: 'int', nullable: true })
+  segundosEnCola?: number | null;
+
   @Column({ type: 'varchar', length: 16, default: 'borrador' })
   estado!: EstadoPlanta;
 

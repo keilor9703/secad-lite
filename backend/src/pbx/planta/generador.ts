@@ -162,6 +162,16 @@ export interface DatosPlanta {
   /** Segundos que timbra la cola antes de rendirse. */
   timbreCola?: number;
   /**
+   * A dónde va la llamada cuando nadie en la sala contesta. Vacío = a ninguna
+   * parte, y entonces se cae.
+   *
+   * Es la diferencia entre «no alcanzamos a contestar» y «nadie se enteró de
+   * que había una llamada». En una línea de emergencia es lo único que no se
+   * puede permitir, y por eso la llamada desbordada queda registrada COMO
+   * desbordada y no como perdida.
+   */
+  numeroDesborde?: string;
+  /**
    * La carpeta de la planta en el servidor. La pone quien provisiona, para
    * que el script de instalación y lo que dice la pantalla no puedan
    * discrepar — un script que escribe en otra carpeta que la que se enseñó es
@@ -577,7 +587,7 @@ exten => s,1,NoOp(FALCON entrante \${CALLERID(num)} -> \${DESTINO} id=\${UNIQUEI
  same => n,GotoIf($["\${DESTINO}" = "cola"]?cola:directo)
 
  same => n(cola),Queue(\${COLA},r,,,${timbre})
- same => n,Hangup()
+${desbordeDialplan(d)} same => n,Hangup()
 
  same => n(directo),Dial(PJSIP/\${DESTINO},30)
  same => n,Hangup()
@@ -612,6 +622,55 @@ exten => _X.,1,Goto(salientes,+\${EXTEN},1)
 `);
 
   return partes.join('');
+}
+
+/**
+ * El tramo de desborde: qué pasa cuando la cola se agota sin que nadie conteste.
+ *
+ * Sin número de respaldo configurado no emite NADA, y la llamada se cae como
+ * siempre. Es deliberado: marcar a un número vacío manda la llamada a un error
+ * de la troncal en vez de a un timbre, que es peor que colgar.
+ *
+ * Se desborda en los tres finales en que la cola no entregó la llamada:
+ *
+ *  - `TIMEOUT`    — timbró y nadie contestó.
+ *  - `JOINEMPTY`  — no había un solo operador conectado cuando entró.
+ *  - `LEAVEEMPTY` — el último operador se desconectó mientras esperaba.
+ *
+ * Los tres últimos son los que de verdad asustan: la sala vacía de madrugada.
+ * Tratarlos distinto sería dejar la llamada caer justo cuando el respaldo es
+ * lo único que hay.
+ *
+ * El aviso a FALCON va ANTES de marcar, y con `&` como todos los demás: si
+ * FALCON está caído, la llamada igual se desborda. La telefonía nunca espera
+ * al software.
+ */
+function desbordeDialplan(d: DatosPlanta): string {
+  const numero = (d.numeroDesborde ?? '').trim();
+  if (!numero) return '';
+
+  const aviso =
+    `System(curl -s -m 3 -X POST \${FALCON_URL}/api/pbx/webhook ` +
+    `-K /etc/asterisk/falcon-webhook.conf ` +
+    `-d '{"evento":"desborde","callId":"\${UNIQUEID}","numeroDestino":"${numero}"}' &)`;
+
+  return ` same => n,GotoIf($["\${QUEUESTATUS}" = "TIMEOUT"]?desborde)
+ same => n,GotoIf($["\${QUEUESTATUS}" = "JOINEMPTY"]?desborde)
+ same => n,GotoIf($["\${QUEUESTATUS}" = "LEAVEEMPTY"]?desborde)
+ same => n,Hangup()
+
+;; ─────────────────────────────────────────────────────────────────────────
+;; EL DESBORDE — nadie en la sala contestó
+;;
+;; El aviso va ANTES de marcar y con «&»: si FALCON está caído, la llamada
+;; igual se desborda. Y queda registrada COMO desbordada, no como perdida:
+;; meterlas en el mismo cajón pierde la única señal que distingue «no
+;; alcanzamos a contestar» de «nadie se enteró de que había una llamada».
+;; ─────────────────────────────────────────────────────────────────────────
+ same => n(desborde),NoOp(FALCON desborde id=\${UNIQUEID} motivo=\${QUEUESTATUS})
+ same => n,${aviso}
+ same => n,Dial(PJSIP/${numero}@troncal,60)
+`;
 }
 
 /** El nombre de la cola lleva el municipio: en los logs y en `queue show` se lee quién es. */

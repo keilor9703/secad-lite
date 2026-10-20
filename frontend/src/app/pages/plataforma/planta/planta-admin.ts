@@ -93,6 +93,8 @@ export class PlantaAdminComponent implements OnInit {
     ipPublica: new FormControl(''),
     ipInterna: new FormControl(''),
     ipPrivada: new FormControl(''),
+    numeroDesborde: new FormControl(''),
+    segundosEnCola: new FormControl<number | null>(null),
     dominioSip: new FormControl('', { nonNullable: true }),
     notas: new FormControl(''),
   });
@@ -188,6 +190,8 @@ export class PlantaAdminComponent implements OnInit {
       ipPublica: p.ipPublica,
       ipInterna: p.ipInterna,
       ipPrivada: p.ipPrivada,
+      numeroDesborde: p.numeroDesborde,
+      segundosEnCola: p.segundosEnCola,
       dominioSip: p.dominioSip,
       notas: p.notas ?? '',
     });
@@ -269,6 +273,8 @@ export class PlantaAdminComponent implements OnInit {
       ipPublica: v.ipPublica?.trim() || null,
       ipInterna: v.ipInterna?.trim() || null,
       ipPrivada: v.ipPrivada?.trim() || null,
+      numeroDesborde: v.numeroDesborde?.trim() || null,
+      segundosEnCola: v.segundosEnCola ?? null,
       dominioSip: v.dominioSip.trim(),
       notas: v.notas?.trim() || null,
     }), 'Datos de la planta guardados.');

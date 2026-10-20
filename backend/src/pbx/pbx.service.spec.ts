@@ -1,7 +1,7 @@
 import { Test, TestingModule } from '@nestjs/testing';
 import { plainToInstance } from 'class-transformer';
 import { validate } from 'class-validator';
-import { BadRequestException } from '@nestjs/common';
+import { BadRequestException, NotFoundException } from '@nestjs/common';
 import { PbxService, WebhookLlamadaDto } from './pbx.service';
 import { LlamadaEntity } from './llamada.entity';
 import { CasosService } from '../casos/casos.service';
@@ -29,7 +29,10 @@ describe('WebhookLlamadaDto — validación', () => {
   });
 
   it('rechaza un evento que no sea "entrante" ni "colgada"', async () => {
-    const errores = await validar({ evento: 'timbrando', numero: '3001234567' });
+    const errores = await validar({
+      evento: 'timbrando',
+      numero: '3001234567',
+    });
     expect(errores.some((e) => e.property === 'evento')).toBe(true);
   });
 
@@ -45,36 +48,48 @@ describe('WebhookLlamadaDto — validación', () => {
 
   it('acepta un payload completo, incluido el nuevo campo "agente"', async () => {
     const errores = await validar({
-      evento: 'entrante', numero: '3001234567', callId: 'c1',
-      numeroDestino: '6011234', extension: '105', agente: 'Juan Pérez',
+      evento: 'entrante',
+      numero: '3001234567',
+      callId: 'c1',
+      numeroDestino: '6011234',
+      extension: '105',
+      agente: 'Juan Pérez',
     });
     expect(errores).toHaveLength(0);
   });
 
   it('acepta "fechaHora" en ISO 8601 con zona horaria', async () => {
     const errores = await validar({
-      evento: 'entrante', numero: '3001234567', fechaHora: '2026-09-28T14:36:26-05:00',
+      evento: 'entrante',
+      numero: '3001234567',
+      fechaHora: '2026-09-28T14:36:26-05:00',
     });
     expect(errores).toHaveLength(0);
   });
 
   it('rechaza "fechaHora" cuando no es una fecha ISO 8601 válida (p. ej. "MMDDAA" + hora aparte)', async () => {
     const errores = await validar({
-      evento: 'entrante', numero: '3001234567', fechaHora: '092826',
+      evento: 'entrante',
+      numero: '3001234567',
+      fechaHora: '092826',
     });
     expect(errores.some((e) => e.property === 'fechaHora')).toBe(true);
   });
 
   it('acepta "origen" con uno de los valores válidos', async () => {
     const errores = await validar({
-      evento: 'entrante', numero: '3001234567', origen: 'whatsapp_chat',
+      evento: 'entrante',
+      numero: '3001234567',
+      origen: 'whatsapp_chat',
     });
     expect(errores).toHaveLength(0);
   });
 
   it('rechaza "origen" con un valor que no sea telefono/whatsapp_chat/whatsapp_llamada', async () => {
     const errores = await validar({
-      evento: 'entrante', numero: '3001234567', origen: 'telegram',
+      evento: 'entrante',
+      numero: '3001234567',
+      origen: 'telegram',
     });
     expect(errores.some((e) => e.property === 'origen')).toBe(true);
   });
@@ -84,7 +99,10 @@ describe('PbxService.webhook()', () => {
   let service: PbxService;
   let usuarios: { buscarPorExtension: jest.Mock };
   let llamadasRepo: {
-    findOne: jest.Mock; save: jest.Mock; create: jest.Mock; find: jest.Mock;
+    findOne: jest.Mock;
+    save: jest.Mock;
+    create: jest.Mock;
+    find: jest.Mock;
   };
 
   // La API key/tenant ya no las resuelve el servicio — las resuelve
@@ -120,64 +138,106 @@ describe('PbxService.webhook()', () => {
   });
 
   it('lanza BadRequestException si el evento no es entrante ni colgada (defensa adicional, además del DTO)', async () => {
-    await expect(service.webhook(tenantDemo, { evento: 'otro' } as unknown as WebhookLlamadaDto))
-      .rejects.toThrow(BadRequestException);
+    await expect(
+      service.webhook(tenantDemo, {
+        evento: 'otro',
+      } as unknown as WebhookLlamadaDto),
+    ).rejects.toThrow(BadRequestException);
   });
 
   it('registra la llamada entrante y guarda agentePbx cuando la central lo manda', async () => {
     const dto: WebhookLlamadaDto = {
-      evento: 'entrante', numero: '3001234567', callId: 'call-1', agente: 'Ana Torres',
+      evento: 'entrante',
+      numero: '3001234567',
+      callId: 'call-1',
+      agente: 'Ana Torres',
     } as WebhookLlamadaDto;
     const llamada = await service.webhook(tenantDemo, dto);
     expect(llamadasRepo.save).toHaveBeenCalledWith(
-      expect.objectContaining({ numero: '3001234567', agentePbx: 'Ana Torres', estado: 'sonando' }),
+      expect.objectContaining({
+        numero: '3001234567',
+        agentePbx: 'Ana Torres',
+        estado: 'sonando',
+      }),
     );
     expect(llamada).toMatchObject({ agentePbx: 'Ana Torres' });
   });
 
   it('guarda fechaHoraPbx tal cual la reporta la central, sin usarla para nada más', async () => {
     const dto: WebhookLlamadaDto = {
-      evento: 'entrante', numero: '3001234567', callId: 'call-1', fechaHora: '2026-09-28T14:36:26-05:00',
+      evento: 'entrante',
+      numero: '3001234567',
+      callId: 'call-1',
+      fechaHora: '2026-09-28T14:36:26-05:00',
     } as WebhookLlamadaDto;
     const llamada = await service.webhook(tenantDemo, dto);
     expect(llamadasRepo.save).toHaveBeenCalledWith(
-      expect.objectContaining({ fechaHoraPbx: new Date('2026-09-28T14:36:26-05:00') }),
+      expect.objectContaining({
+        fechaHoraPbx: new Date('2026-09-28T14:36:26-05:00'),
+      }),
     );
-    expect((llamada as LlamadaEntity).fechaHoraPbx).toEqual(new Date('2026-09-28T14:36:26-05:00'));
+    expect((llamada as LlamadaEntity).fechaHoraPbx).toEqual(
+      new Date('2026-09-28T14:36:26-05:00'),
+    );
   });
 
   it('deja fechaHoraPbx en null si la central no la manda', async () => {
-    const dto: WebhookLlamadaDto = { evento: 'entrante', numero: '3001234567' } as WebhookLlamadaDto;
+    const dto: WebhookLlamadaDto = {
+      evento: 'entrante',
+      numero: '3001234567',
+    } as WebhookLlamadaDto;
     const llamada = await service.webhook(tenantDemo, dto);
     expect((llamada as LlamadaEntity).fechaHoraPbx).toBeNull();
   });
 
   it('asume origen "telefono" cuando la central no lo manda (retrocompatible)', async () => {
-    const dto: WebhookLlamadaDto = { evento: 'entrante', numero: '3001234567' } as WebhookLlamadaDto;
+    const dto: WebhookLlamadaDto = {
+      evento: 'entrante',
+      numero: '3001234567',
+    } as WebhookLlamadaDto;
     const llamada = await service.webhook(tenantDemo, dto);
     expect((llamada as LlamadaEntity).origen).toBe('telefono');
   });
 
   it('guarda el origen que reporta la central (whatsapp_chat / whatsapp_llamada)', async () => {
     const dto: WebhookLlamadaDto = {
-      evento: 'entrante', numero: '3001234567', origen: 'whatsapp_llamada',
+      evento: 'entrante',
+      numero: '3001234567',
+      origen: 'whatsapp_llamada',
     } as WebhookLlamadaDto;
     const llamada = await service.webhook(tenantDemo, dto);
     expect((llamada as LlamadaEntity).origen).toBe('whatsapp_llamada');
   });
 
   it('no duplica una llamada entrante repetida con el mismo callId todavía sonando (idempotencia)', async () => {
-    const existente = { id: 'ya-existe', callId: 'call-1', estado: 'sonando' } as LlamadaEntity;
+    const existente = {
+      id: 'ya-existe',
+      callId: 'call-1',
+      estado: 'sonando',
+    } as LlamadaEntity;
     llamadasRepo.findOne.mockResolvedValue(existente);
-    const resultado = await service.webhook(tenantDemo, { evento: 'entrante', numero: '300', callId: 'call-1' } as WebhookLlamadaDto);
+    const resultado = await service.webhook(tenantDemo, {
+      evento: 'entrante',
+      numero: '300',
+      callId: 'call-1',
+    } as WebhookLlamadaDto);
     expect(resultado).toBe(existente);
     expect(llamadasRepo.save).not.toHaveBeenCalled();
   });
 
   it('en "colgada", actualiza agentePbx si la central lo reporta solo al final de la llamada', async () => {
-    const enCurso = { id: 'llamada-1', callId: 'call-2', estado: 'sonando', agentePbx: null } as LlamadaEntity;
+    const enCurso = {
+      id: 'llamada-1',
+      callId: 'call-2',
+      estado: 'sonando',
+      agentePbx: null,
+    } as LlamadaEntity;
     llamadasRepo.findOne.mockResolvedValue(enCurso);
-    await service.webhook(tenantDemo, { evento: 'colgada', callId: 'call-2', agente: 'Carlos Ruiz' } as WebhookLlamadaDto);
+    await service.webhook(tenantDemo, {
+      evento: 'colgada',
+      callId: 'call-2',
+      agente: 'Carlos Ruiz',
+    } as WebhookLlamadaDto);
     expect(llamadasRepo.save).toHaveBeenCalledWith(
       expect.objectContaining({ agentePbx: 'Carlos Ruiz', estado: 'perdida' }),
     );
@@ -194,9 +254,128 @@ describe('PbxService.webhook()', () => {
  * reintenta la central sin fin—. Aquí «no había nada que cerrar» es un
  * resultado, no un error.
  */
+/**
+ * EL DESBORDE — la llamada que nadie en la sala tomó.
+ *
+ * Lo que se protege aquí es una distinción, no un campo:
+ *
+ *  - **perdida** — timbró, nadie contestó, se cayó. Nadie se enteró.
+ *  - **desbordada** — timbró, nadie contestó, y se mandó al número de
+ *    respaldo. SÍ se hizo algo con ella.
+ *
+ * Meterlas en el mismo cajón pierde la única señal que distingue «no
+ * alcanzamos a contestar» de «nadie se enteró de que había una llamada», que
+ * en una línea de emergencia es lo único que importa de la que no se atendió.
+ */
+describe('PbxService.webhook() — desborde', () => {
+  let service: PbxService;
+  let llamadasRepo: {
+    findOne: jest.Mock;
+    save: jest.Mock;
+    create: jest.Mock;
+    find: jest.Mock;
+  };
+  const tenantDemo = { codigo: 'demo', integraciones: ['pbx'] } as any;
+
+  const enCola = (estado = 'sonando') => ({
+    id: 'llamada-1',
+    tenant: 'demo',
+    callId: 'call-1',
+    numero: '3001234567',
+    estado,
+  });
+
+  beforeEach(async () => {
+    llamadasRepo = {
+      findOne: jest.fn().mockResolvedValue(null),
+      save: jest.fn((v) => Promise.resolve({ ...v })),
+      create: jest.fn((v) => v),
+      find: jest.fn(),
+    };
+    const module: TestingModule = await Test.createTestingModule({
+      providers: [
+        PbxService,
+        { provide: CasosService, useValue: {} },
+        {
+          provide: UsuariosService,
+          useValue: { buscarPorExtension: jest.fn() },
+        },
+        {
+          provide: TenantRlsService,
+          useValue: {
+            conTenant: jest.fn((_t: string, fn: (m: any) => unknown) =>
+              fn({ getRepository: () => llamadasRepo, query: jest.fn() }),
+            ),
+          },
+        },
+      ],
+    }).compile();
+    service = module.get<PbxService>(PbxService);
+  });
+
+  it('la llamada que se va al respaldo NO queda como perdida', async () => {
+    llamadasRepo.findOne.mockResolvedValue(enCola());
+    const r = await service.webhook(tenantDemo, {
+      evento: 'desborde',
+      callId: 'call-1',
+      numeroDestino: '+573001234567',
+    } as WebhookLlamadaDto);
+    expect(r.estado).toBe('desbordada');
+    expect(r.numeroDestino).toBe('+573001234567');
+  });
+
+  it('al colgar, una desbordada SIGUE siendo desbordada', async () => {
+    // Si al colgar volviera a «perdida» se borraría el único dato que la
+    // distingue, y quedaría contada como una llamada que nadie atendió.
+    llamadasRepo.findOne.mockResolvedValue(enCola('desbordada'));
+    const r = await service.cerrarSiEstaEnCola(tenantDemo, {
+      evento: 'colgada',
+      callId: 'call-1',
+    } as WebhookLlamadaDto);
+    expect(r?.llamada.estado).toBe('desbordada');
+  });
+
+  it('si el respaldo SÍ la contestó, queda finalizada', async () => {
+    llamadasRepo.findOne.mockResolvedValue(enCola('desbordada'));
+    const r = await service.cerrarSiEstaEnCola(tenantDemo, {
+      evento: 'colgada',
+      callId: 'call-1',
+      atendidaEnPlanta: true,
+    } as WebhookLlamadaDto);
+    expect(r?.llamada.estado).toBe('finalizada');
+  });
+
+  it('un desborde que llega tarde NO pisa una llamada ya atendida', async () => {
+    // La central y FALCON cuentan la misma llamada por caminos distintos: el
+    // desborde puede llegar después de que el operador ya contestó.
+    llamadasRepo.findOne.mockResolvedValue(enCola('atendida'));
+    const r = await service.webhook(tenantDemo, {
+      evento: 'desborde',
+      callId: 'call-1',
+    } as WebhookLlamadaDto);
+    expect(r.estado).toBe('atendida');
+    expect(llamadasRepo.save).not.toHaveBeenCalled();
+  });
+
+  it('un desborde de una llamada que no existe responde 404', async () => {
+    llamadasRepo.findOne.mockResolvedValue(null);
+    await expect(
+      service.webhook(tenantDemo, {
+        evento: 'desborde',
+        callId: 'no-existe',
+      } as WebhookLlamadaDto),
+    ).rejects.toThrow(NotFoundException);
+  });
+});
+
 describe('PbxService.cerrarSiEstaEnCola()', () => {
   let service: PbxService;
-  let llamadasRepo: { findOne: jest.Mock; save: jest.Mock; create: jest.Mock; find: jest.Mock };
+  let llamadasRepo: {
+    findOne: jest.Mock;
+    save: jest.Mock;
+    create: jest.Mock;
+    find: jest.Mock;
+  };
   let avisos: number;
   const tenantDemo = { codigo: 'demo', integraciones: ['pbx'] } as any;
 
@@ -211,40 +390,67 @@ describe('PbxService.cerrarSiEstaEnCola()', () => {
       providers: [
         PbxService,
         { provide: CasosService, useValue: {} },
-        { provide: UsuariosService, useValue: { buscarPorExtension: jest.fn().mockResolvedValue(null) } },
+        {
+          provide: UsuariosService,
+          useValue: { buscarPorExtension: jest.fn().mockResolvedValue(null) },
+        },
         {
           provide: TenantRlsService,
           useValue: {
             conTenant: jest.fn((_t: string, fn: (m: any) => unknown) =>
-              fn({ getRepository: () => llamadasRepo, query: jest.fn() })),
+              fn({ getRepository: () => llamadasRepo, query: jest.fn() }),
+            ),
           },
         },
       ],
     }).compile();
     service = module.get<PbxService>(PbxService);
     avisos = 0;
-    service.eventos$.subscribe(() => { avisos += 1; });
+    service.eventos$.subscribe(() => {
+      avisos += 1;
+    });
   });
 
   it('cierra la llamada que nombra el aviso y avisa a la pantalla', async () => {
-    llamadasRepo.findOne.mockResolvedValue({ id: 'll-1', callId: 'in-1', estado: 'sonando', agentePbx: null });
+    llamadasRepo.findOne.mockResolvedValue({
+      id: 'll-1',
+      callId: 'in-1',
+      estado: 'sonando',
+      agentePbx: null,
+    });
 
     const r = await service.cerrarSiEstaEnCola(tenantDemo, {
-      evento: 'colgada', callId: 'in-1', atendidaEnPlanta: true,
+      evento: 'colgada',
+      callId: 'in-1',
+      atendidaEnPlanta: true,
     } as WebhookLlamadaDto);
 
-    expect(r).toMatchObject({ llamada: { id: 'll-1', estado: 'finalizada' }, cambio: true });
+    expect(r).toMatchObject({
+      llamada: { id: 'll-1', estado: 'finalizada' },
+      cambio: true,
+    });
     expect(avisos).toBe(1);
   });
 
   it('sin contestar sigue siendo perdida', async () => {
-    llamadasRepo.findOne.mockResolvedValue({ id: 'll-1', callId: 'in-1', estado: 'sonando', agentePbx: null });
-    const r = await service.cerrarSiEstaEnCola(tenantDemo, { evento: 'colgada', callId: 'in-1' } as WebhookLlamadaDto);
+    llamadasRepo.findOne.mockResolvedValue({
+      id: 'll-1',
+      callId: 'in-1',
+      estado: 'sonando',
+      agentePbx: null,
+    });
+    const r = await service.cerrarSiEstaEnCola(tenantDemo, {
+      evento: 'colgada',
+      callId: 'in-1',
+    } as WebhookLlamadaDto);
     expect(r).toMatchObject({ llamada: { estado: 'perdida' }, cambio: true });
   });
 
   it('devuelve null —no un 404— cuando no hay ninguna llamada con ese id', async () => {
-    const r = await service.cerrarSiEstaEnCola(tenantDemo, { evento: 'colgada', callId: 'out-1' } as WebhookLlamadaDto);
+    const r = await service.cerrarSiEstaEnCola(tenantDemo, {
+      evento: 'colgada',
+      callId: 'out-1',
+    } as WebhookLlamadaDto);
     expect(r).toBeNull();
     expect(llamadasRepo.save).not.toHaveBeenCalled();
     expect(avisos).toBe(0);
@@ -254,9 +460,17 @@ describe('PbxService.cerrarSiEstaEnCola()', () => {
     // La central puede contar el fin dos veces (la pata interna y la
     // saliente). Un `cambio` por algo que no cambió sacude la pantalla del
     // operador sin motivo.
-    llamadasRepo.findOne.mockResolvedValue({ id: 'll-1', callId: 'in-1', estado: 'perdida', agentePbx: null });
+    llamadasRepo.findOne.mockResolvedValue({
+      id: 'll-1',
+      callId: 'in-1',
+      estado: 'perdida',
+      agentePbx: null,
+    });
 
-    const r = await service.cerrarSiEstaEnCola(tenantDemo, { evento: 'colgada', callId: 'in-1' } as WebhookLlamadaDto);
+    const r = await service.cerrarSiEstaEnCola(tenantDemo, {
+      evento: 'colgada',
+      callId: 'in-1',
+    } as WebhookLlamadaDto);
 
     // Y lo dice: `cambio: false` es lo que deja a la bitácora distinguir
     // «se colgó» de «ya estaba colgada».
@@ -266,16 +480,33 @@ describe('PbxService.cerrarSiEstaEnCola()', () => {
   });
 
   it('pero sí guarda si el aviso trae el agente que faltaba', async () => {
-    llamadasRepo.findOne.mockResolvedValue({ id: 'll-1', callId: 'in-1', estado: 'finalizada', agentePbx: null });
+    llamadasRepo.findOne.mockResolvedValue({
+      id: 'll-1',
+      callId: 'in-1',
+      estado: 'finalizada',
+      agentePbx: null,
+    });
     await service.cerrarSiEstaEnCola(tenantDemo, {
-      evento: 'colgada', callId: 'in-1', agente: '102',
+      evento: 'colgada',
+      callId: 'in-1',
+      agente: '102',
     } as WebhookLlamadaDto);
-    expect(llamadasRepo.save).toHaveBeenCalledWith(expect.objectContaining({ agentePbx: '102' }));
+    expect(llamadasRepo.save).toHaveBeenCalledWith(
+      expect.objectContaining({ agentePbx: '102' }),
+    );
   });
 
   it('una llamada ya atendida en FALCON queda finalizada, no perdida', async () => {
-    llamadasRepo.findOne.mockResolvedValue({ id: 'll-1', callId: 'in-1', estado: 'atendida', agentePbx: null });
-    const r = await service.cerrarSiEstaEnCola(tenantDemo, { evento: 'colgada', callId: 'in-1' } as WebhookLlamadaDto);
+    llamadasRepo.findOne.mockResolvedValue({
+      id: 'll-1',
+      callId: 'in-1',
+      estado: 'atendida',
+      agentePbx: null,
+    });
+    const r = await service.cerrarSiEstaEnCola(tenantDemo, {
+      evento: 'colgada',
+      callId: 'in-1',
+    } as WebhookLlamadaDto);
     expect(r).toMatchObject({ llamada: { estado: 'finalizada' } });
   });
 });
@@ -293,10 +524,19 @@ describe('PbxService.atender() — canal según el origen', () => {
   let casosRepo: { findOne: jest.Mock };
 
   async function atenderConOrigen(origen: string) {
-    const llamada = { id: 'llamada-1', numero: '3001234567', estado: 'sonando', destinatario: null, origen } as any;
+    const llamada = {
+      id: 'llamada-1',
+      numero: '3001234567',
+      estado: 'sonando',
+      destinatario: null,
+      origen,
+    } as any;
     llamadasRepo.findOne.mockResolvedValueOnce(llamada); // la propia llamada
     casosRepo.findOne.mockResolvedValueOnce(null); // sin caso abierto del mismo número: crea uno nuevo
-    return service.atender('demo', 'llamada-1', { username: 'operador1', supervisor: false });
+    return service.atender('demo', 'llamada-1', {
+      username: 'operador1',
+      supervisor: false,
+    });
   }
 
   beforeEach(async () => {
@@ -304,7 +544,10 @@ describe('PbxService.atender() — canal según el origen', () => {
       crear: jest.fn().mockResolvedValue({ id: 'caso-1' }),
       agregarNota: jest.fn(),
     };
-    llamadasRepo = { findOne: jest.fn(), save: jest.fn((v) => Promise.resolve(v)) };
+    llamadasRepo = {
+      findOne: jest.fn(),
+      save: jest.fn((v) => Promise.resolve(v)),
+    };
     casosRepo = { findOne: jest.fn() };
 
     const module: TestingModule = await Test.createTestingModule({
@@ -317,7 +560,8 @@ describe('PbxService.atender() — canal según el origen', () => {
           useValue: {
             conTenant: jest.fn((_tenant: string, fn: (m: any) => unknown) =>
               fn({
-                getRepository: (entity: any) => (entity?.name === 'CasoEntity' ? casosRepo : llamadasRepo),
+                getRepository: (entity: any) =>
+                  entity?.name === 'CasoEntity' ? casosRepo : llamadasRepo,
                 query: jest.fn(),
               }),
             ),
@@ -331,17 +575,29 @@ describe('PbxService.atender() — canal según el origen', () => {
 
   it('telefono → canal "llamada" (el comportamiento de siempre)', async () => {
     await atenderConOrigen('telefono');
-    expect(casos.crear).toHaveBeenCalledWith('demo', expect.objectContaining({ canal: 'llamada' }), 'operador1');
+    expect(casos.crear).toHaveBeenCalledWith(
+      'demo',
+      expect.objectContaining({ canal: 'llamada' }),
+      'operador1',
+    );
   });
 
   it('whatsapp_chat → canal "whatsapp"', async () => {
     await atenderConOrigen('whatsapp_chat');
-    expect(casos.crear).toHaveBeenCalledWith('demo', expect.objectContaining({ canal: 'whatsapp' }), 'operador1');
+    expect(casos.crear).toHaveBeenCalledWith(
+      'demo',
+      expect.objectContaining({ canal: 'whatsapp' }),
+      'operador1',
+    );
   });
 
   it('whatsapp_llamada → canal "whatsapp_llamada"', async () => {
     await atenderConOrigen('whatsapp_llamada');
-    expect(casos.crear).toHaveBeenCalledWith('demo', expect.objectContaining({ canal: 'whatsapp_llamada' }), 'operador1');
+    expect(casos.crear).toHaveBeenCalledWith(
+      'demo',
+      expect.objectContaining({ canal: 'whatsapp_llamada' }),
+      'operador1',
+    );
   });
 });
 
@@ -356,12 +612,18 @@ describe('PbxService.atender() — canal según el origen', () => {
  */
 describe('PbxService.normalizarNumero', () => {
   it('recorta el sufijo del JID de WhatsApp', () => {
-    expect(PbxService.normalizarNumero('573175882321@s.whatsapp.net')).toBe('573175882321');
-    expect(PbxService.normalizarNumero('573001234567@c.us')).toBe('573001234567');
+    expect(PbxService.normalizarNumero('573175882321@s.whatsapp.net')).toBe(
+      '573175882321',
+    );
+    expect(PbxService.normalizarNumero('573001234567@c.us')).toBe(
+      '573001234567',
+    );
   });
 
   it('quita los adornos de un número "bonito" de la central', () => {
-    expect(PbxService.normalizarNumero('+57 317 588 2321')).toBe('+573175882321');
+    expect(PbxService.normalizarNumero('+57 317 588 2321')).toBe(
+      '+573175882321',
+    );
     expect(PbxService.normalizarNumero('(317) 588-2321')).toBe('3175882321');
     expect(PbxService.normalizarNumero('317.588.2321')).toBe('3175882321');
   });
@@ -377,7 +639,9 @@ describe('PbxService.normalizarNumero', () => {
   });
 
   it('el + solo vale al principio', () => {
-    expect(PbxService.normalizarNumero('+57+317+5882321')).toBe('+573175882321');
+    expect(PbxService.normalizarNumero('+57+317+5882321')).toBe(
+      '+573175882321',
+    );
   });
 
   it('si al limpiar no queda nada marcable, devuelve lo que llegó', () => {
@@ -392,7 +656,9 @@ describe('PbxService.normalizarNumero', () => {
     // pbx_webhook_log). Limpiarlo daba `+1744934636794102`: 16 dígitos, un
     // número imposible que el operador marcaría o copiaría al caso. Se deja
     // crudo justamente para que se vea que NO es un número.
-    expect(PbxService.normalizarNumero('+CO.1744934636794102')).toBe('+CO.1744934636794102');
+    expect(PbxService.normalizarNumero('+CO.1744934636794102')).toBe(
+      '+CO.1744934636794102',
+    );
   });
 
   it('un número con cero de salida sí es marcable y se conserva', () => {

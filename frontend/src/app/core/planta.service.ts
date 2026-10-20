@@ -76,6 +76,10 @@ export interface PlantaVisible {
   ipInterna: string;
   /** La IP de la interfaz real del servidor; vacía si no se declaró. */
   ipPrivada: string;
+  /** A dónde va la llamada si nadie contesta. Vacío = se cae. */
+  numeroDesborde: string;
+  /** Segundos que timbra en la sala antes de desbordar. */
+  segundosEnCola: number;
   dominioSip: string;
   contenedor: string;
   puertoSip: number;
@@ -117,6 +121,8 @@ export interface CrearPlanta {
   ipPublica?: string | null;
   ipInterna?: string | null;
   ipPrivada?: string | null;
+  numeroDesborde?: string | null;
+  segundosEnCola?: number | null;
   dominioSip?: string | null;
   notas?: string | null;
 }
@@ -126,6 +132,8 @@ export interface ActualizarPlanta {
   ipPublica?: string | null;
   ipInterna?: string | null;
   ipPrivada?: string | null;
+  numeroDesborde?: string | null;
+  segundosEnCola?: number | null;
   dominioSip?: string | null;
   notas?: string | null;
   estado?: EstadoPlanta;

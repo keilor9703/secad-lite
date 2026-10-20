@@ -111,7 +111,7 @@ municipio.
 ---
 
 ### `T3` · Desborde de la cola
-- [ ] **Pendiente**
+- [x] **Hecho** · 20/10/2026
 
 Si nadie contesta, el ciudadano oye timbre hasta que la cola se rinde y la
 llamada se pierde **en silencio**: no queda constancia de que alguien llamó y no
@@ -121,14 +121,32 @@ lo atendimos.
 se enteró de que había una llamada». En una línea de emergencia es lo único que
 no se puede permitir.
 
-**Qué incluye:**
-- [ ] Número de desborde configurable por municipio (celular de turno, otra sala)
-- [ ] Tiempo de espera antes de desbordar, configurable
-- [ ] Que la llamada desbordada quede registrada como tal, no como perdida
-- [ ] Aviso a FALCON de que hubo desborde
+**Qué quedó hecho:**
+- [x] **Número de respaldo** por municipio: un celular de turno, otra sala, un
+      supervisor. Vacío = se comporta como antes
+- [x] **Espera configurable** (10 a 600 s). El tope no es decoración: con media
+      hora timbrando la llamada nunca llega al respaldo, que es justo lo que el
+      desborde viene a evitar
+- [x] **Estado `desbordada`**, distinto de `perdida`. Es toda la idea: «no
+      alcanzamos a contestar» no es «nadie se enteró de que había una llamada».
+      Al colgar, una desbordada NO vuelve a perdida
+- [x] Desborda también con la **sala vacía** (`JOINEMPTY`, `LEAVEEMPTY`), no
+      solo por tiempo agotado. Esos son los casos de madrugada, que es cuando el
+      respaldo es lo único que hay
+- [x] El aviso a FALCON va **antes** de marcar y sin esperarlo: si FALCON está
+      caído, la llamada igual se desborda
+- [x] En la pantalla de la planta, y en la lista de llamadas como «Al respaldo»
 
-**Dónde se toca:** `pbx-numero.entity.ts` o un campo nuevo en la planta, el
-generador (`queues.conf` y `extensions.conf`), y la pantalla.
+**Dónde quedó:** `llamada.entity.ts` (el estado), `pbx.service.ts` (el evento
+`desborde` y el cierre que lo respeta), `planta/generador.ts`
+(`desbordeDialplan`), migración `1823000000000`, y el frontend en
+`core/models.ts`, `shared/detalle-llamadas/` y la pantalla de la planta.
+
+**Pendiente de T3:** la llamada desbordada no sabe si el respaldo la contestó,
+salvo que la central lo diga con `atendidaEnPlanta`. Hoy ninguna lo manda en el
+desborde, así que en la práctica queda como `desbordada` y no como
+`finalizada`. Es honesto —no afirma lo que no sabe— pero el día que haga falta
+el dato, sale del `DIALSTATUS` del tramo de respaldo.
 
 ---
 
@@ -298,7 +316,7 @@ declara en ninguna parte.
 
 ### Ahora
 1. ~~**`T2` Monitoreo**~~ — hecho el 20/10/2026.
-2. **`T3` Desborde de la cola** — barato, y es lo único que no se puede permitir.
+2. ~~**`T3` Desborde de la cola**~~ — hecho el 20/10/2026.
 3. **`T5` Transferencia** — lo primero que pide una sala real.
 
 ### Esta semana, en paralelo y sin código
@@ -320,4 +338,5 @@ vendible a un municipio grande.
 | Fecha | Qué | Commit |
 |---|---|---|
 | 20/10/2026 | Diagnóstico inicial y esta hoja de ruta | `0e7c94b` |
-| 20/10/2026 | **`T2`** Monitoreo y alertas de la planta | *este* |
+| 20/10/2026 | **`T2`** Monitoreo y alertas de la planta | `0eff270` |
+| 20/10/2026 | **`T3`** Desborde de la cola | *este* |

@@ -116,6 +116,26 @@ export interface VistaNumero {
   activo: boolean;
 }
 
+/** Cuántos segundos timbra en la sala antes de rendirse, si nadie lo fija. */
+export const SEGUNDOS_EN_COLA_POR_DEFECTO = 120;
+
+/**
+ * Acota la espera en cola a algo que un ciudadano pueda soportar.
+ *
+ * El tope no es decoración: con una espera de media hora la llamada nunca
+ * llega al respaldo, que es exactamente lo que el desborde viene a evitar.
+ */
+function limpiarSegundos(valor?: number | null): number | null {
+  if (valor === null || valor === undefined) return null;
+  const n = Math.round(Number(valor));
+  if (!Number.isFinite(n) || n < 10 || n > 600)
+    throw new BadRequestException(
+      'La espera en cola va entre 10 y 600 segundos. Más de diez minutos ' +
+        'timbrando es una llamada que nunca llega al respaldo.',
+    );
+  return n;
+}
+
 export interface VistaPlanta {
   tenant: string;
   servidor: string;
@@ -124,6 +144,10 @@ export interface VistaPlanta {
   ipInterna: string;
   /** La IP de la interfaz real del servidor; vacía si no se declaró. */
   ipPrivada: string;
+  /** A dónde va la llamada si nadie contesta. Vacío = se cae. */
+  numeroDesborde: string;
+  /** Segundos que timbra en la sala antes de desbordar. */
+  segundosEnCola: number;
   dominioSip: string;
   contenedor: string;
   puertoSip: number;
@@ -156,6 +180,7 @@ export interface CrearPlantaDto {
   ipPublica?: string | null;
   ipInterna?: string | null;
   ipPrivada?: string | null;
+  numeroDesborde?: string | null;
   /** Si no viene, se deriva: `<tenant>-pbx.<dominio base>`. */
   dominioSip?: string | null;
   notas?: string | null;
@@ -166,6 +191,8 @@ export interface ActualizarPlantaDto {
   ipPublica?: string | null;
   ipInterna?: string | null;
   ipPrivada?: string | null;
+  numeroDesborde?: string | null;
+  segundosEnCola?: number | null;
   dominioSip?: string | null;
   notas?: string | null;
   estado?: EstadoPlanta;
@@ -306,6 +333,7 @@ export class PlantaService {
       ipPublica: dto.ipPublica?.trim() || null,
       ipInterna: this.limpiarIpInterna(dto.ipInterna),
       ipPrivada: this.limpiarIpPrivada(dto.ipPrivada),
+      numeroDesborde: this.limpiarDesborde(dto.numeroDesborde),
       dominioSip,
       ...ranura.ranura,
       estado: 'borrador',
@@ -376,6 +404,26 @@ export class PlantaService {
     return ip;
   }
 
+  /**
+   * Valida el número de desborde y lo normaliza como cualquier otro número.
+   *
+   * Vacío es válido: significa «sin respaldo», y entonces la llamada se cae
+   * como siempre. Lo que no vale es un número que la troncal vaya a rechazar,
+   * porque eso manda la llamada a un error en vez de a un timbre — peor que
+   * colgar, y sin que nadie se entere.
+   */
+  private limpiarDesborde(valor?: string | null): string | null {
+    const crudo = valor?.trim();
+    if (!crudo) return null;
+    const numero = normalizarNumero(crudo);
+    if (!/^\+?\d{3,20}$/.test(numero))
+      throw new BadRequestException(
+        `«${crudo}» no sirve como número de desborde: tiene que ser marcable ` +
+          'por la troncal (un celular, otra sala, un supervisor).',
+      );
+    return numero;
+  }
+
   async actualizar(
     tenant: string,
     dto: ActualizarPlantaDto,
@@ -395,6 +443,10 @@ export class PlantaService {
       fila.ipInterna = this.limpiarIpInterna(dto.ipInterna);
     if (dto.ipPrivada !== undefined)
       fila.ipPrivada = this.limpiarIpPrivada(dto.ipPrivada);
+    if (dto.numeroDesborde !== undefined)
+      fila.numeroDesborde = this.limpiarDesborde(dto.numeroDesborde);
+    if (dto.segundosEnCola !== undefined)
+      fila.segundosEnCola = limpiarSegundos(dto.segundosEnCola);
     if (dto.dominioSip !== undefined) {
       const dominioSip = (dto.dominioSip ?? '').trim().toLowerCase();
       if (!dominioSip)
@@ -873,6 +925,8 @@ export class PlantaService {
       ipPublica: ipPublicaDe(planta),
       ipInterna: ipInternaDe(planta),
       ipPrivada: ipPrivadaDe(planta),
+      numeroDesborde: planta.numeroDesborde ?? undefined,
+      timbreCola: planta.segundosEnCola ?? undefined,
       operadores: operadores
         .filter((u) => (u.extension ?? '').trim())
         .map((u) => ({
@@ -993,6 +1047,8 @@ export class PlantaService {
       ipPublica: ipPublicaDe(p),
       ipInterna: ipInternaDe(p),
       ipPrivada: ipPrivadaDe(p),
+      numeroDesborde: p.numeroDesborde ?? '',
+      segundosEnCola: p.segundosEnCola ?? SEGUNDOS_EN_COLA_POR_DEFECTO,
       dominioSip: p.dominioSip,
       contenedor: nombreContenedor(p.tenant),
       puertoSip: p.puertoSip,

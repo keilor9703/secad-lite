@@ -1,9 +1,34 @@
 import { Column, CreateDateColumn, Entity, Index, PrimaryGeneratedColumn, UpdateDateColumn } from 'typeorm';
 
 /** Estado de una llamada entrante en la cola de la planta telefónica. */
-export type EstadoLlamada = 'sonando' | 'atendida' | 'perdida' | 'finalizada';
+/**
+ * En qué quedó la llamada.
+ *
+ * `desbordada` no es un adorno de `perdida`, y la diferencia es justo la que
+ * importa en una línea de emergencia:
+ *
+ *  - **perdida** — timbró en la sala, nadie contestó, y la llamada se cayó.
+ *    Nadie la atendió y nadie se enteró.
+ *  - **desbordada** — timbró en la sala, nadie contestó, y la central la mandó
+ *    al número de respaldo. SÍ se hizo algo con ella.
+ *
+ * Meterlas en el mismo cajón es perder la única señal que distingue «no
+ * alcanzamos a contestar» de «nadie se enteró de que había una llamada».
+ */
+export type EstadoLlamada =
+  | 'sonando'
+  | 'atendida'
+  | 'perdida'
+  | 'desbordada'
+  | 'finalizada';
 
-export const ESTADOS_LLAMADA: EstadoLlamada[] = ['sonando', 'atendida', 'perdida', 'finalizada'];
+export const ESTADOS_LLAMADA: EstadoLlamada[] = [
+  'sonando',
+  'atendida',
+  'perdida',
+  'desbordada',
+  'finalizada',
+];
 
 /**
  * Por dónde entró este contacto — todos llegan por el mismo webhook de la

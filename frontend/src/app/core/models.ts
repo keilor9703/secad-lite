@@ -89,7 +89,31 @@ export interface CrearCaso {
 }
 
 // --- PBX / planta telefónica ---
-export type EstadoLlamada = 'sonando' | 'atendida' | 'perdida' | 'finalizada';
+/**
+ * `desbordada` no es un adorno de `perdida`: es «nadie en la sala la tomó y se
+ * mandó al número de respaldo». Meterlas en el mismo cajón pierde la única
+ * señal que distingue «no alcanzamos a contestar» de «nadie se enteró de que
+ * había una llamada».
+ */
+export type EstadoLlamada =
+  | 'sonando'
+  | 'atendida'
+  | 'perdida'
+  | 'desbordada'
+  | 'finalizada';
+
+/**
+ * Todos los estados, para poder comprobar que ninguno se queda sin nombre en
+ * pantalla. Un estado sin etiqueta enseña su clave interna —«desbordada»— al
+ * operador, y eso se descubre en producción.
+ */
+export const ESTADOS_LLAMADA: EstadoLlamada[] = [
+  'sonando',
+  'atendida',
+  'perdida',
+  'desbordada',
+  'finalizada',
+];
 
 /** Por dónde entró el contacto: la PBX gestiona los tres y avisa por el mismo webhook. */
 export type OrigenLlamada = 'telefono' | 'whatsapp_chat' | 'whatsapp_llamada';

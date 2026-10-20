@@ -178,6 +178,25 @@
                 <label for="d-dominio">Nombre (lo que enruta nginx)</label>
                 <input id="d-dominio" formControlName="dominioSip" />
               </div>
+              <div class="field">
+                <label for="d-desborde">Número de respaldo (si nadie contesta)</label>
+                <input id="d-desborde" formControlName="numeroDesborde"
+                  [placeholder]="p.numeroDesborde || 'vacío = la llamada se cae'" />
+                <small>
+                  Un celular de turno, otra sala, un supervisor. Sale por la
+                  misma troncal, así que tiene que ser marcable desde ella. Sin
+                  esto, la llamada que nadie toma se pierde en silencio.
+                </small>
+              </div>
+              <div class="field">
+                <label for="d-espera">Espera en la sala (segundos)</label>
+                <input id="d-espera" type="number" formControlName="segundosEnCola"
+                  min="10" max="600" [placeholder]="'' + p.segundosEnCola" />
+                <small>
+                  Cuánto timbra antes de irse al respaldo. Entre 10 y 600: más
+                  de diez minutos es una llamada que nunca llega al respaldo.
+                </small>
+              </div>
               <div class="field ancho">
                 <label for="d-notas">Notas</label>
                 <input id="d-notas" formControlName="notas"

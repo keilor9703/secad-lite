@@ -84,6 +84,11 @@ export class DetalleLlamadasModalComponent {
   }
 
   estadoLabel(e: EstadoLlamada): string {
-    return { sonando: 'Timbrando', atendida: 'Atendida', perdida: 'Perdida', finalizada: 'Finalizada' }[e] ?? e;
+    return {
+      sonando: 'Timbrando', atendida: 'Atendida', perdida: 'Perdida',
+      // «Al respaldo» y no «Desbordada»: quien lee la lista necesita saber
+      // qué pasó con la llamada, no el nombre interno del estado.
+      desbordada: 'Al respaldo', finalizada: 'Finalizada',
+    }[e] ?? e;
   }
 }
