@@ -43,6 +43,7 @@ import {
 import {
   ArchivoGenerado,
   DatosPlanta,
+  INDICATIVO_POR_DEFECTO,
   generarConfiguracion,
 } from './generador';
 
@@ -125,6 +126,28 @@ export const SEGUNDOS_EN_COLA_POR_DEFECTO = 120;
  * El tope no es decoración: con una espera de media hora la llamada nunca
  * llega al respaldo, que es exactamente lo que el desborde viene a evitar.
  */
+/**
+ * Deja el indicativo del país en dígitos, o nulo para usar el de por defecto.
+ *
+ * Se acepta escrito con «+» porque es como lo lee cualquiera, y se guarda
+ * sin él porque lo que se hace con esto es concatenarlo: guardar «+57» daría
+ * «++573175882321» en el plan de marcación.
+ *
+ * El tope de cuatro dígitos es el de la UIT: no hay indicativo más largo, y
+ * un valor absurdo aquí rompe TODAS las salientes de ese municipio a la vez.
+ */
+function limpiarIndicativo(valor?: string | null): string | null {
+  const crudo = valor?.trim();
+  if (!crudo) return null;
+  const digitos = crudo.replace(/\D/g, '');
+  if (!digitos || digitos.length > 4)
+    throw new BadRequestException(
+      `«${crudo}» no es un indicativo de país. Son de uno a cuatro dígitos, ` +
+        'con o sin «+»: 57 para Colombia.',
+    );
+  return digitos;
+}
+
 function limpiarSegundos(valor?: number | null): number | null {
   if (valor === null || valor === undefined) return null;
   const n = Math.round(Number(valor));
@@ -146,6 +169,8 @@ export interface VistaPlanta {
   ipPrivada: string;
   /** A dónde va la llamada si nadie contesta. Vacío = se cae. */
   numeroDesborde: string;
+  /** El indicativo del país, sin «+». */
+  indicativoPais: string;
   /** Segundos que timbra en la sala antes de desbordar. */
   segundosEnCola: number;
   dominioSip: string;
@@ -181,6 +206,7 @@ export interface CrearPlantaDto {
   ipInterna?: string | null;
   ipPrivada?: string | null;
   numeroDesborde?: string | null;
+  indicativoPais?: string | null;
   /** Si no viene, se deriva: `<tenant>-pbx.<dominio base>`. */
   dominioSip?: string | null;
   notas?: string | null;
@@ -192,6 +218,7 @@ export interface ActualizarPlantaDto {
   ipInterna?: string | null;
   ipPrivada?: string | null;
   numeroDesborde?: string | null;
+  indicativoPais?: string | null;
   segundosEnCola?: number | null;
   dominioSip?: string | null;
   notas?: string | null;
@@ -334,6 +361,7 @@ export class PlantaService {
       ipInterna: this.limpiarIpInterna(dto.ipInterna),
       ipPrivada: this.limpiarIpPrivada(dto.ipPrivada),
       numeroDesborde: this.limpiarDesborde(dto.numeroDesborde),
+      indicativoPais: limpiarIndicativo(dto.indicativoPais),
       dominioSip,
       ...ranura.ranura,
       estado: 'borrador',
@@ -445,6 +473,8 @@ export class PlantaService {
       fila.ipPrivada = this.limpiarIpPrivada(dto.ipPrivada);
     if (dto.numeroDesborde !== undefined)
       fila.numeroDesborde = this.limpiarDesborde(dto.numeroDesborde);
+    if (dto.indicativoPais !== undefined)
+      fila.indicativoPais = limpiarIndicativo(dto.indicativoPais);
     if (dto.segundosEnCola !== undefined)
       fila.segundosEnCola = limpiarSegundos(dto.segundosEnCola);
     if (dto.dominioSip !== undefined) {
@@ -926,6 +956,7 @@ export class PlantaService {
       ipInterna: ipInternaDe(planta),
       ipPrivada: ipPrivadaDe(planta),
       numeroDesborde: planta.numeroDesborde ?? undefined,
+      indicativoPais: planta.indicativoPais ?? undefined,
       timbreCola: planta.segundosEnCola ?? undefined,
       operadores: operadores
         .filter((u) => (u.extension ?? '').trim())
@@ -1048,6 +1079,7 @@ export class PlantaService {
       ipInterna: ipInternaDe(p),
       ipPrivada: ipPrivadaDe(p),
       numeroDesborde: p.numeroDesborde ?? '',
+      indicativoPais: p.indicativoPais ?? INDICATIVO_POR_DEFECTO,
       segundosEnCola: p.segundosEnCola ?? SEGUNDOS_EN_COLA_POR_DEFECTO,
       dominioSip: p.dominioSip,
       contenedor: nombreContenedor(p.tenant),

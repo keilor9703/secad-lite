@@ -189,6 +189,17 @@
                 </small>
               </div>
               <div class="field">
+                <label for="d-indicativo">Indicativo del país</label>
+                <input id="d-indicativo" formControlName="indicativoPais"
+                  [placeholder]="p.indicativoPais || '57'" />
+                <small>
+                  Lo que se le antepone a un número marcado sin él. Un celular
+                  escrito como 3175882321 sale como +57&#8203;3175882321. Sin
+                  esto, la troncal responde «484 Address Incomplete» y la
+                  llamada no entra a ninguna parte.
+                </small>
+              </div>
+              <div class="field">
                 <label for="d-espera">Espera en la sala (segundos)</label>
                 <input id="d-espera" type="number" formControlName="segundosEnCola"
                   min="10" max="600" [placeholder]="'' + p.segundosEnCola" />

@@ -274,6 +274,36 @@ describe('PlantaService', () => {
       expect(r.ipPrivada).toBe('');
     });
 
+    it('el indicativo se guarda sin «+»: es un prefijo que se concatena', async () => {
+      await alta('itagui');
+      const r = await svc.actualizar(
+        'itagui',
+        { indicativoPais: '+52' },
+        'admin',
+      );
+      // Guardar «+52» daría «++523175882321» en el plan de marcación.
+      expect(r.indicativoPais).toBe('52');
+    });
+
+    it('sin indicativo declarado, la vista dice 57', async () => {
+      const v = await alta('itagui');
+      expect(v.indicativoPais).toBe('57');
+    });
+
+    it('rechaza un indicativo que rompería TODAS las salientes del municipio', async () => {
+      await alta('itagui');
+      await expect(
+        svc.actualizar('itagui', { indicativoPais: '573175882321' }, 'admin'),
+      ).rejects.toThrow(/indicativo de país/);
+      await expect(
+        svc.actualizar(
+          'itagui',
+          { indicativoPais: 'cincuenta y siete' },
+          'admin',
+        ),
+      ).rejects.toThrow(/indicativo de país/);
+    });
+
     it('la IP interna por defecto es 127.0.0.1, que es la más cerrada', async () => {
       const v = await alta('itagui');
       expect(v.ipInterna).toBe('127.0.0.1');
@@ -616,7 +646,9 @@ describe('PlantaService', () => {
       const troncal = c.archivos.find((a) =>
         a.ruta.endsWith('pjsip-troncal.conf'),
       )!;
-      expect(troncal.contenido).toContain('from_user = 18335308128');
+      // CON el «+»: es E.164 lo que la troncal espera, y el generador lo
+      // borraba. Ver `generador.spec.ts`, «el DID sale en E.164».
+      expect(troncal.contenido).toContain('from_user = +18335308128');
     });
   });
 

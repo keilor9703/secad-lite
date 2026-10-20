@@ -172,6 +172,13 @@ export interface DatosPlanta {
    */
   numeroDesborde?: string;
   /**
+   * El indicativo del país, sin «+». Vacío = 57.
+   *
+   * Lo usa el plan de marcación para completar un número nacional. Ver
+   * `INDICATIVO_POR_DEFECTO` y el contexto `[salientes]` de `extensionsConf`.
+   */
+  indicativoPais?: string;
+  /**
    * La carpeta de la planta en el servidor. La pone quien provisiona, para
    * que el script de instalación y lo que dice la pantalla no puedan
    * discrepar — un script que escribe en otra carpeta que la que se enseñó es
@@ -205,6 +212,31 @@ function hayNat11(d: DatosPlanta): boolean {
   return !!p && !!d.ipPublica && p !== d.ipPublica;
 }
 const TIMBRE_COLA_POR_DEFECTO = 120;
+
+/**
+ * Colombia. Es el valor por defecto porque FALCON es un sistema nacional,
+ * pero NO está clavado: cada planta puede traer el suyo.
+ */
+export const INDICATIVO_POR_DEFECTO = '57';
+
+/** El indicativo de esta planta, sin «+» y solo dígitos. */
+function indicativo(d: DatosPlanta): string {
+  return (d.indicativoPais ?? '').replace(/\D/g, '') || INDICATIVO_POR_DEFECTO;
+}
+
+/**
+ * Un número en E.164: dígitos con un «+» delante.
+ *
+ * NO inventa indicativo. Lo que entra sin él sale sin él, porque aquí no hay
+ * forma de saber si `3175882321` es un celular colombiano o el fragmento de
+ * algo más largo; eso lo decide el plan de marcación, que sí sabe de qué
+ * planta se trata. Devuelve cadena vacía si no queda ningún dígito, que es
+ * lo que la troncal usa para avisar que no hay número que presentar.
+ */
+function e164(crudo?: string | null): string {
+  const digitos = (crudo ?? '').replace(/\D/g, '');
+  return digitos ? `+${digitos}` : '';
+}
 
 /**
  * Todos los archivos de la planta, en el orden en que conviene leerlos.
@@ -399,7 +431,11 @@ function troncalConf(d: DatosPlanta): string | null {
     // La primera se llama «troncal» para que el dialplan de salientes no
     // tenga que saber de nombres; las demás llevan sufijo.
     const nombre = i === 0 ? 'troncal' : `troncal${i + 1}`;
-    const did = (t.numeroPresentado ?? '').replace(/\D/g, '');
+    // CON el «+»: Infobip entrega y recibe en E.164, y `replace(/\D/g,'')`
+    // —que es lo que había aquí— se lo comía. Salía `From: <sip:1833…>` en
+    // vez de `<sip:+1833…>`, contra lo que dice el comentario de
+    // `[salientes]` doce líneas más abajo. Medido el 20/10/2026.
+    const did = e164(t.numeroPresentado);
 
     partes.push(`
 ;; ── ${t.nombre} ─────────────────────────────────────────────────────────
@@ -483,6 +519,7 @@ ${redes.map((r) => `match = ${r}`).join('\n')}
 // ─────────────────────────────────────────────────────────────────────────────
 function extensionsConf(d: DatosPlanta): string {
   const timbre = d.timbreCola ?? TIMBRE_COLA_POR_DEFECTO;
+  const cc = indicativo(d);
   const partes = [
     encabezado(d, 'extensions.conf'),
     `[general]
@@ -621,9 +658,20 @@ exten => _+X.,1,NoOp(FALCON saliente hacia \${EXTEN})
  same => n,Dial(PJSIP/\${EXTEN}@troncal,60)
  same => n,Hangup()
 
-;; Sin «+»: se le pone y se sigue por el patrón de arriba. No se marca «pelado»
-;; porque la troncal rechaza lo que no venga en E.164.
-exten => _X.,1,Goto(salientes,+\${EXTEN},1)
+;; Trae el indicativo del país pero sin «+»: solo hay que ponérselo.
+exten => _${cc}X.,1,Goto(salientes,+\${EXTEN},1)
+
+;; NACIONAL, sin indicativo. Es el caso NORMAL en operación: nadie teclea
+;; «+57» en el campo Teléfono de un caso mientras toma una emergencia.
+;;
+;; Antes aquí solo se ponía el «+», y por eso un 3175882321 salía marcado como
+;; «+3175882321», que no es E.164 de ningún país. Infobip contestó «484
+;; Address Incomplete», con toda la razón. Medido el 20/10/2026.
+;;
+;; El patrón de arriba no se come ninguno de estos: en Colombia ningún
+;; abonado nacional empieza por 57 —los celulares empiezan por 3 y los fijos
+;; por 60—. En otro país con otro indicativo habría que revisarlo.
+exten => _X.,1,Goto(salientes,+${cc}\${EXTEN},1)
 `);
 
   return partes.join('');

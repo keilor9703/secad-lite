@@ -89,8 +89,29 @@ describe('generador de la configuración de la planta', () => {
 
     it('la troncal presenta el DID: sin número de origen, toda saliente es un 403', () => {
       const t = contenido({}, 'etc/pjsip-troncal.conf');
-      expect(t).toContain('from_user = 18335308128');
-      expect(t).toContain('callerid = 18335308128 <18335308128>');
+      expect(t).toContain('from_user = +18335308128');
+      expect(t).toContain('callerid = +18335308128 <+18335308128>');
+    });
+
+    it('el DID sale en E.164, CON el «+»', () => {
+      // El código de antes hacía `replace(/\D/g,'')` y se comía el «+», así
+      // que el From salía como `sip:18335308128@…`. Infobip entrega y recibe
+      // en E.164; el propio comentario de [salientes] lo dice.
+      const t = contenido({}, 'etc/pjsip-troncal.conf');
+      expect(t).toContain('from_user = +');
+      expect(t).not.toMatch(/^from_user = [0-9]/m);
+    });
+
+    it('el «+» se pone aunque el número venga escrito con adornos', () => {
+      const t = contenido(
+        {
+          troncales: [
+            { ...DATOS.troncales[0], numeroPresentado: '+57 (604) 234-5678' },
+          ],
+        },
+        'etc/pjsip-troncal.conf',
+      );
+      expect(t).toContain('from_user = +576042345678');
     });
 
     it('el identify lleva las redes del operador, nunca un match vacío', () => {
@@ -248,10 +269,38 @@ describe('generador de la configuración de la planta', () => {
       expect(dp).toContain('MixMonitor(${GRABACIONES}/${UNIQUEID}.wav,b)');
     });
 
-    it('la saliente conserva el «+» que espera la troncal, y se lo pone si no viene', () => {
+    it('la saliente ya en E.164 se marca tal cual', () => {
       const dp = contenido({}, 'etc/extensions.conf');
       expect(dp).toContain('exten => _+X.,1,NoOp(FALCON saliente');
-      expect(dp).toContain('exten => _X.,1,Goto(salientes,+${EXTEN},1)');
+    });
+
+    it('a un número NACIONAL se le completa el indicativo, no solo el «+»', () => {
+      // El defecto real: `3175882321` salía como `+3175882321`, que no es
+      // E.164 de ningún país, e Infobip contestó 484 Address Incomplete.
+      // Es el caso NORMAL: nadie teclea «+57» al tomar una emergencia.
+      const dp = contenido({}, 'etc/extensions.conf');
+      expect(dp).toContain('exten => _X.,1,Goto(salientes,+57${EXTEN},1)');
+      expect(dp).not.toContain('exten => _X.,1,Goto(salientes,+${EXTEN},1)');
+    });
+
+    it('si ya trae el indicativo sin «+», solo se le pone el «+»', () => {
+      const dp = contenido({}, 'etc/extensions.conf');
+      expect(dp).toContain('exten => _57X.,1,Goto(salientes,+${EXTEN},1)');
+    });
+
+    it('el indicativo sale de la planta, no está clavado en el generador', () => {
+      const dp = contenido({ indicativoPais: '52' }, 'etc/extensions.conf');
+      expect(dp).toContain('exten => _52X.,1,Goto(salientes,+${EXTEN},1)');
+      expect(dp).toContain('exten => _X.,1,Goto(salientes,+52${EXTEN},1)');
+      expect(dp).not.toContain('+57${EXTEN}');
+    });
+
+    it('sin indicativo declarado, se usa el de Colombia', () => {
+      const dp = contenido(
+        { indicativoPais: undefined },
+        'etc/extensions.conf',
+      );
+      expect(dp).toContain('exten => _X.,1,Goto(salientes,+57${EXTEN},1)');
     });
   });
 

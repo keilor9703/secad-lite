@@ -207,6 +207,23 @@ export class PlantaAsteriskEntity {
   numeroDesborde?: string | null;
 
   /**
+   * El indicativo del país, sin «+». Nulo = 57 (Colombia).
+   *
+   * Existe por una avería real del 20 de octubre de 2026: el dialplan le
+   * pegaba un «+» a cualquier número que llegara sin él, así que un celular
+   * colombiano escrito como `3175882321` —que es como lo teclea un operador
+   * al tomar una emergencia, y como lo guarda el caso— salía marcado como
+   * `+3175882321`. Eso no es E.164 de ningún país, y el operador contestó
+   * `484 Address Incomplete`, con toda la razón.
+   *
+   * Es un campo y no una constante porque el generador es multi-municipio y
+   * algún día puede no ser solo Colombia; el día que lo sea, esto ya está.
+   * Se guarda sin «+» porque es un prefijo que se concatena, no un número.
+   */
+  @Column({ type: 'varchar', length: 4, nullable: true })
+  indicativoPais?: string | null;
+
+  /**
    * Cuántos segundos timbra en la sala antes de rendirse. Nulo = 120.
    *
    * Es el único número de esta tabla que se decide por política y no por

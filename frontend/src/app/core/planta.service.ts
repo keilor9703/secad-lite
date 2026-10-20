@@ -80,6 +80,8 @@ export interface PlantaVisible {
   ipPrivada: string;
   /** A dónde va la llamada si nadie contesta. Vacío = se cae. */
   numeroDesborde: string;
+  /** El indicativo del país, sin «+». */
+  indicativoPais: string;
   /** Segundos que timbra en la sala antes de desbordar. */
   segundosEnCola: number;
   dominioSip: string;
@@ -124,6 +126,7 @@ export interface CrearPlanta {
   ipInterna?: string | null;
   ipPrivada?: string | null;
   numeroDesborde?: string | null;
+  indicativoPais?: string | null;
   segundosEnCola?: number | null;
   dominioSip?: string | null;
   notas?: string | null;
@@ -135,6 +138,7 @@ export interface ActualizarPlanta {
   ipInterna?: string | null;
   ipPrivada?: string | null;
   numeroDesborde?: string | null;
+  indicativoPais?: string | null;
   segundosEnCola?: number | null;
   dominioSip?: string | null;
   notas?: string | null;
