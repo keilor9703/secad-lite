@@ -253,6 +253,7 @@ Detalle completo, con respaldos, 2FA, TURN y archivado:
 |---|---|
 | [`planta-telefonica-funcionalidades.md`](docs/planta-telefonica-funcionalidades.md) | **Qué hace la planta y cómo se integra con FALCON** |
 | [`planta-telefonica-despliegue.md`](docs/planta-telefonica-despliegue.md) | **Instalar, migrar, diagnosticar.** Tabla de averías |
+| [`telefonia-hoja-de-ruta.md`](docs/telefonia-hoja-de-ruta.md) | **Qué falta, priorizado y marcable.** Los puntos tienen identificador (`T1`…) para nombrarlos en una conversación |
 | [`telefonia-planta-multitenant.md`](docs/telefonia-planta-multitenant.md) | Arquitectura multi-municipio, puertos, costos |
 | [`telefonia-cadena-de-la-llamada.md`](docs/telefonia-cadena-de-la-llamada.md) | De que el ciudadano marca a que aparece el caso |
 | [`telefonia-proveedores.md`](docs/telefonia-proveedores.md) | Cómo se agrega un proveedor de planta |

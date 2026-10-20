@@ -348,6 +348,10 @@ Decirlo claro ahorra discusiones:
 
 ## 7. Qué falta (backlog, en orden de valor)
 
+> **La lista viva está en [`telefonia-hoja-de-ruta.md`](telefonia-hoja-de-ruta.md)**,
+> con cada punto identificado (`T1`…), priorizado y marcable. Lo que sigue es el
+> resumen; si los dos discrepan, manda la hoja de ruta.
+
 1. **La llamada saliente como llamada de FALCON**, para que su grabación se
    suba y se enlace igual que la entrante.
 2. **Número de desborde de la cola**: a dónde va la llamada si nadie contesta.
@@ -370,6 +374,7 @@ Decirlo claro ahorra discusiones:
 | Documento | Para qué |
 |---|---|
 | [`planta-telefonica-despliegue.md`](planta-telefonica-despliegue.md) | **Cómo se instala y cómo se migra.** El manual operativo |
+| [`telefonia-hoja-de-ruta.md`](telefonia-hoja-de-ruta.md) | **Qué falta y en qué orden.** Priorizado y marcable |
 | [`telefonia-planta-multitenant.md`](telefonia-planta-multitenant.md) | La arquitectura multi-municipio, el reparto de puertos y los costos |
 | [`telefonia-cadena-de-la-llamada.md`](telefonia-cadena-de-la-llamada.md) | Qué pasa entre que el ciudadano marca y el caso aparece |
 | [`telefonia-proveedores.md`](telefonia-proveedores.md) | Qué operador telefónico elegir y por qué |
