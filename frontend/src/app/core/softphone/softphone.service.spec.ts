@@ -45,6 +45,14 @@ class TransporteFalso {
     return this.demoraMs;
   }
   async colgar(): Promise<void> { this.colgadas += 1; }
+  /** A quién se transfirió, en orden. */
+  transferidas: string[] = [];
+  /** Si está puesto, transferir falla con este motivo. */
+  fallaTransferir?: string;
+  async transferir(extension: string): Promise<void> {
+    if (this.fallaTransferir) throw new Error(this.fallaTransferir);
+    this.transferidas.push(extension);
+  }
   silenciar(s: boolean): void { this.silencios.push(s); }
   async tono(t: string): Promise<void> { this.tonos.push(t); }
   usarAudio(): void { /* no hace falta en pruebas */ }
@@ -128,11 +136,69 @@ describe('SoftphoneService', () => {
   async function encender(
     r: { disponible: boolean; config?: ConfigSoftphone; motivo?: string } =
       { disponible: true, config: CONFIG },
+    companeros: { extension: string; nombre: string }[] = [],
   ): Promise<void> {
     const promesa = sp.encender();
     http.expectOne((req) => req.url.endsWith('/pbx/softphone')).flush(r);
     await promesa;
+    // Los compañeros se piden DESPUÉS de resolver la configuración, así que
+    // hay que esperar a `encender` antes de buscar la petición: atenderla
+    // antes la busca cuando todavía no existe. No todas las pruebas se ocupan
+    // de la lista, por eso se responde aquí y no en cada una.
+    http
+      .match((req) => req.url.endsWith('/pbx/companeros'))
+      .forEach((p) => p.flush(companeros));
   }
+
+  describe('pasar la llamada a un compañero', () => {
+    it('los compañeros se piden al ENCENDER, no al transferir', async () => {
+      // Cuando el operador necesita pasar una llamada ya la tiene en la oreja:
+      // una lista que se pide en ese momento son segundos de silencio con un
+      // ciudadano esperando.
+      await encender(
+        { disponible: true, config: CONFIG },
+        [{ extension: '102', nombre: 'Beto' }],
+      );
+      expect(sp.companeros()).toEqual([{ extension: '102', nombre: 'Beto' }]);
+    });
+
+    it('que falle la lista NO impide usar el teléfono', async () => {
+      const promesa = sp.encender();
+      http.expectOne((req) => req.url.endsWith('/pbx/softphone'))
+        .flush({ disponible: true, config: CONFIG });
+      await promesa;
+      http.match((req) => req.url.endsWith('/pbx/companeros'))
+        .forEach((p) => p.error(new ProgressEvent('error')));
+      expect(sp.estado()).toBe('registrado');
+      expect(sp.companeros()).toEqual([]);
+    });
+
+    it('transferir le pasa la extensión al transporte', async () => {
+      await encender();
+      await expectAsync(sp.transferir('102')).toBeResolvedTo(true);
+      expect(transporte.transferidas).toEqual(['102']);
+    });
+
+    it('no se transfiere dos veces por dos clics', async () => {
+      // El operador que no ve reacción vuelve a oprimir. Dos REFER sobre la
+      // misma llamada es la llamada en dos sitios, o en ninguno.
+      await encender();
+      transporte.fallaTransferir = undefined;
+      const primera = sp.transferir('102');
+      const segunda = await sp.transferir('103');
+      await primera;
+      expect(segunda).toBe(false);
+      expect(transporte.transferidas).toEqual(['102']);
+    });
+
+    it('si falla lo dice y deja el botón libre', async () => {
+      await encender();
+      transporte.fallaTransferir = 'Solo se puede transferir una llamada en curso.';
+      await expectAsync(sp.transferir('102')).toBeResolvedTo(false);
+      expect(sp.motivo()).toContain('en curso');
+      expect(sp.transfiriendo()).toBe(false);
+    });
+  });
 
   describe('encender', () => {
     it('se registra con la configuración que entrega el servidor', async () => {

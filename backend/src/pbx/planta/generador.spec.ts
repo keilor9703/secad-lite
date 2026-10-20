@@ -526,6 +526,59 @@ describe('generador de la configuración de la planta', () => {
       );
     });
 
+    it('el operador NO comparte contexto con la troncal', () => {
+      // Con «entrantes» en los dos, todo lo que alcanza el operador telefónico
+      // lo alcanzaba también cualquiera con una clave SIP. Un contexto propio
+      // para lo que el operador puede MARCAR cierra eso sin pedir nada.
+      const p = contenido({}, 'etc/pjsip.conf');
+      const bloque = p.slice(p.indexOf('[101]'), p.indexOf('[102]'));
+      expect(bloque).toContain('context = internos');
+      expect(bloque).not.toContain('context = entrantes');
+    });
+
+    it('cada operador es marcable desde el softphone de otro', () => {
+      const ext = contenido({}, 'etc/extensions.conf');
+      expect(ext).toContain('[internos]');
+      expect(ext).toContain('exten => 101,1,');
+      expect(ext).toContain('exten => 102,1,');
+      expect(ext).toContain('Dial(PJSIP/102,30)');
+    });
+
+    it('la transferencia que nadie contesta VUELVE a la sala', () => {
+      // Es lo único que hace tolerable una transferencia ciega: el peor caso
+      // de equivocarse de compañero es que la llamada vuelva a timbrar, no una
+      // llamada al 123 soltada contra un puesto vacío.
+      const ext = contenido({}, 'etc/extensions.conf');
+      const bloque = ext.slice(ext.indexOf('exten => 102,1,'));
+      const fin = bloque.indexOf('\n\n');
+      const soloEste = fin > 0 ? bloque.slice(0, fin) : bloque;
+      const marca = soloEste.indexOf('Dial(PJSIP/102,30)');
+      const vuelta = soloEste.indexOf('Queue(cola-itagui');
+      expect(marca).toBeGreaterThanOrEqual(0);
+      expect(vuelta).toBeGreaterThan(marca);
+    });
+
+    it('avisa a FALCON con LINKEDID, no con UNIQUEID', () => {
+      // El canal de la transferencia es NUEVO y tiene su propio UNIQUEID;
+      // LINKEDID sigue siendo el de la llamada original. Con UNIQUEID, FALCON
+      // no encontraría la llamada y el caso no seguiría al operador que la
+      // recibe — que es toda la razón de existir de esto.
+      const ext = contenido({}, 'etc/extensions.conf');
+      const linea = ext
+        .split('\n')
+        .find((l) => l.includes('"evento":"transferida"'))!;
+      expect(linea).toContain('"callId":"${LINKEDID}"');
+      expect(linea).not.toContain('"callId":"${UNIQUEID}"');
+      // Y la API key tampoco aquí en la línea de comandos.
+      expect(linea).toContain('-K /etc/asterisk/falcon-webhook.conf');
+    });
+
+    it('sin operadores, el contexto existe pero vacío y lo dice', () => {
+      const ext = contenido({ operadores: [] }, 'etc/extensions.conf');
+      expect(ext).toContain('[internos]');
+      expect(ext).toContain('vuelva a aplicar');
+    });
+
     it('chan_sip queda fuera, y el noload va DENTRO de [modules]', () => {
       const m = contenido({}, 'etc/modules.conf');
       expect(m).toContain('noload => chan_sip.so');

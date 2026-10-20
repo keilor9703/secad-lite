@@ -17,6 +17,8 @@ describe('SoftphoneComponent', () => {
   let entrante: ReturnType<typeof signal<LlamadaSip | null>>;
   let enCurso: ReturnType<typeof signal<LlamadaSip | null>>;
   let estado: ReturnType<typeof signal<string>>;
+  let companeros: ReturnType<typeof signal<{ extension: string; nombre: string }[]>>;
+  let transferir: jasmine.Spy;
   let disponible: ReturnType<typeof signal<boolean>>;
   let contestando: ReturnType<typeof signal<boolean>>;
   let contestar: jasmine.Spy;
@@ -25,6 +27,8 @@ describe('SoftphoneComponent', () => {
     entrante = signal<LlamadaSip | null>(null);
     enCurso = signal<LlamadaSip | null>(null);
     estado = signal('registrado');
+    companeros = signal<{ extension: string; nombre: string }[]>([]);
+    transferir = jasmine.createSpy('transferir').and.resolveTo(true);
     disponible = signal(true);
     contestando = signal(false);
     contestar = jasmine.createSpy('contestar');
@@ -39,6 +43,7 @@ describe('SoftphoneComponent', () => {
             disponible, estado, entrante, enCurso, contestar, contestando,
             motivo: signal(''), avisoCola: signal(''), silenciado: signal(false),
             sinAudioRemoto: signal(false), extension: signal('102'),
+            companeros, transfiriendo: signal(false), transferir,
             encender: () => undefined, apagar: () => undefined,
             colgar: () => undefined, alternarSilencio: () => undefined,
             usarAudio: () => undefined,
@@ -290,6 +295,68 @@ describe('SoftphoneComponent', () => {
       contestando.set(true);
       f.detectChanges();
       expect(f.componentInstance.rotulo()).toContain('Contestando');
+    });
+  });
+
+  describe('pasar la llamada a un compañero', () => {
+    const enLlamada = () => {
+      const f = montar();
+      enCurso.set({ numero: '3001234567' });
+      companeros.set([
+        { extension: '102', nombre: 'Beto' },
+        { extension: '103', nombre: 'Carla' },
+      ]);
+      f.detectChanges();
+      return f;
+    };
+
+    it('sin compañeros no ofrece el botón: no hay a quién pasarla', () => {
+      const f = montar();
+      enCurso.set({ numero: '3001234567' });
+      companeros.set([]);
+      f.detectChanges();
+      const botones = [...f.nativeElement.querySelectorAll('button')]
+        .map((b: HTMLElement) => b.textContent ?? '');
+      expect(botones.some((t: string) => t.includes('Pasar a'))).toBe(false);
+    });
+
+    it('la lista aparece solo al pedirla, y trae a los compañeros', () => {
+      const f = enLlamada();
+      expect(f.nativeElement.querySelector('.sp-destinos')).toBeNull();
+      f.componentInstance.alternarTransferir();
+      f.detectChanges();
+      const destinos = f.nativeElement.querySelectorAll('.sp-destino');
+      expect(destinos.length).toBe(2);
+      expect(destinos[0].textContent).toContain('Beto');
+    });
+
+    it('ADVIERTE antes de elegir, no después', () => {
+      // Una vez oprimido, la llamada ya salió. Y dice lo que de verdad pasa
+      // —vuelve a la cola— en vez de un «¿está seguro?» que nadie lee.
+      const f = enLlamada();
+      f.componentInstance.alternarTransferir();
+      f.detectChanges();
+      const aviso = f.nativeElement.querySelector('.sp-aviso').textContent;
+      expect(aviso).toContain('de inmediato');
+      expect(aviso).toContain('vuelve a la cola');
+    });
+
+    it('elegir transfiere y cierra la lista', () => {
+      const f = enLlamada();
+      f.componentInstance.alternarTransferir();
+      f.detectChanges();
+      f.nativeElement.querySelectorAll('.sp-destino')[1].click();
+      expect(transferir).toHaveBeenCalledWith('103');
+    });
+
+    it('la lista se cierra aunque la transferencia falle', async () => {
+      // Dejarla abierta invita a oprimir otra vez sobre una llamada que
+      // quizá ya no existe.
+      const f = enLlamada();
+      transferir.and.resolveTo(false);
+      f.componentInstance.alternarTransferir();
+      await f.componentInstance.pasarA('102');
+      expect(f.componentInstance.eligiendoDestino()).toBe(false);
     });
   });
 });

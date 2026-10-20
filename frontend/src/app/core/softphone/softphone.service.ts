@@ -173,6 +173,11 @@ export class SoftphoneService {
       return;
     }
 
+    // A quién se le puede pasar una llamada. Se pide aquí y no al transferir:
+    // cuando el operador necesita pasarla ya la tiene en la oreja, y una lista
+    // que tarda en cargar son segundos de silencio con un ciudadano esperando.
+    this.cargarCompaneros();
+
     this.extension.set(r.config.extension ?? '');
     await this.transporte.conectar(r.config, {
       registro: (estado, motivo) => {
@@ -313,6 +318,62 @@ export class SoftphoneService {
         );
       },
     });
+  }
+
+  /** Está transfiriendo ahora mismo: el botón no se puede oprimir dos veces. */
+  readonly transfiriendo = signal(false);
+
+  /**
+   * A quién se le puede pasar la llamada. Se pide al encender, una sola vez.
+   *
+   * Al encender y no al transferir: cuando el operador necesita pasar una
+   * llamada ya la tiene en la oreja, y una lista que tarda en cargar se
+   * traduce en segundos de silencio con un ciudadano esperando.
+   */
+  readonly companeros = signal<{ extension: string; nombre: string }[]>([]);
+
+  /** Carga los compañeros. Que falle no puede impedir usar el teléfono. */
+  private cargarCompaneros(): void {
+    this.http
+      .get<{ extension: string; nombre: string }[]>(
+        `${this.base}/pbx/companeros`,
+      )
+      .subscribe({
+        next: (c) => this.companeros.set(c ?? []),
+        error: () => this.companeros.set([]),
+      });
+  }
+
+  /**
+   * Pasa la llamada en curso a otra extensión.
+   *
+   * Es una transferencia CIEGA: se suelta y se va, sin poder deshacerla desde
+   * aquí. Si el destino no contesta, el plan de marcación de la planta
+   * devuelve la llamada a la cola, así que el peor caso de equivocarse de
+   * compañero es que vuelva a timbrar en la sala. Aun así la lista ofrece
+   * primero a los que están conectados: que haya red debajo no es excusa para
+   * ofrecer un puesto vacío.
+   *
+   * Lo que pasa después no lo decide esta pantalla: la central avisa a FALCON
+   * con el evento `transferida`, y es ese aviso el que hace que el caso
+   * aparezca en el puesto del que la recibe. Si el operador que transfiere
+   * tuviera que «mandar» el caso, una transferencia hecha desde un teléfono
+   * de escritorio no movería nada.
+   */
+  async transferir(extension: string): Promise<boolean> {
+    if (this.transfiriendo()) return false;
+    this.transfiriendo.set(true);
+    try {
+      await this.transporte.transferir(extension);
+      return true;
+    } catch (e) {
+      this.motivo.set(
+        (e as Error)?.message ?? 'No se pudo transferir la llamada.',
+      );
+      return false;
+    } finally {
+      this.transfiriendo.set(false);
+    }
   }
 
   async colgar(): Promise<void> {

@@ -349,7 +349,11 @@ media_address = ${privada(d)}
 bind_rtp_to_media_address = yes`
         : ''
     }
-context = entrantes
+;; «internos» y NO «entrantes»: este contexto es lo que el operador puede
+;; MARCAR desde su softphone, y lo único que debe poder marcar son sus
+;; compañeros. Con «entrantes» compartía contexto con la troncal, así que todo
+;; lo que la troncal alcanza lo alcanzaba también cualquiera con una clave SIP.
+context = internos
 disallow = all
 allow = ulaw,alaw
 auth = ${op.extension}
@@ -597,6 +601,7 @@ exten => h,1,NoOp(FALCON fin id=\${UNIQUEID} estado=\${DIALSTATUS}\${QUEUESTATUS
  same => n,System(curl -s -m 3 -X POST \${FALCON_URL}/api/pbx/webhook -K /etc/asterisk/falcon-webhook.conf -d '{"evento":"colgada","callId":"\${UNIQUEID}"}' &)
 
 
+${internosDialplan(d)}
 [salientes]
 ;; ─────────────────────────────────────────────────────────────────────────
 ;; LO QUE SALE — el botón «Llamar» del caso
@@ -670,6 +675,67 @@ function desbordeDialplan(d: DatosPlanta): string {
  same => n(desborde),NoOp(FALCON desborde id=\${UNIQUEID} motivo=\${QUEUESTATUS})
  same => n,${aviso}
  same => n,Dial(PJSIP/${numero}@troncal,60)
+`;
+}
+
+/**
+ * `[internos]` — lo que un operador puede marcar desde su softphone.
+ *
+ * Hoy solo una cosa: otro operador. Es lo que hace posible la transferencia, y
+ * es deliberadamente todo lo que hay. Las extensiones de operador vivían en
+ * `entrantes`, o sea en el mismo contexto que la troncal: cualquiera con una
+ * clave SIP alcanzaba lo mismo que el operador telefónico. Un contexto propio
+ * cierra eso sin pedirle nada a nadie.
+ *
+ * **Si el destino no contesta, la llamada VUELVE A LA COLA.** Una
+ * transferencia ciega contra un puesto vacío es una llamada al 123 soltada al
+ * aire, y eso no se puede permitir aunque el operador se haya equivocado de
+ * compañero. Con el regreso, el peor caso de una transferencia errada es que
+ * la llamada vuelva a timbrar en la sala — y si tampoco la toman ahí, sigue el
+ * camino de siempre y se va al respaldo.
+ *
+ * El aviso a FALCON va ANTES de marcar y con `&`, como todos: es lo que hace
+ * que el caso aparezca en la pantalla del que la recibe. Si FALCON está caído,
+ * la transferencia igual ocurre; lo que se pierde es el caso en pantalla, no
+ * la llamada.
+ */
+function internosDialplan(d: DatosPlanta): string {
+  const timbre = d.timbreCola ?? TIMBRE_COLA_POR_DEFECTO;
+  const cola = nombreCola(d.tenant);
+
+  if (!d.operadores.length) {
+    return `[internos]
+;; Sin operadores todavía: póngales extensión en FALCON y vuelva a aplicar.
+
+`;
+  }
+
+  const bloques = d.operadores
+    .map((op) => {
+      const aviso =
+        `System(curl -s -m 3 -X POST \${FALCON_URL}/api/pbx/webhook ` +
+        `-K /etc/asterisk/falcon-webhook.conf ` +
+        `-d '{"evento":"transferida","callId":"\${LINKEDID}","extension":"${op.extension}"}' &)`;
+      return `exten => ${op.extension},1,NoOp(FALCON transferencia id=\${LINKEDID} hacia=${op.extension})
+ same => n,${aviso}
+ same => n,Dial(PJSIP/${op.extension},30)
+;; No contestó: vuelve a la sala en vez de caerse.
+ same => n,Queue(${cola},r,,,${timbre})
+ same => n,Hangup()`;
+    })
+    .join('\n\n');
+
+  return `[internos]
+;; ─────────────────────────────────────────────────────────────────────────
+;; LO QUE UN OPERADOR PUEDE MARCAR — hoy, solo sus compañeros
+;;
+;; «callId» va con \${LINKEDID} y no con \${UNIQUEID}: el canal de la
+;; transferencia es NUEVO y tiene su propio UNIQUEID, pero LINKEDID sigue
+;; siendo el de la llamada original. Es lo que permite que el caso siga a la
+;; llamada en vez de abrirse uno nuevo en el puesto que la recibe.
+;; ─────────────────────────────────────────────────────────────────────────
+${bloques}
+
 `;
 }
 

@@ -100,8 +100,38 @@ import { acotar, guardarPosicion, posicionGuardada, posicionPorDefecto } from '.
                   <app-icono [nombre]="sp.silenciado() ? 'micro-off' : 'micro'" [tam]="14" />
                   {{ sp.silenciado() ? 'Reactivar' : 'Silenciar' }}
                 </button>
+                @if (sp.companeros().length) {
+                  <button type="button" class="btn btn--ghost mini"
+                          [attr.aria-expanded]="eligiendoDestino()"
+                          [disabled]="sp.transfiriendo()"
+                          (click)="alternarTransferir()">
+                    <app-icono nombre="flecha-der" [tam]="14" />
+                    {{ sp.transfiriendo() ? 'Pasando…' : 'Pasar a' }}
+                  </button>
+                }
                 <button type="button" class="btn btn--danger mini" (click)="sp.colgar()">Colgar</button>
               </span>
+
+              @if (eligiendoDestino()) {
+                <div class="sp-destinos">
+                  <!--
+                    Se dice ANTES de elegir, no después: una vez oprimido, la
+                    llamada ya salió. Y se dice lo que de verdad pasa —vuelve a
+                    la sala— en vez de un «¿está seguro?» que nadie lee.
+                  -->
+                  <p class="sp-aviso">
+                    La llamada pasa de inmediato. Si no contesta, vuelve a la cola.
+                  </p>
+                  @for (c of sp.companeros(); track c.extension) {
+                    <button type="button" class="sp-destino"
+                            [disabled]="sp.transfiriendo()"
+                            (click)="pasarA(c.extension)">
+                      <strong>{{ c.nombre }}</strong>
+                      <span class="mono">ext. {{ c.extension }}</span>
+                    </button>
+                  }
+                </div>
+              }
             } @else {
               <span class="sp-txt">
                 <strong>Teléfono</strong>
@@ -228,6 +258,26 @@ export class SoftphoneComponent implements AfterViewInit, OnDestroy {
     // Abrirla a mano la deja abierta; cerrarla a mano devuelve el automatismo.
     this.fijadaAMano = abriendo;
     clearTimeout(this.plegarMasTarde);
+  }
+
+  /** ¿Está abierta la lista de a quién pasarle la llamada? */
+  readonly eligiendoDestino = signal(false);
+
+  alternarTransferir(): void {
+    this.eligiendoDestino.set(!this.eligiendoDestino());
+  }
+
+  /**
+   * Pasa la llamada y cierra la lista.
+   *
+   * La lista se cierra pase lo que pase: si salió bien, la llamada ya no es
+   * de este puesto; si salió mal, el motivo se ve en la barra y dejar la
+   * lista abierta invita a oprimir otra vez sobre una llamada que quizá ya
+   * no existe.
+   */
+  async pasarA(extension: string): Promise<void> {
+    await this.sp.transferir(extension);
+    this.eligiendoDestino.set(false);
   }
 
   irARecepcion(): void {

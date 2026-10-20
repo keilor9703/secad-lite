@@ -189,3 +189,42 @@
   .sp--abierta { width: calc(100vw - 24px); }
   .sp-acc .btn { padding-inline: 0.5rem; }
 }
+
+// ── Pasar la llamada a un compañero ────────────────────────────────────────
+// Una lista corta y legible, no un selector: el operador la usa con un
+// ciudadano esperando al otro lado y no puede ir abriendo desplegables.
+.sp-destinos {
+  display: flex;
+  flex-direction: column;
+  gap: var(--esp-1);
+  margin-top: var(--esp-2);
+  padding-top: var(--esp-2);
+  border-top: 1px solid var(--borde);
+  // Con una sala grande la lista no puede empujar la barra fuera de pantalla.
+  max-height: 11rem;
+  overflow-y: auto;
+}
+
+.sp-aviso {
+  margin: 0 0 var(--esp-1);
+  font-size: var(--txt-xs);
+  color: var(--txt-2);
+}
+
+.sp-destino {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: var(--esp-2);
+  padding: var(--esp-1) var(--esp-2);
+  border: 1px solid var(--borde);
+  border-radius: var(--radio-sm);
+  background: var(--fondo-2);
+  color: inherit;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+
+  &:hover:not(:disabled) { background: var(--fondo-3); }
+  &:disabled { opacity: 0.55; cursor: default; }
+}

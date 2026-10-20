@@ -174,17 +174,43 @@ dejar (3) para cuando haya más de tres municipios en el mismo servidor.
 
 ## Zona B — Lo que pide una sala real
 
-### `T5` · Transferencia entre operadores y a otra agencia
-- [ ] **Pendiente** · *Tercero de la cola de implementación*
+### `T5` · Transferencia entre operadores
+- [x] **Hecho (ciega)** · 20/10/2026
 
-Hoy un operador que recibe una llamada que no le corresponde **solo puede
-colgar**. No hay transferencia ni ciega ni asistida.
+Antes, un operador que recibía una llamada que no le correspondía **solo podía
+colgar**.
 
-Es lo primero que va a pedir una sala real, y en despacho multi-agencia es
-funcionalidad básica, no comodidad.
+**Qué quedó hecho:**
+- [x] Transferencia **ciega** por REFER, desde la barra del softphone, con la
+      lista de compañeros de la instancia
+- [x] **El caso sigue a la llamada.** Es toda la razón de existir: que suene en
+      otro teléfono lo hace cualquier central; que el que la recibe vea lo que
+      el primero ya escribió es lo que evita que el ciudadano tenga que contar
+      otra vez lo que acaba de contar
+- [x] **Si el destino no contesta, la llamada vuelve a la cola.** Es lo único
+      que hace tolerable una transferencia ciega: el peor caso de equivocarse
+      de compañero es que vuelva a timbrar en la sala, no una llamada al 123
+      soltada contra un puesto vacío
+- [x] La pantalla **advierte antes** de elegir, no después — una vez oprimido,
+      la llamada ya salió
+- [x] Los compañeros se piden **al encender**, no al transferir: cuando hace
+      falta, el operador ya tiene la llamada en la oreja
+- [x] De paso, las extensiones salen de `[entrantes]` a un contexto propio
+      `[internos]`. Compartían contexto con la troncal, así que todo lo que
+      alcanzaba el operador telefónico lo alcanzaba cualquiera con una clave SIP
 
-**Dónde se toca:** el softphone (`frontend/src/app/core/softphone/`), el
-dialplan generado, y la ficha del caso.
+**Lo que NO quedó, y hace falta decirlo:**
+- **Transferencia asistida** («déjame preguntarle si puede»). Necesita poner en
+      espera, que es `T7`. Hoy el operador suelta y se va.
+- **Transferencia a otra agencia** (un número externo). El contexto `[internos]`
+      solo admite compañeros, a propósito: dejar marcar números externos desde
+      una extensión es un agujero de fraude telefónico, y hacerlo bien es
+      trabajo aparte.
+
+**Dónde quedó:** `core/softphone/transporte-sip{,js}.ts` (el REFER),
+`softphone.service.ts`, `components/softphone/`, `pbx.service.ts` (el evento
+`transferida`), `planta/generador.ts` (`internosDialplan`), y
+`pbx-softphone.service.ts` (la lista de compañeros).
 
 ---
 
@@ -200,10 +226,14 @@ Asterisk lo trae (`ChanSpy`); falta el dialplan, el permiso y la pantalla.
 ---
 
 ### `T7` · Retención (hold) con música
-- [ ] **Pendiente**
+- [ ] **Pendiente** · *Ahora también desbloquea la transferencia asistida*
 
 Hoy solo hay silencio de micrófono. No se puede poner a alguien en espera de
 verdad.
+
+Con `T5` hecha, esto vale el doble: **la transferencia asistida** —«déjame
+preguntarle si puede tomarla»— necesita poner en espera para existir. Sin ella,
+el operador solo puede soltar y confiar.
 
 ---
 
@@ -317,7 +347,7 @@ declara en ninguna parte.
 ### Ahora
 1. ~~**`T2` Monitoreo**~~ — hecho el 20/10/2026.
 2. ~~**`T3` Desborde de la cola**~~ — hecho el 20/10/2026.
-3. **`T5` Transferencia** — lo primero que pide una sala real.
+3. ~~**`T5` Transferencia**~~ — hecha (ciega) el 20/10/2026.
 
 ### Esta semana, en paralelo y sin código
 - **`T11`** el certificado (media hora, y tiene fecha).
@@ -339,4 +369,5 @@ vendible a un municipio grande.
 |---|---|---|
 | 20/10/2026 | Diagnóstico inicial y esta hoja de ruta | `0e7c94b` |
 | 20/10/2026 | **`T2`** Monitoreo y alertas de la planta | `0eff270` |
-| 20/10/2026 | **`T3`** Desborde de la cola | *este* |
+| 20/10/2026 | **`T3`** Desborde de la cola | `8888d86` |
+| 20/10/2026 | **`T5`** Transferencia ciega entre operadores | *este* |

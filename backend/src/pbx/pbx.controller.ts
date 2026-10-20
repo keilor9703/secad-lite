@@ -236,6 +236,19 @@ export class PbxController {
   }
 
   /**
+   * GET /api/pbx/companeros — a quién se le puede pasar una llamada.
+   *
+   * Mismo permiso que el softphone: quien puede atender, puede transferir.
+   * Pedir un permiso aparte obligaría a configurar dos cosas para que una
+   * funcione, y la segunda se olvidaría.
+   */
+  @Permisos('pbx.usar')
+  @Get('companeros')
+  companeros(@Tenant() tenant: string, @Usuario() usuario: JwtPayload) {
+    return this.softphoneSvc.companeros(tenant, usuario?.sub ?? '');
+  }
+
+  /**
    * GET /api/pbx/config — estado de la integración + ruta del webhook. La API
    * key ya no se guarda en claro (solo su digest), así que no se puede volver
    * a mostrar: se rota para obtener una nueva.

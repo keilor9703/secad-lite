@@ -267,6 +267,142 @@ describe('PbxService.webhook()', () => {
  * alcanzamos a contestar» de «nadie se enteró de que había una llamada», que
  * en una línea de emergencia es lo único que importa de la que no se atendió.
  */
+/**
+ * LA TRANSFERENCIA — pasarle la llamada a un compañero.
+ *
+ * Lo que hace útil una transferencia en un CAD no es que suene en otro
+ * teléfono —eso lo hace cualquier central— sino que el que la recibe vea en
+ * pantalla lo que el primero ya escribió. Si el caso se perdiera, el ciudadano
+ * tendría que contar otra vez lo que acaba de contar, que es exactamente lo
+ * que una línea de emergencia no puede pedirle.
+ */
+describe('PbxService.webhook() — transferencia', () => {
+  let service: PbxService;
+  let llamadasRepo: {
+    findOne: jest.Mock;
+    save: jest.Mock;
+    create: jest.Mock;
+    find: jest.Mock;
+  };
+  let usuarios: { buscarPorExtension: jest.Mock };
+  const tenantDemo = { codigo: 'demo', integraciones: ['pbx'] } as any;
+
+  const enCurso = (cambios: Record<string, unknown> = {}) => ({
+    id: 'llamada-1',
+    tenant: 'demo',
+    callId: 'call-1',
+    numero: '3001234567',
+    estado: 'atendida',
+    extension: '101',
+    destinatario: 'ana',
+    atendidaPor: 'ana',
+    atendidaEn: new Date(),
+    casoId: 'caso-7',
+    ...cambios,
+  });
+
+  beforeEach(async () => {
+    llamadasRepo = {
+      findOne: jest.fn().mockResolvedValue(null),
+      save: jest.fn((v) => Promise.resolve({ ...v })),
+      create: jest.fn((v) => v),
+      find: jest.fn(),
+    };
+    usuarios = {
+      buscarPorExtension: jest.fn().mockResolvedValue({ username: 'beto' }),
+    };
+    const module: TestingModule = await Test.createTestingModule({
+      providers: [
+        PbxService,
+        { provide: CasosService, useValue: {} },
+        { provide: UsuariosService, useValue: usuarios },
+        {
+          provide: TenantRlsService,
+          useValue: {
+            conTenant: jest.fn((_t: string, fn: (m: any) => unknown) =>
+              fn({ getRepository: () => llamadasRepo, query: jest.fn() }),
+            ),
+          },
+        },
+      ],
+    }).compile();
+    service = module.get<PbxService>(PbxService);
+  });
+
+  const transferir = (extension = '102') =>
+    service.webhook(tenantDemo, {
+      evento: 'transferida',
+      callId: 'call-1',
+      extension,
+    } as WebhookLlamadaDto);
+
+  it('EL CASO NO SE PIERDE: es toda la razón de existir de esto', async () => {
+    llamadasRepo.findOne.mockResolvedValue(enCurso());
+    const r = await transferir();
+    expect(r.casoId).toBe('caso-7');
+  });
+
+  it('ahora timbra en el puesto del que la recibe', async () => {
+    llamadasRepo.findOne.mockResolvedValue(enCurso());
+    const r = await transferir('102');
+    expect(r.estado).toBe('sonando');
+    expect(r.extension).toBe('102');
+    expect(r.destinatario).toBe('beto');
+  });
+
+  it('suelta a quien la tenía, para que el nuevo pueda tomarla', async () => {
+    // Dejarla marcada a nombre del primero la deja en un limbo donde nadie
+    // puede atenderla: ni él, que ya la soltó, ni el que la está oyendo.
+    llamadasRepo.findOne.mockResolvedValue(enCurso());
+    const r = await transferir();
+    expect(r.atendidaPor).toBeNull();
+    expect(r.atendidaEn).toBeNull();
+  });
+
+  it('sin extensión de destino no se adivina: 400', async () => {
+    llamadasRepo.findOne.mockResolvedValue(enCurso());
+    await expect(
+      service.webhook(tenantDemo, {
+        evento: 'transferida',
+        callId: 'call-1',
+      } as WebhookLlamadaDto),
+    ).rejects.toThrow(BadRequestException);
+  });
+
+  it('una llamada que ya terminó NO revive', async () => {
+    // El aviso llegó tarde. Revivirla la deja sonando para siempre en la cola
+    // de alguien que no tiene a nadie al otro lado.
+    for (const estado of ['finalizada', 'perdida']) {
+      llamadasRepo.save.mockClear();
+      llamadasRepo.findOne.mockResolvedValue(enCurso({ estado }));
+      const r = await transferir();
+      expect(r.estado).toBe(estado);
+      expect(llamadasRepo.save).not.toHaveBeenCalled();
+    }
+  });
+
+  it('una desbordada SÍ se puede transferir: sigue viva', async () => {
+    llamadasRepo.findOne.mockResolvedValue(enCurso({ estado: 'desbordada' }));
+    const r = await transferir();
+    expect(r.estado).toBe('sonando');
+  });
+
+  it('si la extensión no es de nadie, se transfiere igual y se dice', async () => {
+    // La central ya movió la llamada: negarse aquí no la devuelve, solo deja
+    // a FALCON contando una cosa distinta de la que está pasando.
+    usuarios.buscarPorExtension.mockResolvedValue(null);
+    llamadasRepo.findOne.mockResolvedValue(enCurso());
+    const r = await transferir('999');
+    expect(r.extension).toBe('999');
+    expect(r.destinatario).toBeNull();
+  });
+
+  it('una transferencia de una llamada que no existe responde 404', async () => {
+    llamadasRepo.findOne.mockResolvedValue(null);
+    await expect(transferir()).rejects.toThrow(NotFoundException);
+  });
+});
+
 describe('PbxService.webhook() — desborde', () => {
   let service: PbxService;
   let llamadasRepo: {

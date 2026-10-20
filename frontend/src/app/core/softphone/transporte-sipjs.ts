@@ -1,7 +1,7 @@
 import { Injectable } from '@angular/core';
 // Tipos solamente: `import type` se borra al compilar y por eso NO arrastra la
 // biblioteca al paquete inicial. Ver `cargar()`.
-import type { Session, SessionState } from 'sip.js';
+import type { Session, SessionState, UserAgent } from 'sip.js';
 import type { SessionManager } from 'sip.js/lib/platform/web/session-manager';
 import { ConfigSoftphone, OyentesSip, TransporteSip } from './transporte-sip';
 import { engancharAudioRemoto, soltarAudioRemoto } from './audio-remoto';
@@ -18,6 +18,8 @@ export const ESPERA_ICE_MS = 1500;
 interface ModuloSip {
   SessionManager: typeof import('sip.js/lib/platform/web/session-manager').SessionManager;
   SessionState: typeof SessionState;
+  /** Solo por `makeURI`: un REFER lleva una URI completa, no una extensión. */
+  UserAgent: typeof UserAgent;
 }
 
 /**
@@ -136,6 +138,13 @@ export class TransporteSipJs implements TransporteSip {
   private audio?: HTMLAudioElement;
   /** La biblioteca, una vez cargada. Se reutiliza entre encendidos. */
   private sip?: ModuloSip;
+  /**
+   * El dominio SIP con el que se registró.
+   *
+   * Hace falta para armar el destino de una transferencia: un REFER lleva una
+   * URI completa, no una extensión suelta.
+   */
+  private dominio = '';
 
   usarAudio(elemento: HTMLAudioElement): void {
     this.audio = elemento;
@@ -151,6 +160,7 @@ export class TransporteSipJs implements TransporteSip {
       return;
     }
 
+    this.dominio = config.dominio;
     this.manager = new sip.SessionManager(config.wss, {
       aor: `sip:${config.usuario}@${config.dominio}`,
       media: { constraints: { audio: true, video: false }, remote: { audio: this.audio } },
@@ -259,6 +269,33 @@ export class TransporteSipJs implements TransporteSip {
     await this.manager.hangup(this.sesion).catch(() => undefined);
   }
 
+  /**
+   * Transferencia ciega, por REFER.
+   *
+   * SIP.js manda el REFER sobre la sesión viva y la central se encarga del
+   * resto; el BYE de nuestra pata llega solo cuando la central la suelta, así
+   * que aquí no se cuelga a mano —colgar primero mataría la llamada en vez de
+   * transferirla, que es el error clásico de esto.
+   *
+   * Solo sobre una llamada establecida: un REFER sobre algo que todavía
+   * timbra no es una transferencia, es una llamada perdida con pasos extra.
+   */
+  async transferir(extension: string): Promise<void> {
+    const destino = (extension ?? '').trim();
+    if (!destino) throw new Error('No hay a quién transferir.');
+    const establecida = this.sip?.SessionState.Established;
+    if (!this.manager || !this.sesion || this.sesion.state !== establecida)
+      throw new Error('Solo se puede transferir una llamada en curso.');
+
+    const uri = this.sip!.UserAgent.makeURI(
+      `sip:${destino}@${this.dominio}`,
+    );
+    if (!uri) throw new Error(`«${destino}» no es una extensión válida.`);
+    await (
+      this.sesion as unknown as { refer(u: unknown): Promise<unknown> }
+    ).refer(uri);
+  }
+
   silenciar(silenciado: boolean): void {
     if (!this.manager || !this.sesion) return;
     if (silenciado) this.manager.mute(this.sesion);
@@ -286,7 +323,11 @@ export class TransporteSipJs implements TransporteSip {
         import('sip.js/lib/platform/web/session-manager'),
         import('sip.js'),
       ]);
-      this.sip = { SessionManager: web.SessionManager, SessionState: nucleo.SessionState };
+      this.sip = {
+        SessionManager: web.SessionManager,
+        SessionState: nucleo.SessionState,
+        UserAgent: nucleo.UserAgent,
+      };
       return this.sip;
     } catch {
       return null;

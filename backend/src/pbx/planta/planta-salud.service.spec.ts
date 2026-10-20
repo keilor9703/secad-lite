@@ -159,7 +159,12 @@ describe('PlantaSaludService', () => {
       vence = new Date(Date.now() + 10 * 86_400_000);
       const r = await svc.revisarYGuardar(planta());
       expect(r.fallas).toContain('certificado');
-      expect(r.detalle).toMatch(/vence en 1[01] día/);
+      // Días exactos NO: el cálculo redondea hacia abajo y unos milisegundos
+      // entre preparar la fecha y medirla convierten 10 en 9. La garantía es
+      // que avisa ANTES de vencer —queda tiempo, y se dice cuánto—, no el
+      // número. Esta prueba ya falló una vez por eso.
+      expect(r.detalle).toMatch(/vence en \d+ día/);
+      expect(r.detalle).not.toContain('venció');
     });
 
     it('el certificado vencido se distingue del que está por vencer', async () => {

@@ -26,15 +26,17 @@ export class WebhookLlamadaDto {
   /**
    * Qué pasó con la llamada.
    *
-   *  - `entrante`  — está timbrando.
-   *  - `desborde`  — nadie en la sala contestó y la central la mandó al número
-   *                  de respaldo. NO es lo mismo que perderla.
-   *  - `colgada`   — terminó, antes o después de atenderla.
+   *  - `entrante`    — está timbrando.
+   *  - `transferida` — un operador se la pasó a otro; ahora timbra allá.
+   *  - `desborde`    — nadie en la sala contestó y la central la mandó al
+   *                    número de respaldo. NO es lo mismo que perderla.
+   *  - `colgada`     — terminó, antes o después de atenderla.
    */
-  @IsIn(['entrante', 'desborde', 'colgada'], {
-    message: 'evento debe ser "entrante", "desborde" o "colgada".',
+  @IsIn(['entrante', 'transferida', 'desborde', 'colgada'], {
+    message:
+      'evento debe ser "entrante", "transferida", "desborde" o "colgada".',
   })
-  evento!: 'entrante' | 'desborde' | 'colgada';
+  evento!: 'entrante' | 'transferida' | 'desborde' | 'colgada';
 
   @IsOptional() @IsString() @MaxLength(120)
   callId?: string;
@@ -287,6 +289,12 @@ export class PbxService {
         return llamada;
       }
 
+      if (dto?.evento === 'transferida') {
+        const llamada = await this.transferir(manager, tenant, dto);
+        if (!llamada) throw new NotFoundException('Llamada no encontrada.');
+        return llamada;
+      }
+
       if (dto?.evento === 'desborde') {
         const llamada = await this.desbordar(manager, tenant.codigo, dto);
         if (!llamada) throw new NotFoundException('Llamada no encontrada.');
@@ -303,6 +311,62 @@ export class PbxService {
 
       throw new BadRequestException('Evento de PBX no reconocido.');
     });
+  }
+
+  /**
+   * Pasa la llamada de un operador a otro: ahora timbra en el puesto del que
+   * la recibe.
+   *
+   * **El caso NO se toca, y eso es todo el punto.** Lo que hace útil una
+   * transferencia en un CAD no es que suene en otro teléfono —eso lo hace
+   * cualquier central— sino que el que la recibe vea en pantalla lo que el
+   * primero ya escribió. Si el caso se perdiera, el ciudadano tendría que
+   * contar otra vez lo que acaba de contar, que es exactamente lo que una
+   * línea de emergencia no puede pedirle.
+   *
+   * Lo que sí se suelta es `atendidaPor`: la llamada vuelve a estar
+   * disponible para que el nuevo operador la tome. Dejarla marcada a nombre
+   * del primero la dejaría en un limbo donde nadie puede atenderla.
+   */
+  private async transferir(
+    manager: EntityManager,
+    tenant: TenantEntity,
+    dto: WebhookLlamadaDto,
+  ): Promise<LlamadaEntity | null> {
+    const extension = dto.extension?.trim();
+    if (!extension)
+      throw new BadRequestException(
+        'La extensión de destino es obligatoria en una transferencia.',
+      );
+
+    const llamada = await this.ubicar(
+      manager,
+      tenant.codigo,
+      dto.callId,
+      dto.numero,
+    );
+    if (!llamada) return null;
+
+    // Una llamada que ya terminó no se transfiere: el aviso llegó tarde, y
+    // revivirla la dejaría sonando para siempre en la cola de alguien.
+    if (llamada.estado === 'finalizada' || llamada.estado === 'perdida')
+      return llamada;
+
+    llamada.estado = 'sonando';
+    llamada.extension = extension;
+    llamada.destinatario =
+      (await this.usuarios.buscarPorExtension(tenant.codigo, extension))
+        ?.username ?? null;
+    llamada.atendidaPor = null;
+    llamada.atendidaEn = null;
+
+    const guardada = await manager.getRepository(LlamadaEntity).save(llamada);
+    this.eventos$.next({
+      tenant: tenant.codigo,
+      tipo: 'cambio',
+      llamada: guardada,
+    });
+    return guardada;
   }
 
   /**

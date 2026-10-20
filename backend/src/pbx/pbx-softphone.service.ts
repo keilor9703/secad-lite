@@ -48,6 +48,31 @@ export class PbxSoftphoneService {
     private readonly usuarios: UsuariosService,
   ) {}
 
+  /**
+   * Los compañeros a los que este operador le puede pasar una llamada.
+   *
+   * Solo los de su misma instancia y con extensión: sin extensión no hay a
+   * dónde transferir, y entre instancias no hay nada que transferir porque
+   * son municipios distintos.
+   *
+   * Se excluye a sí mismo. Ofrecerse como destino no es un error inofensivo:
+   * una transferencia a la propia extensión manda la llamada a un teléfono
+   * que ya está ocupado con esa misma llamada.
+   */
+  async companeros(
+    tenant: string,
+    actor: string,
+  ): Promise<Array<{ extension: string; nombre: string }>> {
+    const todos = await this.usuarios.conExtension(tenant);
+    return todos
+      .filter((u) => u.username !== actor && (u.extension ?? '').trim())
+      .map((u) => ({
+        extension: (u.extension ?? '').trim(),
+        nombre: u.nombre || u.username,
+      }))
+      .sort((a, b) => a.nombre.localeCompare(b.nombre, 'es'));
+  }
+
   async configDe(tenant: string, actor: string): Promise<RespuestaSoftphone> {
     const fila = await this.cred.configDe(tenant);
     const clave = this.cred.claveProveedor(fila);

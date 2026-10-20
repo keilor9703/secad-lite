@@ -78,6 +78,20 @@ export interface TransporteSip {
    */
   contestar(): Promise<number>;
   colgar(): Promise<void>;
+  /**
+   * Pasa la llamada a otra extensión y se desengancha.
+   *
+   * Es una transferencia CIEGA: se suelta y se va, sin esperar a que el otro
+   * conteste y sin poder deshacerla desde aquí. Para «déjame preguntarle»
+   * hace falta poner en espera, que todavía no existe (ver `T7`).
+   *
+   * Lo que sí hay es red debajo: si el destino no contesta, el plan de
+   * marcación de la planta devuelve la llamada A LA COLA en vez de dejarla
+   * caer. Así el peor caso de transferir al compañero equivocado es que la
+   * llamada vuelva a timbrar en la sala, no una llamada al 123 soltada al
+   * aire.
+   */
+  transferir(extension: string): Promise<void>;
   silenciar(silenciado: boolean): void;
   tono(dtmf: string): Promise<void>;
   /** Dónde suena la llamada. */
