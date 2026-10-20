@@ -146,6 +146,32 @@ export class PlantaAsteriskEntity {
   puertoHttp!: number;
 
   /**
+   * La IP de la interfaz real del servidor (`10.0.0.112` en OCI). Nula = no
+   * se toca nada y Asterisk decide.
+   *
+   * Es el campo que arregla las dos averías de audio que SÍ pasaron, y
+   * ninguna de las dos dice qué le ocurre:
+   *
+   *  1. **El socket de audio del navegador.** Asterisk hereda la dirección
+   *     del transporte para abrir el RTP, y el transporte del WebSocket está
+   *     en 127.0.0.1 porque el TLS lo pone nginx. El audio del operador
+   *     abría entonces en 127.0.0.1: sus paquetes rebotaban con «ICMP port
+   *     unreachable» y Asterisk no podía enviar. La llamada entra, timbra,
+   *     se contesta y no se oye nada de ningún lado.
+   *  2. **El candidato ICE.** Con NAT 1:1 de nube la IP pública no está en
+   *     ninguna interfaz, así que Asterisk solo ofrecía la privada.
+   *
+   * Es un dato del SERVIDOR, no del municipio: todas las plantas de un mismo
+   * host llevan el mismo valor. Está por planta y no por servidor porque no
+   * hay tabla de servidores; el día que la haya, se sube ahí.
+   *
+   * Se lee en el servidor con `ip -4 addr show` (la de la interfaz
+   * principal, no la de `lo` ni las de `docker0`/`br-*`).
+   */
+  @Column({ type: 'varchar', length: 64, nullable: true })
+  ipPrivada?: string | null;
+
+  /**
    * La IP del host por la que el nginx que termina el TLS alcanza a esta
    * planta. Nula = `127.0.0.1`.
    *
@@ -214,6 +240,13 @@ export function urlAri(
   planta: Pick<PlantaAsteriskEntity, 'dominioSip'>,
 ): string {
   return `https://${planta.dominioSip}/ari`;
+}
+
+/** La IP de la interfaz real del servidor; vacío si no se declaró. */
+export function ipPrivadaDe(
+  planta: Pick<PlantaAsteriskEntity, 'ipPrivada'>,
+): string {
+  return planta.ipPrivada?.trim() || '';
 }
 
 /**

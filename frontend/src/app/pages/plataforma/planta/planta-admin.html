@@ -104,6 +104,16 @@
                 <input id="d-ip" formControlName="ipPublica" [placeholder]="p.ipPublica || 'hace falta'" />
               </div>
               <div class="field">
+                <label for="d-privada">IP privada (la de la interfaz del servidor)</label>
+                <input id="d-privada" formControlName="ipPrivada" [placeholder]="p.ipPrivada || 'ip -4 addr show'" />
+                <small>
+                  La de la interfaz principal, no la de <code>lo</code> ni las
+                  de <code>docker0</code>/<code>br-*</code>. Sin ella, el audio
+                  del operador se abre en 127.0.0.1 y la llamada se contesta sin
+                  que se oiga nada de ningún lado.
+                </small>
+              </div>
+              <div class="field">
                 <label for="d-interna">IP interna (por dónde la alcanza nginx)</label>
                 <input id="d-interna" formControlName="ipInterna" [placeholder]="p.ipInterna" />
                 <small>

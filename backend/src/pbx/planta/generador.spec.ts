@@ -75,6 +75,9 @@ describe('generador de la configuración de la planta', () => {
   const contenido = (cambios: Partial<DatosPlanta>, ruta: string): string =>
     generar(cambios).get(ruta)?.contenido ?? '';
 
+  const contar = (texto: string, aguja: string): number =>
+    texto.split(aguja).length - 1;
+
   describe('los códecs y la troncal', () => {
     it('ulaw, y Opus en ninguna parte: con Opus la central cuelga la llamada ella misma', () => {
       const todos = generarConfiguracion(DATOS)
@@ -374,6 +377,85 @@ describe('generador de la configuración de la planta', () => {
       expect(rtp).toContain('stunaddr = stun.l.google.com:19302');
     });
 
+    it('el audio del navegador NO se abre en la dirección del WebSocket', () => {
+      // LA NOCHE ENTERA. El transporte del WebSocket está en 127.0.0.1 porque
+      // el TLS lo pone nginx, y Asterisk HEREDA la dirección del transporte
+      // para abrir el socket RTP. Sin estas dos líneas el audio del operador
+      // abría en 127.0.0.1: los paquetes del navegador rebotaban con «ICMP
+      // port unreachable», Asterisk no podía enviar («Error sending STUN
+      // request: Invalid argument») y el DTLS no arrancaba nunca. La llamada
+      // entra, timbra, el operador contesta Y NO SE OYE NADA de ningún lado,
+      // sin un solo mensaje que diga por qué.
+      const p = contenido({ ipPrivada: '10.0.0.112' }, 'etc/pjsip.conf');
+      // Una por operador, y las dos: «media_address» solo cambia el SDP; la
+      // que abre el socket donde toca es «bind_rtp_to_media_address».
+      expect(contar(p, 'media_address = 10.0.0.112')).toBe(2);
+      expect(contar(p, 'bind_rtp_to_media_address = yes')).toBe(2);
+    });
+
+    it('sin IP privada declarada no inventa un media_address', () => {
+      // Un servidor cuya IP pública está en la interfaz no necesita esto, y
+      // poner una dirección equivocada ahí deja la planta sin audio.
+      const p = contenido({}, 'etc/pjsip.conf');
+      // Anclado al principio de línea: el comentario del archivo NOMBRA las
+      // dos opciones para explicar por qué existen, y un `toContain` suelto
+      // se daría por satisfecho con el comentario.
+      expect(p).not.toMatch(/^media_address/m);
+      expect(p).not.toMatch(/^bind_rtp_to_media_address/m);
+    });
+
+    it('con NAT 1:1 anuncia la pública y CONSERVA la privada', () => {
+      const rtp = contenido({ ipPrivada: '10.0.0.112' }, 'etc/rtp.conf');
+      expect(rtp).toContain('[ice_host_candidates]');
+      // «include_local_address» no es un detalle: sin él Asterisk SUSTITUYE
+      // la dirección, se queda sin una local real desde la cual enviar, y
+      // falla con «Invalid argument» en cada envío. Con la dirección
+      // correcta anunciada y nada desde donde mandarla, que es peor que no
+      // tocarlo: parece bien configurado y no funciona.
+      expect(rtp).toContain(
+        '10.0.0.112 => 129.80.243.118,include_local_address',
+      );
+      // Y con esa sección NO va stunaddr: lo dice la documentación de
+      // Asterisk, y en el servidor real el STUN nunca produjo el candidato.
+      expect(rtp).not.toContain('stunaddr');
+    });
+
+    it('sin NAT 1:1 se queda con el STUN de siempre', () => {
+      const rtp = contenido({}, 'etc/rtp.conf');
+      expect(rtp).toContain('stunaddr = stun.l.google.com:19302');
+      expect(rtp).not.toContain('[ice_host_candidates]');
+    });
+
+    it('si la privada ES la pública, no hay NAT que compensar', () => {
+      // Un servidor con su IP pública en la interfaz: mapear ahí sería
+      // anunciar la misma dirección dos veces.
+      const rtp = contenido({ ipPrivada: '129.80.243.118' }, 'etc/rtp.conf');
+      expect(rtp).not.toContain('[ice_host_candidates]');
+      expect(rtp).toContain('stunaddr');
+    });
+
+    it('descarta los puentes de Docker de los candidatos ICE', () => {
+      // El contenedor va en la red del host: Asterisk ve «docker0» y un
+      // «br-xxxx» por cada stack de Docker de la máquina —en el primer
+      // servidor real eran CUATRO— y ofrecía todas esas 172.x al navegador,
+      // que no puede alcanzar ninguna.
+      const rtp = contenido({ ipPrivada: '10.0.0.112' }, 'etc/rtp.conf');
+      expect(rtp).toContain('ice_deny = 172.16.0.0/12');
+      expect(rtp).toContain('ice_deny = 192.168.0.0/16');
+      expect(rtp).toContain('ice_deny = 169.254.0.0/16');
+    });
+
+    it('nunca descarta la red donde vive el propio servidor', () => {
+      // Negar el rango que contiene la IP real dejaría a la planta sin un
+      // solo candidato: el remedio peor que la enfermedad.
+      const rtp = contenido({ ipPrivada: '172.31.5.9' }, 'etc/rtp.conf');
+      expect(rtp).not.toContain('ice_deny = 172.16.0.0/12');
+      expect(rtp).toContain('ice_deny = 192.168.0.0/16');
+      const otro = contenido({ ipPrivada: '192.168.7.3' }, 'etc/rtp.conf');
+      expect(otro).not.toContain('ice_deny = 192.168.0.0/16');
+      expect(otro).toContain('ice_deny = 172.16.0.0/12');
+    });
+
     it('chan_sip queda fuera, y el noload va DENTRO de [modules]', () => {
       const m = contenido({}, 'etc/modules.conf');
       expect(m).toContain('noload => chan_sip.so');
@@ -439,7 +521,7 @@ describe('generador de la configuración de la planta', () => {
       expect(c).toContain('container_name: asterisk-itagui');
       // Una imagen para todos los municipios: si fuera por municipio,
       // actualizar Asterisk sería un trabajo por municipio.
-      expect(c).toContain('image: falcon-pbx:1');
+      expect(c).toContain('image: falcon-pbx:2');
     });
 
     it('nginx enruta por nombre al puerto de ESTA planta, con su propio certificado', () => {
@@ -609,18 +691,19 @@ describe('generador de la configuración de la planta', () => {
       // El servidor de telefonía no tiene por qué tener una copia del
       // repositorio ni credenciales de git: lo único que llega es este
       // archivo, y trae el Dockerfile dentro.
-      expect(c).toContain('docker build -t falcon-pbx:1');
+      expect(c).toContain('docker build -t falcon-pbx:2');
       expect(c).toContain('/opt/falcon-pbx/itagui/imagen');
       expect(c).not.toContain('del repositorio');
       expect(generar().has('imagen/Dockerfile')).toBe(true);
     });
 
-    it('parte de Ubuntu: Debian 12 retiró el paquete de Asterisk', () => {
+    it('parte de Ubuntu 24.04: ni Debian, ni la 22.04 con su Asterisk viejo', () => {
       const d = contenido({}, 'imagen/Dockerfile');
-      // «Package 'asterisk' has no installation candidate»: la imagen no se
-      // podía construir. Ubuntu 22.04 es además la distribución donde corre
-      // hoy la centralita instalada a mano.
-      expect(d).toContain('FROM ubuntu:22.04');
+      // Debian 12 retiró el paquete: «Package 'asterisk' has no installation
+      // candidate» y la imagen no se construye. Y la 22.04 trae Asterisk
+      // 18.10, anterior a varias correcciones de ICE; la 24.04 trae la 20,
+      // que es LTS.
+      expect(d).toContain('FROM ubuntu:24.04');
       expect(d).not.toContain('debian');
       // Y sin frontend interactivo, o la construcción se cuelga esperando la
       // zona horaria.

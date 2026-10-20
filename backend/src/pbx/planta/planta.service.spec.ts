@@ -257,6 +257,23 @@ describe('PlantaService', () => {
       ).rejects.toThrow(/ya lo usa otra planta/);
     });
 
+    it('rechaza 127.0.0.1 como IP privada: es justo la avería que arregla', async () => {
+      await alta('itagui');
+      await expect(
+        svc.actualizar('itagui', { ipPrivada: '127.0.0.1' }, 'admin'),
+      ).rejects.toThrow(/127\.0\.0\.1/);
+      await expect(
+        svc.actualizar('itagui', { ipPrivada: '10.0.0.999' }, 'admin'),
+      ).rejects.toThrow(/IPv4/);
+    });
+
+    it('vacía es válida: hay servidores que no la necesitan', async () => {
+      const v = await alta('itagui');
+      expect(v.ipPrivada).toBe('');
+      const r = await svc.actualizar('itagui', { ipPrivada: '' }, 'admin');
+      expect(r.ipPrivada).toBe('');
+    });
+
     it('la IP interna por defecto es 127.0.0.1, que es la más cerrada', async () => {
       const v = await alta('itagui');
       expect(v.ipInterna).toBe('127.0.0.1');
@@ -450,6 +467,19 @@ describe('PlantaService', () => {
         nombre: 'Ana',
         extension: '101',
       });
+    });
+
+    it('la IP privada llega a pjsip y a rtp: es lo que da audio al navegador', async () => {
+      // Sin ella, el socket de audio del operador abre en 127.0.0.1 —porque
+      // Asterisk hereda la dirección del transporte del WebSocket— y la
+      // llamada se contesta sin que se oiga nada de ningún lado.
+      await svc.actualizar('itagui', { ipPrivada: '10.0.0.112' }, 'admin');
+      const c = await svc.previa('itagui');
+      const texto = (fin: string) =>
+        c.archivos.find((a) => a.ruta.endsWith(fin))!.contenido;
+      expect(texto('pjsip.conf')).toContain('bind_rtp_to_media_address = yes');
+      expect(texto('rtp.conf')).toContain('[ice_host_candidates]');
+      expect(texto('rtp.conf')).toContain('include_local_address');
     });
 
     it('la IP interna guardada llega a http.conf y a nginx', async () => {

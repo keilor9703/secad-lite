@@ -49,6 +49,8 @@ export interface PlantaVisible {
   ipPublica: string;
   /** Por dónde alcanza nginx a esta planta; `127.0.0.1` si no se fijó otra. */
   ipInterna: string;
+  /** La IP de la interfaz real del servidor; vacía si no se declaró. */
+  ipPrivada: string;
   dominioSip: string;
   contenedor: string;
   puertoSip: number;
@@ -89,6 +91,7 @@ export interface CrearPlanta {
   servidor: string;
   ipPublica?: string | null;
   ipInterna?: string | null;
+  ipPrivada?: string | null;
   dominioSip?: string | null;
   notas?: string | null;
 }
@@ -97,6 +100,7 @@ export interface ActualizarPlanta {
   servidor?: string;
   ipPublica?: string | null;
   ipInterna?: string | null;
+  ipPrivada?: string | null;
   dominioSip?: string | null;
   notas?: string | null;
   estado?: EstadoPlanta;

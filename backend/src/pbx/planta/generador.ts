@@ -118,6 +118,26 @@ export interface DatosPlanta {
   /** La clave del usuario `falcon` de ARI, para el botón «Llamar». */
   ariClave: string;
   /**
+   * La IP de la interfaz real del servidor (`10.0.0.112`), la que tiene la
+   * máquina de verdad. Vacío = no se toca nada y Asterisk decide.
+   *
+   * Hacen falta DOS cosas con ella, y las dos nos costaron una noche entera:
+   *
+   *  1. **El socket de audio del navegador.** Asterisk hereda la dirección
+   *     del TRANSPORTE para abrir el socket RTP, y el transporte del
+   *     WebSocket está en 127.0.0.1 —a propósito, porque el TLS lo pone
+   *     nginx—. Resultado: el RTP de esa pata abría en 127.0.0.1, los
+   *     paquetes del navegador rebotaban con «ICMP port unreachable» y
+   *     Asterisk no podía enviar («Invalid argument»). La llamada entra,
+   *     timbra, se contesta y NO SE OYE NADA de ningún lado.
+   *  2. **El candidato ICE.** En una nube con NAT 1:1 la IP pública no está
+   *     en ninguna interfaz, así que Asterisk solo podía ofrecer la privada,
+   *     que el navegador no alcanza.
+   *
+   * Las dos se arreglan desde este campo, y por eso es uno solo.
+   */
+  ipPrivada?: string;
+  /**
    * La IP del host por la que el nginx que termina el TLS alcanza a ESTA
    * planta. Vacío = `127.0.0.1`.
    *
@@ -156,6 +176,23 @@ const IP_INTERNA_POR_DEFECTO = '127.0.0.1';
 /** La IP interna de la planta, con el valor más cerrado por defecto. */
 function interna(d: DatosPlanta): string {
   return d.ipInterna?.trim() || IP_INTERNA_POR_DEFECTO;
+}
+
+/** La IP de la interfaz real del servidor, o vacío si no se declaró. */
+function privada(d: DatosPlanta): string {
+  return d.ipPrivada?.trim() || '';
+}
+
+/**
+ * ¿Hay que anunciar la pública en lugar de la privada en los candidatos ICE?
+ *
+ * Solo cuando las dos se conocen Y son distintas: si son iguales, la máquina
+ * tiene su IP pública en la interfaz y no hay NAT que compensar — mapear ahí
+ * sería anunciar lo mismo dos veces.
+ */
+function hayNat11(d: DatosPlanta): boolean {
+  const p = privada(d);
+  return !!p && !!d.ipPublica && p !== d.ipPublica;
 }
 const TIMBRE_COLA_POR_DEFECTO = 120;
 
@@ -283,10 +320,25 @@ local_net = 192.168.0.0/16
 ;; entra, timbra, el operador contesta — y Asterisk la cuelga él mismo con un
 ;; «Unable to find a codec translation path: (opus) -> (ulaw)» que solo está
 ;; en el log. Ya nos pasó en la primera llamada real.
+;;
+;; Y «media_address» con «bind_rtp_to_media_address» no son adorno: sin ellos
+;; Asterisk hereda la dirección del TRANSPORTE para abrir el socket de audio,
+;; y este transporte está en 127.0.0.1 porque el TLS lo pone nginx. El RTP del
+;; navegador abría entonces en 127.0.0.1: los paquetes del operador rebotaban
+;; con «ICMP port unreachable», Asterisk no podía enviar («Error sending STUN
+;; request: Invalid argument») y el DTLS nunca arrancaba. La llamada entra,
+;; timbra, el operador contesta Y NO SE OYE NADA de ningún lado — sin un solo
+;; mensaje que diga por qué. Costó una noche entera encontrarlo.
 [${op.extension}]
 type = endpoint
 transport = transport-ws
-webrtc = yes
+webrtc = yes${
+      privada(d)
+        ? `
+media_address = ${privada(d)}
+bind_rtp_to_media_address = yes`
+        : ''
+    }
 context = entrantes
 disallow = all
 allow = ulaw,alaw
@@ -627,24 +679,89 @@ ${miembros}
 // rtp.conf, http.conf, modules.conf, ari.conf, falcon-webhook.conf
 // ─────────────────────────────────────────────────────────────────────────────
 function rtpConf(d: DatosPlanta): string {
-  return `${encabezado(d, 'rtp.conf')}[general]
-;; La tajada de puertos de audio de ESTA planta. El contenedor comparte la red
+  const partes = [
+    `${encabezado(d, 'rtp.conf')}[general]`,
+    `;; La tajada de puertos de audio de ESTA planta. El contenedor comparte la red
 ;; del host, así que el rango es del host y lo reparte FALCON: no lo cambie a
 ;; mano o se cruzará con el de otro municipio (ver asignador-puertos.ts).
 rtpstart = ${d.rtpDesde}
 rtpend = ${d.rtpHasta}
-
-;; ─────────────────────────────────────────────────────────────────────────
-;; ICE Y STUN — SIN ESTO EL NAVEGADOR CONTESTA Y LA LLAMADA SE CAE
-;;
-;; \`external_media_address\` del transporte reescribe la IP del SDP, pero NO
-;; los candidatos ICE, y el navegador elige por ICE. Sin un candidato con la
-;; IP pública, el navegador manda su audio a una dirección privada: la llamada
-;; se establece, se oye un instante y se corta. Ya lo diagnosticamos una vez.
+`,
+    `;; ─────────────────────────────────────────────────────────────────────────
+;; ICE — SIN ESTO EL NAVEGADOR CONTESTA Y NO SE OYE NADA
 ;; ─────────────────────────────────────────────────────────────────────────
 icesupport = yes
+`,
+  ];
+
+  // Los puentes de Docker fuera de los candidatos. El contenedor va en la red
+  // del host, así que Asterisk ve «docker0» y un «br-xxxx» por cada stack de
+  // Docker que haya en la máquina, y ofrecía todas esas 172.x al navegador,
+  // que no puede alcanzar ninguna. En el primer servidor real eran CUATRO.
+  //
+  // Se excluye solo lo que NO contenga la IP real del servidor: si la máquina
+  // vive en 172.16/12, negar ese rango la dejaría sin un solo candidato.
+  const descartables = ['172.16.0.0/12', '192.168.0.0/16', '169.254.0.0/16'];
+  const aNegar = descartables.filter((red) => !enLaRed(privada(d), red));
+  if (aNegar.length) {
+    partes.push(
+      `;; Fuera los puentes de Docker y las redes que no son de este servidor.
+${aNegar.map((red) => `ice_deny = ${red}`).join('\n')}
+`,
+    );
+  }
+
+  if (hayNat11(d)) {
+    // NAT 1:1 de nube (OCI, EC2, …): la IP pública NO está en ninguna
+    // interfaz, así que Asterisk solo puede ofrecer la privada y el navegador
+    // no la alcanza. «include_local_address» es imprescindible: sin él
+    // Asterisk SUSTITUYE la dirección y se queda sin una local real desde la
+    // que enviar, y entonces falla con «Invalid argument» en cada envío.
+    //
+    // Y con esta sección NO va «stunaddr»: lo dice la documentación de
+    // Asterisk, y además aquí el STUN nunca produjo el candidato público.
+    partes.push(
+      `;; NAT 1:1 de la nube: la IP pública no está en ninguna interfaz. Se anuncia
+;; la pública y se CONSERVA la privada —«include_local_address»— porque es la
+;; única desde la que Asterisk puede enviar de verdad.
+[ice_host_candidates]
+${privada(d)} => ${d.ipPublica},include_local_address
+`,
+    );
+  } else {
+    partes.push(
+      `;; Sin NAT 1:1 declarado: la dirección externa se descubre por STUN.
 stunaddr = ${d.stun ?? STUN_POR_DEFECTO}
-`;
+`,
+    );
+  }
+
+  return partes.join('\n');
+}
+
+/** ¿Está esta IPv4 dentro de ese CIDR? Vacío = no está en ninguna. */
+function enLaRed(ip: string, cidr: string): boolean {
+  if (!ip) return false;
+  const [red, bitsTexto] = cidr.split('/');
+  const bits = Number(bitsTexto);
+  const aNumero = (texto: string): number | null => {
+    const partes = texto.split('.');
+    if (partes.length !== 4) return null;
+    let n = 0;
+    for (const parte of partes) {
+      const octeto = Number(parte);
+      if (!Number.isInteger(octeto) || octeto < 0 || octeto > 255) return null;
+      n = n * 256 + octeto;
+    }
+    return n;
+  };
+  const a = aNumero(ip);
+  const b = aNumero(red);
+  if (a === null || b === null || !Number.isInteger(bits)) return false;
+  // Un desplazamiento de 32 en JavaScript no desplaza nada (da ~0), así que
+  // una máscara /0 se calcularía mal. Se trata aparte.
+  const mascara = bits === 0 ? 0 : (-1 << (32 - bits)) >>> 0;
+  return (a & mascara) >>> 0 === (b & mascara) >>> 0;
 }
 
 function httpConf(d: DatosPlanta): string {
@@ -814,8 +931,8 @@ services:
     # monta en /etc/asterisk. La construye «aplicar.sh» la primera vez, con el
     # Dockerfile que viene en este mismo paquete —así este servidor no
     # necesita una copia del código ni credenciales de git—:
-    #   docker build -t falcon-pbx:1 ./imagen
-    image: falcon-pbx:1
+    #   docker build -t falcon-pbx:2 ./imagen
+    image: falcon-pbx:2
     container_name: ${nombreContenedor(d.tenant)}
     restart: unless-stopped
     network_mode: host
@@ -1093,9 +1210,9 @@ ${escribir}
 # Antes el script se rendía y pedía construirla «desde el repositorio», y ese
 # repositorio no tiene por qué existir en el servidor de telefonía: lo único
 # que tiene que llegar aquí es este archivo.
-if ! docker image inspect falcon-pbx:1 >/dev/null 2>&1; then
-  echo "➤ Construyendo la imagen falcon-pbx:1 (una sola vez por servidor)"
-  docker build -t falcon-pbx:1 "${carpeta}/imagen"
+if ! docker image inspect falcon-pbx:2 >/dev/null 2>&1; then
+  echo "➤ Construyendo la imagen falcon-pbx:2 (una sola vez por servidor)"
+  docker build -t falcon-pbx:2 "${carpeta}/imagen"
 fi
 
 # ── El sitio de nginx ───────────────────────────────────────────────────────
@@ -1197,12 +1314,14 @@ function dockerfile(): string {
 # GENERADO POR FALCON. No lo edite aquí: el próximo provisionamiento lo
 # sobrescribe. Lo construye «aplicar.sh» si no existe todavía:
 #
-#   docker build -t falcon-pbx:1 /opt/falcon-pbx/<instancia>/imagen
+#   docker build -t falcon-pbx:2 /opt/falcon-pbx/<instancia>/imagen
 #
-# Ubuntu 22.04 y NO Debian: Debian 12 retiró el paquete «asterisk» y la
-# imagen no se puede construir. Ubuntu 22.04 sí lo trae, y es el mismo que
-# corre hoy en el servidor instalado a mano.
-FROM ubuntu:22.04
+# Ubuntu 24.04 y NO Debian: Debian 12 retiró el paquete «asterisk» y la
+# imagen no se puede construir.
+#
+# Y 24.04 y no 22.04: la 22.04 trae Asterisk 18.10, anterior a varias
+# correcciones de ICE. La 24.04 trae Asterisk 20, que es LTS.
+FROM ubuntu:24.04
 
 # Sin esto, algún paquete abre el diálogo de la zona horaria y la construcción
 # se queda esperando a alguien que nunca va a contestar.

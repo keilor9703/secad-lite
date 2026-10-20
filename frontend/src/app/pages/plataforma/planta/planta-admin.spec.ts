@@ -39,6 +39,7 @@ describe('PlantaAdminComponent', () => {
   const ITAGUI: PlantaVisible = {
     tenant: 'itagui', servidor: '129.80.243.118', ipPublica: '129.80.243.118',
     ipInterna: '127.0.0.1',
+    ipPrivada: '',
     dominioSip: 'itagui-pbx.falconcad.com.co', contenedor: 'asterisk-itagui',
     puertoSip: 5060, rtpDesde: 20500, rtpHasta: 20999, puertoHttp: 8100,
     estado: 'provisionada', notas: null,

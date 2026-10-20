@@ -16,6 +16,7 @@ import { PbxCredencialesService } from '../pbx-credenciales.service';
 import {
   EstadoPlanta,
   ipInternaDe,
+  ipPrivadaDe,
   ipPublicaDe,
   nombreContenedor,
   PlantaAsteriskEntity,
@@ -121,6 +122,8 @@ export interface VistaPlanta {
   ipPublica: string;
   /** Por dónde alcanza nginx a esta planta; `127.0.0.1` si no se fijó otra. */
   ipInterna: string;
+  /** La IP de la interfaz real del servidor; vacía si no se declaró. */
+  ipPrivada: string;
   dominioSip: string;
   contenedor: string;
   puertoSip: number;
@@ -152,6 +155,7 @@ export interface CrearPlantaDto {
   servidor?: string;
   ipPublica?: string | null;
   ipInterna?: string | null;
+  ipPrivada?: string | null;
   /** Si no viene, se deriva: `<tenant>-pbx.<dominio base>`. */
   dominioSip?: string | null;
   notas?: string | null;
@@ -161,6 +165,7 @@ export interface ActualizarPlantaDto {
   servidor?: string;
   ipPublica?: string | null;
   ipInterna?: string | null;
+  ipPrivada?: string | null;
   dominioSip?: string | null;
   notas?: string | null;
   estado?: EstadoPlanta;
@@ -300,6 +305,7 @@ export class PlantaService {
       servidor,
       ipPublica: dto.ipPublica?.trim() || null,
       ipInterna: this.limpiarIpInterna(dto.ipInterna),
+      ipPrivada: this.limpiarIpPrivada(dto.ipPrivada),
       dominioSip,
       ...ranura.ranura,
       estado: 'borrador',
@@ -342,6 +348,34 @@ export class PlantaService {
     return ip;
   }
 
+  /**
+   * Valida la IP de la interfaz real del servidor.
+   *
+   * Vacía es válido y significa «no toques nada»: un servidor cuya IP pública
+   * está en la interfaz no necesita este campo. Lo que no vale es una
+   * dirección equivocada, porque deja la planta sin audio y con cara de estar
+   * bien configurada.
+   */
+  private limpiarIpPrivada(valor?: string | null): string | null {
+    const ip = valor?.trim();
+    if (!ip) return null;
+    if (
+      !/^\d{1,3}(\.\d{1,3}){3}$/.test(ip) ||
+      ip.split('.').some((o) => Number(o) > 255)
+    )
+      throw new BadRequestException(
+        `«${ip}» no es una dirección IPv4. La IP privada es la de la interfaz ` +
+          'principal del servidor, la que sale en «ip -4 addr show» (no la de ' +
+          'lo, ni las de docker0 o br-*).',
+      );
+    if (ip === '0.0.0.0' || ip === '127.0.0.1')
+      throw new BadRequestException(
+        `«${ip}» no sirve como IP privada del servidor: el audio del navegador ` +
+          'se abriría ahí y no se oiría nada. Use la de la interfaz principal.',
+      );
+    return ip;
+  }
+
   async actualizar(
     tenant: string,
     dto: ActualizarPlantaDto,
@@ -359,6 +393,8 @@ export class PlantaService {
       fila.ipPublica = dto.ipPublica?.trim() || null;
     if (dto.ipInterna !== undefined)
       fila.ipInterna = this.limpiarIpInterna(dto.ipInterna);
+    if (dto.ipPrivada !== undefined)
+      fila.ipPrivada = this.limpiarIpPrivada(dto.ipPrivada);
     if (dto.dominioSip !== undefined) {
       const dominioSip = (dto.dominioSip ?? '').trim().toLowerCase();
       if (!dominioSip)
@@ -826,6 +862,7 @@ export class PlantaService {
       puertoHttp: planta.puertoHttp,
       ipPublica: ipPublicaDe(planta),
       ipInterna: ipInternaDe(planta),
+      ipPrivada: ipPrivadaDe(planta),
       operadores: operadores
         .filter((u) => (u.extension ?? '').trim())
         .map((u) => ({
@@ -945,6 +982,7 @@ export class PlantaService {
       servidor: p.servidor,
       ipPublica: ipPublicaDe(p),
       ipInterna: ipInternaDe(p),
+      ipPrivada: ipPrivadaDe(p),
       dominioSip: p.dominioSip,
       contenedor: nombreContenedor(p.tenant),
       puertoSip: p.puertoSip,
