@@ -47,6 +47,8 @@ export interface NumeroVisible {
 export type FallaPlanta =
   | 'asterisk'
   | 'troncal'
+  /** No se puede sondear: no es lo mismo que estar caída. */
+  | 'troncal-sin-sondeo'
   | 'certificado'
   | 'certificado-vencido';
 

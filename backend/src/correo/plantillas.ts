@@ -426,6 +426,8 @@ function textoPlano(opciones: {
   return partes.join('\n');
 }
 
+import { esGrave, FallaPlanta } from '../pbx/planta/planta-salud.entity';
+
 /** Lo que el aviso de una planta necesita saber para escribirse. */
 export interface AvisoPlanta {
   tenant: string;
@@ -445,6 +447,10 @@ const QUE_SIGNIFICA: Record<string, string> = {
   troncal:
     'La central responde pero la troncal no está disponible: las llamadas del ' +
     'ciudadano no llegan.',
+  'troncal-sin-sondeo':
+    'No se puede sondear la troncal, así que no se sabe cómo está. Las ' +
+    'llamadas entrantes SÍ siguen llegando —se identifican por IP— pero las ' +
+    'salientes y el sondeo no funcionan.',
   certificado:
     'El certificado está por vencer. El día que venza, el softphone deja de ' +
     'conectar en todos los puestos.',
@@ -463,10 +469,10 @@ const QUE_SIGNIFICA: Record<string, string> = {
  * lo recibe a las tres de la mañana necesita saber si tiene que levantarse.
  */
 export function plantillaAvisoPlanta(a: AvisoPlanta): MensajeCorreo {
-  const grave =
-    a.fallas.includes('asterisk') ||
-    a.fallas.includes('troncal') ||
-    a.fallas.includes('certificado-vencido');
+  // Qué cuenta como grave lo decide la entidad, no esta plantilla: si cada
+  // sitio lo decidiera por su cuenta, el correo diría una cosa y la pantalla
+  // otra sobre la misma revisión.
+  const grave = esGrave(a.fallas as FallaPlanta[]);
 
   const consecuencias = a.fallas
     .map((f) => QUE_SIGNIFICA[f])

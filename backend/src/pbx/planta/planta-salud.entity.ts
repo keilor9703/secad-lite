@@ -16,6 +16,23 @@ export type FallaPlanta =
   | 'asterisk'
   /** Asterisk vive, pero la troncal no está disponible: no entran llamadas. */
   | 'troncal'
+  /**
+   * No se puede SONDEAR la troncal, y por eso no se sabe cómo está.
+   *
+   * No es lo mismo que «caída», y confundirlas fue un defecto real de la
+   * primera versión de esto: una troncal autenticada por IP **no se
+   * registra**, así que el sondeo es la única señal que hay. Si el sondeo no
+   * llega —el nombre del SBC no resuelve, el operador no contesta OPTIONS—,
+   * el estado queda en «offline» para siempre.
+   *
+   * Y mientras tanto las llamadas ENTRAN perfectamente, porque entran por el
+   * `identify` por IP, que no mira el estado del contacto para nada.
+   *
+   * Decir «no entran llamadas» ahí es afirmar algo falso. A la tercera alarma
+   * falsa nadie vuelve a mirar el monitoreo, y entonces esto deja de servir.
+   * Lo que sí está roto es lo que SÍ usa el contacto: las salientes.
+   */
+  | 'troncal-sin-sondeo'
   /** El certificado del nombre está por vencer. El softphone dejará de conectar. */
   | 'certificado'
   /** El certificado ya venció. */
@@ -114,6 +131,24 @@ export class PlantaSaludEntity {
 
   @UpdateDateColumn({ type: 'timestamptz' })
   revisadoEn!: Date;
+}
+
+/**
+ * Las fallas que significan «esto no está atendiendo».
+ *
+ * Las demás son avisos: algo que hay que atender, pero el ciudadano todavía
+ * puede llamar. La diferencia decide el tono del correo y si despierta a
+ * alguien de madrugada.
+ */
+export const FALLAS_GRAVES: FallaPlanta[] = [
+  'asterisk',
+  'troncal',
+  'certificado-vencido',
+];
+
+/** ¿Esta revisión significa que la planta dejó de atender? */
+export function esGrave(fallas: FallaPlanta[]): boolean {
+  return fallas.some((f) => FALLAS_GRAVES.includes(f));
 }
 
 /** Cuántos días antes de vencer un certificado empieza a ser una falla. */

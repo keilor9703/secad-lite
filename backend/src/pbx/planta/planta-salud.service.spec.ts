@@ -3,6 +3,7 @@ import { Repository } from 'typeorm';
 import { PlantaAsteriskEntity } from './planta-asterisk.entity';
 import { PlantaSaludEntity, hayQueAvisar } from './planta-salud.entity';
 import { PlantaSaludService } from './planta-salud.service';
+import { PbxTroncalEntity } from './pbx-troncal.entity';
 import { PbxCredencialesService } from '../pbx-credenciales.service';
 import { CorreoService, MensajeCorreo } from '../../correo/correo.service';
 
@@ -31,6 +32,8 @@ describe('PlantaSaludService', () => {
   let plantas: PlantaAsteriskEntity[];
   let filas: PlantaSaludEntity[];
   let correos: MensajeCorreo[];
+  /** Las troncales de la instancia. Su modo de autenticación cambia TODO. */
+  let troncales: PbxTroncalEntity[];
   /** Lo que contesta el ARI falso, por ruta. */
   let ari: Record<string, { estado: number; cuerpo?: unknown }>;
   /** Lo que contesta el certificado falso. */
@@ -49,6 +52,9 @@ describe('PlantaSaludService', () => {
     plantas = [planta()];
     filas = [];
     correos = [];
+    // Por defecto autenticada por IP: así está la de Infobip en producción,
+    // y es el caso donde un «offline» NO significa que no entren llamadas.
+    troncales = [{ autenticacion: 'ip', activa: true } as PbxTroncalEntity];
     vence = new Date(Date.now() + 90 * 86_400_000);
     ari = {
       'asterisk/info': {
@@ -94,6 +100,10 @@ describe('PlantaSaludService', () => {
       },
     } as unknown as Repository<PlantaSaludEntity>;
 
+    const repoTroncales = {
+      find: async () => troncales,
+    } as unknown as Repository<PbxTroncalEntity>;
+
     const cred = {
       configDe: async () => null,
       enClaro: () => ({ ariClave: 'la-clave-de-ari' }),
@@ -106,7 +116,13 @@ describe('PlantaSaludService', () => {
       },
     } as unknown as CorreoService;
 
-    svc = new PlantaSaludService(repoPlantas, repoSalud, cred, correo);
+    svc = new PlantaSaludService(
+      repoPlantas,
+      repoSalud,
+      repoTroncales,
+      cred,
+      correo,
+    );
     // El apretón de manos TLS no se puede hacer en una prueba: se sustituye la
     // medición, no la decisión de qué hacer con ella.
     (svc as unknown as { certificado: () => Promise<unknown> }).certificado =
@@ -134,6 +150,12 @@ describe('PlantaSaludService', () => {
       // ESTO ES LO QUE PASÓ. Asterisk responde, el contenedor vive, el puerto
       // escucha — y no entra una sola llamada. Un chequeo que solo mira si el
       // proceso está vivo habría dicho que todo estaba bien.
+      //
+      // Con REGISTRO: si no estamos registrados, el operador no tiene a dónde
+      // entregar. Ahí «offline» sí significa que no entran llamadas.
+      troncales = [
+        { autenticacion: 'registro', activa: true } as PbxTroncalEntity,
+      ];
       ari['endpoints'] = {
         estado: 200,
         cuerpo: [{ resource: 'troncal', state: 'offline' }],
@@ -142,6 +164,52 @@ describe('PlantaSaludService', () => {
       expect(r.bien).toBe(false);
       expect(r.fallas).toContain('troncal');
       expect(r.fallas).not.toContain('asterisk');
+      expect(r.detalle).toContain('no entran llamadas');
+    });
+
+    it('con troncal por IP, «offline» NO es «no entran llamadas»', async () => {
+      // EL DEFECTO QUE ESTO ARREGLA, y se vio el día que se estrenó: una
+      // troncal autenticada por IP no se registra, así que el sondeo es la
+      // única señal. Si el sondeo no llega —el nombre del SBC no resuelve, el
+      // operador no contesta OPTIONS— el estado queda «offline» para siempre.
+      //
+      // Y mientras tanto las llamadas ENTRAN, porque entran por el `identify`
+      // por IP, que no mira el contacto para nada. La pantalla decía «las
+      // llamadas no llegan» diez minutos después de una llamada con audio.
+      ari['endpoints'] = {
+        estado: 200,
+        cuerpo: [{ resource: 'troncal', state: 'offline' }],
+      };
+      const r = await svc.revisarYGuardar(planta());
+      expect(r.fallas).toContain('troncal-sin-sondeo');
+      expect(r.fallas).not.toContain('troncal');
+      expect(r.detalle).toContain('siguen llegando');
+      expect(r.detalle).not.toContain('no entran llamadas');
+    });
+
+    it('no saber cómo autentica se trata como lo grave', async () => {
+      // Sin troncales declaradas no hay con qué decidir. Es preferible una
+      // alarma de más que callarse una caída.
+      troncales = [];
+      ari['endpoints'] = {
+        estado: 200,
+        cuerpo: [{ resource: 'troncal', state: 'offline' }],
+      };
+      const r = await svc.revisarYGuardar(planta());
+      expect(r.fallas).toContain('troncal');
+    });
+
+    it('si alguna troncal se registra, manda lo grave', async () => {
+      troncales = [
+        { autenticacion: 'ip', activa: true } as PbxTroncalEntity,
+        { autenticacion: 'registro', activa: true } as PbxTroncalEntity,
+      ];
+      ari['endpoints'] = {
+        estado: 200,
+        cuerpo: [{ resource: 'troncal', state: 'offline' }],
+      };
+      const r = await svc.revisarYGuardar(planta());
+      expect(r.fallas).toContain('troncal');
     });
 
     it('una planta sin troncal configurada tampoco está atendiendo', async () => {
@@ -232,6 +300,35 @@ describe('PlantaSaludService', () => {
       expect(correos).toHaveLength(2);
     });
 
+    it('un «no sé cómo está» NO despierta a nadie de madrugada', async () => {
+      // Es la razón de ser de toda esta distinción. Un aviso rojo por algo que
+      // no impide una sola llamada gasta el único recurso que tiene un
+      // monitoreo: que alguien lo mire. Se avisa —hay algo que atender— pero
+      // en amarillo y diciendo la verdad.
+      ari['endpoints'] = {
+        estado: 200,
+        cuerpo: [{ resource: 'troncal', state: 'offline' }],
+      };
+      await svc.revisarYGuardar(planta());
+      expect(correos).toHaveLength(1);
+      expect(correos[0].asunto).toContain('🟡');
+      expect(correos[0].asunto).not.toContain('🔴');
+      expect(correos[0].texto).toContain('siguen llegando');
+      expect(correos[0].texto).not.toContain('no llegan');
+    });
+
+    it('una troncal por REGISTRO caída sí es roja', async () => {
+      troncales = [
+        { autenticacion: 'registro', activa: true } as PbxTroncalEntity,
+      ];
+      ari['endpoints'] = {
+        estado: 200,
+        cuerpo: [{ resource: 'troncal', state: 'offline' }],
+      };
+      await svc.revisarYGuardar(planta());
+      expect(correos[0].asunto).toContain('🔴');
+    });
+
     it('una planta sana no manda nada', async () => {
       await svc.revisarYGuardar(planta());
       expect(correos).toHaveLength(0);
@@ -240,6 +337,9 @@ describe('PlantaSaludService', () => {
     it('el aviso dice qué deja de poder hacer el ciudadano', async () => {
       // Quien lo recibe a las tres de la mañana necesita saber si tiene que
       // levantarse, no qué comprobación falló.
+      troncales = [
+        { autenticacion: 'registro', activa: true } as PbxTroncalEntity,
+      ];
       ari['endpoints'] = {
         estado: 200,
         cuerpo: [{ resource: 'troncal', state: 'offline' }],

@@ -233,6 +233,8 @@ export class PlantaAdminComponent implements OnInit {
     return {
       asterisk: 'La central no responde: no entran llamadas y el softphone no conecta.',
       troncal: 'La central responde pero la troncal no está disponible: las llamadas no llegan.',
+      'troncal-sin-sondeo':
+        'No se puede sondear la troncal, así que no se sabe cómo está. Las entrantes SÍ siguen llegando (se identifican por IP); lo que no funciona son las salientes.',
       certificado: 'El certificado está por vencer; ese día el softphone deja de conectar.',
       'certificado-vencido': 'El certificado venció: el softphone ya no puede conectar.',
     }[falla] ?? falla;

@@ -10,6 +10,7 @@ import {
   hayQueAvisar,
   PlantaSaludEntity,
 } from './planta-salud.entity';
+import { PbxTroncalEntity } from './pbx-troncal.entity';
 import { PbxCredencialesService } from '../pbx-credenciales.service';
 import { CorreoService } from '../../correo/correo.service';
 import { plantillaAvisoPlanta } from '../../correo/plantillas';
@@ -74,6 +75,8 @@ export class PlantaSaludService {
     private readonly plantas: Repository<PlantaAsteriskEntity>,
     @InjectRepository(PlantaSaludEntity)
     private readonly salud: Repository<PlantaSaludEntity>,
+    @InjectRepository(PbxTroncalEntity)
+    private readonly troncales: Repository<PbxTroncalEntity>,
     private readonly cred: PbxCredencialesService,
     private readonly correo: CorreoService,
   ) {}
@@ -200,10 +203,34 @@ export class PlantaSaludService {
           fallas.push('troncal');
           detalle.push('La planta no tiene troncal configurada.');
         } else if (troncal.state !== 'online') {
-          fallas.push('troncal');
-          detalle.push(
-            `La troncal está «${troncal.state}»: no entran llamadas.`,
-          );
+          // AQUÍ ESTÁ LA DISTINCIÓN QUE FALTABA, y costó una falsa alarma el
+          // día que se estrenó esto: lo que significa «offline» depende de
+          // CÓMO autentica la troncal.
+          //
+          //  - Por REGISTRO: si no estamos registrados, el operador no tiene a
+          //    dónde entregar. Offline = no entran llamadas. Es una falla.
+          //  - Por IP: las llamadas entran por el `identify`, que no mira el
+          //    contacto para nada. Offline solo dice que NUESTRO sondeo no
+          //    llega. Las entrantes siguen funcionando; lo que no funciona es
+          //    lo que sí usa el contacto, que son las salientes.
+          //
+          // Decir «no entran llamadas» en el segundo caso es afirmar algo
+          // falso, y una alarma falsa gasta el único recurso que tiene un
+          // monitoreo: que alguien lo mire.
+          const porIp = await this.autenticaPorIp(planta.tenant);
+          if (porIp) {
+            fallas.push('troncal-sin-sondeo');
+            detalle.push(
+              `La troncal está «${troncal.state}», pero autentica por IP: las ` +
+                'llamadas entrantes siguen llegando. Lo que no funciona es el ' +
+                'sondeo y, con él, las salientes.',
+            );
+          } else {
+            fallas.push('troncal');
+            detalle.push(
+              `La troncal está «${troncal.state}»: no entran llamadas.`,
+            );
+          }
         } else {
           detalle.push('La troncal está disponible.');
         }
@@ -238,6 +265,21 @@ export class PlantaSaludService {
       certificadoVence: cert.vence,
       detalle: detalle.join(' '),
     };
+  }
+
+  /**
+   * ¿Las troncales activas de esta instancia autentican por IP?
+   *
+   * Si alguna se registra, un «offline» sí significa que no entran llamadas y
+   * hay que tratarlo como falla. Ante la duda —sin troncales declaradas— se
+   * asume lo grave: es preferible una alarma de más que callarse una caída.
+   */
+  private async autenticaPorIp(tenant: string): Promise<boolean> {
+    const activas = await this.troncales.find({
+      where: { tenant, activa: true },
+    });
+    if (!activas.length) return false;
+    return activas.every((t) => t.autenticacion === 'ip');
   }
 
   /** Una consulta a ARI, por el 443 de la planta. Nunca lanza. */
