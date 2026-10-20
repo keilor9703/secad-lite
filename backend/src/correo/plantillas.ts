@@ -79,8 +79,18 @@ const PAPEL = '#ffffff';
  * lo escribió no es un criterio.
  */
 export const PALETA_CORREO = {
-  MARINO, TURQUESA, CABECERA, ACENTO, ACENTO_HONDO,
-  TINTA, TINTA_SUAVE, APAGADO, BORDE, FONDO, PAPEL, BLANCO: '#ffffff',
+  MARINO,
+  TURQUESA,
+  CABECERA,
+  ACENTO,
+  ACENTO_HONDO,
+  TINTA,
+  TINTA_SUAVE,
+  APAGADO,
+  BORDE,
+  FONDO,
+  PAPEL,
+  BLANCO: '#ffffff',
 } as const;
 
 const FUENTE = `-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif`;
@@ -129,7 +139,10 @@ function piePorDefecto(): string {
     : 'Mensaje automático · No responda a este correo';
 }
 
-interface Dato { etiqueta: string; valor: string }
+interface Dato {
+  etiqueta: string;
+  valor: string;
+}
 
 /**
  * Un bloque de texto tal como lo escribió alguien: el relato de un ticket, el
@@ -137,7 +150,10 @@ interface Dato { etiqueta: string; valor: string }
  * saltos de línea — un informe alineado en columnas queda ilegible si el
  * cliente de correo le colapsa los espacios.
  */
-interface Bloque { titulo: string; texto: string }
+interface Bloque {
+  titulo: string;
+  texto: string;
+}
 
 /**
  * El marco común de todos los correos: dos tonos.
@@ -179,8 +195,19 @@ function documento(opciones: {
   pie?: string;
 }): string {
   const {
-    saludo, titulo, tituloAcento, preencabezado, entrada, destacado, datos,
-    bloques, textoBoton, url, bajoBoton, bajoBotonDerecha, nota,
+    saludo,
+    titulo,
+    tituloAcento,
+    preencabezado,
+    entrada,
+    destacado,
+    datos,
+    bloques,
+    textoBoton,
+    url,
+    bajoBoton,
+    bajoBotonDerecha,
+    nota,
   } = opciones;
   const pie = opciones.pie ?? piePorDefecto();
   const logo = logoUrl();
@@ -193,21 +220,29 @@ function documento(opciones: {
           <table role="presentation" cellpadding="0" cellspacing="0" border="0"><tr>
             <td width="38" height="38" align="center" valign="middle"
                 style="width:38px;height:38px;background:${MARINO};border-radius:9px;line-height:0">${
-              logo ? `<img src="${logo}" width="26" height="25" alt="" style="display:block;width:26px;height:25px;border:0">` : '&nbsp;'
-            }</td>
+                  logo
+                    ? `<img src="${logo}" width="26" height="25" alt="" style="display:block;width:26px;height:25px;border:0">`
+                    : '&nbsp;'
+                }</td>
           </tr></table>
         </td>`;
 
-  const hola = !saludo ? '' : `
+  const hola = !saludo
+    ? ''
+    : `
       <p style="margin:0 0 8px;font-family:${FUENTE};font-size:14px;font-weight:600;color:${ACENTO}" class="acento">${escapar(saludo)}</p>`;
 
-  const segundaLinea = !tituloAcento ? '' : `
+  const segundaLinea = !tituloAcento
+    ? ''
+    : `
         <span style="display:block;color:${ACENTO}" class="acento">${escapar(tituloAcento)}</span>`;
 
   // El dato, en una pastilla blanca sobre el teal: se despega del fondo sin
   // necesidad de un recuadro con borde. Monoespaciada porque un usuario se
   // copia a mano, y ahí la diferencia entre l, 1 e I deja de ser un detalle.
-  const elDestacado = !destacado ? '' : `
+  const elDestacado = !destacado
+    ? ''
+    : `
       <table role="presentation" cellpadding="0" cellspacing="0" border="0" style="margin:24px 0 0"><tr>
         <td style="background:${PAPEL};border-radius:10px;padding:11px 15px;font-family:${FUENTE}" class="pastilla">
           <span style="font-size:13px;color:${APAGADO}" class="apagado">${escapar(destacado.etiqueta)}</span>
@@ -215,34 +250,50 @@ function documento(opciones: {
         </td>
       </tr></table>`;
 
-  const filas = (datos ?? []).map((d) => `
+  const filas = (datos ?? [])
+    .map(
+      (d) => `
             <tr>
               <td class="apagado linea" style="padding:9px 0;border-bottom:1px solid ${BORDE};font-size:13px;color:${APAGADO};white-space:nowrap;vertical-align:top">${escapar(d.etiqueta)}</td>
               <td class="tinta linea" style="padding:9px 0 9px 16px;border-bottom:1px solid ${BORDE};font-size:14px;color:${TINTA};font-weight:600;text-align:right">${escapar(d.valor)}</td>
-            </tr>`).join('');
+            </tr>`,
+    )
+    .join('');
 
-  const tabla = !filas ? '' : `
+  const tabla = !filas
+    ? ''
+    : `
       <table role="presentation" class="linea" width="100%" cellpadding="0" cellspacing="0" border="0"
              style="font-family:${FUENTE};border-top:1px solid ${BORDE};margin:0 0 24px">${filas}
       </table>`;
 
-  const cajas = (bloques ?? []).map((b) => `
+  const cajas = (bloques ?? [])
+    .map(
+      (b) => `
       <p class="apagado" style="margin:0 0 7px;font-family:${FUENTE};font-size:11px;letter-spacing:.09em;text-transform:uppercase;color:${APAGADO}">${escapar(b.titulo)}</p>
-      <div class="caja suave" style="margin:0 0 22px;padding:14px 16px;background:${FONDO};border-radius:10px;font-family:${MONO};font-size:12px;line-height:1.55;color:${TINTA_SUAVE};white-space:pre-wrap;word-break:break-word">${escapar(b.texto)}</div>`).join('');
+      <div class="caja suave" style="margin:0 0 22px;padding:14px 16px;background:${FONDO};border-radius:10px;font-family:${MONO};font-size:12px;line-height:1.55;color:${TINTA_SUAVE};white-space:pre-wrap;word-break:break-word">${escapar(b.texto)}</div>`,
+    )
+    .join('');
 
   // Botón de ancho completo, como en el resto del sistema: en un teléfono, un
   // botón que ocupa la línea entera no se falla con el pulgar.
-  const accion = !url ? '' : `
+  const accion = !url
+    ? ''
+    : `
       <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0"><tr>
         <td align="center" style="background:${ACENTO};border-radius:10px">
           <a href="${url}" style="display:block;padding:15px 24px;font-family:${FUENTE};font-size:16px;font-weight:600;color:#ffffff;text-decoration:none;border-radius:10px;border:1px solid ${ACENTO_HONDO}">${escapar(textoBoton ?? 'Continuar')}</a>
         </td>
       </tr></table>
-      ${!bajoBoton && !bajoBotonDerecha ? '' : `
+      ${
+        !bajoBoton && !bajoBotonDerecha
+          ? ''
+          : `
       <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="margin:14px 0 0"><tr>
         <td class="apagado" style="font-family:${FUENTE};font-size:13px;color:${APAGADO}">${bajoBoton ?? ''}</td>
         <td class="apagado" align="right" style="font-family:${FUENTE};font-size:13px;color:${APAGADO}">${bajoBotonDerecha ?? ''}</td>
-      </tr></table>`}
+      </tr></table>`
+      }
       <div class="linea" style="border-top:1px solid ${BORDE};margin:22px 0 18px;font-size:0;line-height:0">&nbsp;</div>
       <p class="apagado" style="margin:0 0 6px;font-family:${FUENTE};font-size:13px;color:${APAGADO}">Si el botón no abre, copie este enlace:</p>
       <p class="enlace" style="margin:0;font-family:${MONO};font-size:12.5px;line-height:1.5;color:${ACENTO};word-break:break-all">${url}</p>`;
@@ -332,16 +383,30 @@ function textoPlano(opciones: {
   const regla = '─'.repeat(42);
   const partes: string[] = ['FALCON CAD · Central de despacho', regla, ''];
   if (opciones.saludo) partes.push(opciones.saludo, '');
-  partes.push([opciones.titulo, opciones.tituloAcento].filter(Boolean).join(' ').toUpperCase(), '');
+  partes.push(
+    [opciones.titulo, opciones.tituloAcento]
+      .filter(Boolean)
+      .join(' ')
+      .toUpperCase(),
+    '',
+  );
   partes.push(sinEtiquetas(opciones.entrada), '');
   if (opciones.destacado) {
-    partes.push(`${opciones.destacado.etiqueta.toUpperCase()}: ${opciones.destacado.valor}`, '');
+    partes.push(
+      `${opciones.destacado.etiqueta.toUpperCase()}: ${opciones.destacado.valor}`,
+      '',
+    );
   }
   if (opciones.datos?.length) {
     // `Math.max()` sin argumentos devuelve -Infinity, y `padEnd(-Infinity)`
     // deja de alinear sin avisar: un correo sin panel de datos no es raro.
     const ancho = Math.max(...opciones.datos.map((d) => d.etiqueta.length));
-    partes.push(opciones.datos.map((d) => `  ${d.etiqueta.padEnd(ancho)}   ${d.valor}`).join('\n'), '');
+    partes.push(
+      opciones.datos
+        .map((d) => `  ${d.etiqueta.padEnd(ancho)}   ${d.valor}`)
+        .join('\n'),
+      '',
+    );
   }
   for (const b of opciones.bloques ?? []) {
     partes.push(b.titulo.toUpperCase(), regla, b.texto, '');
@@ -349,29 +414,141 @@ function textoPlano(opciones: {
   if (opciones.url) {
     partes.push(opciones.url, '');
     const pequena = [opciones.bajoBoton, opciones.bajoBotonDerecha]
-      .filter(Boolean).map((t) => sinEtiquetas(t as string)).join(' · ');
+      .filter(Boolean)
+      .map((t) => sinEtiquetas(t as string))
+      .join(' · ');
     if (pequena) partes.push(pequena, '');
   }
   partes.push(regla, sinEtiquetas(opciones.nota), '');
-  partes.push(`FALCON CAD · Central de despacho · ${opciones.pie ?? piePorDefecto()}`);
+  partes.push(
+    `FALCON CAD · Central de despacho · ${opciones.pie ?? piePorDefecto()}`,
+  );
   return partes.join('\n');
+}
+
+/** Lo que el aviso de una planta necesita saber para escribirse. */
+export interface AvisoPlanta {
+  tenant: string;
+  dominio: string;
+  servidor: string;
+  fallas: string[];
+  detalle: string;
+  operadores: number;
+  /** Desde cuándo falla sin interrupción. */
+  desde: Date;
+}
+
+/** Cada falla, dicha en términos de lo que el ciudadano deja de poder hacer. */
+const QUE_SIGNIFICA: Record<string, string> = {
+  asterisk:
+    'La central no responde. No entran llamadas y el softphone no conecta.',
+  troncal:
+    'La central responde pero la troncal no está disponible: las llamadas del ' +
+    'ciudadano no llegan.',
+  certificado:
+    'El certificado está por vencer. El día que venza, el softphone deja de ' +
+    'conectar en todos los puestos.',
+  'certificado-vencido':
+    'El certificado venció. El softphone ya no puede conectar.',
+};
+
+/**
+ * El aviso de que una planta dejó de estar bien.
+ *
+ * Se manda cuando APARECE una falla, no mientras dura: un correo cada cinco
+ * minutos deja de leerse al tercero, y entonces el monitoreo empeora las cosas
+ * en vez de mejorarlas.
+ *
+ * Dice qué dejó de poder hacer el ciudadano, no qué comprobación falló. Quien
+ * lo recibe a las tres de la mañana necesita saber si tiene que levantarse.
+ */
+export function plantillaAvisoPlanta(a: AvisoPlanta): MensajeCorreo {
+  const grave =
+    a.fallas.includes('asterisk') ||
+    a.fallas.includes('troncal') ||
+    a.fallas.includes('certificado-vencido');
+
+  const consecuencias = a.fallas
+    .map((f) => QUE_SIGNIFICA[f])
+    .filter(Boolean) as string[];
+
+  const entrada = grave
+    ? `La planta telefónica de <strong>${escapar(a.tenant)}</strong> no está ` +
+      'atendiendo con normalidad.'
+    : `La planta telefónica de <strong>${escapar(a.tenant)}</strong> sigue ` +
+      'atendiendo, pero hay algo que va a fallar si nadie lo toca.';
+
+  const datos: Dato[] = [
+    { etiqueta: 'Instancia', valor: a.tenant },
+    { etiqueta: 'Nombre de la planta', valor: a.dominio },
+    { etiqueta: 'Servidor', valor: a.servidor },
+    { etiqueta: 'Falla desde', valor: fechaLegible(a.desde) },
+    {
+      etiqueta: 'Operadores conectados',
+      valor: String(a.operadores),
+    },
+  ];
+
+  const comun = {
+    titulo: grave
+      ? 'La planta no está atendiendo'
+      : 'La planta necesita atención',
+    tituloAcento: a.tenant,
+    entrada,
+    destacado: { etiqueta: 'Qué falla', valor: a.fallas.join(' · ') },
+    datos,
+    bloques: [
+      { titulo: 'Qué significa', texto: consecuencias.join('\n\n') },
+      { titulo: 'Lo que se midió', texto: a.detalle },
+    ],
+    // Dónde mirar, sin repetir el manual: el que recibe esto a las tres de la
+    // mañana necesita el nombre del documento, no sus veinte pasos.
+    nota:
+      'El procedimiento de diagnóstico está en <strong>docs/planta-telefonica-despliegue.md</strong>, ' +
+      'sección 11. Se mide de abajo hacia arriba y el primer nivel es si existe el socket.',
+    pie: 'Revisión automática de plantas',
+  };
+
+  return {
+    para: '',
+    asunto: `${grave ? '🔴' : '🟡'} Planta ${a.tenant} · ${a.fallas.join(', ')}`,
+    html: documento({
+      ...comun,
+      preencabezado: `${a.tenant} · ${a.fallas.join(', ')} · desde ${fechaLegible(a.desde)}`,
+    }),
+    texto: textoPlano(comun),
+  };
+}
+
+/** Una fecha que se lee de un vistazo en un correo, sin segundos ni zona. */
+function fechaLegible(d: Date): string {
+  const dos = (n: number) => String(n).padStart(2, '0');
+  return (
+    `${dos(d.getDate())}/${dos(d.getMonth() + 1)}/${d.getFullYear()} ` +
+    `${dos(d.getHours())}:${dos(d.getMinutes())}`
+  );
 }
 
 /** Invitación: la cuenta existe y falta que su dueño defina su contraseña. */
 export function plantillaInvitacion(
-  nombre: string, username: string, url: string, horas: number,
+  nombre: string,
+  username: string,
+  url: string,
+  horas: number,
 ): MensajeCorreo {
   const comun = {
     saludo: `Hola, ${primerNombre(nombre)}`,
     titulo: 'Su cuenta está lista',
-    entrada: 'Solo falta definir su contraseña. Será solo suya: nadie más la conocerá, '
-      + 'tampoco quien creó la cuenta.',
+    entrada:
+      'Solo falta definir su contraseña. Será solo suya: nadie más la conocerá, ' +
+      'tampoco quien creó la cuenta.',
     destacado: { etiqueta: 'Usuario', valor: username },
     url,
     bajoBoton: `Vence en <strong>${vigencia(horas)}</strong>`,
     bajoBotonDerecha: 'Enlace de <strong>un solo uso</strong>',
-    nota: '¿No esperaba este correo? Ignórelo, nadie puede entrar con él. Si vence, '
-      + 'pida a su administrador que lo reenvíe.',
+    nota:
+      '¿No esperaba este correo? Ignórelo, nadie puede entrar con él. Si vence, ' +
+      'pida a su administrador que lo reenvíe.',
   };
 
   return {
@@ -389,19 +566,24 @@ export function plantillaInvitacion(
 
 /** Recuperación: la cuenta ya existía y su dueño olvidó la contraseña. */
 export function plantillaRecuperacion(
-  nombre: string, username: string, url: string, horas: number,
+  nombre: string,
+  username: string,
+  url: string,
+  horas: number,
 ): MensajeCorreo {
   const comun = {
     saludo: `Hola, ${primerNombre(nombre)}`,
     titulo: 'Recupere su acceso',
-    entrada: `Se recibió una solicitud para restablecer la contraseña del usuario `
-      + `<strong>${escapar(username)}</strong>. Si fue usted, continúe con el botón.`,
+    entrada:
+      `Se recibió una solicitud para restablecer la contraseña del usuario ` +
+      `<strong>${escapar(username)}</strong>. Si fue usted, continúe con el botón.`,
     destacado: { etiqueta: 'Usuario', valor: username },
     url,
     bajoBoton: `Vence en <strong>${vigencia(horas)}</strong>`,
     bajoBotonDerecha: 'Enlace de <strong>un solo uso</strong>',
-    nota: 'Si no fue usted quien lo solicitó, no haga nada: su contraseña actual sigue '
-      + 'vigente y nadie puede entrar con este mensaje.',
+    nota:
+      'Si no fue usted quien lo solicitó, no haga nada: su contraseña actual sigue ' +
+      'vigente y nadie puede entrar con este mensaje.',
   };
 
   return {
@@ -444,23 +626,30 @@ export interface TicketCorreo {
 export function plantillaTicketMesa(t: TicketCorreo): MensajeCorreo {
   // «Reporte abierto» se leería como un estado de ticket, y no hay ninguno que
   // mantener: el verbo describe quién lo mandó, no en qué situación está.
-  const entrada = `Reporte enviado desde FALCON CAD por <strong>${escapar(t.quien)}</strong>, `
-    + `en la instancia <strong>${escapar(t.instancia)}</strong>.`;
+  const entrada =
+    `Reporte enviado desde FALCON CAD por <strong>${escapar(t.quien)}</strong>, ` +
+    `en la instancia <strong>${escapar(t.instancia)}</strong>.`;
   const datos: Dato[] = [
-    { etiqueta: 'Severidad propuesta', valor: `${t.severidad} — ${t.severidadTitulo}` },
+    {
+      etiqueta: 'Severidad propuesta',
+      valor: `${t.severidad} — ${t.severidadTitulo}`,
+    },
     { etiqueta: 'Compromiso', valor: t.compromiso },
     { etiqueta: 'Instancia', valor: t.instancia },
     { etiqueta: 'Reportado por', valor: t.quien },
-    { etiqueta: 'Correo de contacto', valor: t.correoQuien || 'la cuenta no tiene correo' },
+    {
+      etiqueta: 'Correo de contacto',
+      valor: t.correoQuien || 'la cuenta no tiene correo',
+    },
     { etiqueta: 'Pantalla', valor: t.pantalla || '—' },
   ];
   // La severidad la propone quien reporta y la confirma la mesa: lo dice la
   // matriz de docs/mesa-de-ayuda.md, y el correo lo repite donde se decide.
   const nota = t.correoQuien
-    ? 'La severidad la propone quien reporta; <strong>la confirma la mesa</strong>. '
-      + 'Al responder a este correo, la respuesta le llega a quien lo reportó.'
-    : 'La severidad la propone quien reporta; <strong>la confirma la mesa</strong>. '
-      + 'La cuenta que reportó no tiene correo registrado: hay que contactarla por otro medio.';
+    ? 'La severidad la propone quien reporta; <strong>la confirma la mesa</strong>. ' +
+      'Al responder a este correo, la respuesta le llega a quien lo reportó.'
+    : 'La severidad la propone quien reporta; <strong>la confirma la mesa</strong>. ' +
+      'La cuenta que reportó no tiene correo registrado: hay que contactarla por otro medio.';
   const comun = {
     titulo: `${t.severidad} · ${t.severidadTitulo}`,
     tituloAcento: t.instancia,
@@ -492,20 +681,28 @@ export function plantillaTicketMesa(t: TicketCorreo): MensajeCorreo {
  * contexto técnico, que ya vio en pantalla y aquí solo sería un muro — y no
  * promete ningún estado consultable.
  */
-export function plantillaTicketAcuse(t: TicketCorreo, correoMesa: string): MensajeCorreo {
-  const entrada = 'Su reporte salió hacia la mesa de ayuda de FALCON CAD. Guarde este '
-    + 'número: es con el que se identifica el reporte si hay que hablar de él.';
+export function plantillaTicketAcuse(
+  t: TicketCorreo,
+  correoMesa: string,
+): MensajeCorreo {
+  const entrada =
+    'Su reporte salió hacia la mesa de ayuda de FALCON CAD. Guarde este ' +
+    'número: es con el que se identifica el reporte si hay que hablar de él.';
   const datos: Dato[] = [
-    { etiqueta: 'Severidad que indicó', valor: `${t.severidad} — ${t.severidadTitulo}` },
+    {
+      etiqueta: 'Severidad que indicó',
+      valor: `${t.severidad} — ${t.severidadTitulo}`,
+    },
     { etiqueta: 'Compromiso de respuesta', valor: t.compromiso },
     { etiqueta: 'Instancia', valor: t.instancia },
   ];
-  const nota = (t.severidad === 'S1'
-    ? 'Un reporte crítico se atiende a cualquier hora, pero <strong>por teléfono</strong>: '
-      + 'un texto que nadie leyó todavía no es un aviso. Llame además a la línea de soporte. '
-    : '')
-    + 'Si tiene algo más que agregar, responda a este correo: la respuesta llega a la mesa '
-    + 'con el número del reporte.';
+  const nota =
+    (t.severidad === 'S1'
+      ? 'Un reporte crítico se atiende a cualquier hora, pero <strong>por teléfono</strong>: ' +
+        'un texto que nadie leyó todavía no es un aviso. Llame además a la línea de soporte. '
+      : '') +
+    'Si tiene algo más que agregar, responda a este correo: la respuesta llega a la mesa ' +
+    'con el número del reporte.';
   const comun = {
     saludo: `Hola, ${primerNombre(t.quien)}`,
     titulo: 'Su reporte llegó',
@@ -548,7 +745,9 @@ function asuntoMesa(t: TicketCorreo): string {
  * preencabezado: lo que se ve antes de abrir el correo.
  */
 function resumen(texto: string, tope: number): string {
-  const una = String(texto ?? '').replace(/\s+/g, ' ').trim();
+  const una = String(texto ?? '')
+    .replace(/\s+/g, ' ')
+    .trim();
   if (una.length <= tope) return una;
   // Cortar en el último espacio evita terminar en media palabra.
   const corte = una.slice(0, tope);
@@ -566,7 +765,11 @@ function vigencia(horas: number): string {
  * persona; «Juan Carlos Pérez Gómez, se creó su cuenta» suena a formulario.
  */
 function primerNombre(nombre: string): string {
-  return String(nombre ?? '').trim().split(/\s+/)[0] || 'Buen día';
+  return (
+    String(nombre ?? '')
+      .trim()
+      .split(/\s+/)[0] || 'Buen día'
+  );
 }
 
 /**
@@ -576,12 +779,20 @@ function primerNombre(nombre: string): string {
  */
 function escapar(v: string): string {
   return String(v ?? '')
-    .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
-    .replace(/"/g, '&quot;').replace(/'/g, '&#39;');
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;');
 }
 
 /** Para la versión en texto: quita el marcado que el HTML sí usa. */
 function sinEtiquetas(v: string): string {
-  return String(v ?? '').replace(/<[^>]+>/g, '').replace(/&amp;/g, '&')
-    .replace(/&lt;/g, '<').replace(/&gt;/g, '>').replace(/&quot;/g, '"').replace(/&#39;/g, "'");
+  return String(v ?? '')
+    .replace(/<[^>]+>/g, '')
+    .replace(/&amp;/g, '&')
+    .replace(/&lt;/g, '<')
+    .replace(/&gt;/g, '>')
+    .replace(/&quot;/g, '"')
+    .replace(/&#39;/g, "'");
 }

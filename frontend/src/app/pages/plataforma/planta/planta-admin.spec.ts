@@ -1,5 +1,5 @@
 import { TestBed } from '@angular/core/testing';
-import { of, throwError } from 'rxjs';
+import { NEVER, of, throwError } from 'rxjs';
 import { AdminService } from '../../../core/admin.service';
 import { ConfirmService } from '../../../shared/confirm/confirm.service';
 import { ToastService } from '../../../shared/toast/toast.service';
@@ -72,6 +72,7 @@ describe('PlantaAdminComponent', () => {
   let api: {
     listar: jasmine.Spy; crear: jasmine.Spy; actualizar: jasmine.Spy; eliminar: jasmine.Spy;
     previa: jasmine.Spy; aplicar: jasmine.Spy;
+    salud: jasmine.Spy; revisar: jasmine.Spy;
     guardarTroncal: jasmine.Spy; eliminarTroncal: jasmine.Spy;
     guardarNumero: jasmine.Spy; eliminarNumero: jasmine.Spy;
   };
@@ -85,6 +86,13 @@ describe('PlantaAdminComponent', () => {
     errores = [];
     api = {
       listar: jasmine.createSpy('listar').and.returnValue(of(plantas)),
+      // Una planta recién dada de alta no tiene revisión todavía: null es el
+      // caso normal, no un error.
+      salud: jasmine.createSpy('salud').and.returnValue(of(null)),
+      revisar: jasmine.createSpy('revisar').and.returnValue(of({
+        tenant: 'itagui', bien: true, fallas: [], version: '20.6.0',
+        operadores: 1, certificadoVence: null, detalle: 'Asterisk 20.6.0 responde.',
+      })),
       crear: jasmine.createSpy('crear').and.returnValue(of(ITAGUI)),
       actualizar: jasmine.createSpy('actualizar').and.returnValue(of(ITAGUI)),
       eliminar: jasmine.createSpy('eliminar').and.returnValue(of({ tenant: 'itagui' })),
@@ -123,6 +131,84 @@ describe('PlantaAdminComponent', () => {
     c.ngOnInit();
     return c;
   }
+
+  describe('el estado de la planta', () => {
+    const SANA = {
+      tenant: 'itagui', bien: true, fallas: [] as string[], version: '20.6.0',
+      operadores: 2, certificadoVence: null, detalle: 'Asterisk 20.6.0 responde.',
+      fallaDesde: null, revisadoEn: new Date().toISOString(),
+    };
+    const CAIDA = {
+      ...SANA, bien: false, fallas: ['troncal'], operadores: 0,
+      detalle: 'La troncal está «offline»: no entran llamadas.',
+      fallaDesde: '2026-10-20T01:00:00.000Z',
+    };
+
+    it('al abrir la ficha carga la última revisión', () => {
+      // Al abrir, no al listar: son tres conexiones contra la planta y la
+      // lista se mira muchas más veces que una ficha concreta.
+      const c = crear();
+      api.salud.and.returnValue(of(CAIDA));
+      c.abrir('itagui');
+      expect(api.salud).toHaveBeenCalledWith('itagui');
+      expect(c.salud()?.fallas).toEqual(['troncal']);
+    });
+
+    it('que no haya revisión todavía NO es un error en pantalla', () => {
+      // Una planta recién dada de alta no tiene ninguna. Enseñar un error rojo
+      // ahí enseña a ignorar los errores rojos.
+      const c = crear();
+      api.salud.and.returnValue(of(null));
+      c.abrir('itagui');
+      expect(c.salud()).toBeNull();
+      expect(errores).toEqual([]);
+    });
+
+    it('«revisar ahora» mide y recarga, sin esperar al barrido', () => {
+      // Es lo que evita el «entre por SSH y mire» después de tocar algo.
+      const c = crear();
+      c.abrir('itagui');
+      api.salud.and.returnValue(of(SANA));
+      c.revisarAhora();
+      expect(api.revisar).toHaveBeenCalledWith('itagui');
+      expect(c.salud()?.bien).toBe(true);
+      expect(c.revisando()).toBe(false);
+    });
+
+    it('si la revisión falla lo dice y no deja el botón colgado', () => {
+      const c = crear();
+      c.abrir('itagui');
+      api.revisar.and.returnValue(throwError(() => ({ error: { message: 'sin red' } })));
+      c.revisarAhora();
+      expect(c.revisando()).toBe(false);
+      expect(errores.length).toBe(1);
+    });
+
+    it('cada falla se explica por lo que el ciudadano deja de poder hacer', () => {
+      // «troncal» no le dice nada a quien abre la pantalla a las tres de la
+      // mañana; «las llamadas no llegan», sí.
+      const c = crear();
+      expect(c.queSignifica('troncal')).toContain('no llegan');
+      expect(c.queSignifica('asterisk')).toContain('no entran llamadas');
+      expect(c.queSignifica('certificado-vencido')).toContain('ya no puede conectar');
+    });
+
+    it('mientras carga la siguiente NO enseña el estado de la anterior', () => {
+      // La trampa está en el tiempo: si no se limpia al abrir, la ficha de
+      // «envigado» enseña durante un instante la falla de «itagui» —y alguien
+      // sale corriendo a arreglar una planta que está bien—. El doble se deja
+      // SIN responder a propósito: con una respuesta inmediata esta prueba
+      // pasaría igual sin la limpieza, y no protegería nada.
+      const c = crear([ITAGUI, { ...ITAGUI, tenant: 'envigado', puertoSip: 5061 }]);
+      api.salud.and.returnValue(of(CAIDA));
+      c.abrir('itagui');
+      expect(c.salud()).toBeTruthy();
+
+      api.salud.and.returnValue(NEVER);
+      c.abrir('envigado');
+      expect(c.salud()).toBeNull();
+    });
+  });
 
   describe('la lista', () => {
     it('enseña lo que el servidor dice que falta, en su orden', () => {

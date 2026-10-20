@@ -91,6 +91,57 @@
             </div>
           }
 
+          <!-- Salud: lo que antes solo se veía entrando por SSH -->
+          <section class="bloque">
+            <h3>
+              Estado de la planta
+              <button type="button" class="btn btn--sec btn--mini"
+                [disabled]="revisando()" (click)="revisarAhora()">
+                {{ revisando() ? 'Revisando…' : 'Revisar ahora' }}
+              </button>
+            </h3>
+
+            @if (salud(); as s) {
+              <p class="estado-linea">
+                @if (s.bien) {
+                  <span class="badge badge--ok">atendiendo</span>
+                } @else {
+                  <span class="badge badge--err">{{ s.fallas.length }} falla(s)</span>
+                }
+                <span class="mono">{{ s.operadores }} operador(es) conectado(s)</span>
+                @if (s.version) { <span class="mono">Asterisk {{ s.version }}</span> }
+              </p>
+
+              @if (!s.bien) {
+                <ul class="fallas">
+                  @for (f of s.fallas; track f) {
+                    <li><strong>{{ f }}</strong> — {{ queSignifica(f) }}</li>
+                  }
+                </ul>
+                @if (s.fallaDesde) {
+                  <!-- «Desde cuándo» es lo que distingue dos minutos de dos días. -->
+                  <p class="desde">Falla desde {{ s.fallaDesde | date: 'short' }}</p>
+                }
+              }
+
+              @if (s.certificadoVence) {
+                <p class="desde">
+                  Certificado vigente hasta {{ s.certificadoVence | date: 'mediumDate' }}
+                </p>
+              }
+              <p class="desde">Última revisión: {{ s.revisadoEn | date: 'short' }}</p>
+              <details>
+                <summary>Lo que se midió</summary>
+                <p class="mono detalle">{{ s.detalle }}</p>
+              </details>
+            } @else {
+              <p class="vacio-mini">
+                Todavía no se ha revisado. La revisión automática corre cada cinco
+                minutos sobre las plantas activas; «Revisar ahora» no espera.
+              </p>
+            }
+          </section>
+
           <!-- Datos del servidor -->
           <form class="bloque" [formGroup]="datosForm" (ngSubmit)="guardarDatos()">
             <h3>Servidor y nombre</h3>

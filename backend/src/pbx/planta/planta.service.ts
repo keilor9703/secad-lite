@@ -715,6 +715,16 @@ export class PlantaService {
   // ADENTRO
   // ───────────────────────────────────────────────────────────────────────────
 
+  /**
+   * La fila de una planta, para quien necesita la entidad y no su vista.
+   *
+   * Lo usa la revisión de salud, que mide contra el servidor y no contra la
+   * pantalla. Es `exigir` con otro nombre: si no existe, 404.
+   */
+  filaDe(tenant: string): Promise<PlantaAsteriskEntity> {
+    return this.exigir(tenant);
+  }
+
   private async exigir(tenant: string): Promise<PlantaAsteriskEntity> {
     const fila = await this.repo.findOne({
       where: { tenant: (tenant ?? '').trim().toLowerCase() },

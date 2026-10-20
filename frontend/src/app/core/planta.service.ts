@@ -43,6 +43,31 @@ export interface NumeroVisible {
   activo: boolean;
 }
 
+/** Qué se encontró mal en una revisión. Vacío = todo bien. */
+export type FallaPlanta =
+  | 'asterisk'
+  | 'troncal'
+  | 'certificado'
+  | 'certificado-vencido';
+
+/** Lo que devuelve una revisión forzada desde la pantalla. */
+export interface RevisionPlanta {
+  tenant: string;
+  bien: boolean;
+  fallas: FallaPlanta[];
+  version: string | null;
+  operadores: number;
+  certificadoVence: string | null;
+  detalle: string;
+}
+
+/** La última revisión guardada, con desde cuándo falla. */
+export interface SaludPlanta extends RevisionPlanta {
+  /** Desde cuándo falla sin interrupción. Lo que distingue dos minutos de dos días. */
+  fallaDesde: string | null;
+  revisadoEn: string;
+}
+
 export interface PlantaVisible {
   tenant: string;
   servidor: string;
@@ -158,6 +183,21 @@ export class PlantaService {
   }
 
   /** Los archivos como van a quedar, con los secretos sustituidos. No rota nada. */
+  /** La última revisión automática. Puede no haber ninguna todavía. */
+  salud(tenant: string): Observable<SaludPlanta | null> {
+    return this.http.get<SaludPlanta | null>(`${this.base}/${tenant}/salud`);
+  }
+
+  /**
+   * Revisa la planta AHORA.
+   *
+   * Es lo que evita el «entre por SSH y mire»: después de tocar algo en el
+   * servidor, dice en dos segundos si quedó bien. No cambia nada en la planta.
+   */
+  revisar(tenant: string): Observable<RevisionPlanta> {
+    return this.http.post<RevisionPlanta>(`${this.base}/${tenant}/revisar`, {});
+  }
+
   previa(tenant: string): Observable<ConfiguracionPlanta> {
     return this.http.get<ConfiguracionPlanta>(`${this.base}/${tenant}/previa`);
   }

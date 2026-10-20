@@ -156,3 +156,43 @@
 }
 
 .mono { font-family: var(--fuente-mono, monospace); font-size: var(--texto-xs); }
+
+// ── Estado de la planta ────────────────────────────────────────────────────
+// Lo que antes solo se veía entrando por SSH. Sobrio a propósito: esto se mira
+// cuando algo va mal, y una pantalla llena de color no ayuda a leer.
+.estado-linea {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--esp-2);
+  margin: var(--esp-2) 0;
+}
+
+.fallas {
+  margin: var(--esp-2) 0;
+  padding-left: var(--esp-4);
+  display: flex;
+  flex-direction: column;
+  gap: var(--esp-1);
+  font-size: var(--txt-sm);
+}
+
+.desde {
+  margin: var(--esp-1) 0;
+  font-size: var(--txt-sm);
+  color: var(--txt-2);
+}
+
+.detalle {
+  margin: var(--esp-2) 0 0;
+  font-size: var(--txt-sm);
+  color: var(--txt-2);
+  // Un detalle largo no puede ensanchar la ficha.
+  overflow-wrap: anywhere;
+}
+
+.vacio-mini {
+  margin: var(--esp-2) 0;
+  font-size: var(--txt-sm);
+  color: var(--txt-2);
+}

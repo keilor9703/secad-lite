@@ -14,6 +14,8 @@ import {
   VistaPlanta,
   VistaTroncal,
 } from './planta.service';
+import { PlantaSaludService, RevisionPlanta } from './planta-salud.service';
+import { PlantaSaludEntity } from './planta-salud.entity';
 
 /**
  * NUESTRAS CENTRALITAS — dar de alta la planta de un municipio sin SSH.
@@ -32,6 +34,7 @@ import {
 export class PlantaController {
   constructor(
     private readonly planta: PlantaService,
+    private readonly salud: PlantaSaludService,
     private readonly auditoria: AuditoriaAdminService,
   ) {}
 
@@ -53,6 +56,31 @@ export class PlantaController {
    * No rota nada: una vista previa que invalidara la API key de la instancia
    * sería una trampa para quien solo quería mirar.
    */
+  /**
+   * GET /api/plataforma/planta/:tenant/salud — la última revisión automática.
+   *
+   * Devuelve lo guardado, no revisa: la pantalla se abre muchas veces y cada
+   * revisión son tres conexiones contra la planta. Para forzar una, está
+   * `POST :tenant/revisar`.
+   */
+  @Get(':tenant/salud')
+  verSalud(@Param('tenant') tenant: string): Promise<PlantaSaludEntity | null> {
+    return this.salud.ultima(tenant);
+  }
+
+  /**
+   * POST /api/plataforma/planta/:tenant/revisar — revisa AHORA.
+   *
+   * Es lo que evita el «entre por SSH y mire»: después de tocar algo en el
+   * servidor, esto dice en dos segundos si quedó bien. No cambia nada en la
+   * planta; solo pregunta.
+   */
+  @Post(':tenant/revisar')
+  async revisar(@Param('tenant') tenant: string): Promise<RevisionPlanta> {
+    const planta = await this.planta.filaDe(tenant);
+    return this.salud.revisarYGuardar(planta);
+  }
+
   @Get(':tenant/previa')
   previa(@Param('tenant') tenant: string): Promise<ConfiguracionPlanta> {
     return this.planta.previa(tenant);

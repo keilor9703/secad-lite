@@ -27,6 +27,10 @@ import { PlantaAsteriskEntity } from './planta/planta-asterisk.entity';
 import { PbxTroncalEntity } from './planta/pbx-troncal.entity';
 import { PbxNumeroEntity } from './planta/pbx-numero.entity';
 import { PlantaService } from './planta/planta.service';
+import { CorreoService } from '../correo/correo.service';
+import { PlantaSaludEntity } from './planta/planta-salud.entity';
+import { PlantaSaludService } from './planta/planta-salud.service';
+import { PlantaSaludBarridoService } from './planta/planta-salud.barrido.service';
 import { PlantaController } from './planta/planta.controller';
 import { PbxGrabacionService } from './pbx-grabacion.service';
 import { ArchivosModule } from '../archivos/archivos.module';
@@ -47,9 +51,15 @@ import { ArchivosModule } from '../archivos/archivos.module';
   imports: [
     AuditoriaModule,
     TypeOrmModule.forFeature([
-      LlamadaEntity, CasoEntity, PbxWebhookLogEntity, ConfigPbxEntity,
+      LlamadaEntity,
+      CasoEntity,
+      PbxWebhookLogEntity,
+      ConfigPbxEntity,
       // Nuestra planta: la infraestructura que provisionamos por municipio.
-      PlantaAsteriskEntity, PbxTroncalEntity, PbxNumeroEntity,
+      PlantaAsteriskEntity,
+      PbxTroncalEntity,
+      PbxNumeroEntity,
+      PlantaSaludEntity,
     ]),
     CasosModule,
     TenantsModule,
@@ -60,12 +70,33 @@ import { ArchivosModule } from '../archivos/archivos.module';
     // su permiso, su archivado, su hash y su custodia.
     ArchivosModule,
   ],
-  controllers: [PbxController, PbxConfigController, PlantaController, ZadarmaController],
+  controllers: [
+    PbxController,
+    PbxConfigController,
+    PlantaController,
+    ZadarmaController,
+  ],
   providers: [
-    PbxService, PbxGateway, PbxApiKeyGuard, PbxWebhookLogService,
-    PbxWebhookRechazoFilter, PbxWebhookExitoInterceptor,
-    PbxConfigService, PbxCredencialesService, AvisosPbxService, PbxSalienteService, PbxSoftphoneService,
-    PlantaService, PbxGrabacionService,
+    PbxService,
+    PbxGateway,
+    PbxApiKeyGuard,
+    PbxWebhookLogService,
+    PbxWebhookRechazoFilter,
+    PbxWebhookExitoInterceptor,
+    PbxConfigService,
+    PbxCredencialesService,
+    AvisosPbxService,
+    PbxSalienteService,
+    PbxSoftphoneService,
+    PlantaService,
+    PbxGrabacionService,
+    // La vigilancia de las plantas: mide desde fuera y avisa cuando algo
+    // deja de estar bien. Sin esto, una troncal caída de madrugada no la
+    // descubre nadie hasta que un ciudadano no puede llamar.
+    PlantaSaludService,
+    PlantaSaludBarridoService,
+    // El aviso sale por el mismo camino que los reportes de la mesa.
+    CorreoService,
   ],
   exports: [PbxService],
 })

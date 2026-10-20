@@ -10,7 +10,7 @@ import { AdminService } from '../../../core/admin.service';
 import { Tenant } from '../../../core/models';
 import {
   ArchivoPlanta, AutenticacionTroncal, ConfiguracionPlanta, EstadoPlanta, NumeroVisible,
-  PlantaService, PlantaVisible, TipoNumero, TroncalVisible,
+  PlantaService, PlantaVisible, SaludPlanta, TipoNumero, TroncalVisible,
 } from '../../../core/planta.service';
 
 /**
@@ -140,6 +140,15 @@ export class PlantaAdminComponent implements OnInit {
   readonly config = signal<ConfiguracionPlanta | null>(null);
   readonly archivoAbierto = signal('');
 
+  /**
+   * La última revisión automática de la planta abierta.
+   *
+   * Se carga al abrir la ficha, no al listar: son tres conexiones contra la
+   * planta y la lista se mira muchas más veces que una ficha concreta.
+   */
+  readonly salud = signal<SaludPlanta | null>(null);
+  readonly revisando = signal(false);
+
   ngOnInit(): void {
     this.cargar();
     this.admin.listarTenants().subscribe({
@@ -162,6 +171,13 @@ export class PlantaAdminComponent implements OnInit {
     if (this.abierta() === tenant) { this.abierta.set(''); return; }
     this.abierta.set(tenant);
     this.config.set(null);
+    this.salud.set(null);
+    this.api.salud(tenant).subscribe({
+      next: (s) => this.salud.set(s),
+      // Que no haya revisión todavía no es un error que mostrar: una planta
+      // recién dada de alta no tiene ninguna.
+      error: () => this.salud.set(null),
+    });
     this.editandoPuertos.set(false);
     this.troncalEditando.set(null);
     this.numeroEditando.set(null);
@@ -181,6 +197,41 @@ export class PlantaAdminComponent implements OnInit {
       rtpHasta: p.rtpHasta,
       puertoHttp: p.puertoHttp,
     });
+  }
+
+  /**
+   * Revisa la planta ahora mismo.
+   *
+   * Es lo que evita el «entre por SSH y mire»: después de tocar algo en el
+   * servidor, esto dice en dos segundos si quedó bien.
+   */
+  revisarAhora(): void {
+    const tenant = this.abierta();
+    if (!tenant || this.revisando()) return;
+    this.revisando.set(true);
+    this.api.revisar(tenant).subscribe({
+      next: () => {
+        this.api.salud(tenant).subscribe({
+          next: (s) => { this.salud.set(s); this.revisando.set(false); },
+          error: () => this.revisando.set(false),
+        });
+        this.toast.exito('Planta revisada.');
+      },
+      error: (e) => {
+        this.revisando.set(false);
+        this.toast.error(this.porQue(e));
+      },
+    });
+  }
+
+  /** Qué deja de poder hacer el ciudadano con cada falla. */
+  queSignifica(falla: string): string {
+    return {
+      asterisk: 'La central no responde: no entran llamadas y el softphone no conecta.',
+      troncal: 'La central responde pero la troncal no está disponible: las llamadas no llegan.',
+      certificado: 'El certificado está por vencer; ese día el softphone deja de conectar.',
+      'certificado-vencido': 'El certificado venció: el softphone ya no puede conectar.',
+    }[falla] ?? falla;
   }
 
   // ── Alta y edición ────────────────────────────────────────────────────────

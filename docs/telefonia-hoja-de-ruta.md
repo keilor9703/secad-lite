@@ -68,7 +68,7 @@ análisis de operadores en Colombia.
 ---
 
 ### `T2` · Monitoreo y alertas de la planta
-- [ ] **En curso** · *Primero de la cola de implementación*
+- [x] **Hecho** · 20/10/2026
 
 **Hoy no existe nada.** Si la troncal se cae a las 3 de la mañana, nadie se
 entera hasta que alguien llama a quejarse. No hay chequeo del contenedor, ni de
@@ -79,19 +79,34 @@ más cambia las cosas. Sin esto, cualquier otra mejora se construye sobre algo e
 lo que no se puede confiar — y la noche del 19 de octubre demostró que una
 planta puede estar «arriba» y no servir para nada.
 
-**Qué incluye:**
-- [ ] Chequeo periódico de cada planta activa, desde el backend de FALCON:
-      - ¿Asterisk responde? (ARI `GET /ari/asterisk/info`, por el mismo 443)
-      - ¿La troncal está disponible y cuántos operadores registrados?
-        (ARI `GET /ari/endpoints`)
-      - ¿Cuándo vence el certificado del nombre de la planta?
-- [ ] Guardar el resultado y **desde cuándo** falla, no solo el último estado
-- [ ] Avisar cuando un chequeo pasa de bien a mal, y cuando el certificado entra
-      en los últimos días — por la mesa de ayuda, que ya existe
-- [ ] Mostrarlo en la pantalla de la planta, con el detalle de qué falla
+**Qué quedó hecho:**
+- [x] Revisión cada cinco minutos de cada planta **activa**, desde el backend de
+      FALCON y **por el mismo 443 que usa el navegador del operador** — nada de
+      SSH, y nada de comprobar por un camino privilegiado que el operador no usa
+- [x] Tres preguntas: ¿Asterisk responde? ¿la troncal está disponible y cuántos
+      operadores hay conectados? ¿cuándo vence el certificado?
+- [x] Guarda **desde cuándo** falla, que es lo que distingue dos minutos de dos
+      días, y el detalle de lo que se midió
+- [x] Avisa a la mesa **cuando aparece** una falla, no mientras dura: un correo
+      cada cinco minutos deja de leerse al tercero
+- [x] El aviso dice **qué deja de poder hacer el ciudadano**, no qué comprobación
+      falló — quien lo recibe a las tres de la mañana necesita saber si tiene
+      que levantarse
+- [x] En la pantalla de la planta, con un botón **«Revisar ahora»** que mide en
+      dos segundos después de tocar algo en el servidor
 
-**Dónde se toca:** `backend/src/pbx/planta/` (servicio de salud nuevo),
-`frontend/src/app/pages/plataforma/planta/`, y el módulo de correo que ya está.
+**Lo que deliberadamente NO hace:** no reinicia nada. Un monitoreo que arregla
+por su cuenta esconde el problema y repite el reinicio hasta que alguien mira.
+
+**Dónde quedó:** `backend/src/pbx/planta/planta-salud.{entity,service}.ts`,
+`planta-salud.barrido.service.ts`, migración `1822000000000`, la plantilla de
+correo en `src/correo/plantillas.ts`, y el panel en
+`frontend/src/app/pages/plataforma/planta/`.
+
+**Pendiente de T2, para cuando haga falta:** no hay histórico, solo el estado
+actual y desde cuándo falla. El día que haga falta una gráfica, se agrega una
+tabla aparte — un chequeo cada cinco minutos son cien mil filas al año por
+municipio.
 
 ---
 
@@ -282,7 +297,7 @@ declara en ninguna parte.
 ## La ruta recomendada
 
 ### Ahora
-1. **`T2` Monitoreo** — sin esto no se puede confiar en nada de lo demás.
+1. ~~**`T2` Monitoreo**~~ — hecho el 20/10/2026.
 2. **`T3` Desborde de la cola** — barato, y es lo único que no se puede permitir.
 3. **`T5` Transferencia** — lo primero que pide una sala real.
 
@@ -304,4 +319,5 @@ vendible a un municipio grande.
 
 | Fecha | Qué | Commit |
 |---|---|---|
-| 20/10/2026 | Diagnóstico inicial y esta hoja de ruta | — |
+| 20/10/2026 | Diagnóstico inicial y esta hoja de ruta | `0e7c94b` |
+| 20/10/2026 | **`T2`** Monitoreo y alertas de la planta | *este* |
