@@ -5,20 +5,7 @@ import { of } from 'rxjs';
 import { AuthService } from '../../core/auth.service';
 import { PbxService } from '../../core/pbx.service';
 import { SoftphoneService } from '../../core/softphone/softphone.service';
-import { Llamada } from '../../core/models';
 import { CtiComponent } from './cti';
-
-/** Una llamada de la cola, con lo justo para esta pantalla. */
-const llamada = (over: Partial<Llamada> = {}): Llamada => ({
-  id: 'l-1',
-  tenant: 'demo',
-  numero: '3001234567',
-  origen: 'telefono',
-  estado: 'sonando',
-  creadoEn: new Date().toISOString(),
-  actualizadoEn: new Date().toISOString(),
-  ...over,
-});
 
 describe('CtiComponent', () => {
   let fixture: ComponentFixture<CtiComponent>;
@@ -31,7 +18,7 @@ describe('CtiComponent', () => {
     destinoSaliente: ReturnType<typeof signal<string>>;
     [k: string]: unknown;
   };
-  let llamadas: ReturnType<typeof signal<Llamada[]>>;
+  let llamadas: ReturnType<typeof signal<unknown[]>>;
   let tonos: string[];
   let marcados: string[];
 
@@ -40,7 +27,7 @@ describe('CtiComponent', () => {
   }
 
   beforeEach(() => {
-    llamadas = signal<Llamada[]>([]);
+    llamadas = signal<unknown[]>([]);
     tonos = [];
     marcados = [];
     sp = {
@@ -135,70 +122,6 @@ describe('CtiComponent', () => {
     });
   });
 
-  describe('la cola', () => {
-    it('la que más ha esperado va primero', () => {
-      const hace = (min: number) => new Date(Date.now() - min * 60_000).toISOString();
-      llamadas.set([
-        llamada({ id: 'nueva', numero: '3009999999', creadoEn: hace(1) }),
-        llamada({ id: 'vieja', numero: '3001111111', creadoEn: hace(9) }),
-      ]);
-      fixture.detectChanges();
-
-      const filas = (fixture.nativeElement as HTMLElement).querySelectorAll('.cti-fila');
-      expect(filas.length).toBe(2);
-      expect(filas[0].textContent).toContain('3001111111');
-    });
-
-    it('dice cuánto lleva esperando, no solo cuántas hay', () => {
-      // Un contador dice «2 en cola» y con eso no se decide nada: no dice si
-      // el primero lleva seis segundos o seis minutos.
-      llamadas.set([
-        llamada({ creadoEn: new Date(Date.now() - 125_000).toISOString() }),
-      ]);
-      fixture.detectChanges();
-
-      // Al minuto y no al segundo: `ahora` se fija al construir y la prueba
-      // correría un segundo por detrás. Lo que se garantiza es que se cuenta
-      // el tiempo, no que se cuente con precisión de reloj atómico.
-      expect(texto()).toMatch(/02:0\d/);
-      expect(texto()).not.toContain('00:00');
-    });
-
-    it('solo cuenta las que están timbrando', () => {
-      llamadas.set([
-        llamada({ id: 'a', estado: 'sonando' }),
-        llamada({ id: 'b', estado: 'finalizada' }),
-      ]);
-      fixture.detectChanges();
-
-      expect(
-        (fixture.nativeElement as HTMLElement).querySelectorAll('.cti-fila').length,
-      ).toBe(1);
-    });
-
-    it('tomar una llamada la entrega a la pantalla, no la resuelve aquí', () => {
-      const l = llamada({ id: 'l-7' });
-      llamadas.set([l]);
-      fixture.detectChanges();
-
-      let tomada: Llamada | undefined;
-      fixture.componentInstance.tomar.subscribe((x) => (tomada = x));
-      (
-        (fixture.nativeElement as HTMLElement).querySelector('.cti-tomar') as HTMLButtonElement
-      ).click();
-
-      expect(tomada?.id).toBe('l-7');
-    });
-
-    it('lo que no es un abonado no se enseña como si lo fuera', () => {
-      // Para los contactos de WhatsApp la central manda un identificador de
-      // sesión. Enseñarlo en grande como «el número» invita a marcarlo.
-      llamadas.set([llamada({ numero: '+CO.1744934636794102' })]);
-      fixture.detectChanges();
-
-      expect(texto()).toContain('Sin número');
-    });
-  });
 
   describe('el estado del puesto', () => {
     it('lo que está pasando ahora le gana a cómo está el registro', () => {

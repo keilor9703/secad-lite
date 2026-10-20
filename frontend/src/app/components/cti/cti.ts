@@ -83,27 +83,11 @@ export class CtiComponent implements OnDestroy {
   private readonly pbx = inject(PbxService);
   private readonly auth = inject(AuthService);
 
-  /**
-   * El operador tomó una llamada de la cola.
-   *
-   * Sale como evento y no se resuelve aquí porque lo que hay que hacer con una
-   * llamada tomada —llenar el formulario, consultar la ubicación, fijar el
-   * medio— es asunto de la pantalla que aloja el panel, no del teléfono.
-   */
-  readonly tomar = output<Llamada>();
 
   /** Se repinta cada segundo: relojes de llamada y de espera. */
   private readonly ahora = signal(Date.now());
   private readonly reloj = setInterval(() => this.ahora.set(Date.now()), TIC_MS);
 
-  /** El aviso sonoro de la cola, que es del puesto y no de este panel. */
-  readonly sonidoActivo = this.pbx.sonidoActivo;
-  readonly enVivo = this.pbx.enVivo;
-  /** Una instancia sin planta no tiene canal que se caiga: no se avisa. */
-  readonly canalEsperado = this.pbx.canalEsperado;
-  alternarSonido(): void {
-    this.pbx.alternarSonido();
-  }
 
   readonly teclas = TECLAS;
   readonly tecleando = signal(false);
@@ -221,10 +205,6 @@ export class CtiComponent implements OnDestroy {
 
   // ── Los relojes ────────────────────────────────────────────────────────────
 
-  /** Cuánto lleva esta llamada esperando en la cola, en mm:ss. */
-  espera(l: Llamada): string {
-    return reloj(this.ahora() - +new Date(l.creadoEn));
-  }
 
   /**
    * Cuánto lleva la conversación.
@@ -239,22 +219,9 @@ export class CtiComponent implements OnDestroy {
     return d ? reloj(this.ahora() - d) : '';
   });
 
-  /** ¿Se puede marcar este identificador, o es un JID de WhatsApp? */
-  marcable(numero: string): boolean {
-    return PbxService.esNumeroMarcable(numero);
-  }
-
-  iconoOrigen(l: Llamada): NombreIcono {
-    return l.origen === 'whatsapp_llamada' || l.origen === 'whatsapp_chat'
-      ? 'chat'
-      : 'telefono';
-  }
 
   // ── Acciones ───────────────────────────────────────────────────────────────
 
-  tomarDeLaCola(l: Llamada): void {
-    this.tomar.emit(l);
-  }
 
   alternarTeclado(): void {
     this.tecleando.update((v) => !v);

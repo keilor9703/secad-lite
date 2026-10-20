@@ -149,44 +149,9 @@
     }
   </div>
 
-  <!-- ── LA COLA, con lo único que sirve para decidir: cuánto lleva ──────── -->
-  <div class="cti-cola">
-    <h3 class="cti-h3">
-      En espera
-      <button type="button" class="cti-icono" (click)="alternarSonido()"
-              [title]="sonidoActivo() ? 'Silenciar el aviso de llamada entrante' : 'Activar el aviso de llamada entrante'"
-              [attr.aria-label]="sonidoActivo() ? 'Silenciar aviso de llamada entrante' : 'Activar aviso de llamada entrante'">
-        <app-icono [nombre]="sonidoActivo() ? 'campana' : 'campana-off'" [tam]="15" />
-      </button>
-    </h3>
-
-    @for (l of enEspera(); track l.id) {
-      <div class="cti-fila">
-        <app-icono [nombre]="iconoOrigen(l)" [tam]="15" />
-        @if (marcable(l.numero)) {
-          <span class="cti-fnum mono">{{ l.numero }}</span>
-        } @else {
-          <span class="cti-fnum cti-fnum--sin" [title]="l.numero">Sin número</span>
-        }
-        <!-- La espera en vivo. Un contador dice «5 en cola» y eso no deja
-             decidir nada: no dice si el primero lleva seis segundos o seis
-             minutos. -->
-        <span class="cti-fespera mono">{{ espera(l) }}</span>
-        <button type="button" class="cti-tomar" (click)="tomarDeLaCola(l)">Tomar</button>
-      </div>
-    } @empty {
-      <p class="cti-vacio">Nadie esperando. Puede recepcionar un caso a mano.</p>
-    }
-
-    @if (canalEsperado() && !enVivo()) {
-      <!-- Una cola vacía con el canal caído no quiere decir «no hay
-           llamadas», quiere decir «dejé de enterarme». -->
-      <p class="cti-motivo" role="status">
-        <app-icono nombre="alerta" [tam]="14" />
-        Sin conexión en vivo: una llamada entrante puede tardar en aparecer.
-      </p>
-    }
-  </div>
+  <!-- La cola NO vive aquí: es de FALCON y existe con cualquier central.
+       Meterla dentro de este panel dejó sin cola a los municipios que operan
+       con un tercero. Ver `cti-cola.ts`. -->
 
   <!-- ── El teclado: tonos en llamada, marcar cuando no la hay ───────────── -->
   <div class="cti-teclado">

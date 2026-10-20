@@ -2,6 +2,7 @@ import { signal } from '@angular/core';
 import { ComponentFixture, TestBed } from '@angular/core/testing';
 
 import { CapacidadesPbx, PbxService } from '../../core/pbx.service';
+import { CtiColaComponent } from './cti-cola';
 import { CtiComponent } from './cti';
 import { CtiHostComponent } from './cti-host';
 
@@ -11,6 +12,11 @@ describe('CtiHostComponent', () => {
 
   function texto(): string {
     return (fixture.nativeElement as HTMLElement).textContent ?? '';
+  }
+
+  /** ¿Se montó la cola de llamadas? Tiene que estar SIEMPRE. */
+  function hayCola(): boolean {
+    return !!(fixture.nativeElement as HTMLElement).querySelector('app-cti-cola');
   }
 
   /**
@@ -34,8 +40,8 @@ describe('CtiHostComponent', () => {
     // Nuestro panel trae dependencias propias; aquí solo interesa CUÁL se
     // monta, así que se sustituye por una pieza vacía con el mismo selector.
     TestBed.overrideComponent(CtiHostComponent, {
-      remove: { imports: [CtiComponent] },
-      add: { imports: [CtiDoble] },
+      remove: { imports: [CtiComponent, CtiColaComponent] },
+      add: { imports: [CtiDoble, ColaDoble] },
     });
 
     fixture = TestBed.createComponent(CtiHostComponent);
@@ -48,6 +54,45 @@ describe('CtiHostComponent', () => {
     });
     fixture.detectChanges();
     expect(hayPanelPropio()).toBe(true);
+  });
+
+  describe('la cola de llamadas va SIEMPRE', () => {
+    // El defecto real del 20/10/2026: la cola estaba DENTRO del panel propio,
+    // así que una instancia con la central de un tercero se quedó viendo
+    // entrar las llamadas por el contador de la barra superior, sin ninguna
+    // forma de tomarlas. Las llamadas llegan al webhook de FALCON venga la
+    // central de donde venga; lo que cambia es cómo se contestan.
+
+    it('con la central propia', () => {
+      capacidades.set({
+        proveedor: 'ASTERISK', nombre: 'Asterisk propio', activo: true,
+        capacidades: ['entrantes', 'softphone'],
+      });
+      fixture.detectChanges();
+      expect(hayCola()).toBe(true);
+    });
+
+    it('con la central del tercero', () => {
+      capacidades.set({
+        proveedor: 'YACO', nombre: 'YACO', activo: true, capacidades: ['entrantes'],
+      });
+      fixture.detectChanges();
+      expect(hayCola()).toBe(true);
+    });
+
+    it('con la central propia APAGADA', () => {
+      capacidades.set({
+        proveedor: 'ASTERISK', nombre: 'Asterisk propio', activo: false, capacidades: [],
+      });
+      fixture.detectChanges();
+      expect(hayCola()).toBe(true);
+    });
+
+    it('y hasta sin central configurada: un caso se recepciona a mano', () => {
+      capacidades.set(null);
+      fixture.detectChanges();
+      expect(hayCola()).toBe(true);
+    });
   });
 
   it('con la centralita del tercero, NO monta el nuestro y dice de quién es', () => {
@@ -69,7 +114,7 @@ describe('CtiHostComponent', () => {
     fixture.detectChanges();
 
     expect(
-      (fixture.nativeElement as HTMLElement).querySelectorAll('button').length,
+      (fixture.nativeElement as HTMLElement).querySelectorAll('.cti-ajeno button').length,
     ).toBe(0);
     expect(texto()).toContain('cuando la entreguen');
   });
@@ -102,3 +147,12 @@ import { ChangeDetectionStrategy, Component } from '@angular/core';
   template: '',
 })
 class CtiDoble {}
+
+/** Y una cola vacía, para poder comprobar que se monta. */
+@Component({
+  selector: 'app-cti-cola',
+  standalone: true,
+  changeDetection: ChangeDetectionStrategy.OnPush,
+  template: '',
+})
+class ColaDoble {}

@@ -2,6 +2,7 @@ import { ChangeDetectionStrategy, Component, computed, inject, output } from '@a
 
 import { PbxService } from '../../core/pbx.service';
 import { Llamada } from '../../core/models';
+import { CtiColaComponent } from './cti-cola';
 import { CtiComponent } from './cti';
 
 /**
@@ -31,12 +32,20 @@ import { CtiComponent } from './cti';
 @Component({
   selector: 'app-cti-host',
   standalone: true,
-  imports: [CtiComponent],
+  imports: [CtiColaComponent, CtiComponent],
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
+    <!-- LA COLA VA SIEMPRE, sea de quien sea el teléfono.
+         Las llamadas entran al webhook de FALCON venga la central de donde
+         venga, así que la fila de lo que está esperando es de FALCON. Lo que
+         cambia con el proveedor son los CONTROLES para contestar. Ponerla
+         dentro del panel propio dejó a un municipio en producción viendo
+         entrar las llamadas sin forma de tomarlas. -->
+    <app-cti-cola (tomar)="tomar.emit($event)" />
+
     @switch (cual()) {
       @case ('propia') {
-        <app-cti (tomar)="tomar.emit($event)" />
+        <app-cti />
       }
       @case ('yaco') {
         <section class="cti-ajeno">
@@ -64,6 +73,12 @@ import { CtiComponent } from './cti';
     }
   `,
   styles: `
+    :host {
+      display: flex;
+      flex-direction: column;
+      gap: var(--esp-4);
+    }
+
     .cti-ajeno {
       display: flex;
       flex-direction: column;
