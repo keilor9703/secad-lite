@@ -29,6 +29,8 @@ Lo que está probado de punta a punta, en producción, con llamada real:
 | Grabación en custodia del caso | ✔ Solo borra el local cuando FALCON confirma |
 | Administración multi-municipio | ✔ Plataforma → Nuestras centralitas |
 | Audio en los dos sentidos | ✔ Desde el 20/10/2026 |
+| Planta en **Bogotá** | ✔ Migrada el 20/10/2026 al servidor `157.137.196.69` (`pbx.falconcad.com.co`), sin incidentes |
+| Troncal con Infobip | ✔ Entrantes, con audio. **Salientes y `qualify`: pendientes de confirmar** — el contacto tenía el nombre de la cuenta, que no tiene registro `A`; se corrigió a `clients-co2.sip.voice.infobip.com:5060`, que es lo que publica el `SRV` del trunk |
 
 Documentación: [`planta-telefonica-funcionalidades.md`](planta-telefonica-funcionalidades.md)
 y [`planta-telefonica-despliegue.md`](planta-telefonica-despliegue.md).

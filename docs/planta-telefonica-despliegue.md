@@ -565,7 +565,44 @@ Esta es la familia que costó la noche. Todas dan el mismo síntoma.
 | Audio de una sola vía | `external_media_address` ausente: Asterisk anuncia la privada en el SDP de la troncal | El SDP en `pjsip set logger on` | `ipPublica` en FALCON |
 | La llamada entra, timbra, se contesta y Asterisk la cuelga él solo | Opus antes que ulaw: *Unable to find a codec translation path* | El log | `allow = ulaw,alaw`. Lo genera FALCON |
 
-### 10.4. Problemas de la instalación
+### 10.4. La troncal figura caída, pero las llamadas SÍ entran
+
+Esta familia se reconoce por una contradicción: el ciudadano llama y la llamada
+entra con audio en los dos sentidos, y al mismo tiempo el panel dice que la
+troncal está mal y el botón «Llamar» del caso no marca.
+
+No es una contradicción. Son dos caminos distintos que no comparten nada:
+
+- **Lo entrante** llega por el `identify` por IP, que mira la dirección de
+  origen del `INVITE` y **no mira el estado del contacto para nada**.
+- **Lo saliente y el `qualify`** usan el `contact` del AOR. Si ese contacto no
+  se puede resolver, los dos se rompen a la vez y lo entrante ni se entera.
+
+Con autenticación por IP no hay registro, así que el `qualify` es la única
+señal de estado que existe. Cuando no sale, el contacto se queda en `Unavail`
+**para siempre**, y leer eso como «no entran llamadas» es afirmar algo falso.
+
+| Síntoma | Causa | Qué se mide | Arreglo |
+|---|---|---|---|
+| Troncal `Unavail` con llamadas entrando bien | El `contact` no resuelve: el operador publica el nombre por `SRV`, sin registro `A` | `dig @8.8.8.8 <nombre> A` **con cabecera, nunca `+short`**, y después `dig @8.8.8.8 _sip._udp.<nombre> SRV` | Poner en el campo *Servidor* de la troncal el host que nombra el `SRV`, con su puerto |
+| Troncal `Unavail` y el `OPTIONS` saliente no obtiene respuesta | Falta la regla de salida, o nuestra IP no está declarada en el panel del operador | `tcpdump -n host <IP del SBC> and port 5060` mientras corre el `qualify` | Abrir la salida; declarar la IP del servidor en el panel del operador |
+| El panel de monitoreo dice `troncal-sin-sondeo` | Es el aviso correcto, no una falla de FALCON: significa «no puedo sondearla», no «está caída» | Lo de arriba | Lo de arriba |
+
+> **Un puerto explícito anula el `SRV`.** El generador escribe
+> `contact = sip:<servidor>:<puerto>`, y según el RFC 3263 una URI con puerto
+> salta directo a `A`/`AAAA` sin consultar `SRV`. Por eso el campo *Servidor*
+> tiene que llevar el host **final** —el que el `SRV` nombra—, no el nombre de
+> la troncal que entrega el operador.
+>
+> Visto con Infobip el 20 de octubre de 2026: el nombre de la cuenta
+> (`6ad3…latam.sip.voice.infobip.com`) da `NXDOMAIN` en `A`, y su
+> `_sip._udp` apunta a `clients-co2.sip.voice.infobip.com:5060`, que resuelve a
+> la misma IP desde la que llegaban los `INVITE`. Con `dig +short` los dos
+> casos —«no existe» y «no me responde el DNS»— se ven idénticos: vacío. Esa
+> ambigüedad costó una conclusión equivocada. **Mida con cabecera y con un
+> nombre de control.**
+
+### 10.5. Problemas de la instalación
 
 | Síntoma | Causa | Arreglo |
 |---|---|---|

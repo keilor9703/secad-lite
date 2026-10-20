@@ -223,10 +223,28 @@ cd ~/falcon-deploy && ./deploy-falcon.sh --respaldo # si entran migraciones
 El script reemplaza las réplicas de una en una, se detiene ante el primer error
 y comprueba al final. `DB_MIGRATE=true` **solo en `backend1`**.
 
-### Pruebas y primera planta telefónica — «Servidor B»
+### Planta telefónica — «Servidor PBX Bogotá»
 
-`129.80.243.118` · `falcon-test.falconcad.com.co`. Aquí vive la primera planta
-propia en producción (`centralita.appjeylor.com`, instancia `demo`).
+| | |
+|---|---|
+| IP | `157.137.196.69` pública · `10.0.0.31` privada · `pbx.falconcad.com.co` |
+| Nube | Oracle Cloud, **región Bogotá** · Ubuntu 24.04 Minimal **aarch64** |
+| Carpeta | `/opt/falcon-pbx/demo` |
+| Qué corre | Asterisk 20 en Docker (`falcon-pbx:2`) · nginx **del sistema** sirviendo el 443 |
+
+La planta de la instancia `demo`, migrada desde el Servidor B el 20 de octubre
+de 2026. Está en Bogotá a propósito: la latencia al SBC del operador
+(`clients-co2.sip.voice.infobip.com`, también en Colombia) es parte de la
+calidad del audio.
+
+**Su configuración no se edita aquí.** La genera FALCON y se aplica con el
+`aplicar.sh` que descarga la pantalla de Plataforma → Planta. Ver §6, regla 1.
+
+### Pruebas — «Servidor B»
+
+`129.80.243.118` · `falcon-test.falconcad.com.co`. Alojó la primera planta
+propia en producción (`centralita.appjeylor.com`) hasta la migración a Bogotá.
+Queda como servidor de pruebas; su renovación de certificado está rota (T11).
 
 ### Trampas de despliegue que ya nos costaron
 
