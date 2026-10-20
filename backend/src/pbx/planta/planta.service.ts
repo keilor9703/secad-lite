@@ -15,6 +15,7 @@ import { PbxConfigService } from '../pbx-config.service';
 import { PbxCredencialesService } from '../pbx-credenciales.service';
 import {
   EstadoPlanta,
+  ipInternaDe,
   ipPublicaDe,
   nombreContenedor,
   PlantaAsteriskEntity,
@@ -118,6 +119,8 @@ export interface VistaPlanta {
   tenant: string;
   servidor: string;
   ipPublica: string;
+  /** Por dónde alcanza nginx a esta planta; `127.0.0.1` si no se fijó otra. */
+  ipInterna: string;
   dominioSip: string;
   contenedor: string;
   puertoSip: number;
@@ -148,6 +151,7 @@ export interface CrearPlantaDto {
   tenant?: string;
   servidor?: string;
   ipPublica?: string | null;
+  ipInterna?: string | null;
   /** Si no viene, se deriva: `<tenant>-pbx.<dominio base>`. */
   dominioSip?: string | null;
   notas?: string | null;
@@ -156,6 +160,7 @@ export interface CrearPlantaDto {
 export interface ActualizarPlantaDto {
   servidor?: string;
   ipPublica?: string | null;
+  ipInterna?: string | null;
   dominioSip?: string | null;
   notas?: string | null;
   estado?: EstadoPlanta;
@@ -294,6 +299,7 @@ export class PlantaService {
       tenant,
       servidor,
       ipPublica: dto.ipPublica?.trim() || null,
+      ipInterna: this.limpiarIpInterna(dto.ipInterna),
       dominioSip,
       ...ranura.ranura,
       estado: 'borrador',
@@ -303,6 +309,37 @@ export class PlantaService {
     const guardada = await this.repo.save(fila);
     await this.escribirConfigPbx(guardada, actor);
     return this.vista(guardada);
+  }
+
+  /**
+   * Valida la IP interna, y rechaza `0.0.0.0` por nombre.
+   *
+   * `0.0.0.0` «funciona» —de hecho funciona en los dos casos, por eso es la
+   * tentación cuando algo no conecta—, y lo que hace es dejar ARI escuchando
+   * en todas las interfaces del host. Hoy eso está tapado por el cortafuegos;
+   * el día que alguien abra ese puerto en la nube para depurar, queda ARI
+   * expuesto a internet con solo su clave. Así que se rechaza aquí, donde se
+   * escribe, y no se confía en que nadie lo teclee.
+   */
+  private limpiarIpInterna(valor?: string | null): string | null {
+    const ip = valor?.trim();
+    if (!ip) return null;
+    if (!/^\d{1,3}(\.\d{1,3}){3}$/.test(ip))
+      throw new BadRequestException(
+        `«${ip}» no es una dirección IPv4. La IP interna es la del host por la ` +
+          'que nginx alcanza a la planta: 127.0.0.1 si nginx corre en el host, ' +
+          'o la del puente de Docker (ip -4 addr show docker0) si corre en un ' +
+          'contenedor en red bridge.',
+      );
+    if (ip.split('.').some((o) => Number(o) > 255))
+      throw new BadRequestException(`«${ip}» no es una dirección IPv4.`);
+    if (ip === '0.0.0.0')
+      throw new BadRequestException(
+        'La IP interna no puede ser 0.0.0.0: eso deja ARI escuchando en todas ' +
+          'las interfaces del host. Use 127.0.0.1 si nginx corre en el host, o ' +
+          'la IP del puente de Docker si corre en un contenedor.',
+      );
+    return ip;
   }
 
   async actualizar(
@@ -320,6 +357,8 @@ export class PlantaService {
     }
     if (dto.ipPublica !== undefined)
       fila.ipPublica = dto.ipPublica?.trim() || null;
+    if (dto.ipInterna !== undefined)
+      fila.ipInterna = this.limpiarIpInterna(dto.ipInterna);
     if (dto.dominioSip !== undefined) {
       const dominioSip = (dto.dominioSip ?? '').trim().toLowerCase();
       if (!dominioSip)
@@ -786,6 +825,7 @@ export class PlantaService {
       rtpHasta: planta.rtpHasta,
       puertoHttp: planta.puertoHttp,
       ipPublica: ipPublicaDe(planta),
+      ipInterna: ipInternaDe(planta),
       operadores: operadores
         .filter((u) => (u.extension ?? '').trim())
         .map((u) => ({
@@ -904,6 +944,7 @@ export class PlantaService {
       tenant: p.tenant,
       servidor: p.servidor,
       ipPublica: ipPublicaDe(p),
+      ipInterna: ipInternaDe(p),
       dominioSip: p.dominioSip,
       contenedor: nombreContenedor(p.tenant),
       puertoSip: p.puertoSip,

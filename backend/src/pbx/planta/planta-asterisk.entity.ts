@@ -136,13 +136,33 @@ export class PlantaAsteriskEntity {
 
   /**
    * El HTTP de Asterisk: por ahí entra el WebSocket del softphone y la
-   * interfaz ARI. Escucha solo en 127.0.0.1 y lo publica nginx en el 443 por
-   * nombre, así que NO se abre en la nube — pero es un puerto del host igual
+   * interfaz ARI. Escucha en UNA sola IP interna (ver `ipInterna`) y lo
+   * publica nginx en el 443 por nombre, así que NO se abre en la nube — pero
+   * es un puerto del host igual
    * que los otros, porque el contenedor comparte su red (ver
    * `asignador-puertos.ts`), y por eso también tiene que ser único.
    */
   @Column({ type: 'int' })
   puertoHttp!: number;
+
+  /**
+   * La IP del host por la que el nginx que termina el TLS alcanza a esta
+   * planta. Nula = `127.0.0.1`.
+   *
+   * Existe porque no siempre es la misma, y el caso contrario no avisa:
+   *
+   *  - nginx en el host → `127.0.0.1`, lo más cerrado que hay.
+   *  - nginx en un contenedor en red bridge → la IP del host en el puente de
+   *    Docker (`172.17.0.1` normalmente). Con `127.0.0.1` ahí, nginx se habla
+   *    a sí mismo: 502 en el WebSocket y el botón «Llamar» mudo, sin una
+   *    línea en ningún log que lo explique.
+   *
+   * Es un dato del SERVIDOR, no del municipio: todas las plantas de un mismo
+   * host llevan el mismo valor. Está por planta y no por servidor porque no
+   * hay tabla de servidores; el día que la haya, se sube ahí.
+   */
+  @Column({ type: 'varchar', length: 64, nullable: true })
+  ipInterna?: string | null;
 
   @Column({ type: 'varchar', length: 16, default: 'borrador' })
   estado!: EstadoPlanta;
@@ -194,6 +214,18 @@ export function urlAri(
   planta: Pick<PlantaAsteriskEntity, 'dominioSip'>,
 ): string {
   return `https://${planta.dominioSip}/ari`;
+}
+
+/**
+ * La IP interna por la que nginx alcanza a la planta.
+ *
+ * Por defecto `127.0.0.1`, que es el valor más cerrado: si alguien deja el
+ * campo vacío, el error posible es «no conecta», nunca «quedó abierto».
+ */
+export function ipInternaDe(
+  planta: Pick<PlantaAsteriskEntity, 'ipInterna'>,
+): string {
+  return planta.ipInterna?.trim() || '127.0.0.1';
 }
 
 /**

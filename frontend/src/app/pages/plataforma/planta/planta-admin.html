@@ -104,6 +104,16 @@
                 <input id="d-ip" formControlName="ipPublica" [placeholder]="p.ipPublica || 'hace falta'" />
               </div>
               <div class="field">
+                <label for="d-interna">IP interna (por dónde la alcanza nginx)</label>
+                <input id="d-interna" formControlName="ipInterna" [placeholder]="p.ipInterna" />
+                <small>
+                  127.0.0.1 si nginx corre en el servidor. Si corre en un
+                  contenedor en red bridge, la IP del puente de Docker
+                  (<code>ip -4 addr show docker0</code>): con 127.0.0.1 nginx se
+                  habla a sí mismo y el softphone da 502.
+                </small>
+              </div>
+              <div class="field">
                 <label for="d-dominio">Nombre (lo que enruta nginx)</label>
                 <input id="d-dominio" formControlName="dominioSip" />
               </div>

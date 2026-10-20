@@ -337,6 +337,35 @@ describe('generador de la configuración de la planta', () => {
       expect(http).not.toContain('bindaddr = 0.0.0.0');
     });
 
+    it('por defecto el HTTP escucha en 127.0.0.1, que es lo más cerrado', () => {
+      expect(contenido({}, 'etc/http.conf')).toContain('bindaddr = 127.0.0.1');
+      expect(contenido({}, 'nginx/itagui-pbx.falconcad.com.co.conf')).toContain(
+        'proxy_pass http://127.0.0.1:8101/ws;',
+      );
+    });
+
+    it('la IP interna la deciden los datos, y http.conf y nginx NO pueden discrepar', () => {
+      // El nginx que termina el TLS puede estar en un contenedor en red
+      // bridge: ahí su 127.0.0.1 es él mismo, y el síntoma es un 502 en el
+      // WebSocket y el botón «Llamar» mudo, sin una línea en ningún log. Lo
+      // que importa es que los dos archivos salgan del MISMO dato: si uno
+      // apunta a una IP y el otro a otra, no conecta y parecen correctos
+      // leídos por separado.
+      const cambios = { ipInterna: '172.17.0.1' };
+      expect(contenido(cambios, 'etc/http.conf')).toContain(
+        'bindaddr = 172.17.0.1',
+      );
+      const sitio = contenido(
+        cambios,
+        'nginx/itagui-pbx.falconcad.com.co.conf',
+      );
+      expect(sitio).toContain('proxy_pass http://172.17.0.1:8101/ws;');
+      // ARI también: por ahí entra el botón «Llamar» del caso, y si se queda
+      // en 127.0.0.1 falla SOLO esa función, que es más difícil de ver.
+      expect(sitio).toContain('proxy_pass http://172.17.0.1:8101/ari/;');
+      expect(sitio).not.toContain('127.0.0.1');
+    });
+
     it('el RTP usa la tajada asignada, con ICE y STUN', () => {
       const rtp = contenido({}, 'etc/rtp.conf');
       expect(rtp).toContain('rtpstart = 21000');

@@ -257,6 +257,49 @@ describe('PlantaService', () => {
       ).rejects.toThrow(/ya lo usa otra planta/);
     });
 
+    it('la IP interna por defecto es 127.0.0.1, que es la más cerrada', async () => {
+      const v = await alta('itagui');
+      expect(v.ipInterna).toBe('127.0.0.1');
+    });
+
+    it('acepta la IP del puente de Docker, que es el caso del nginx en contenedor', async () => {
+      await alta('itagui');
+      const v = await svc.actualizar(
+        'itagui',
+        { ipInterna: '172.17.0.1' },
+        'admin',
+      );
+      expect(v.ipInterna).toBe('172.17.0.1');
+    });
+
+    it('rechaza 0.0.0.0 por nombre: es ARI escuchando en todas las interfaces', async () => {
+      // «Funciona» en los dos casos, y por eso es la tentación cuando algo no
+      // conecta. Lo que deja es ARI —con solo su clave— escuchando en todas
+      // las interfaces del host: hoy tapado por el cortafuegos, abierto a
+      // internet el día que alguien abra ese puerto en la nube para depurar.
+      await alta('itagui');
+      await expect(
+        svc.actualizar('itagui', { ipInterna: '0.0.0.0' }, 'admin'),
+      ).rejects.toThrow(/0\.0\.0\.0/);
+    });
+
+    it('rechaza lo que no sea una IPv4, y dice dónde se saca la buena', async () => {
+      await alta('itagui');
+      await expect(
+        svc.actualizar('itagui', { ipInterna: 'docker0' }, 'admin'),
+      ).rejects.toThrow(/docker0/);
+      await expect(
+        svc.actualizar('itagui', { ipInterna: '999.1.1.1' }, 'admin'),
+      ).rejects.toThrow(/IPv4/);
+    });
+
+    it('vaciar el campo vuelve al valor cerrado, no deja la planta sin IP', async () => {
+      await alta('itagui');
+      await svc.actualizar('itagui', { ipInterna: '172.17.0.1' }, 'admin');
+      const v = await svc.actualizar('itagui', { ipInterna: '' }, 'admin');
+      expect(v.ipInterna).toBe('127.0.0.1');
+    });
+
     it('no choca consigo misma al guardar sin cambiar los puertos', async () => {
       await alta('itagui');
       await expect(
@@ -407,6 +450,22 @@ describe('PlantaService', () => {
         nombre: 'Ana',
         extension: '101',
       });
+    });
+
+    it('la IP interna guardada llega a http.conf y a nginx', async () => {
+      // Este es el tramo que puede romperse en silencio: el campo se guarda
+      // bien, la pantalla lo muestra bien, y la configuración generada sigue
+      // saliendo con 127.0.0.1 porque nadie lo pasó a los datos del
+      // generador. El síntoma sería un 502 en el softphone y una pantalla
+      // que dice que todo está correcto.
+      await svc.actualizar('itagui', { ipInterna: '172.17.0.1' }, 'admin');
+      const c = await svc.previa('itagui');
+      const texto = (fin: string) =>
+        c.archivos.find((a) => a.ruta.endsWith(fin))!.contenido;
+      expect(texto('http.conf')).toContain('bindaddr = 172.17.0.1');
+      const sitio = c.archivos.find((a) => a.ruta.startsWith('nginx/'))!;
+      expect(sitio.contenido).toContain('http://172.17.0.1:');
+      expect(sitio.contenido).not.toContain('127.0.0.1');
     });
 
     it('no rota la API key ni crea claves: mirar no puede romper nada', async () => {

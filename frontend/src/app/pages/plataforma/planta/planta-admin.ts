@@ -91,6 +91,7 @@ export class PlantaAdminComponent implements OnInit {
   readonly datosForm = new FormGroup({
     servidor: new FormControl('', { nonNullable: true }),
     ipPublica: new FormControl(''),
+    ipInterna: new FormControl(''),
     dominioSip: new FormControl('', { nonNullable: true }),
     notas: new FormControl(''),
   });
@@ -168,6 +169,7 @@ export class PlantaAdminComponent implements OnInit {
     this.datosForm.reset({
       servidor: p.servidor,
       ipPublica: p.ipPublica,
+      ipInterna: p.ipInterna,
       dominioSip: p.dominioSip,
       notas: p.notas ?? '',
     });
@@ -212,6 +214,7 @@ export class PlantaAdminComponent implements OnInit {
     this.enviar(this.api.actualizar(tenant, {
       servidor: v.servidor.trim(),
       ipPublica: v.ipPublica?.trim() || null,
+      ipInterna: v.ipInterna?.trim() || null,
       dominioSip: v.dominioSip.trim(),
       notas: v.notas?.trim() || null,
     }), 'Datos de la planta guardados.');

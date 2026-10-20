@@ -117,6 +117,26 @@ export interface DatosPlanta {
   apiKey: string;
   /** La clave del usuario `falcon` de ARI, para el botón «Llamar». */
   ariClave: string;
+  /**
+   * La IP del host por la que el nginx que termina el TLS alcanza a ESTA
+   * planta. Vacío = `127.0.0.1`.
+   *
+   * No es un lujo: depende de DÓNDE corre ese nginx, y los dos casos existen
+   * en el mismo servidor.
+   *
+   *  - **nginx en el host** (o en la red del host) → `127.0.0.1`. Lo más
+   *    cerrado posible: el HTTP de la planta no sale de la máquina.
+   *  - **nginx en un contenedor en red bridge** → la IP del host en el puente
+   *    de Docker (`172.17.0.1` normalmente, se lee con
+   *    `ip -4 addr show docker0`). Ahí `127.0.0.1` es el contenedor de nginx
+   *    hablándose a sí mismo, y el síntoma es un 502 en el WebSocket y el
+   *    botón «Llamar» del caso sin responder —sin una línea en ningún log que
+   *    diga por qué—. Es exactamente lo que pasó en el primer servidor.
+   *
+   * Lo que NO vale es `0.0.0.0`: eso es ARI —con su clave— abierto al
+   * internet si algún día se abre el puerto en la nube.
+   */
+  ipInterna?: string;
   /** Servidor STUN para el candidato público de Asterisk. */
   stun?: string;
   /** Segundos que timbra la cola antes de rendirse. */
@@ -131,6 +151,12 @@ export interface DatosPlanta {
 }
 
 const STUN_POR_DEFECTO = 'stun.l.google.com:19302';
+const IP_INTERNA_POR_DEFECTO = '127.0.0.1';
+
+/** La IP interna de la planta, con el valor más cerrado por defecto. */
+function interna(d: DatosPlanta): string {
+  return d.ipInterna?.trim() || IP_INTERNA_POR_DEFECTO;
+}
 const TIMBRE_COLA_POR_DEFECTO = 120;
 
 /**
@@ -624,14 +650,19 @@ stunaddr = ${d.stun ?? STUN_POR_DEFECTO}
 function httpConf(d: DatosPlanta): string {
   return `${encabezado(d, 'http.conf')}[general]
 enabled = yes
-;; SOLO 127.0.0.1. El TLS y la cara pública los pone nginx; un Asterisk
-;; escuchando HTTP en 0.0.0.0 es ARI expuesto a internet.
+;; Una sola IP, la mínima que sirva. El TLS y la cara pública los pone nginx;
+;; un Asterisk escuchando HTTP en 0.0.0.0 es ARI expuesto a internet.
+;;
+;; Cuál es la mínima depende de dónde corra ese nginx: 127.0.0.1 si está en el
+;; host, y la IP del host en el puente de Docker si está en un contenedor en
+;; red bridge —porque entonces el 127.0.0.1 del contenedor es él mismo—. Lo
+;; decide FALCON con el campo «IP interna» de la planta.
 ;;
 ;; Y el puerto lo reparte FALCON por una razón vivida: en el servidor hay
 ;; otros servicios, y cuando Asterisk intentó tomar un 8088 ya ocupado el
 ;; síntoma fue un «Server Disabled» que se llevó también el WebSocket del
 ;; softphone, sin decir en ningún lado que el puerto estaba tomado.
-bindaddr = 127.0.0.1
+bindaddr = ${interna(d)}
 bindport = ${d.puertoHttp}
 ;; El WebSocket del softphone y ARI viven en este mismo servidor HTTP.
 `;
@@ -829,7 +860,7 @@ server {
   # El WebSocket del softphone. El audio NO pasa por aquí: va directo por ICE
   # contra la IP pública del servidor.
   location /ws {
-    proxy_pass http://127.0.0.1:${d.puertoHttp}/ws;
+    proxy_pass http://${interna(d)}:${d.puertoHttp}/ws;
     proxy_http_version 1.1;
     proxy_set_header Upgrade $http_upgrade;
     proxy_set_header Connection "upgrade";
@@ -842,7 +873,7 @@ server {
 
   # ARI, para el botón «Llamar» del caso. Solo FALCON lo usa.
   location /ari/ {
-    proxy_pass http://127.0.0.1:${d.puertoHttp}/ari/;
+    proxy_pass http://${interna(d)}:${d.puertoHttp}/ari/;
     proxy_set_header Host $host;
     proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
   }
