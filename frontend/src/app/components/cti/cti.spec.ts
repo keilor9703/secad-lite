@@ -58,6 +58,9 @@ describe('CtiComponent', () => {
       transfiriendo: signal(false),
       companeros: signal<{ extension: string; nombre: string }[]>([]),
       extension: signal('101'),
+      pausadoDesde: signal<number | null>(null),
+      pausar: () => { (sp['pausadoDesde'] as { set: (v: number) => void }).set(Date.now()); return Promise.resolve(); },
+      reanudar: () => { (sp['pausadoDesde'] as { set: (v: null) => void }).set(null); return Promise.resolve(); },
       encender: () => Promise.resolve(),
       contestar: () => undefined,
       colgar: () => undefined,
@@ -215,6 +218,37 @@ describe('CtiComponent', () => {
     });
   });
 
+  describe('salir a un descanso', () => {
+    it('dar de baja el puesto se dice fuerte, y con cuánto lleva', async () => {
+      // Un puesto en pausa que no se nota es un puesto que se queda en pausa
+      // toda la tarde, con las llamadas cayendo sobre los compañeros.
+      expect(texto()).not.toContain('No está recibiendo llamadas');
+
+      (sp['pausadoDesde'] as { set: (v: number) => void }).set(Date.now() - 125_000);
+      fixture.detectChanges();
+
+      expect(texto()).toContain('No está recibiendo llamadas');
+      expect(texto()).toMatch(/02:0\d/);
+    });
+
+    it('NO se puede salir con una llamada en curso: la cortaría', async () => {
+      // Dar de baja el registro cierra el transporte. Quien se vaya, cuelga.
+      sp.enCurso.set({ numero: '3001234567' });
+      fixture.detectChanges();
+
+      expect(fixture.componentInstance.puedeCambiarPausa()).toBe(false);
+      fixture.componentInstance.alternarPausa();
+      expect(fixture.componentInstance.pausado()).toBe(false);
+    });
+
+    it('sin llamada sí se puede, y se vuelve', () => {
+      fixture.componentInstance.alternarPausa();
+      expect(fixture.componentInstance.pausado()).toBe(true);
+      fixture.componentInstance.alternarPausa();
+      expect(fixture.componentInstance.pausado()).toBe(false);
+    });
+  });
+
   describe('el teclado', () => {
     it('en llamada manda tonos', () => {
       sp.enCurso.set({ numero: '3001234567' });
@@ -243,6 +277,54 @@ describe('CtiComponent', () => {
     it('no pide una llamada sin número', () => {
       fixture.componentInstance.llamarAlMarcado();
       expect(marcados).toEqual([]);
+    });
+
+    it('se puede escribir con el teclado del equipo, no solo con el ratón', () => {
+      // Marcar diez dígitos uno por uno con el ratón es lento justo cuando no
+      // se puede ir lento.
+      const e = { target: { value: '3001234567' } } as unknown as Event;
+      fixture.componentInstance.escribir(e);
+      expect(fixture.componentInstance.marcado()).toBe('3001234567');
+    });
+
+    it('lo pegado se limpia: un número con adornos no se marca', () => {
+      const campo = { value: '+57 (300) 123-45 67' };
+      fixture.componentInstance.escribir({ target: campo } as unknown as Event);
+      expect(fixture.componentInstance.marcado()).toBe('+573001234567');
+      // Y el campo se reescribe con lo filtrado: si no, lo que se ve y lo que
+      // se va a marcar dejan de ser lo mismo.
+      expect(campo.value).toBe('+573001234567');
+    });
+
+    it('el «+» está disponible, que es lo que la troncal exige', () => {
+      fixture.componentInstance.ponerMas();
+      '57300'.split('').forEach((d) => fixture.componentInstance.tecla(d));
+      expect(fixture.componentInstance.marcado()).toBe('+57300');
+    });
+
+    it('el «+» NO se manda como tono: no es DTMF', () => {
+      sp.enCurso.set({ numero: '3001234567' });
+      fixture.detectChanges();
+      fixture.componentInstance.ponerMas();
+      expect(tonos).toEqual([]);
+      expect(fixture.componentInstance.marcado()).toBe('');
+    });
+
+    it('en llamada, las teclas físicas mandan tonos', () => {
+      sp.enCurso.set({ numero: '3001234567' });
+      fixture.detectChanges();
+
+      const pulsar = (key: string) =>
+        fixture.componentInstance.tonoFisico({
+          key, preventDefault: () => undefined,
+        } as KeyboardEvent);
+
+      pulsar('4');
+      pulsar('#');
+      // Una letra no es un tono: el operador está escribiendo el caso.
+      pulsar('a');
+      expect(tonos).toEqual(['4', '#']);
+      expect(fixture.componentInstance.tonosEnviados()).toBe('4#');
     });
   });
 });

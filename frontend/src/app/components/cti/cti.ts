@@ -21,6 +21,19 @@ const TIC_MS = 1000;
 const TECLAS = ['1', '2', '3', '4', '5', '6', '7', '8', '9', '*', '0', '#'];
 
 /**
+ * Lo que se admite al teclear un número.
+ *
+ * El «+» está aquí y NO entre las teclas del teclado, y la razón es técnica:
+ * el «+» no es un tono DTMF. Marcarlo como tecla significaría ofrecer, en
+ * mitad de una llamada, un botón que no manda nada. Pertenece a componer el
+ * número —es el prefijo internacional— no a hablar con la central.
+ */
+const ADMITIDOS = /[0-9*#+]/;
+
+/** Un número de teléfono no pasa de aquí. E.164 admite 15 dígitos. */
+const LARGO_MAXIMO = 20;
+
+/**
  * EL PANEL DE TELEFONÍA DEL OPERADOR.
  *
  * ────────────────────────────────────────────────────────────────────────────
@@ -95,6 +108,8 @@ export class CtiComponent implements OnDestroy {
   readonly teclas = TECLAS;
   readonly tecleando = signal(false);
   readonly marcado = signal('');
+  /** Los tonos que se han mandado en esta llamada, para poder verlos. */
+  readonly tonosEnviados = signal('');
   readonly eligiendoDestino = signal(false);
   /** Lo último que dijo el servidor al pedir una saliente desde el teclado. */
   readonly avisoMarcado = signal('');
@@ -122,6 +137,27 @@ export class CtiComponent implements OnDestroy {
       .map((p) => p[0]?.toUpperCase() ?? '')
       .join(''),
   );
+
+  // ── Recibir o no recibir llamadas ────────────────────────────────────────
+
+  readonly pausado = computed(() => !!this.sp.pausadoDesde());
+
+  /** Cuánto lleva este puesto sin recibir llamadas. */
+  readonly tiempoEnPausa = computed(() => {
+    const d = this.sp.pausadoDesde();
+    return d ? reloj(this.ahora() - d) : '';
+  });
+
+  /**
+   * Pausar con una llamada en curso la cortaría: dar de baja el registro
+   * cierra el transporte. Quien se vaya, cuelga primero.
+   */
+  readonly puedeCambiarPausa = computed(() => !this.sp.enCurso());
+
+  alternarPausa(): void {
+    if (!this.puedeCambiarPausa()) return;
+    void (this.pausado() ? this.sp.reanudar() : this.sp.pausar());
+  }
 
   // ── El estado del teléfono ─────────────────────────────────────────────────
 
@@ -225,6 +261,48 @@ export class CtiComponent implements OnDestroy {
     this.avisoMarcado.set('');
   }
 
+  /**
+   * Lo que el operador escribe con SU teclado.
+   *
+   * Marcar un número de diez dígitos pulsando uno por uno con el ratón es
+   * lento justo cuando no se puede ir lento. Se filtra en vez de confiar en
+   * el `inputmode`: un pegado trae paréntesis, espacios y guiones, y el
+   * campo tiene que quedar con un número marcable.
+   */
+  escribir(e: Event): void {
+    const crudo = (e.target as HTMLInputElement)?.value ?? '';
+    const limpio = [...crudo]
+      .filter((c) => ADMITIDOS.test(c))
+      .join('')
+      .slice(0, LARGO_MAXIMO);
+    this.marcado.set(limpio);
+    // El campo se reescribe con lo filtrado: si no, lo que se ve y lo que se
+    // va a marcar dejan de ser lo mismo.
+    (e.target as HTMLInputElement).value = limpio;
+  }
+
+  /**
+   * Teclas físicas DURANTE una llamada: cada una manda su tono.
+   *
+   * Va atado a su propio campo y no al documento a propósito. En Recepción,
+   * durante una llamada, el operador está escribiendo el caso: un oyente
+   * global mandaría un tono por cada letra que teclee.
+   */
+  tonoFisico(e: KeyboardEvent): void {
+    if (e.key === 'Backspace' || e.key === 'Tab' || e.ctrlKey || e.metaKey) return;
+    e.preventDefault();
+    // El «+» no es un tono: no se manda ni se apunta.
+    if (e.key.length !== 1 || !/[0-9*#]/.test(e.key)) return;
+    this.sp.tono(e.key);
+    this.tonosEnviados.update((v) => (v + e.key).slice(-LARGO_MAXIMO));
+  }
+
+  /** El prefijo internacional. Solo al componer: no es un tono. */
+  ponerMas(): void {
+    if (this.sp.enCurso()) return;
+    this.marcado.update((v) => (v + '+').slice(0, LARGO_MAXIMO));
+  }
+
   alternarTransferir(): void {
     this.eligiendoDestino.update((v) => !v);
   }
@@ -239,9 +317,10 @@ export class CtiComponent implements OnDestroy {
   tecla(t: string): void {
     if (this.sp.enCurso()) {
       this.sp.tono(t);
+      this.tonosEnviados.update((v) => (v + t).slice(-LARGO_MAXIMO));
       return;
     }
-    this.marcado.update((v) => (v + t).slice(0, 20));
+    this.marcado.update((v) => (v + t).slice(0, LARGO_MAXIMO));
   }
 
   borrarUna(): void {

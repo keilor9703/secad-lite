@@ -35,7 +35,7 @@
 .cti-cab {
   display: grid;
   grid-template-columns: auto minmax(0, 1fr);
-  grid-template-areas: 'chapa quien' 'estado estado';
+  grid-template-areas: 'chapa quien' 'estado pausa';
   align-items: center;
   gap: var(--esp-2);
 }
@@ -103,6 +103,47 @@
 .cti-estado[data-situacion='saliente'] .cti-punto { background: var(--accent); }
 .cti-estado[data-situacion='conectando'] .cti-punto { background: var(--warn); }
 .cti-estado[data-situacion='caido'] .cti-punto { background: var(--danger); }
+
+/* Salir a un descanso. Discreto cuando está recibiendo; inconfundible
+   cuando no: un puesto en pausa que no se nota es un puesto que se queda en
+   pausa toda la tarde. */
+.cti-pausa {
+  grid-area: pausa;
+  justify-self: end;
+  display: inline-flex;
+  align-items: center;
+  gap: var(--esp-1);
+  padding: 2px var(--esp-2);
+  border: 1px solid var(--border-2);
+  border-radius: var(--radius-pill);
+  background: var(--surface);
+  color: var(--ink-soft);
+  font: inherit;
+  font-size: var(--texto-xs);
+  cursor: pointer;
+
+  &:hover:not(:disabled) { background: var(--surface-2); color: var(--ink); }
+  &:disabled { opacity: 0.45; cursor: not-allowed; }
+}
+
+.cti-pausa--on {
+  background: var(--warn);
+  border-color: var(--warn);
+  color: var(--on-accent);
+
+  &:hover:not(:disabled) { background: var(--warn); filter: brightness(0.93); }
+}
+
+.cti-enpausa {
+  margin: 0;
+  padding: var(--esp-2) var(--esp-3);
+  border-radius: var(--radius-sm);
+  background: var(--tag-warn-bg);
+  color: var(--tag-warn-fg);
+  font-size: var(--texto-sm);
+
+  strong { display: block; }
+}
 
 .cti-motivo {
   display: flex;
@@ -411,20 +452,37 @@
 .cti-marcado {
   display: flex;
   align-items: center;
-  justify-content: space-between;
-  gap: var(--esp-2);
-  padding: var(--esp-2);
+  gap: var(--esp-1);
+  padding: var(--esp-1) var(--esp-2);
   background: var(--surface-2);
   border-radius: var(--radius-sm);
 
-  span {
-    font-size: var(--texto-md);
+  /* El campo se come el ancho sobrante; los botones no se encogen. */
+  input {
+    flex: 1;
+    min-width: 0;
+    border: 0;
+    background: transparent;
     color: var(--ink);
+    font: inherit;
+    font-family: var(--mono);
+    font-size: var(--texto-md);
     font-variant-numeric: tabular-nums;
-    overflow: hidden;
-    text-overflow: ellipsis;
-    white-space: nowrap;
+    padding: var(--esp-1) 0;
+
+    &::placeholder { font-family: var(--sans); font-size: var(--texto-sm); color: var(--muted); }
+    &:focus { outline: none; }
   }
+
+  /* El foco se marca en la caja entera, no en el campo: el borde del campo
+     está quitado para que se lea como una sola pieza. */
+  &:focus-within { outline: 2px solid var(--accent); outline-offset: 1px; }
+}
+
+.cti-mas {
+  font-family: var(--mono);
+  font-size: var(--texto-md);
+  line-height: 1;
 }
 
 .cti-teclas {

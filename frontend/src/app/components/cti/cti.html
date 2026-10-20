@@ -18,7 +18,30 @@
       <span class="cti-punto" aria-hidden="true"></span>
       {{ rotuloSituacion() }}
     </span>
+
+    <!-- Salir a un descanso sin salir del sistema. Da de baja el registro de
+         verdad: un puesto «en pausa» que siguiera registrado seguiría siendo
+         miembro de la cola, y la llamada se perdería timbrando en un puesto
+         vacío. Ver `pausadoDesde` en el servicio. -->
+    <button type="button" class="cti-pausa" [class.cti-pausa--on]="pausado()"
+            [disabled]="!puedeCambiarPausa()"
+            [attr.aria-pressed]="pausado()"
+            [title]="puedeCambiarPausa()
+              ? (pausado() ? 'Volver a recibir llamadas' : 'Dejar de recibir llamadas')
+              : 'Cuelgue antes de salir: dar de baja el teléfono cortaría la llamada'"
+            (click)="alternarPausa()">
+      <app-icono [nombre]="pausado() ? 'telefono' : 'pausa'" [tam]="15" />
+      {{ pausado() ? 'Volver' : 'Salir' }}
+    </button>
   </header>
+
+  @if (pausado()) {
+    <p class="cti-enpausa" role="status">
+      <strong>No está recibiendo llamadas.</strong>
+      Su puesto está dado de baja en la central hace {{ tiempoEnPausa() }}; las
+      llamadas se reparten entre sus compañeros.
+    </p>
+  }
 
   @if (sp.motivo(); as m) {
     <p class="cti-motivo" role="status">
@@ -175,9 +198,31 @@
     </button>
 
     @if (tecleando()) {
-      @if (!sp.enCurso()) {
+      @if (sp.enCurso()) {
+        <!-- Los tonos se mandan desde SU propio campo y no desde el
+             documento: durante una llamada el operador está escribiendo el
+             caso, y un oyente global mandaría un tono por cada letra. -->
         <div class="cti-marcado">
-          <span class="mono">{{ marcado() || '—' }}</span>
+          <input class="mono" type="text" inputmode="numeric"
+                 placeholder="pulse aquí y use su teclado"
+                 [value]="tonosEnviados()" (keydown)="tonoFisico($event)"
+                 aria-label="Tonos: escriba aquí para enviarlos a la llamada" />
+        </div>
+      } @else {
+        <div class="cti-marcado">
+          <!-- Un número de diez dígitos pulsado uno por uno con el ratón es
+               lento justo cuando no se puede ir lento. -->
+          <input class="mono" type="text" inputmode="tel" autocomplete="off"
+                 placeholder="escriba o pulse las teclas"
+                 [value]="marcado()" (input)="escribir($event)"
+                 (keydown.enter)="llamarAlMarcado()"
+                 aria-label="Número al que llamar" />
+          <!-- El «+» va aquí y no entre las teclas porque NO es un tono DTMF:
+               como tecla, en mitad de una llamada, sería un botón que no
+               manda nada. Es el prefijo internacional, y la troncal rechaza
+               lo que no venga en E.164. -->
+          <button type="button" class="cti-icono cti-mas" (click)="ponerMas()"
+                  title="Prefijo internacional" aria-label="Agregar el prefijo internacional">+</button>
           <button type="button" class="cti-icono" (click)="borrarUna()"
                   [disabled]="!marcado()" aria-label="Borrar el último dígito">
             <app-icono nombre="flecha-izq" [tam]="15" />

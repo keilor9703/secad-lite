@@ -229,6 +229,61 @@ describe('SoftphoneService', () => {
       expect(sp.estado()).toBe('registrado');
     });
 
+    it('salir a un descanso DA DE BAJA el registro, no esconde la barra', async () => {
+      // Un puesto «en pausa» que siguiera registrado seguiría siendo miembro
+      // de la cola: el ringall le timbraría igual y la llamada se perdería
+      // sonando en un puesto vacío. Peor que no tener pausa, porque además
+      // nadie se entera.
+      await encender();
+      expect(sp.estado()).toBe('registrado');
+
+      await sp.pausar();
+
+      expect(sp.estado()).toBe('apagado');
+      expect(sp.pausadoDesde()).toBeTruthy();
+    });
+
+    it('volver a Recepción NO reanuda el puesto por su cuenta', async () => {
+      // El panel se construye de nuevo cada vez que se entra a Recepción y
+      // llama a `encender()`. Sin esto, el operador seguiría en el baño y su
+      // puesto estaría timbrando.
+      await encender();
+      await sp.pausar();
+
+      await sp.encender();
+
+      // Ni siquiera se le pregunta al servidor: no hay petición que atender.
+      http.verify();
+      expect(sp.estado()).toBe('apagado');
+    });
+
+    it('reanudar sí vuelve a registrar', async () => {
+      await encender();
+      await sp.pausar();
+
+      const promesa = sp.reanudar();
+      http.expectOne((req) => req.url.endsWith('/pbx/softphone'))
+        .flush({ disponible: true, config: CONFIG });
+      await promesa;
+      http.match((req) => req.url.endsWith('/pbx/companeros')).forEach((p) => p.flush([]));
+
+      expect(sp.estado()).toBe('registrado');
+      expect(sp.pausadoDesde()).toBeNull();
+    });
+
+    it('no se sale a un descanso con una llamada en curso', async () => {
+      // `apagar()` cierra el transporte: pausar a mitad de una conversación
+      // la cortaría.
+      await encender();
+      transporte.oyentes!.entrante({ numero: '3001234567' });
+      transporte.oyentes!.establecida(1);
+
+      await sp.pausar();
+
+      expect(sp.pausadoDesde()).toBeNull();
+      expect(sp.estado()).toBe('registrado');
+    });
+
     it('apagar deja todo en cero', async () => {
       await encender();
       transporte.oyentes!.entrante({ numero: '3001234567' });

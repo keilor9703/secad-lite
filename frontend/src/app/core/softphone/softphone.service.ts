@@ -146,6 +146,32 @@ export class SoftphoneService {
   readonly enCursoDesde = signal<number | null>(null);
 
   /**
+   * DESDE CUÁNDO ESTE PUESTO DEJÓ DE RECIBIR LLAMADAS. Nulo = está recibiendo.
+   *
+   * ──────────────────────────────────────────────────────────────────────────
+   * POR QUÉ LA PAUSA DA DE BAJA EL REGISTRO Y NO SOLO ESCONDE LA BARRA
+   *
+   * Porque lo que decide si a este puesto le entra una llamada no es la
+   * pantalla, es la central. Un operador «en pausa» que sigue registrado
+   * sigue siendo miembro de la cola: el `ringall` le timbra igual y la
+   * llamada se pierde sonando en un puesto vacío, que es el peor resultado
+   * posible — peor que no tener pausa, porque además nadie se entera.
+   *
+   * Dando de baja el registro, la central lo ve «no disponible» y reparte
+   * entre los demás. Y la pausa se NOTA: el chequeo de salud cuenta
+   * operadores conectados, así que un puesto en pausa sale en el panel de la
+   * planta y en el correo de la mesa sin que nadie tenga que preguntar.
+   *
+   * ──────────────────────────────────────────────────────────────────────────
+   * POR QUÉ VIVE AQUÍ Y NO EN EL PANEL
+   *
+   * El panel vive dentro de Recepción y el enrutador lo destruye al cambiar
+   * de pantalla. Si la pausa viviera ahí, volver a Recepción la encendería
+   * sola: el operador seguiría en el baño y su puesto estaría timbrando.
+   */
+  readonly pausadoDesde = signal<number | null>(null);
+
+  /**
    * SE OPRIMIÓ «CONTESTAR» Y TODAVÍA NO HAY AUDIO.
    *
    * Existe porque sin él la barra no cambiaba NADA al oprimir el botón: el
@@ -207,6 +233,9 @@ export class SoftphoneService {
    */
   async encender(): Promise<void> {
     if (this.estado() === 'conectando' || this.estado() === 'registrado') return;
+    // Si el operador puso su puesto en pausa, volver a Recepción NO lo
+    // despierta: lo reanuda él, que es quien sabe si ya volvió.
+    if (this.pausadoDesde()) return;
     this.motivo.set('');
     this.estado.set('conectando');
 
@@ -298,6 +327,25 @@ export class SoftphoneService {
     this.silenciado.set(false);
     this.motivo.set('');
     this.avisoCola.set('');
+  }
+
+  /**
+   * Deja de recibir llamadas sin salir del sistema.
+   *
+   * No se permite con una llamada en curso, y no es una cortesía: `apagar()`
+   * cierra el transporte, así que pausar a mitad de una conversación la
+   * cortaría. Quien quiera irse cuelga primero.
+   */
+  async pausar(): Promise<void> {
+    if (this.enCurso()) return;
+    this.pausadoDesde.set(Date.now());
+    await this.apagar();
+  }
+
+  /** Vuelve a recibir llamadas. */
+  async reanudar(): Promise<void> {
+    this.pausadoDesde.set(null);
+    await this.encender();
   }
 
   /**
