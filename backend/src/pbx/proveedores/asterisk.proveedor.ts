@@ -151,6 +151,10 @@ export class ProveedorAsterisk implements ProveedorPbx {
       extension: orden.numero,
       context: contexto,
       priority: '1',
+      // SU PROPIA extensión, y el navegador depende de ello: es así como la
+      // barra del softphone sabe que ese INVITE es la saliente que el operador
+      // acaba de pedir y no una emergencia entrando. Nadie más puede llamar
+      // desde la extensión de uno. Ver `esMiSaliente` en el frontend.
       callerId: orden.extension,
       // Si el operador no descuelga en 30 s, la central suelta el intento en
       // vez de dejar un canal colgado consumiendo un cupo de la troncal.

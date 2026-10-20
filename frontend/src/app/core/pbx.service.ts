@@ -1,10 +1,20 @@
 import { Injectable, computed, inject, signal } from '@angular/core';
 import { HttpClient } from '@angular/common/http';
 import { Observable, firstValueFrom } from 'rxjs';
+import { tap } from 'rxjs/operators';
 import { io, Socket } from 'socket.io-client';
 import { environment } from '../../environments/environment';
 import { AuthService } from './auth.service';
 import { Llamada, PbxConfig } from './models';
+
+/** Lo que contesta el servidor al pedir una llamada saliente. */
+export interface ResultadoMarcar {
+  ok: boolean;
+  mensaje: string;
+  extension?: string;
+  /** El número ya normalizado por el servidor. */
+  numero?: string;
+}
 
 /** Qué sabe hacer la planta de esta instancia. Sin credenciales: lo lee el operador. */
 export interface CapacidadesPbx {
@@ -393,11 +403,33 @@ export class PbxService {
    * —la decide el servidor, a partir de su usuario— y al descolgar, el
    * número del ciudadano.
    */
-  marcar(numero: string, casoId?: string): Observable<{ ok: boolean; mensaje: string; extension?: string }> {
-    return this.http.post<{ ok: boolean; mensaje: string; extension?: string }>(
+  marcar(numero: string, casoId?: string): Observable<ResultadoMarcar> {
+    return this.http.post<ResultadoMarcar>(
       `${this.base}/pbx/marcar`, { numero, casoId },
+    ).pipe(
+      tap((r) => {
+        // SE ANOTA A QUIÉN SE ESTÁ LLAMANDO, y es la barra del softphone la
+        // que lo lee.
+        //
+        // La central llama PRIMERO a la extensión del operador y, al
+        // descolgar, marca al ciudadano. Para el navegador eso es un INVITE
+        // entrante idéntico al de una emergencia: sin esto, la barra ofrecía
+        // «Entra una llamada · Contestar / Rechazar» para la llamada que el
+        // propio operador acababa de pedir. Con el número aquí, la barra
+        // puede decir a quién se va a llamar.
+        if (r?.ok) this.salientePedida.set({ numero: r.numero ?? numero, en: Date.now() });
+      }),
     );
   }
+
+  /**
+   * La saliente que se pidió hace un momento, para que la barra la reconozca.
+   *
+   * Lleva la hora porque es una pista, no un estado: si el operador pide una
+   * llamada y la central nunca le timbra, esto no puede quedarse marcando
+   * como «saliente» la siguiente emergencia que entre. Ver `VENTANA_SALIENTE_MS`.
+   */
+  readonly salientePedida = signal<{ numero: string; en: number } | null>(null);
 
   atender(id: string): Observable<{ llamada: Llamada; casoId: string }> {
     return this.http.post<{ llamada: Llamada; casoId: string }>(`${this.base}/pbx/llamadas/${id}/atender`, {});

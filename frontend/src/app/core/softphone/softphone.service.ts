@@ -17,6 +17,16 @@ import { Timbre } from './timbre';
  */
 const DEMORA_QUE_SE_NOTA_MS = 400;
 
+/**
+ * Cuánto vale la anotación de «acabo de pedir una llamada saliente».
+ *
+ * Solo sirve para DECIR a quién se está llamando; quien decide que esta
+ * llamada es una saliente es la extensión del `From` (ver `esMiSaliente`).
+ * Con dos minutos sobra: si la central no timbró en ese tiempo, el intento
+ * se perdió y lo que entre después es otra cosa.
+ */
+const VENTANA_SALIENTE_MS = 120_000;
+
 /** Lo que responde `GET /api/pbx/softphone`. */
 type RespuestaSoftphone =
   | { disponible: true; config: ConfigSoftphone }
@@ -82,6 +92,40 @@ export class SoftphoneService {
   readonly silenciado = signal(false);
   /** Qué pasó con la llamada de la cola al contestar. */
   readonly avisoCola = signal('');
+
+  /**
+   * ESTO QUE ESTÁ TIMBRANDO ES MI PROPIA LLAMADA SALIENTE, NO UNA EMERGENCIA.
+   *
+   * El botón «Llamar» de un caso no marca primero al ciudadano: le timbra
+   * primero al operador y, cuando descuelga, la central marca. Ese orden es
+   * deliberado —si se llamara primero al ciudadano, contestaría a un silencio
+   * mientras la central busca a un operador que puede no estar en su puesto—
+   * pero tiene una consecuencia incómoda: para el navegador es un INVITE
+   * entrante igual al de una emergencia.
+   *
+   * Y se notaba. La barra ofrecía «Entra una llamada · Contestar / Rechazar»
+   * para la llamada que el propio operador acababa de pedir, y al oprimir
+   * «Rechazar» —lo natural, porque nadie está esperando una llamada— cancelaba
+   * su propia marcación sin entender qué había pasado.
+   *
+   * Se reconoce porque la central crea ese canal con el `callerId` de la
+   * PROPIA extensión del operador (ver `asterisk.proveedor.ts`): nadie más
+   * puede llamar desde la extensión de uno. Es una condición estructural y no
+   * una ventana de tiempo, así que sigue siendo cierta aunque el navegador se
+   * haya recargado entre pedir la llamada y que timbre.
+   */
+  readonly esMiSaliente = computed(() => {
+    const ext = this.extension().trim();
+    const l = this.entrante() ?? this.enCurso();
+    return !!ext && !!l && l.numero.trim() === ext;
+  });
+
+  /** A quién se está llamando, si se pidió hace poco. Vacío = no se sabe. */
+  readonly destinoSaliente = computed(() => {
+    const p = this.pbx.salientePedida();
+    if (!p) return '';
+    return Date.now() - p.en <= VENTANA_SALIENTE_MS ? p.numero : '';
+  });
   /**
    * La llamada se estableció y NO llegó audio de la otra parte.
    *
@@ -190,7 +234,11 @@ export class SoftphoneService {
         this.avisoEsFallo = false;
         this.avisoCola.set('');
         this.sinAudioRemoto.set(false);
-        this.timbre.arrancar();
+        // El timbre es para una emergencia que entra. La saliente que el
+        // propio operador acaba de pedir no se anuncia con el mismo timbre
+        // que una llamada al 123: en una sala con varios puestos, eso hace
+        // que los demás miren su pantalla por nada.
+        if (!this.esMiSaliente()) this.timbre.arrancar();
       },
       establecida: (pistasRemotas) => {
         this.timbre.parar();
@@ -281,6 +329,27 @@ export class SoftphoneService {
       this.avisoEsFallo = true;
       this.avisoCola.set(
         `No se pudo contestar: ${(e as Error)?.message ?? 'la centralita no respondió'}.`,
+      );
+      return;
+    }
+
+    // ── MI PROPIA SALIENTE NO VA A LA COLA, Y ESO NO ES UNA AVERÍA ──────────
+    //
+    // La cola de un CAD es de lo que ENTRA; el dialplan lo dice con todas sus
+    // letras y por eso una saliente no se avisa como «entrante». Buscarla
+    // aquí y no encontrarla llevaba a decirle al operador que revisara
+    // `pbx_webhook_log` por una llamada que nunca debió estar en la cola.
+    //
+    // Un mensaje que describe como avería el comportamiento correcto es peor
+    // que no decir nada: manda a buscar media hora donde no hay nada, y sale
+    // en pantalla con un ciudadano al teléfono.
+    if (this.esMiSaliente()) {
+      const a = this.destinoSaliente();
+      this.avisoEsFallo = false;
+      this.avisoCola.set(
+        a
+          ? `La central está marcando a ${a}.`
+          : 'La central está marcando. Es su llamada saliente, no una emergencia en cola.',
       );
       return;
     }

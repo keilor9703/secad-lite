@@ -82,6 +82,8 @@ describe('SoftphoneService', () => {
   /** Lo que contesta el servidor cuando se le vuelve a preguntar la cola. */
   let alRecargar: () => Llamada[] | null;
   let recargas: number;
+  /** Lo que `PbxService` anota al pedir una saliente. */
+  let salientePedida: ReturnType<typeof signal<{ numero: string; en: number } | null>>;
 
   const CONFIG: ConfigSoftphone = {
     wss: 'wss://wss.ejemplo.com', dominio: 'sip.ejemplo.com',
@@ -97,6 +99,7 @@ describe('SoftphoneService', () => {
     capacidades = ['entrantes', 'softphone'];
     reclamar = jasmine.createSpy('reclamar').and.callFake((id: string) => of(llamada({ id, destinatario: 'pedro' })));
     recargas = 0;
+    salientePedida = signal<{ numero: string; en: number } | null>(null);
     alRecargar = () => llamadas();
 
     TestBed.configureTestingModule({
@@ -106,7 +109,7 @@ describe('SoftphoneService', () => {
         {
           provide: PbxService,
           useValue: {
-            llamadas, paraTrabajar, reclamar,
+            llamadas, paraTrabajar, reclamar, salientePedida,
             puede: (c: string) => capacidades.includes(c),
             recargarYEsperar: async () => {
               recargas += 1;
@@ -510,6 +513,74 @@ describe('SoftphoneService', () => {
       await sp.contestar();
 
       expect(sp.demoraContestarMs()).toBe(1480);
+    });
+  });
+
+  describe('la llamada saliente que el propio operador pidió', () => {
+    // La central le timbra PRIMERO al operador y, al descolgar, marca. Para el
+    // navegador eso es un INVITE entrante igual al de una emergencia, y se
+    // reconoce porque viene de la PROPIA extensión: nadie más llama desde ella.
+
+    it('no se confunde con una emergencia entrando', async () => {
+      await encender();
+      transporte.oyentes!.entrante({ numero: '102' });
+      expect(sp.esMiSaliente()).toBe(true);
+
+      transporte.oyentes!.entrante({ numero: '3001234567' });
+      expect(sp.esMiSaliente()).toBe(false);
+    });
+
+    it('NO manda a revisar pbx_webhook_log por una llamada que nunca va a la cola', async () => {
+      // El defecto real: «esta llamada no entró a la cola… revise en
+      // pbx_webhook_log si fue rechazada por firma». El dialplan dice que una
+      // saliente NO se avisa como entrante, así que el mensaje describía como
+      // avería el comportamiento correcto, con un ciudadano al teléfono.
+      llamadas.set([llamada({ id: 'vieja', estado: 'finalizada' })]);
+      await encender();
+      transporte.oyentes!.entrante({ numero: '102' });
+
+      await sp.contestar();
+
+      expect(sp.avisoCola()).not.toContain('pbx_webhook_log');
+      expect(sp.avisoCola()).not.toContain('no entró a la cola');
+      expect(sp.avisoCola()).toContain('marcando');
+      expect(reclamar).not.toHaveBeenCalled();
+      expect(recargas).toBe(0);
+    });
+
+    it('dice a quién se está llamando cuando se sabe', async () => {
+      salientePedida.set({ numero: '+573188069251', en: Date.now() });
+      await encender();
+      transporte.oyentes!.entrante({ numero: '102' });
+
+      await sp.contestar();
+
+      expect(sp.avisoCola()).toContain('+573188069251');
+    });
+
+    it('una anotación vieja no se le pega a la llamada de otro rato', async () => {
+      // Si el operador pidió una llamada hace media hora y la central nunca
+      // le timbró, el número de entonces no describe lo que suena ahora.
+      salientePedida.set({ numero: '+573188069251', en: Date.now() - 600_000 });
+      await encender();
+      transporte.oyentes!.entrante({ numero: '102' });
+
+      await sp.contestar();
+
+      expect(sp.avisoCola()).not.toContain('+573188069251');
+      expect(sp.avisoCola()).toContain('marcando');
+    });
+
+    it('una emergencia de verdad SÍ sigue yendo a la cola', async () => {
+      // La negación de arriba no puede estar comprándose barato: si el camino
+      // normal se rompiera, aquellas pruebas pasarían igual.
+      llamadas.set([llamada({ id: 'l-7', estado: 'sonando', numero: '3001234567' })]);
+      await encender();
+      transporte.oyentes!.entrante({ numero: '3001234567' });
+
+      await sp.contestar();
+
+      expect(reclamar).toHaveBeenCalledWith('l-7');
     });
   });
 

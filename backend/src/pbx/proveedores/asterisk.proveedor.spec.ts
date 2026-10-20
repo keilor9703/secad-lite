@@ -107,6 +107,17 @@ describe('ProveedorAsterisk', () => {
       expect(llamadas[0].init?.method).toBe('POST');
     });
 
+    it('el canal del operador se identifica con SU PROPIA extensión', async () => {
+      // No es cosmético: el navegador reconoce que ese INVITE es la saliente
+      // que él mismo pidió —y no una emergencia— porque viene de su propia
+      // extensión, y nadie más puede llamar desde ella. Ver `esMiSaliente`
+      // en `softphone.service.ts`. Si esto cambia, la barra vuelve a ofrecer
+      // «Entra una llamada · Rechazar» para la llamada del propio operador.
+      const { f, llamadas } = fetchFalso();
+      await new ProveedorAsterisk(f).marcar!(CRED, { extension: '101', numero: '+573001234567' });
+      expect(new URL(llamadas[0].url).searchParams.get('callerId')).toBe('101');
+    });
+
     it('sin contexto configurado usa «salientes», el de la plantilla', async () => {
       const { f, llamadas } = fetchFalso();
       await new ProveedorAsterisk(f).marcar!(CRED, { extension: '101', numero: '300' });

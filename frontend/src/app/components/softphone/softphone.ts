@@ -75,19 +75,22 @@ import { acotar, guardarPosicion, posicionGuardada, posicionPorDefecto } from '.
                      operador volvía a oprimir creyendo que no había entrado
                      su clic, y el segundo clic podía dejar la llamada
                      contestada y sin tomar en la cola. -->
-                <strong>{{ sp.contestando() ? 'Contestando…' : 'Entra una llamada' }}</strong>
+                <strong>{{ titulo() }}</strong>
                 <small>
-                  {{ l.numero || 'número oculto' }}{{ sp.contestando() ? ' · conectando el audio' : '' }}
+                  {{ detalle(l.numero) }}{{ sp.contestando() ? ' · conectando el audio' : '' }}
                 </small>
               </span>
               <span class="sp-acc">
                 <button type="button" class="btn mini" [disabled]="sp.contestando()"
                         (click)="sp.contestar()">
-                  {{ sp.contestando() ? 'Conectando…' : 'Contestar' }}
+                  {{ sp.contestando() ? 'Conectando…' : (sp.esMiSaliente() ? 'Descolgar' : 'Contestar') }}
                 </button>
                 <!-- Rechazar SIGUE habilitado: si el audio no conecta, colgar
-                     es la única salida que le queda al operador. -->
-                <button type="button" class="btn btn--ghost mini" (click)="sp.colgar()">Rechazar</button>
+                     es la única salida que le queda al operador. En una
+                     saliente propia no se «rechaza» nada: se desiste. -->
+                <button type="button" class="btn btn--ghost mini" (click)="sp.colgar()">
+                  {{ sp.esMiSaliente() ? 'Desistir' : 'Rechazar' }}
+                </button>
               </span>
             } @else if (sp.enCurso(); as l) {
               <span class="sp-txt">
@@ -189,8 +192,30 @@ export class SoftphoneComponent implements AfterViewInit, OnDestroy {
   /** El último elemento entregado, para no repetir la entrega en cada cambio. */
   private audioEntregado?: HTMLAudioElement;
 
+  /**
+   * Qué dice la barra mientras timbra.
+   *
+   * «Entra una llamada» para lo que el propio operador acaba de pedir es
+   * falso, y lleva a oprimir «Rechazar» cancelando su propia marcación.
+   */
+  readonly titulo = computed(() => {
+    if (this.sp.contestando()) return 'Contestando…';
+    return this.sp.esMiSaliente() ? 'Su llamada saliente' : 'Entra una llamada';
+  });
+
+  /** La línea de abajo: a quién se llama, o quién llama. */
+  readonly detalle = (numero: string): string => {
+    if (!this.sp.esMiSaliente()) return numero || 'número oculto';
+    const a = this.sp.destinoSaliente();
+    return a
+      ? `Descuelgue y la central marca a ${a}`
+      : 'Descuelgue y la central marca al número del caso';
+  };
+
   readonly rotulo = computed(() => {
     if (this.sp.contestando()) return 'Contestando, conectando el audio. Abrir el teléfono';
+    if (this.sp.esMiSaliente() && this.sp.entrante())
+      return 'Su llamada saliente espera que descuelgue. Abrir el teléfono';
     if (this.sp.entrante()) return 'Entra una llamada. Abrir el teléfono';
     if (this.sp.enCurso()) return 'En llamada. Abrir el teléfono';
     return `Teléfono: ${this.etiquetaEstado()}. ${this.abierta() ? 'Plegar' : 'Desplegar'}`;
