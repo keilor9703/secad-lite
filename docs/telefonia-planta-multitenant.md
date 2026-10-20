@@ -1,5 +1,16 @@
 # Nuestra planta por municipio: cómo provisionar, cómo escala y qué cuesta
 
+> **Este documento es el de la arquitectura: por qué está hecho así, cómo
+> escala y qué cuesta.** Para lo operativo hay dos hermanos, escritos después
+> de poner la primera planta en producción:
+>
+> - [`planta-telefonica-funcionalidades.md`](planta-telefonica-funcionalidades.md)
+>   — qué hace FALCON CAD con teléfono y cómo está integrado.
+> - [`planta-telefonica-despliegue.md`](planta-telefonica-despliegue.md)
+>   — **cómo se instala y cómo se migra**, con la tabla de averías y el orden
+>   de diagnóstico. Si va a montar o mover una planta, use ese y no el paso a
+>   paso de la sección 4 de este, que es más corto y no cubre las averías.
+
 > La centralita propia, multi-instancia. Cómo dar de alta un municipio, por
 > qué los puertos se reparten solos, qué hace falta comprarle a quién, y qué
 > falta todavía.
@@ -349,10 +360,17 @@ Por orden de lo que más duele:
    de lo que sabemos que hay (coturn en el 3478, `secad-api` en el 8088), y los
    puertos se pueden poner a mano cuando haga falta, pero el servidor no lo
    declara en ninguna parte.
-6. **La imagen no se ha construido todavía en ningún servidor.** Es lo primero
-   a comprobar al aplicar.
+6. **Alta disponibilidad**: hoy un servidor caído deja sin teléfono a todos
+   sus municipios.
+7. **Los dos `location` de nginx del servidor de demostración viven escritos a
+   mano.** Si esa máquina se rehace, se pierden; deberían salir del repositorio
+   como el resto.
 
-Y de la deuda que viene de antes: el rango de relevo de coturn sigue cerrado en
-los dos servidores (la videollamada funciona porque nunca ha necesitado
-relevo), y las credenciales que se expusieron en pruebas siguen pendientes de
-rotar.
+Y de la deuda que viene de antes: las credenciales que se expusieron en pruebas
+siguen pendientes de rotar.
+
+> **Actualización del 20/10/2026.** La primera planta ya está en producción y
+> atendiendo llamadas con audio en los dos sentidos. Lo que costó llegar ahí
+> —y, sobre todo, cómo diagnosticarlo sin repetir la noche— está en
+> [`planta-telefonica-despliegue.md`](planta-telefonica-despliegue.md),
+> secciones 10 y 11.

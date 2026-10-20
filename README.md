@@ -146,6 +146,17 @@ npm start                 # http://localhost:4200
 > integración (en planeación) con la barra CTI y YACO:
 > [`docs/integracion-cti-yaco.md`](docs/integracion-cti-yaco.md).
 
+> **La planta telefónica propia** —una central por municipio, con softphone en
+> el navegador, cola de operadores y grabación amarrada al caso— tiene dos
+> documentos, y son los primeros que hay que leer antes de tocar nada de
+> teléfono:
+>
+> - [`docs/planta-telefonica-funcionalidades.md`](docs/planta-telefonica-funcionalidades.md)
+>   — qué hace y cómo está integrada con FALCON CAD.
+> - [`docs/planta-telefonica-despliegue.md`](docs/planta-telefonica-despliegue.md)
+>   — **cómo se instala y cómo se migra a otro servidor**, con la tabla de
+>   averías y el orden de diagnóstico cuando no hay audio.
+
 FALCON recibe eventos de sistemas externos por esos tres canales, cada uno con
 su propia credencial — ninguno depende de la sesión institucional:
 
