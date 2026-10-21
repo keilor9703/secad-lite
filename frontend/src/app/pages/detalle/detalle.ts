@@ -1,6 +1,7 @@
 import { ChangeDetectionStrategy, Component, ElementRef, OnDestroy, OnInit, computed, effect, inject, input, output, signal, viewChild } from '@angular/core';
 import { GrabacionEnCustodia, cuerpoDeError, leerCustodia } from './custodia';
 import { AdjuntosCasoComponent } from './adjuntos-caso';
+import { esDelCasoAbierto, fusionarCasoEnVivo } from './caso-en-vivo';
 import { ArchivosService } from '../../core/archivos.service';
 import { GrabacionLlamadaComponent } from './grabacion-llamada';
 import { CommonModule } from '@angular/common';
@@ -93,6 +94,8 @@ export class DetalleComponent implements OnInit, OnDestroy {
   readonly chatEnviando = signal(false);
   readonly chatError = signal('');
   private chatSub?: Subscription;
+  /** La escucha del caso abierto. Ver el constructor. */
+  private casoSub?: Subscription;
   private chatCasoId = '';
   private readonly chatMsgsEl = viewChild<ElementRef<HTMLDivElement>>('chatInternoMsgs');
 
@@ -180,6 +183,21 @@ export class DetalleComponent implements OnInit, OnDestroy {
     this.casosWs.conectar();
     this.chatSub = this.casosWs.mensajesChat.subscribe((m) => {
       if (m.casoId === this.chatCasoId) this.chatMensajes.update((arr) => [...arr, m]);
+    });
+
+    // EL CASO ABIERTO SE ACTUALIZA SOLO.
+    //
+    // El ciudadano manda su ubicación mientras el operador tiene la ficha
+    // delante, y hasta ahora había que recargar la página para verla. En una
+    // emergencia nadie recarga: se queda mirando una ficha sin coordenadas
+    // creyendo que el ciudadano no las mandó, y le pide la dirección a quien
+    // acaba de mandar el punto exacto.
+    //
+    // Se filtra por el caso que está en pantalla: el socket tiene UNA sala
+    // por municipio, así que aquí llega todo lo que cambia en la instancia.
+    this.casoSub = this.casosWs.eventos.subscribe(({ caso }) => {
+      if (!esDelCasoAbierto(caso, this.id)) return;
+      this.caso.update((c) => fusionarCasoEnVivo(c, caso));
     });
   }
 
@@ -500,6 +518,7 @@ export class DetalleComponent implements OnInit, OnDestroy {
 
   ngOnDestroy(): void {
     if (this.waPoll) clearInterval(this.waPoll);
+    this.casoSub?.unsubscribe();
     if (this.chatCasoId) this.casosWs.salirDeChat(this.chatCasoId);
     this.chatSub?.unsubscribe();
     // Cada blob de grabación retiene su contenido en memoria hasta que se
