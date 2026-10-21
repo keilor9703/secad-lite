@@ -91,6 +91,18 @@ const PREGUNTA_LUGAR =
 const CIERRE =
   'Gracias. Un operador lo atendera por aqui mismo. Si es urgente, llame al 123.';
 
+/**
+ * Lo que se le añade al aviso cuando la coordenada quedó en el caso.
+ *
+ * Nombra DÓNDE está, no solo que se guardó: el operador tiene que poder ir a
+ * mirarla sin preguntar.
+ */
+const UBICACION_EN_FICHA = 'Está en la ficha del caso, con su mapa.';
+
+/** Y cuando las coordenadas no servían. Ver `rematarUbicacion`. */
+const UBICACION_ILEGIBLE =
+  'No se pudo leer: pídale que la mande otra vez, o pregúntele la dirección.';
+
 /** Lo que se le añade al aviso cuando el archivo SÍ quedó guardado. */
 const EN_LOS_ADJUNTOS = 'Está en los adjuntos del caso.';
 
@@ -353,6 +365,7 @@ export class WhatsappService {
       await this.contestar(tenant.codigo, respuestas);
       for (const a of adjuntos) {
         await this.guardarAdjunto(tenant.codigo, a.casoId, a.mensaje, a.wamid);
+        await this.rematarUbicacion(tenant.codigo, a.mensaje, a.wamid);
       }
     }
 
@@ -839,18 +852,48 @@ export class WhatsappService {
   ): Promise<void> {
     if (!wamid) return;
     try {
-      await this.rls.conTenant(tenant, async (manager) => {
-        const repo = manager.getRepository(MensajeChatEntity);
-        const m = await repo.findOne({ where: { tenant, waMessageId: wamid } });
-        if (!m || !m.texto.endsWith(']')) return;
-        await repo.update(
-          { tenant, id: m.id },
-          { texto: `${m.texto.slice(0, -1)} ${remate}]` },
-        );
-      });
+      await this.rls.conTenant(tenant, (manager) =>
+        this.rematarEn(manager, tenant, wamid, remate),
+      );
     } catch (e) {
-      this.log.warn(`No se pudo rematar el aviso del adjunto (${tenant}): ${(e as Error).message}`);
+      this.log.warn(`No se pudo rematar el aviso (${tenant}): ${(e as Error).message}`);
     }
+  }
+
+  /** El remate, sobre una transacción que ya está abierta. */
+  private async rematarEn(
+    manager: EntityManager, tenant: string, wamid: string, remate: string,
+  ): Promise<void> {
+    const repo = manager.getRepository(MensajeChatEntity);
+    const m = await repo.findOne({ where: { tenant, waMessageId: wamid } });
+    if (!m || !m.texto.endsWith(']')) return;
+    await repo.update({ tenant, id: m.id }, { texto: `${m.texto.slice(0, -1)} ${remate}]` });
+  }
+
+  /**
+   * Le dice al operador qué pasó con la ubicación que mandó el ciudadano.
+   *
+   * ──────────────────────────────────────────────────────────────────────────
+   * POR QUÉ HACE FALTA DECIRLO
+   *
+   * La coordenada se guarda en la ficha del caso, y en la conversación solo
+   * quedaba «[El ciudadano envió su ubicación.]». Desde ahí el operador no
+   * puede saber si se capturó o se perdió, y el que no lo sepa va a hacer una
+   * de dos cosas: pedirle al ciudadano que la mande otra vez —teniéndola— o
+   * darla por buena cuando no la hay.
+   *
+   * Y cuando NO se pudo leer, decirlo importa más todavía: unas coordenadas
+   * que se descartaron en silencio son una emergencia sin ubicar que parece
+   * ubicada.
+   */
+  private async rematarUbicacion(
+    tenant: string, mensaje: unknown, wamid: string | null,
+  ): Promise<void> {
+    const tipo = String((mensaje as { type?: string } | null)?.type ?? '').toUpperCase();
+    if (tipo !== 'LOCATION') return;
+    await this.rematarAviso(
+      tenant, wamid, ubicacionDe(mensaje) ? UBICACION_EN_FICHA : UBICACION_ILEGIBLE,
+    );
   }
 
   /** Un nombre reconocible en la lista de adjuntos del caso. */

@@ -532,6 +532,52 @@ describe('WhatsappService · mensajes de Infobip', () => {
       expect(cambiosAlCaso.find((c) => 'lat' in c)).toBeUndefined();
     });
 
+    it('el operador se entera de que la coordenada quedó, y de DÓNDE', async () => {
+      // En la conversación solo quedaba «[El ciudadano envió su ubicación.]».
+      // Desde ahí no se puede saber si se capturó o se perdió, y quien no lo
+      // sepa hará una de dos cosas: pedirla otra vez teniéndola, o darla por
+      // buena cuando no la hay.
+      await svc.recibirDeInfobip(
+        entrega({
+          messageId: 'ubi-1',
+          message: { type: 'LOCATION', latitude: 6.1845, longitude: -75.5986 },
+        }),
+      );
+
+      const aviso = actualizados.find((a) => String(a['texto']).includes('ubicación'));
+      expect(aviso).toBeDefined();
+      expect(String(aviso!['texto'])).toContain('ficha del caso');
+    });
+
+    it('y si las coordenadas no servían, lo dice y dice qué hacer', async () => {
+      // Unas coordenadas descartadas en silencio son una emergencia sin
+      // ubicar que parece ubicada. Es el peor de los dos errores.
+      await svc.recibirDeInfobip(
+        entrega({
+          messageId: 'ubi-0',
+          message: { type: 'LOCATION', latitude: 0, longitude: 0 },
+        }),
+      );
+
+      const aviso = actualizados.find((a) => String(a['texto']).includes('ubicación'));
+      expect(String(aviso!['texto'])).toContain('pídale que la mande otra vez');
+    });
+
+    it('una foto NO se remata como si fuera una ubicación', async () => {
+      // La negación de arriba tiene que poder fallar: si el remate se pusiera
+      // a todo, aquellas dos pruebas pasarían igual.
+      await svc.recibirDeInfobip(
+        entrega({ messageId: 'f-1', message: { type: 'IMAGE', url: 'https://m/x.jpg' } }),
+      );
+
+      // Ni como «quedó en la ficha» ni como «no se pudo leer»: a una foto no
+      // se le remata NADA de ubicación. Comprobar solo lo primero dejaba
+      // pasar el error de rematar todos los mensajes por igual.
+      const avisos = actualizados.map((a) => String(a['texto'])).join(' ');
+      expect(avisos).not.toContain('ficha del caso');
+      expect(avisos).not.toContain('mande otra vez');
+    });
+
     it('mandar la ubicación CONTESTA la pregunta: el bot no la vuelve a pedir', async () => {
       // Seguir pidiendo una dirección escrita después de que el ciudadano
       // mandó el punto exacto es no haber leído lo que mandó.
