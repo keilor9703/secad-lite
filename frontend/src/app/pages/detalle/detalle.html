@@ -40,6 +40,14 @@
             <span class="tab-badge">{{ videoSesiones().length }}</span>
           </button>
         }
+        <!-- Lo que mandó el ciudadano. La insignia importa: una foto que
+             solo se descubre entrando a la pestaña es una foto que nadie
+             mira. -->
+        <button type="button" role="tab" class="tab-btn" [class.activa]="tab() === 'adjuntos'"
+          [attr.aria-selected]="tab() === 'adjuntos'" (click)="tab.set('adjuntos')">
+          <app-icono nombre="subir" [tam]="16" /> Adjuntos
+          @if (adjuntosCuantos()) { <span class="tab-badge">{{ adjuntosCuantos() }}</span> }
+        </button>
         <button type="button" role="tab" class="tab-btn" [class.activa]="tab() === 'bitacora'"
           [attr.aria-selected]="tab() === 'bitacora'" (click)="tab.set('bitacora')">
           <app-icono nombre="documento" [tam]="16" /> Bitácora
@@ -480,6 +488,9 @@
             }
           }
 
+          @case ('adjuntos') {
+            <app-adjuntos-caso [casoId]="c.id" (cantidad)="adjuntosCuantos.set($event)" />
+          }
           @case ('bitacora') {
             <!-- Bitácora / línea de tiempo -->
             <div class="bitacora card">

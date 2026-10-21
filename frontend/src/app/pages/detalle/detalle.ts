@@ -1,5 +1,7 @@
 import { ChangeDetectionStrategy, Component, ElementRef, OnDestroy, OnInit, computed, effect, inject, input, output, signal, viewChild } from '@angular/core';
 import { GrabacionEnCustodia, cuerpoDeError, leerCustodia } from './custodia';
+import { AdjuntosCasoComponent } from './adjuntos-caso';
+import { ArchivosService } from '../../core/archivos.service';
 import { GrabacionLlamadaComponent } from './grabacion-llamada';
 import { CommonModule } from '@angular/common';
 import { FormControl, FormGroup, ReactiveFormsModule, Validators } from '@angular/forms';
@@ -25,12 +27,13 @@ import {
 } from '../../core/models';
 
 /** Las secciones del caso, navegadas como pestañas — solo una visible a la vez. */
-export type TabDetalle = 'ficha' | 'despacho' | 'whatsapp' | 'chat' | 'videollamadas' | 'bitacora';
+export type TabDetalle =
+  | 'ficha' | 'despacho' | 'whatsapp' | 'adjuntos' | 'chat' | 'videollamadas' | 'bitacora';
 
 @Component({
   selector: 'app-detalle',
   standalone: true,
-  imports: [CommonModule, ReactiveFormsModule, RouterLink, SelectorComponent, OpcionComponent, DictadoComponent, IconoComponent, BotonLlamarComponent, GrabacionLlamadaComponent],
+  imports: [CommonModule, ReactiveFormsModule, RouterLink, SelectorComponent, OpcionComponent, DictadoComponent, IconoComponent, BotonLlamarComponent, GrabacionLlamadaComponent, AdjuntosCasoComponent],
   templateUrl: './detalle.html',
   styleUrl: './detalle.scss',
   changeDetection: ChangeDetectionStrategy.OnPush,
@@ -43,6 +46,7 @@ export class DetalleComponent implements OnInit, OnDestroy {
   private despachoSvc = inject(DespachoService);
   private catalogos = inject(CatalogosService);
   private whatsappSvc = inject(WhatsappService);
+  private archivosSvc = inject(ArchivosService);
   private videollamadaSvc = inject(VideollamadaService);
   private toast = inject(ToastService);
   private confirmar = inject(ConfirmService);
@@ -103,6 +107,14 @@ export class DetalleComponent implements OnInit, OnDestroy {
 
   /** Qué sección del caso se está mirando — solo una a la vez, como pestañas. */
   readonly tab = signal<TabDetalle>('ficha');
+  /**
+   * Cuántos adjuntos tiene el caso, para la insignia de la pestaña.
+   *
+   * Lo cuenta el componente de adjuntos al listarlos. Un número que solo se
+   * ve entrando a la pestaña no sirve de nada: el operador tiene que poder
+   * saber desde fuera que el ciudadano mandó una foto.
+   */
+  readonly adjuntosCuantos = signal(0);
 
   readonly notaForm = new FormGroup({ texto: new FormControl('', { nonNullable: true }) });
   readonly guardandoNota = signal(false);
@@ -546,8 +558,30 @@ export class DetalleComponent implements OnInit, OnDestroy {
         this.tomarSiEsNuevo(c);
         if (c.canal === 'whatsapp' && !this.waPoll) this.iniciarWhatsapp();
         this.videollamadaSvc.historial(id).then((v) => { if (this.esVigente(id)) this.videoSesiones.set(v); }).catch(() => {});
+        this.contarAdjuntos(id);
       },
       error: () => { this.error.set('No fue posible cargar el caso.'); this.cargando.set(false); },
+    });
+  }
+
+  /**
+   * Cuántos adjuntos tiene el caso, para la insignia de la pestaña.
+   *
+   * Se cuenta AL ABRIR EL CASO y no al entrar a la pestaña. Si dependiera de
+   * entrar, la insignia solo aparecería después de haber mirado — es decir,
+   * no serviría para nada: lo que tiene que hacer es avisar al operador de
+   * que hay una foto SIN que se le ocurra ir a buscarla.
+   *
+   * Es solo el listado, que es texto. Los bytes no se bajan aquí.
+   */
+  private contarAdjuntos(id: string): void {
+    this.adjuntosCuantos.set(0);
+    this.archivosSvc.listarDeCaso(id).subscribe({
+      next: (todos) => {
+        if (!this.esVigente(id)) return;
+        this.adjuntosCuantos.set(todos.filter((a) => a.origen === 'ADJUNTO').length);
+      },
+      error: () => {},
     });
   }
 

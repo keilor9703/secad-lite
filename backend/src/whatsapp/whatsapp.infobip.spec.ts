@@ -57,6 +57,8 @@ describe('WhatsappService · mensajes de Infobip', () => {
   let sumados: { id: string; campo: string; cuanto: number }[];
   /** Los casos cuyo contador se puso a cero. */
   let limpiados: string[];
+  /** Los textos de mensaje que se reescribieron (el remate del adjunto). */
+  let actualizados: Record<string, unknown>[];
   /** Lo que el bot escribió EN el caso: tipificación, dirección. */
   let cambiosAlCaso: Record<string, unknown>[];
   /** Lo que el bot le mandó al ciudadano. */
@@ -77,6 +79,7 @@ describe('WhatsappService · mensajes de Infobip', () => {
     sumados = [];
     limpiados = [];
     cambiosAlCaso = [];
+    actualizados = [];
     delBot = [];
     emitidos = [];
     gatewayRoto = false;
@@ -85,6 +88,11 @@ describe('WhatsappService · mensajes de Infobip', () => {
       findOne: ({ where }: { where: { waMessageId?: string; autorTipo?: string } }) => {
         // «¿Ya hay un operador en esta conversación?» y «¿este mensaje ya
         // lo vimos?» son dos preguntas distintas sobre la misma tabla.
+        // El remate del adjunto busca el mensaje por su id de WhatsApp.
+        if (where.waMessageId && !where.autorTipo) {
+          const g = guardados.find((x) => x.waMessageId === where.waMessageId);
+          if (g) return Promise.resolve({ ...g, id: 'msg-1' });
+        }
         if (where.autorTipo) {
           return Promise.resolve(
             guardados.find((g) => g.autorTipo === where.autorTipo) ?? null,
@@ -96,6 +104,10 @@ describe('WhatsappService · mensajes de Infobip', () => {
       },
       create: (x: unknown) => x,
       find: () => Promise.resolve(guardados),
+      update: (_d: unknown, cambios: Record<string, unknown>) => {
+        actualizados.push(cambios);
+        return Promise.resolve({});
+      },
       save: (x: {
         tenant: string;
         texto: string;
@@ -609,6 +621,127 @@ describe('WhatsappService · mensajes de Infobip', () => {
       expect(r.procesados).toBe(1);
       expect(casos.length).toBe(1);
       expect(adjuntados.length).toBe(0);
+    });
+  });
+
+  describe('lo que dice el bot queda en la conversación', () => {
+    // Lo que se vio en producción el 21/10/2026: el ciudadano recibía el menú
+    // y el operador no lo veía. La conversación le empezaba con un «2» suelto
+    // que no significa nada, y respondía a ciegas.
+
+    beforeEach(() => {
+      tenantPorNumero['573132354086'] = { codigo: 'itagui' };
+      process.env['INFOBIP_BASE_URL'] = 'ejemplo.api.infobip.com';
+      process.env['INFOBIP_API_KEY'] = 'clave';
+      globalThis.fetch = (() =>
+        Promise.resolve({ ok: true, status: 200, text: () => Promise.resolve('{}') })
+      ) as unknown as typeof fetch;
+    });
+
+    afterEach(() => {
+      delete process.env['INFOBIP_BASE_URL'];
+      delete process.env['INFOBIP_API_KEY'];
+    });
+
+    it('el menú que se le mandó al ciudadano se ve en el caso', async () => {
+      await svc.recibirDeInfobip(entrega());
+
+      const delBot = guardados.filter((g) => g.autorTipo === 'bot');
+      expect(delBot.length).toBe(1);
+      expect(delBot[0].texto).toContain('1. Riña o agresión');
+    });
+
+    it('el bot NO se cuenta como operador: no se calla a sí mismo', async () => {
+      // Si sus mensajes se guardaran como «operador», la comprobación de
+      // «¿ya hay una persona atendiendo?» daría verdadero y el bot se
+      // silenciaría después de su primera pregunta.
+      casoExistente = {
+        id: 'caso-1', canal: 'whatsapp', telefono: '573175882321', mensajesSinLeer: 0,
+      };
+      conversacion = { estado: 'esperando_tipo', casoId: 'caso-1', mensajesDelBot: 1 };
+      guardados.push({
+        tenant: 'itagui', texto: 'menú anterior', waMessageId: null, autorTipo: 'bot',
+      });
+
+      await svc.recibirDeInfobip(
+        entrega({ messageId: 'm-2', message: { type: 'TEXT', text: '2' } }),
+      );
+
+      // Siguió trabajando: tipificó y preguntó el lugar.
+      expect(cambiosAlCaso.length).toBe(1);
+      expect(guardados.some((g) => g.autorTipo === 'bot' && g.texto.includes('DIRECCION'))).toBe(true);
+    });
+
+    it('si el mensaje NO sale, no se apunta como dicho', async () => {
+      // Es el mismo defecto que ya corregimos en las respuestas del operador:
+      // apuntar en el expediente algo que el ciudadano nunca recibió.
+      globalThis.fetch = (() =>
+        Promise.resolve({ ok: false, status: 401, text: () => Promise.resolve('no') })
+      ) as unknown as typeof fetch;
+
+      await svc.recibirDeInfobip(entrega());
+
+      expect(guardados.filter((g) => g.autorTipo === 'bot').length).toBe(0);
+      // Pero el caso y el mensaje del ciudadano sí están.
+      expect(casos.length).toBe(1);
+    });
+  });
+
+  describe('el aviso del adjunto dice la verdad', () => {
+    // Lo que se vio en producción: el caso decía «Todavía no se puede ver
+    // desde FALCON: pídaselo por escrito o llámelo» debajo de una foto que
+    // SÍ se había guardado. Eso manda al operador a pedir algo que ya tiene.
+
+    beforeEach(() => {
+      tenantPorNumero['573132354086'] = { codigo: 'itagui' };
+      adjuntados.length = 0;
+      process.env['INFOBIP_BASE_URL'] = 'ejemplo.api.infobip.com';
+      process.env['INFOBIP_API_KEY'] = 'clave';
+    });
+
+    afterEach(() => {
+      delete process.env['INFOBIP_BASE_URL'];
+      delete process.env['INFOBIP_API_KEY'];
+    });
+
+    const conDescarga = (ok: boolean, bytes = 2048) => {
+      globalThis.fetch = ((_u: string, init: { body?: string }) => {
+        if (init?.body) {
+          return Promise.resolve({ ok: true, status: 200, text: () => Promise.resolve('{}') });
+        }
+        if (!ok) return Promise.resolve({ ok: false, status: 404, text: () => Promise.resolve('') });
+        return Promise.resolve({
+          ok: true, status: 200,
+          headers: new Map([
+            ['content-length', String(bytes)], ['content-type', 'image/jpeg'],
+          ]) as unknown as Headers,
+          arrayBuffer: () => Promise.resolve(new ArrayBuffer(bytes)),
+        });
+      }) as unknown as typeof fetch;
+    };
+
+    it('cuando la foto SÍ se guarda, el aviso lo dice', async () => {
+      conDescarga(true);
+
+      await svc.recibirDeInfobip(
+        entrega({ messageId: 'foto-1', message: { type: 'IMAGE', url: 'https://m/x.jpg' } }),
+      );
+
+      const aviso = actualizados.find((a) => String(a['texto']).includes('imagen'));
+      expect(aviso).toBeDefined();
+      expect(String(aviso!['texto'])).toContain('Está en los adjuntos del caso');
+      expect(String(aviso!['texto'])).not.toContain('pídaselo por escrito');
+    });
+
+    it('cuando NO se pudo bajar, dice qué hacer', async () => {
+      conDescarga(false);
+
+      await svc.recibirDeInfobip(
+        entrega({ messageId: 'foto-2', message: { type: 'IMAGE', url: 'https://m/x.jpg' } }),
+      );
+
+      const aviso = actualizados.find((a) => String(a['texto']).includes('imagen'));
+      expect(String(aviso!['texto'])).toContain('pídaselo por escrito o llámelo');
     });
   });
 

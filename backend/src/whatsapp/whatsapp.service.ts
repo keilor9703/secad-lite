@@ -89,6 +89,16 @@ const PREGUNTA_LUGAR =
 const CIERRE =
   'Gracias. Un operador lo atendera por aqui mismo. Si es urgente, llame al 123.';
 
+/** Lo que se le añade al aviso cuando el archivo SÍ quedó guardado. */
+const EN_LOS_ADJUNTOS = 'Está en los adjuntos del caso.';
+
+/** Y cuando no se pudo. Dice qué hacer, no solo que falló. */
+const NO_SE_PUDO_BAJAR =
+  'No se pudo descargar: pídaselo por escrito o llámelo.';
+
+const DEMASIADO_GRANDE =
+  'Es demasiado grande para guardarlo: pídale que lo mande más corto o llámelo.';
+
 /** Los tipos de mensaje que traen un archivo que vale la pena guardar. */
 const TIPOS_CON_ARCHIVO = new Set(['IMAGE', 'VIDEO', 'VOICE', 'AUDIO', 'DOCUMENT']);
 
@@ -164,7 +174,7 @@ export class WhatsappService {
         // Lo que el bot de admisión tiene que contestar. Se manda FUERA de la
         // transacción: es una llamada de red, y tenerla abierta mientras se
         // espera al proveedor bloquea filas de `casos` del municipio entero.
-        const respuestas: { a: string; texto: string }[] = [];
+        const respuestas: { a: string; texto: string; casoId?: string | null }[] = [];
         procesados += await this.rls.conTenant(tenant.codigo, async (manager) => {
           const mensajesRepo = manager.getRepository(MensajeChatEntity);
           let n = 0;
@@ -182,7 +192,7 @@ export class WhatsappService {
               manager, tenant.codigo, from, nombres.get(from) || from, texto, wamid,
             );
             if (r.avisar) avisos.push(r.avisar);
-            if (r.responder) respuestas.push({ a: from, texto: r.responder });
+            if (r.responder) respuestas.push({ a: from, texto: r.responder, casoId: r.casoId });
             n++;
           }
           return n;
@@ -281,11 +291,11 @@ export class WhatsappService {
 
       // Ver el comentario del camino de Meta: se avisa fuera de la transacción.
       const avisos: string[] = [];
-      const respuestas: { a: string; texto: string }[] = [];
+      const respuestas: { a: string; texto: string; casoId?: string | null }[] = [];
       // Los adjuntos se bajan DESPUÉS de cerrar la transacción: descargar
       // un video de diez megas con filas de `casos` bloqueadas deja al
       // municipio entero esperando a la red de otro.
-      const adjuntos: { casoId: string; mensaje: unknown }[] = [];
+      const adjuntos: { casoId: string; mensaje: unknown; wamid: string | null }[] = [];
       procesados += await this.rls.conTenant(tenant.codigo, async (manager) => {
         const mensajes = manager.getRepository(MensajeChatEntity);
         // Infobip reintenta lo que no confirmamos a tiempo: el mismo mensaje
@@ -311,13 +321,15 @@ export class WhatsappService {
           ubicacionDe(r?.message),
         );
         if (res.avisar) avisos.push(res.avisar);
-        if (res.responder) respuestas.push({ a: de, texto: res.responder });
-        if (res.casoId) adjuntos.push({ casoId: res.casoId, mensaje: r?.message });
+        if (res.responder) respuestas.push({ a: de, texto: res.responder, casoId: res.casoId });
+        if (res.casoId) adjuntos.push({ casoId: res.casoId, mensaje: r?.message, wamid: id });
         return 1;
       });
       await this.avisarMensajesNuevos(tenant.codigo, avisos);
       await this.contestar(tenant.codigo, respuestas);
-      for (const a of adjuntos) await this.guardarAdjunto(tenant.codigo, a.casoId, a.mensaje);
+      for (const a of adjuntos) {
+        await this.guardarAdjunto(tenant.codigo, a.casoId, a.mensaje, a.wamid);
+      }
     }
 
     if (sinReconocer) {
@@ -378,7 +390,11 @@ export class WhatsappService {
       STICKER: 'un sticker',
     };
     const que = legible[tipo] ?? `un mensaje de tipo ${tipo || 'desconocido'}`;
-    return `[El ciudadano envió ${que}. Todavía no se puede ver desde FALCON: pídaselo por escrito o llámelo.]`;
+    // Neutro a propósito: cuando se escribe esto todavía no se sabe si el
+    // archivo se podrá bajar. `rematarAviso` lo completa después con lo que
+    // de verdad pasó. Prometer aquí «no se puede ver» cuando la foto SÍ acabó
+    // en los adjuntos es mandar al operador a pedir algo que ya tiene.
+    return `[El ciudadano envió ${que}.]`;
   }
 
   /**
@@ -654,10 +670,29 @@ export class WhatsappService {
    * el caso YA está en la bandeja. Que el bot no pueda contestar es una
    * molestia; perder el reporte por eso sería otra cosa.
    */
-  private async contestar(tenant: string, respuestas: { a: string; texto: string }[]): Promise<void> {
+  private async contestar(
+    tenant: string, respuestas: { a: string; texto: string; casoId?: string | null }[],
+  ): Promise<void> {
     for (const r of respuestas) {
       try {
-        await this.enviar(tenant, r.a, r.texto);
+        const salio = await this.enviar(tenant, r.a, r.texto);
+        // LO QUE DICE EL BOT QUEDA EN LA CONVERSACIÓN.
+        //
+        // Sin esto el ciudadano ve un menú y el operador no: la conversación
+        // le empieza con un «2» suelto que no significa nada. Se guarda solo
+        // lo que SALIÓ de verdad; apuntar un mensaje que no llegó sería
+        // exactamente el defecto que ya corregimos en `responder`.
+        if (salio && r.casoId) {
+          await this.rls.conTenant(tenant, async (manager) => {
+            const repo = manager.getRepository(MensajeChatEntity);
+            await repo.save(
+              repo.create({
+                tenant, casoId: r.casoId!, autorTipo: 'bot',
+                autorNombre: 'FALCON', texto: r.texto,
+              }),
+            );
+          });
+        }
       } catch (e) {
         this.log.warn(`El bot de admisión no pudo contestar (${tenant}): ${(e as Error).message}`);
       }
@@ -684,7 +719,9 @@ export class WhatsappService {
    * sería otra cosa. Y un archivo enorme no se intenta: traerlo a memoria para
    * trocearlo tumbaría el proceso, y con él la bandeja del municipio.
    */
-  private async guardarAdjunto(tenant: string, casoId: string, mensaje: unknown): Promise<void> {
+  private async guardarAdjunto(
+    tenant: string, casoId: string, mensaje: unknown, wamid: string | null,
+  ): Promise<void> {
     const m = mensaje as { type?: string; url?: string; caption?: string } | null;
     const url = String(m?.url ?? '').trim();
     if (!url || !/^https?:\/\//i.test(url)) return;
@@ -699,6 +736,7 @@ export class WhatsappService {
       });
       if (!res.ok) {
         this.log.warn(`No se pudo bajar el adjunto de WhatsApp (${tenant}): ${res.status}`);
+        await this.rematarAviso(tenant, wamid, NO_SE_PUDO_BAJAR);
         return;
       }
 
@@ -707,6 +745,7 @@ export class WhatsappService {
       const anunciado = Number(res.headers.get('content-length') ?? 0);
       if (anunciado > MAX_BYTES_ADJUNTO) {
         this.log.warn(`Adjunto de WhatsApp demasiado grande (${anunciado} bytes), no se guarda.`);
+        await this.rematarAviso(tenant, wamid, DEMASIADO_GRANDE);
         return;
       }
 
@@ -726,8 +765,37 @@ export class WhatsappService {
         },
         datos,
       );
+      await this.rematarAviso(tenant, wamid, EN_LOS_ADJUNTOS);
     } catch (e) {
       this.log.warn(`Falló el adjunto de WhatsApp (${tenant}): ${(e as Error).message}`);
+      await this.rematarAviso(tenant, wamid, NO_SE_PUDO_BAJAR);
+    }
+  }
+
+  /**
+   * Le añade al aviso del mensaje lo que de verdad pasó con el archivo.
+   *
+   * El texto se escribe ANTES de intentar la descarga —el mensaje tiene que
+   * estar en la conversación aunque la red falle—, así que esto es lo que lo
+   * convierte en verdad o en aviso de que hay que pedirlo de otra forma.
+   * Nunca lanza: el reporte ya está guardado.
+   */
+  private async rematarAviso(
+    tenant: string, wamid: string | null, remate: string,
+  ): Promise<void> {
+    if (!wamid) return;
+    try {
+      await this.rls.conTenant(tenant, async (manager) => {
+        const repo = manager.getRepository(MensajeChatEntity);
+        const m = await repo.findOne({ where: { tenant, waMessageId: wamid } });
+        if (!m || !m.texto.endsWith(']')) return;
+        await repo.update(
+          { tenant, id: m.id },
+          { texto: `${m.texto.slice(0, -1)} ${remate}]` },
+        );
+      });
+    } catch (e) {
+      this.log.warn(`No se pudo rematar el aviso del adjunto (${tenant}): ${(e as Error).message}`);
     }
   }
 

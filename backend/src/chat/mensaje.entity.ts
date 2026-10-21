@@ -1,7 +1,16 @@
 import { Column, CreateDateColumn, Entity, Index, PrimaryGeneratedColumn } from 'typeorm';
 
-/** Quién envía el mensaje de chat. */
-export type AutorTipo = 'ciudadano' | 'operador';
+/**
+ * Quién envía el mensaje de chat.
+ *
+ * `bot` es el de admisión, y tiene tipo propio por dos razones. La primera es
+ * que el operador necesita VER lo que se le preguntó al ciudadano: sin eso,
+ * una conversación que empieza con un «2» suelto no se entiende. La segunda
+ * es que el bot se calla en cuanto escribe un operador, y esa comprobación
+ * mira el tipo — si el bot guardara sus mensajes como `operador`, se callaría
+ * a sí mismo después de la primera pregunta.
+ */
+export type AutorTipo = 'ciudadano' | 'operador' | 'bot';
 
 /**
  * Mensaje de un chat asociado a un caso. Persistido para tener historial al
