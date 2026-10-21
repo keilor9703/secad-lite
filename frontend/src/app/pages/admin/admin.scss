@@ -97,6 +97,81 @@
 .pbx-row input { flex: 1; min-width: 220px; }
 .pbx-warn { color: var(--muted); font-size: var(--texto-xs); margin: 0.35rem 0 0; }
 
+/* --- WhatsApp: qué falta, movimiento y prueba de la línea ---------------- */
+
+.wa-listo {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  margin: 0.6rem 0 0;
+  font-size: var(--texto-sm);
+  color: var(--ok);
+}
+
+.wa-faltan {
+  margin: 0.7rem 0 0;
+  padding: 0.7rem 0.9rem;
+  border: 1px solid var(--border-2);
+  border-left: 3px solid var(--warn);
+  border-radius: var(--radius);
+  background: var(--surface-2);
+
+  h3 {
+    margin: 0 0 0.5rem;
+    font-size: var(--texto-sm);
+    color: var(--ink);
+  }
+
+  ol { margin: 0; padding-left: 1.2rem; }
+}
+
+.wa-falta {
+  margin-bottom: 0.6rem;
+  font-size: var(--texto-xs);
+  line-height: 1.5;
+
+  &:last-child { margin-bottom: 0; }
+
+  strong { display: block; color: var(--ink); }
+  span { color: var(--ink-soft); }
+
+  /* Lo que no arregla quien está mirando esta pantalla se marca aparte: es la
+     distinción que ahorra la llamada de soporte. */
+  em {
+    display: block;
+    margin-top: 0.15rem;
+    color: var(--muted);
+    font-style: normal;
+  }
+}
+
+.wa-movimiento {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 0.3rem 0.9rem;
+  margin-top: 0.7rem;
+  font-size: var(--texto-sm);
+  color: var(--ink-soft);
+  font-variant-numeric: tabular-nums;
+
+  strong { color: var(--ink); }
+}
+
+.wa-mov-nota { color: var(--muted); font-size: var(--texto-xs); }
+.wa-mov-aviso { margin-top: 0.2rem; }
+
+.wa-probar { margin-top: 0.4rem; }
+
+.wa-prueba {
+  margin: 0.4rem 0 0;
+  font-size: var(--texto-xs);
+  line-height: 1.5;
+  color: var(--ok);
+}
+
+.wa-prueba--mal { color: var(--warn); }
+
 /* Matriz de roles y permisos */
 .matriz-wrap { overflow-x: auto; min-width: 0; margin-top: 0.8rem; }
 .matriz { width: 100%; border-collapse: collapse; }

@@ -1,5 +1,5 @@
 import { BadRequestException, Injectable, Logger, NotFoundException } from '@nestjs/common';
-import { EntityManager, Not } from 'typeorm';
+import { EntityManager, MoreThan, Not } from 'typeorm';
 import { MensajeChatEntity } from '../chat/mensaje.entity';
 import { CasoEntity } from '../casos/caso.entity';
 import { CasosService } from '../casos/casos.service';
@@ -17,6 +17,37 @@ interface InfobipEntrante {
   message?: { type?: string; text?: string; caption?: string };
 }
 
+/** Algo que impide que la línea funcione, y dónde se arregla. */
+export interface FaltaWhatsapp {
+  /** Qué falta, en una frase que se entienda sin saber cómo está hecho esto. */
+  que: string;
+  /** Dónde y cómo se arregla. */
+  comoSeArregla: string;
+  /** `true` si lo arregla quien opera el servidor, no el administrador del municipio. */
+  esDelServidor?: boolean;
+}
+
+/**
+ * EN QUÉ ESTÁ LA LÍNEA DE WHATSAPP DE ESTA INSTANCIA.
+ *
+ * Existe porque hasta ahora la pantalla no decía nada: si faltaba algo, los
+ * mensajes simplemente no llegaban y averiguar por qué costaba entrar al
+ * servidor a leer `docker logs`. Eso es asumible una vez; con un municipio
+ * nuevo cada mes, no.
+ */
+export interface EstadoWhatsapp {
+  /** Por dónde está conectada la línea. `null` = por ninguna. */
+  via: 'infobip' | 'meta' | null;
+  /** Si no falta nada. */
+  listo: boolean;
+  /** Lo que falta, en el orden en que conviene resolverlo. */
+  faltan: FaltaWhatsapp[];
+  /** Lo que ha pasado POR FALCON. No es la factura de Infobip. */
+  consumo: { entrantes: number; salientes: number; dias: number };
+  /** Cuándo escribió un ciudadano por última vez. `null` = nunca. */
+  ultimoEntrante: string | null;
+}
+
 /**
  * Horas que WhatsApp deja contestar con texto libre, contadas desde el último
  * mensaje del ciudadano. Fuera de esa ventana hace falta una plantilla
@@ -32,6 +63,9 @@ export const HORAS_VENTANA_WHATSAPP = 24;
  * personas distintas que coincidan es algo que no pasa en un municipio.
  */
 const LARGO_COLA_TELEFONO = 10;
+
+/** Ventana sobre la que se cuenta el movimiento de la línea. */
+const DIAS_CONSUMO = 30;
 
 /** Versión de la Graph API de Meta para enviar respuestas. */
 const GRAPH_VERSION = 'v20.0';
@@ -401,6 +435,178 @@ export class WhatsappService {
   }
 
   /**
+   * Qué le falta a esta instancia para recibir y contestar por WhatsApp.
+   *
+   * El orden de la lista importa: es el orden en que hay que resolverlo. Las
+   * credenciales del servidor van primero porque sin ellas lo demás da igual,
+   * y el número va antes que la bandeja porque sin número no llega nada que
+   * mandar a ninguna bandeja.
+   */
+  async estado(tenant: string): Promise<EstadoWhatsapp> {
+    const t = await this.tenants.porCodigo(tenant);
+    const base = (process.env.INFOBIP_BASE_URL ?? '').trim();
+    const clave = (process.env.INFOBIP_API_KEY ?? '').trim();
+    const tokenWebhook = (process.env.INFOBIP_WEBHOOK_TOKEN ?? '').trim();
+    const tokenMeta = await this.tenants.waAccessTokenDe(tenant);
+
+    const infobipListo = !!(base && clave);
+    const via: EstadoWhatsapp['via'] =
+      t?.waNumero && infobipListo ? 'infobip'
+      : t?.waPhoneNumberId && tokenMeta ? 'meta'
+      : null;
+
+    const faltan: FaltaWhatsapp[] = [];
+
+    if (!t?.waNumero && !t?.waPhoneNumberId) {
+      faltan.push({
+        que: 'No hay número de línea.',
+        comoSeArregla:
+          'Escriba arriba el número de WhatsApp de esta instancia, en dígitos ' +
+          '(p. ej. 573132354086). Es lo que decide de qué municipio es un mensaje ' +
+          'que entra: sin él, el mensaje llega al servidor y se descarta.',
+      });
+    }
+
+    if (t?.waNumero && !infobipListo) {
+      faltan.push({
+        que: 'Hay número, pero el servidor no tiene las credenciales de Infobip.',
+        comoSeArregla:
+          'Un administrador pone INFOBIP_BASE_URL e INFOBIP_API_KEY en el .env del ' +
+          'servidor y vuelve a desplegar. Son de la cuenta, no de este municipio: se ' +
+          'ponen una vez y sirven para todas las instancias.',
+        esDelServidor: true,
+      });
+    }
+
+    if (t?.waNumero && infobipListo && !tokenWebhook) {
+      faltan.push({
+        que: 'Se puede enviar, pero NO recibir: falta el token del webhook.',
+        comoSeArregla:
+          'Un administrador pone INFOBIP_WEBHOOK_TOKEN en el .env del servidor, con el ' +
+          'mismo valor que lleve la cabecera x-infobip-token del perfil de notificación ' +
+          'de Infobip. Sin él, en producción se rechaza cada mensaje entrante.',
+        esDelServidor: true,
+      });
+    }
+
+    if (!via && (t?.waPhoneNumberId || tokenMeta)) {
+      faltan.push({
+        que: 'La conexión con Meta está a medias.',
+        comoSeArregla: t?.waPhoneNumberId
+          ? 'Falta el token de acceso de Meta. Péguelo abajo.'
+          : 'Falta el phone_number_id del número. Péguelo arriba.',
+      });
+    }
+
+    if (!t?.waAgenciaResponsableId) {
+      faltan.push({
+        que: 'Los casos de WhatsApp no llegarían a ninguna bandeja.',
+        comoSeArregla:
+          'Elija abajo la agencia responsable y sus canales. Sin esto el caso se crea, ' +
+          'pero solo lo ve quien tenga permiso de supervisión: nadie lo despacha.',
+      });
+    }
+
+    const { entrantes, salientes, ultimoEntrante } = await this.movimiento(tenant);
+
+    return {
+      via,
+      listo: faltan.length === 0,
+      faltan,
+      consumo: { entrantes, salientes, dias: DIAS_CONSUMO },
+      ultimoEntrante,
+    };
+  }
+
+  /**
+   * Cuántos mensajes han pasado por aquí, y cuándo fue el último entrante.
+   *
+   * Se cuenta sobre NUESTRA base y no contra Infobip a propósito: esto dice
+   * qué pasó por FALCON, que es lo que FALCON puede afirmar. La factura la
+   * emite Infobip y puede no coincidir —reintentos, mensajes de otras
+   * aplicaciones de la misma cuenta—, así que presentarlo como «consumo
+   * facturable» sería inventarse una cifra.
+   */
+  private async movimiento(
+    tenant: string,
+  ): Promise<{ entrantes: number; salientes: number; ultimoEntrante: string | null }> {
+    const desde = new Date(Date.now() - DIAS_CONSUMO * 24 * 3_600_000);
+    try {
+      return await this.rls.conTenant(tenant, async (manager) => {
+        const repo = manager.getRepository(MensajeChatEntity);
+        const [entrantes, salientes] = await Promise.all([
+          repo.count({ where: { tenant, autorTipo: 'ciudadano', creadoEn: MoreThan(desde) } }),
+          repo.count({ where: { tenant, autorTipo: 'operador', creadoEn: MoreThan(desde) } }),
+        ]);
+        const ultimo = await repo.findOne({
+          where: { tenant, autorTipo: 'ciudadano' },
+          order: { creadoEn: 'DESC' },
+        });
+        return {
+          entrantes,
+          salientes,
+          ultimoEntrante: ultimo ? new Date(ultimo.creadoEn).toISOString() : null,
+        };
+      });
+    } catch (e) {
+      // Una cifra que no se pudo calcular no puede tumbar la pantalla de
+      // configuración, que es justo donde se va a arreglar lo que falla.
+      this.log.warn(`No se pudo contar el movimiento de WhatsApp (${tenant}): ${(e as Error).message}`);
+      return { entrantes: 0, salientes: 0, ultimoEntrante: null };
+    }
+  }
+
+  /**
+   * Manda un mensaje de prueba y cuenta qué pasó.
+   *
+   * ──────────────────────────────────────────────────────────────────────────
+   * POR QUÉ NO BASTA CON «ENVIADO / NO ENVIADO»
+   *
+   * Porque quien está dando de alta un municipio necesita saber QUÉ arreglar.
+   * Y hay una trampa que se lleva a todo el mundo la primera vez: WhatsApp no
+   * deja escribirle primero a nadie. Si el número de prueba no le ha escrito
+   * a la línea en las últimas 24 horas, el envío se rechaza — y eso NO
+   * significa que la configuración esté mal.
+   *
+   * Así que cuando no hay conversación abierta esto no dice «falló»: dice qué
+   * hacer para que la prueba sea válida.
+   */
+  async probar(tenant: string, a: string): Promise<{ ok: boolean; detalle: string }> {
+    const destino = (a ?? '').replace(/\D/g, '');
+    if (!destino) {
+      return { ok: false, detalle: 'Escriba el número al que mandar la prueba, en dígitos.' };
+    }
+
+    const estado = await this.estado(tenant);
+    if (!estado.via) {
+      return {
+        ok: false,
+        detalle: estado.faltan[0]?.que ?? 'La línea de WhatsApp no está configurada.',
+      };
+    }
+
+    const texto =
+      'FALCON CAD - Mensaje de prueba de la linea. Si lo recibe, la configuracion ' +
+      'de WhatsApp de esta instancia funciona. No requiere respuesta.';
+
+    const r = await this.enviarDetallado(tenant, destino, texto);
+    if (r.ok) return r;
+
+    // El motivo más probable, y el que no es culpa de la configuración.
+    const hayVentana = await this.enviarSiHayConversacion(tenant, destino, texto);
+    if (hayVentana) return { ok: true, detalle: 'Enviado.' };
+
+    return {
+      ok: false,
+      detalle:
+        `${r.detalle} — Si es la primera prueba, lo más probable es que ese número no le ` +
+        `haya escrito a la línea: WhatsApp no permite escribir primero sin una plantilla ` +
+        `aprobada por Meta. Mándele un WhatsApp al ${(await this.tenants.porCodigo(tenant))?.waNumero ?? 'número de la línea'} ` +
+        `desde ese teléfono y vuelva a probar.`,
+    };
+  }
+
+  /**
    * Manda un texto por WhatsApp SOLO si hay una conversación abierta con ese
    * número. Devuelve si salió; nunca lanza.
    *
@@ -495,6 +701,22 @@ export class WhatsappService {
    * tiene que poder decirle al operador que su mensaje NO salió.
    */
   private async enviar(tenant: string, to: string, texto: string): Promise<boolean> {
+    return (await this.enviarDetallado(tenant, to, texto)).ok;
+  }
+
+  /**
+   * Lo mismo que `enviar`, pero diciendo POR QUÉ no salió.
+   *
+   * El booleano le basta a quien responde un caso —el operador ve «no se
+   * pudo enviar» y llama por teléfono—, pero no le sirve a quien está
+   * configurando la línea: «false» puede ser una clave mala, una IP no
+   * autorizada, un número sin dar de alta o la ventana de 24 horas
+   * cerrada, y cada una se arregla en un sitio distinto. Averiguar cuál
+   * era costaba entrar al servidor a leer `docker logs`.
+   */
+  private async enviarDetallado(
+    tenant: string, to: string, texto: string,
+  ): Promise<{ ok: boolean; detalle: string }> {
     const t = await this.tenants.porCodigo(tenant);
 
     // La cuenta de Infobip es de quien opera FALCON, no de cada municipio:
@@ -510,7 +732,12 @@ export class WhatsappService {
     const token = await this.tenants.waAccessTokenDe(tenant);
     if (!t?.waPhoneNumberId || !token) {
       this.log.warn(`WhatsApp sin credenciales para tenant ${tenant}; respuesta NO enviada.`);
-      return false;
+      return {
+        ok: false,
+        detalle:
+          'Esta instancia no tiene por dónde enviar: ni número de línea con las ' +
+          'credenciales de Infobip en el servidor, ni phone_number_id con token de Meta.',
+      };
     }
     try {
       const res = await fetch(`https://graph.facebook.com/${GRAPH_VERSION}/${t.waPhoneNumberId}/messages`, {
@@ -520,12 +747,21 @@ export class WhatsappService {
       });
       if (!res.ok) {
         this.log.warn(`WhatsApp Graph API respondió ${res.status} para tenant ${tenant}.`);
-        return false;
+        return { ok: false, detalle: `Meta respondió ${res.status}: ${await this.cuerpoBreve(res)}` };
       }
-      return true;
+      return { ok: true, detalle: 'Enviado por Meta (Cloud API).' };
     } catch (e) {
       this.log.warn(`No se pudo enviar el WhatsApp para tenant ${tenant}: ${(e as Error).message}`);
-      return false;
+      return { ok: false, detalle: `No se pudo contactar con Meta: ${(e as Error).message}` };
+    }
+  }
+
+  /** Un trozo legible de la respuesta de error, para enseñárselo a quien configura. */
+  private async cuerpoBreve(res: { text(): Promise<string> }): Promise<string> {
+    try {
+      return (await res.text()).slice(0, 300);
+    } catch {
+      return 'sin cuerpo';
     }
   }
 
@@ -538,7 +774,7 @@ export class WhatsappService {
    */
   private async enviarPorInfobip(
     base: string, clave: string, from: string, to: string, texto: string, tenant: string,
-  ): Promise<boolean> {
+  ): Promise<{ ok: boolean; detalle: string }> {
     const host = base.replace(/^https?:\/\//, '').replace(/\/+$/, '');
     try {
       const res = await fetch(`https://${host}/whatsapp/1/message/text`, {
@@ -552,12 +788,12 @@ export class WhatsappService {
       });
       if (!res.ok) {
         this.log.warn(`Infobip respondió ${res.status} al enviar WhatsApp del tenant ${tenant}.`);
-        return false;
+        return { ok: false, detalle: `Infobip respondió ${res.status}: ${await this.cuerpoBreve(res)}` };
       }
-      return true;
+      return { ok: true, detalle: `Enviado por Infobip desde ${from}.` };
     } catch (e) {
       this.log.warn(`No se pudo enviar por Infobip (${tenant}): ${(e as Error).message}`);
-      return false;
+      return { ok: false, detalle: `No se pudo contactar con Infobip: ${(e as Error).message}` };
     }
   }
 }

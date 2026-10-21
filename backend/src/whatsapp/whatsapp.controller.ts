@@ -194,6 +194,45 @@ export class WhatsappController {
   }
 
   /** GET /api/whatsapp/casos/:id/mensajes — conversación del caso. */
+  /**
+   * GET /api/whatsapp/estado — qué le falta a esta línea, y cuánto se mueve.
+   *
+   * La pantalla de configuración no decía nada: si faltaba algo, los mensajes
+   * simplemente no llegaban. Averiguar por qué costaba entrar al servidor a
+   * leer `docker logs`, que es asumible una vez y no con un municipio nuevo
+   * cada mes.
+   */
+  @Permisos('whatsapp.configurar')
+  @Get('estado')
+  estado(@Tenant() tenant: string) {
+    return this.wa.estado(tenant);
+  }
+
+  /**
+   * POST /api/whatsapp/probar — manda un mensaje de prueba a un número.
+   *
+   * No cambia nada: solo intenta enviar y devuelve qué contestó el proveedor.
+   * Queda en la bitácora porque manda un mensaje real a un teléfono real, y
+   * porque saber quién probó y cuándo es la mitad de un diagnóstico.
+   */
+  @Permisos('whatsapp.configurar')
+  @Post('probar')
+  async probar(
+    @Tenant() tenant: string,
+    @Usuario() u: JwtPayload,
+    @Body() dto: { a?: string },
+  ) {
+    const r = await this.wa.probar(tenant, dto?.a ?? '');
+    // Solo los cuatro últimos dígitos: el teléfono completo de un ciudadano
+    // no tiene por qué quedar en la bitácora administrativa, que es inmutable.
+    const cola = (dto?.a ?? '').replace(/\D/g, '').slice(-4);
+    await this.auditoria.registrar(
+      tenant, u.sub, 'whatsapp.probar',
+      `Prueba de la línea hacia ···${cola}: ${r.ok ? 'enviada' : 'no salió'}`,
+    );
+    return r;
+  }
+
   @Permisos('whatsapp.responder')
   @Get('casos/:id/mensajes')
   mensajes(@Tenant() tenant: string, @Param('id') id: string) {

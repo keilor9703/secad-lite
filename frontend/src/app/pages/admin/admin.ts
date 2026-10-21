@@ -6,7 +6,7 @@ import { AdminService, CrearUsuario, EntradaBitacora } from '../../core/admin.se
 import { AuthService } from '../../core/auth.service';
 import { PbxService } from '../../core/pbx.service';
 import { CtiService } from '../../core/cti.service';
-import { WhatsappService } from '../../core/whatsapp.service';
+import { EstadoWhatsapp, WhatsappService } from '../../core/whatsapp.service';
 import { RolesService } from '../../core/roles.service';
 import { EntidadesService } from '../../core/entidades.service';
 import { CatalogosService } from '../../core/catalogos.service';
@@ -163,6 +163,13 @@ export class AdminComponent implements OnInit {
   /** A quién se envían los casos que entran por WhatsApp. */
   readonly waCanales = signal<string[]>([]);
   readonly waGuardando = signal(false);
+  /** Qué le falta a la línea, y cuánto se mueve. Nulo mientras no se sabe. */
+  readonly waEstado = signal<EstadoWhatsapp | null>(null);
+  /** El número al que se manda la prueba. */
+  readonly waPruebaA = signal('');
+  readonly waProbando = signal(false);
+  /** Lo que contestó la última prueba. Nulo = todavía no se ha probado. */
+  readonly waPrueba = signal<{ ok: boolean; detalle: string } | null>(null);
   readonly waOk = signal(false);
 
   // Remisiones entre jurisdicciones (otro tenant remite un caso a esta instancia)
@@ -602,9 +609,49 @@ export class AdminComponent implements OnInit {
           accessToken: '',
         });
         this.waCanales.set([...(c.canales ?? [])]);
+        this.cargarEstadoWa();
       },
       error: () => {},
     });
+  }
+
+  /**
+   * Qué le falta a la línea.
+   *
+   * Se pide aparte de `config()` y no dentro: `config()` es lo que el
+   * administrador escribió, y esto es lo que el SERVIDOR ve —incluidas cosas
+   * que no están en ningún campo de esta pantalla, como las credenciales del
+   * .env—. Mezclarlos haría creer que todo se arregla aquí.
+   *
+   * Un fallo pidiéndolo no se grita: la pantalla sigue sirviendo para
+   * configurar, que es a lo que vino.
+   */
+  private cargarEstadoWa(): void {
+    this.wa.estado().subscribe({
+      next: (e) => this.waEstado.set(e),
+      error: () => this.waEstado.set(null),
+    });
+  }
+
+  probarWa(): void {
+    const a = this.waPruebaA().trim();
+    if (!a || this.waProbando()) return;
+    this.waProbando.set(true);
+    this.waPrueba.set(null);
+    this.wa.probar(a).subscribe({
+      next: (r) => { this.waProbando.set(false); this.waPrueba.set(r); },
+      error: (e) => {
+        this.waProbando.set(false);
+        this.waPrueba.set({
+          ok: false,
+          detalle: e?.error?.message ?? 'No fue posible mandar la prueba.',
+        });
+      },
+    });
+  }
+
+  escribirPruebaWa(e: Event): void {
+    this.waPruebaA.set((e.target as HTMLInputElement).value);
   }
 
   canalMarcadoWa(id: string): boolean {
@@ -634,6 +681,9 @@ export class AdminComponent implements OnInit {
         this.waForm.patchValue({ agenciaResponsableId: c.agenciaResponsableId, accessToken: '' });
         this.waCanales.set([...(c.canales ?? [])]);
         this.waGuardando.set(false); this.waOk.set(true);
+        // Lo que falta acaba de cambiar: volver a preguntarlo es la diferencia
+        // entre una lista viva y una que miente hasta que alguien recargue.
+        this.cargarEstadoWa();
         this.toast.exito('Configuración de WhatsApp guardada.');
       },
       error: (e) => { this.waGuardando.set(false); this.error.set(e?.error?.message ?? 'No fue posible guardar la configuración de WhatsApp.'); },

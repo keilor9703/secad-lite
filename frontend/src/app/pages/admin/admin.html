@@ -251,6 +251,47 @@
           <h2><app-icono nombre="chat" [tam]="17" /> Integración — WhatsApp (Cloud API)</h2>
           <p class="pbx-hint">Configure el webhook de su app de Meta con la URL y el <em>verify token</em>
           de abajo, y registre aquí el <code>phone_number_id</code> del número y su token de acceso.</p>
+
+          <!-- QUÉ FALTA. Antes esta pantalla no decía nada: si faltaba una
+               pieza, los mensajes simplemente no llegaban, y averiguar por qué
+               obligaba a entrar al servidor a leer los logs. -->
+          @if (waEstado(); as est) {
+            @if (est.listo) {
+              <p class="wa-listo">
+                <app-icono nombre="check" [tam]="15" />
+                Línea lista, conectada por {{ est.via === 'infobip' ? 'Infobip' : 'Meta' }}.
+              </p>
+            } @else {
+              <div class="wa-faltan">
+                <h3>Falta para que la línea funcione</h3>
+                <ol>
+                  @for (f of est.faltan; track f.que) {
+                    <li class="wa-falta" [class.wa-falta--servidor]="f.esDelServidor">
+                      <strong>{{ f.que }}</strong>
+                      <span>{{ f.comoSeArregla }}</span>
+                      @if (f.esDelServidor) {
+                        <em>Esto no se arregla desde aquí: lo hace quien opera el servidor.</em>
+                      }
+                    </li>
+                  }
+                </ol>
+              </div>
+            }
+
+            <div class="wa-movimiento">
+              <span><strong>{{ est.consumo.entrantes }}</strong> recibidos</span>
+              <span><strong>{{ est.consumo.salientes }}</strong> enviados</span>
+              <span class="wa-mov-nota">en {{ est.consumo.dias }} días</span>
+              @if (est.ultimoEntrante) {
+                <span class="wa-mov-nota">· último mensaje del ciudadano
+                  {{ est.ultimoEntrante | date: 'dd/MM HH:mm' }}</span>
+              }
+            </div>
+            <p class="pbx-hint wa-mov-aviso">
+              Es lo que pasó por FALCON, no la factura del proveedor: los reintentos y
+              las otras aplicaciones de la misma cuenta no se ven aquí.
+            </p>
+          }
           <div class="pbx-field">
             <label>URL del webhook</label>
             <div class="pbx-row">
@@ -330,6 +371,28 @@
             }
           </div>
           </form>
+
+          <!-- PROBAR LA LÍNEA sin salir de la pantalla. Lo que esto ahorra no
+               es un clic: es el diagnóstico por `docker logs` que había que
+               hacer para saber si la línea servía. -->
+          <div class="pbx-field wa-probar">
+            <label>Probar la línea</label>
+            <div class="pbx-row">
+              <input class="mono" [value]="waPruebaA()" (input)="escribirPruebaWa($event)"
+                placeholder="Número al que mandar la prueba" />
+              <button type="button" class="btn btn--ghost mini"
+                [disabled]="waProbando() || !waPruebaA().trim()" (click)="probarWa()">
+                {{ waProbando() ? 'Enviando…' : 'Enviar prueba' }}
+              </button>
+            </div>
+            <small>
+              WhatsApp no permite escribirle primero a nadie: para que la prueba valga,
+              ese teléfono tiene que haberle escrito a la línea en las últimas 24 horas.
+            </small>
+            @if (waPrueba(); as pr) {
+              <p class="wa-prueba" [class.wa-prueba--mal]="!pr.ok">{{ pr.detalle }}</p>
+            }
+          </div>
         </div>
       }
 

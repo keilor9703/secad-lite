@@ -263,6 +263,84 @@ FALCON
 
 ---
 
+## Agregar un municipio nuevo
+
+Todo lo anterior es el alta de la **primera** línea, y es la cara. Agregar
+Itagüí, Bello o el siguiente es mucho más corto, porque lo pesado no se
+repite.
+
+### Lo que NO se vuelve a hacer nunca
+
+| | |
+|---|---|
+| Cuenta de Facebook y portafolio comercial | Uno, el de Tech Stack Colombia SAS |
+| **Verificación de empresa** ante Meta | Ya verificada |
+| Enlazar Infobip como socio (BSP) | Ya enlazado |
+| La cuenta de Infobip y su clave de API | Una, compartida por todas las instancias |
+| Vaciar un número que ya tenía WhatsApp Business | Solo pasó con el primero; con números nuevos no ocurre |
+
+Todo eso pertenece a **la empresa que opera FALCON**, no al municipio. Los
+municipios cuelgan debajo.
+
+### Lo que sí se hace, por municipio
+
+1. **Conseguir el número.** El requisito es uno: que **no tenga WhatsApp
+   instalado**, ni personal ni Business. Un número que ya es WhatsApp hay que
+   vaciarlo primero —es el enredo del error `#2655115`— y eso **borra el
+   historial de ese teléfono**. Si el municipio compra una línea nueva, se
+   evita entero. Es el consejo que más tiempo ahorra de toda esta página.
+2. **Darlo de alta en Infobip** como remitente nuevo, bajo la misma cuenta.
+   Llega un código por SMS o llamada y se verifica. Minutos.
+3. **Una suscripción por remitente**, al evento de mensajes entrantes. Puede
+   apuntar al **mismo** perfil de notificación que los demás —la misma URL y
+   el mismo `x-infobip-token`—, porque FALCON enruta por el número de destino
+   y no por la suscripción. **Sin filtros**: el filtro lo hace FALCON.
+4. **En FALCON**, con el municipio en gestión: Administración → WhatsApp →
+   «Número de la línea», y elegir la agencia responsable y sus canales.
+
+**Ninguna variable de entorno cambia.** `INFOBIP_BASE_URL`,
+`INFOBIP_API_KEY` e `INFOBIP_WEBHOOK_TOKEN` son de la cuenta, no del
+municipio: se ponen una vez en el servidor y sirven para todos.
+
+### Cómo se comprueba que quedó
+
+La propia pantalla lo dice. Administración → WhatsApp enseña **qué falta**,
+en orden, y marca aparte lo que no se arregla ahí sino en el servidor. Cuando
+no falta nada dice por dónde está conectada la línea.
+
+Y abajo hay **«Probar la línea»**: manda un mensaje real y enseña lo que
+contestó el proveedor. Con una advertencia que conviene leer antes de asustarse
+— WhatsApp **no permite escribirle primero a nadie**: para que la prueba valga,
+ese teléfono tiene que haberle escrito a la línea en las últimas 24 horas. Si
+no, el rechazo es normal y no significa que la configuración esté mal.
+
+### Por qué un número no puede estar en dos municipios
+
+`tenants.waNumero` tiene índice único. Cuando entra un mensaje, Infobip no
+manda ningún identificador de cuenta: manda el **número de destino**, y FALCON
+busca qué instancia lo tiene. Si dos lo compartieran, un mensaje entrante no
+tendría forma de saber a cuál pertenece — y en un sistema sin Row-Level
+Security eso es una fuga de datos entre municipios, el peor error posible en
+este repositorio.
+
+Un número **mal escrito** no es peligroso: el mensaje llega, no encaja con
+nadie, se descarta y queda en el log (`ninguna instancia tiene ese número`).
+
+### Dos decisiones que conviene tomar con el primer municipio
+
+- **De quién es el número.** Si lo compra quien opera FALCON, el día que el
+  municipio no renueve queda un número que dice ser del 123 de ese municipio.
+  Recomendación: **que lo compre el municipio** y quede en el contrato, igual
+  que el dominio.
+- **Quién paga el consumo.** Hoy todo se factura a una sola cuenta de Infobip.
+  La pantalla enseña cuántos mensajes pasaron por FALCON en cada instancia
+  —útil para repartir—, pero **no es la factura**: los reintentos y otras
+  aplicaciones de la misma cuenta no se ven ahí. Decidir si se revende el
+  consumo o se incluye en la mensualidad es más fácil con un municipio dentro
+  que con tres.
+
+---
+
 ## Dónde se atasca esto normalmente
 
 | Síntoma | Causa casi siempre | Salida |

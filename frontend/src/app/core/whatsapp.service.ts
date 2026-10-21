@@ -4,6 +4,24 @@ import { Observable } from 'rxjs';
 import { environment } from '../../environments/environment';
 import { MensajeChat, WhatsappConfig } from './models';
 
+/** Algo que impide que la línea funcione, y dónde se arregla. */
+export interface FaltaWhatsapp {
+  que: string;
+  comoSeArregla: string;
+  /** Lo arregla quien opera el servidor, no el administrador del municipio. */
+  esDelServidor?: boolean;
+}
+
+/** En qué está la línea de WhatsApp de esta instancia. */
+export interface EstadoWhatsapp {
+  via: 'infobip' | 'meta' | null;
+  listo: boolean;
+  faltan: FaltaWhatsapp[];
+  /** Lo que pasó POR FALCON. No es la factura del proveedor. */
+  consumo: { entrantes: number; salientes: number; dias: number };
+  ultimoEntrante: string | null;
+}
+
 /** Cliente de la integración de WhatsApp (Cloud API de Meta). */
 @Injectable({ providedIn: 'root' })
 export class WhatsappService {
@@ -34,6 +52,16 @@ export class WhatsappService {
     return this.http.put<WhatsappConfig>(
       `${this.base}/whatsapp/config`, { phoneNumberId, numero, accessToken, agenciaResponsableId, canales },
     );
+  }
+
+  /** Qué le falta a esta línea, y cuánto se mueve. */
+  estado(): Observable<EstadoWhatsapp> {
+    return this.http.get<EstadoWhatsapp>(`${this.base}/whatsapp/estado`);
+  }
+
+  /** Manda un mensaje de prueba a un número y cuenta qué contestó el proveedor. */
+  probar(a: string): Observable<{ ok: boolean; detalle: string }> {
+    return this.http.post<{ ok: boolean; detalle: string }>(`${this.base}/whatsapp/probar`, { a });
   }
 
   webhookUrl(path: string): string {
