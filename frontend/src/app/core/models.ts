@@ -44,6 +44,15 @@ export interface Caso {
    * para ver de un vistazo cuál entidad ya cerró su parte y cuál sigue.
    */
   canalesEstado?: Array<{ canalId: string; agenciaId: string; estado: EstadoCaso }>;
+  /**
+   * Mensajes del ciudadano que todavía nadie abrió en este caso.
+   *
+   * Solo crece después de que el caso existe: el primer mensaje es el que lo
+   * abre, y un caso nuevo ya se anuncia solo. Lo que esto cuenta es la
+   * conversación que siguió, que es justo lo que antes no se veía desde
+   * ninguna pantalla.
+   */
+  mensajesSinLeer?: number;
   /** Solicitud de reapertura pendiente de que un supervisor la resuelva. */
   reaperturaSolicitada?: boolean;
   reaperturaMotivo?: string | null;

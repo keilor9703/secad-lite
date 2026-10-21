@@ -413,6 +413,28 @@
   white-space: nowrap;
   min-width: 0;
 }
+/* Mensajes del ciudadano que nadie ha abierto todavía.
+   Va en --warn y no en el acento del tablero: el acento ya marca «no lo ha
+   abierto usted», y dos señales del mismo color en la misma línea dejan de
+   ser dos señales. Esta dice algo distinto —el ciudadano volvió a escribir—
+   y tiene que poder distinguirse de un vistazo. */
+.f-sinleer {
+  flex: none;
+  order: 1;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.2rem;
+  padding: 0.05rem 0.35rem;
+  border-radius: 999px;
+  background: var(--warn);
+  color: #fff;
+  font-size: var(--texto-xs);
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  line-height: 1.4;
+  align-self: center;
+}
+
 .f-punto {
   flex: none;
   order: 1;

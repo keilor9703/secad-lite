@@ -159,6 +159,27 @@ export class CasoEntity {
   @Column({ type: 'uuid', nullable: true })
   remitidoACasoId?: string | null;
 
+  // --- Conversación ----------------------------------------------------------
+
+  /**
+   * Mensajes del ciudadano que todavía nadie ha abierto en este caso.
+   *
+   * Existe porque un caso de WhatsApp no termina cuando nace: el ciudadano
+   * sigue escribiendo dentro del MISMO caso —una conversación es una
+   * emergencia, no cinco— y hasta ahora eso era invisible desde el tablero.
+   * La fila seguía diciendo lo que dijo el primer mensaje, así que «ya entró
+   * al cuarto de mi hija» llegaba a la base de datos y a nadie en pantalla.
+   *
+   * Se cuenta aquí y no con un `count` sobre los mensajes porque el tablero
+   * lista decenas de casos y una subconsulta por fila es justo lo que no hay
+   * que hacer en la pantalla que tiene que ir rápida.
+   *
+   * El primer mensaje NO cuenta: ese abre el caso, y un caso nuevo ya se
+   * anuncia solo. Lo que esto mide es lo que llegó DESPUÉS.
+   */
+  @Column({ type: 'int', default: 0 })
+  mensajesSinLeer!: number;
+
   @Column({ type: 'varchar', length: 120 })
   creadoPor!: string;
 

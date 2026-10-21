@@ -140,6 +140,17 @@
                       {{ prioridadLabel(c.prioridad) }}
                     </span>
                     <span class="f-titulo">{{ c.titulo }}</span>
+                    <!-- El ciudadano siguió escribiendo DENTRO de este caso.
+                         Sin esto, la fila seguía diciendo lo que dijo el
+                         primer mensaje y el resto de la conversación solo
+                         existía para quien abriera el caso. -->
+                    @if (sinLeer(c); as n) {
+                      <span class="f-sinleer"
+                        [attr.aria-label]="n + ' mensajes nuevos del ciudadano'"
+                        [attr.title]="n === 1 ? 'Un mensaje nuevo del ciudadano' : n + ' mensajes nuevos del ciudadano'">
+                        <app-icono nombre="chat" [tam]="12" />{{ n }}
+                      </span>
+                    }
                     @if (noVisto(c)) {
                       <span class="f-punto" role="img" aria-label="Todavía no lo ha abierto"></span>
                     }

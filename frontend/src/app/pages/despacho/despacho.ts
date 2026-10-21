@@ -14,6 +14,16 @@ import { SelectorComponent } from '../../shared/selector/selector';
 import { OpcionComponent } from '../../shared/selector/opcion';
 import { IconoComponent, NombreIcono } from '../../shared/icono/icono';
 
+/**
+ * Volumen del timbre del tablero (0–1).
+ *
+ * Estaba en 0.18 y el reporte del turno fue literal: «prácticamente no se
+ * oye nada». Una sala de despacho no es una oficina en silencio, y un aviso
+ * que hay que estar esperando para oírlo no es un aviso. Quien no lo quiera
+ * lo apaga con el botón del timbre, que para eso está.
+ */
+const VOLUMEN_TIMBRE = 0.55;
+
 /** Un paso del ciclo de vida y los casos que están en él. */
 interface Grupo {
   estado: EstadoCaso;
@@ -213,6 +223,17 @@ export class DespachoComponent implements OnDestroy {
     return !this.vistos().has(c.id);
   }
 
+  /**
+   * Mensajes del ciudadano que nadie ha abierto en este caso.
+   *
+   * Cero y «no hay dato» se enseñan igual —nada—, a propósito: una
+   * instancia con un backend viejo no manda el campo, y lo correcto ahí es
+   * no enseñar insignia, no enseñar una vacía.
+   */
+  sinLeer(c: Caso): number {
+    return c.mensajesSinLeer ?? 0;
+  }
+
   readonly total = computed(() => this.columnas().reduce((n, c) => n + c.casos.length, 0));
 
   constructor() {
@@ -298,7 +319,14 @@ export class DespachoComponent implements OnDestroy {
     // El tablero solo trabaja casos abiertos de ESTE canal, y cada caso vuelve
     // con el estado de esta bandeja, no con el macro-estado del caso.
     this.casosSvc.listar({ abiertos: true, limite: 500, canalId: canal }).subscribe({
-      next: (cs) => { this.anunciarNuevos(cs); this.casos.set(cs); this.cargando.set(false); },
+      next: (cs) => {
+        this.anunciarNuevos(cs);
+        // Red de seguridad: si el socket se cayó un rato, el mensaje que
+        // entró mientras tanto se anuncia aquí en vez de perderse.
+        this.anunciarMensajes(cs);
+        this.casos.set(cs);
+        this.cargando.set(false);
+      },
       error: () => { this.error.set('No fue posible cargar la cola.'); this.cargando.set(false); },
     });
   }
@@ -331,6 +359,29 @@ export class DespachoComponent implements OnDestroy {
       this.casos.update((cs) => cs.filter((c) => c.id !== caso.id));
       return;
     }
+    // El caso nuevo se anuncia aquí, al llegar por el socket. Antes esto
+    // solo pasaba en `cargar()`, que corre cada 60 segundos: el caso
+    // aparecía en la columna al instante y el aviso —toast, notificación y
+    // timbre— llegaba hasta un minuto después. Un despachador que ve la
+    // fila antes de oír el aviso deja de fiarse del aviso.
+    //
+    // `anunciarNuevos` ya es idempotente por `idsConocidos`, así que la
+    // recarga posterior no lo repite. Solo se llama con el tablero ya
+    // cargado: con `idsConocidos` todavía en null, esta llamada sembraría
+    // el conjunto con UN caso y la primera recarga anunciaría la bandeja
+    // entera como recién llegada.
+    if (tipo === 'nuevo' && this.idsConocidos) this.anunciarNuevos([enBandeja]);
+    // Un mensaje nuevo se anuncia aquí y no en la recarga del minuto: 60
+    // segundos de retraso en un «ya entró al cuarto de mi hija» es justo lo
+    // que esto venía a evitar.
+    //
+    // Va para TODOS los casos que entran a la bandeja, también los nuevos, y
+    // no solo para los que ya estaban. `anunciarMensajes` decide solo si toca
+    // anunciar: a un caso que ve por primera vez únicamente lo apunta. Cuando
+    // esto se limitaba a los conocidos, un caso que llegaba por el socket no
+    // quedaba apuntado nunca, y su PRIMER mensaje posterior se perdía sin
+    // sonar — que es exactamente el defecto que se venía a arreglar.
+    this.anunciarMensajes([enBandeja]);
     this.casos.update((cs) => {
       const existe = cs.some((c) => c.id === caso.id);
       if (existe) return cs.map((c) => (c.id === caso.id ? enBandeja : c));
@@ -342,6 +393,40 @@ export class DespachoComponent implements OnDestroy {
 
   /** Ids ya vistos por ESTA sesión del tablero, para detectar los recién llegados. */
   private idsConocidos: Set<string> | null = null;
+  /** Cuántos mensajes sin leer tenía cada caso la última vez que se miró. */
+  private readonly sinLeerPrevio = new Map<string, number>();
+
+  /**
+   * Avisa de los mensajes que entraron a un caso que YA estaba en el tablero.
+   *
+   * Un caso que se ve por primera vez nunca anuncia, aunque llegue con
+   * mensajes sin leer: al entrar a la pantalla, o al recuperarse de una
+   * desconexión, el despachador se encontraría con una ráfaga de toasts de
+   * cosas que llevan ahí media hora. Lo que se anuncia es lo que CAMBIA
+   * mientras uno mira; para lo demás está la insignia de la fila.
+   *
+   * Es idempotente a propósito: el mismo cambio puede llegar por el socket
+   * y otra vez por la recarga del minuto, y solo debe sonar una vez.
+   */
+  private anunciarMensajes(cs: Caso[]): void {
+    const crecieron = cs.filter(
+      (c) =>
+        this.sinLeerPrevio.has(c.id) &&
+        (c.mensajesSinLeer ?? 0) > (this.sinLeerPrevio.get(c.id) ?? 0),
+    );
+    for (const c of cs) this.sinLeerPrevio.set(c.id, c.mensajesSinLeer ?? 0);
+    if (!crecieron.length) return;
+
+    const primero = crecieron[0];
+    this.toast.info(
+      crecieron.length === 1
+        ? `Mensaje nuevo del ciudadano en «${primero.titulo}»`
+        : `${crecieron.length} casos con mensajes nuevos del ciudadano.`,
+    );
+    this.notif.notificar('Mensaje del ciudadano', primero.titulo);
+    if (this.sonidoActivo()) this.timbre();
+  }
+
   /** Timbre encendido/apagado; la sala decide y la elección se recuerda en el puesto. */
   readonly sonidoActivo = signal(localStorage.getItem('falconcad_despacho_sonido') !== 'off');
 
@@ -386,25 +471,49 @@ export class DespachoComponent implements OnDestroy {
    * el timbre "suena" en el código pero no se oye — explica que el aviso
    * pareciera funcionar unas veces sí y otras no.
    */
-  private timbre(): void {
+  /** El contexto de audio de ESTA sesión del tablero. Ver `timbre()`. */
+  private ctxAudio?: AudioContext;
+
+  private async timbre(): Promise<void> {
     try {
-      const ctx = new AudioContext();
-      if (ctx.state === 'suspended') ctx.resume();
+      // UN contexto para toda la sesión, no uno por timbre.
+      //
+      // Crear uno cada vez no era solo desperdicio: abrirlo cuesta decenas de
+      // milisegundos —parte del retraso que se notaba— y el navegador limita
+      // cuántos pueden existir (seis en Chrome). Pasado ese número,
+      // `new AudioContext()` lanza, el `catch` se lo tragaba, y el tablero se
+      // quedaba mudo el resto del turno sin ninguna señal de por qué.
+      this.ctxAudio ??= new AudioContext();
+      const ctx = this.ctxAudio;
+
+      // `resume()` es ASÍNCRONO y antes no se esperaba: los tonos se
+      // programaban en la misma vuelta contra un reloj que todavía estaba
+      // parado, así que sonaban cortados o no sonaban. Eso explica que el
+      // aviso pareciera funcionar unas veces sí y otras no.
+      if (ctx.state === 'suspended') await ctx.resume();
+
+      const t0 = ctx.currentTime;
       const tono = (inicio: number, freq: number) => {
         const osc = ctx.createOscillator();
         const gain = ctx.createGain();
         osc.frequency.value = freq;
-        osc.type = 'sine';
-        gain.gain.setValueAtTime(0.0001, ctx.currentTime + inicio);
-        gain.gain.exponentialRampToValueAtTime(0.18, ctx.currentTime + inicio + 0.02);
-        gain.gain.exponentialRampToValueAtTime(0.0001, ctx.currentTime + inicio + 0.28);
+        // Triangular y no senoidal: una sala de despacho tiene ruido de
+        // fondo, teclados y conversación, y una senoidal pura a volumen bajo
+        // se pierde debajo de todo eso. La triangular trae armónicos que
+        // cortan sin llegar a ser estridentes.
+        osc.type = 'triangle';
+        gain.gain.setValueAtTime(0.0001, t0 + inicio);
+        gain.gain.exponentialRampToValueAtTime(VOLUMEN_TIMBRE, t0 + inicio + 0.015);
+        gain.gain.exponentialRampToValueAtTime(0.0001, t0 + inicio + 0.26);
         osc.connect(gain).connect(ctx.destination);
-        osc.start(ctx.currentTime + inicio);
-        osc.stop(ctx.currentTime + inicio + 0.3);
+        osc.start(t0 + inicio);
+        osc.stop(t0 + inicio + 0.28);
       };
+      // Tres tonos ascendentes: dos se confunden con cualquier notificación
+      // del sistema operativo. Este patrón es reconocible como «entró un caso».
       tono(0, 880);
-      tono(0.32, 1174);
-      setTimeout(() => ctx.close(), 900);
+      tono(0.22, 1174);
+      tono(0.44, 1568);
     } catch { /* sin audio disponible */ }
   }
 

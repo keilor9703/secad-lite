@@ -3,6 +3,7 @@ import { EntityManager, Not } from 'typeorm';
 import { MensajeChatEntity } from '../chat/mensaje.entity';
 import { CasoEntity } from '../casos/caso.entity';
 import { CasosService } from '../casos/casos.service';
+import { CasosGateway } from '../casos/casos.gateway';
 import { TenantsService } from '../tenants/tenants.service';
 import { TenantRlsService } from '../common/tenant-rls.service';
 
@@ -30,6 +31,7 @@ export class WhatsappService {
 
   constructor(
     private readonly casosSvc: CasosService,
+    private readonly gateway: CasosGateway,
     private readonly tenants: TenantsService,
     private readonly rls: TenantRlsService,
   ) {}
@@ -65,6 +67,10 @@ export class WhatsappService {
         // Un webhook público, sin sesión: recién aquí se supo el tenant (por
         // el phone_number_id), así que app.tenant (RLS) se fija DENTRO de
         // esta transacción, una por remitente (`entry`/`change`) del payload.
+        // Qué casos YA ABIERTOS recibieron mensaje. Se junta aquí y se avisa
+        // después: `conTenant` es una transacción, y emitir desde dentro
+        // anuncia a los tableros algo que todavía puede deshacerse.
+        const avisos: string[] = [];
         procesados += await this.rls.conTenant(tenant.codigo, async (manager) => {
           const mensajesRepo = manager.getRepository(MensajeChatEntity);
           let n = 0;
@@ -78,11 +84,15 @@ export class WhatsappService {
               continue;
             }
             const texto = this.textoDe(m);
-            await this.procesar(manager, tenant.codigo, from, nombres.get(from) || from, texto, wamid);
+            const enCasoAbierto = await this.procesar(
+              manager, tenant.codigo, from, nombres.get(from) || from, texto, wamid,
+            );
+            if (enCasoAbierto) avisos.push(enCasoAbierto);
             n++;
           }
           return n;
         });
+        await this.avisarMensajesNuevos(tenant.codigo, avisos);
       }
     }
     return { procesados };
@@ -173,6 +183,8 @@ export class WhatsappService {
       const id = r?.messageId ? String(r.messageId).slice(0, 120) : null;
       const nombre = String(r?.contact?.name ?? '').trim() || de;
 
+      // Ver el comentario del camino de Meta: se avisa fuera de la transacción.
+      const avisos: string[] = [];
       procesados += await this.rls.conTenant(tenant.codigo, async (manager) => {
         const mensajes = manager.getRepository(MensajeChatEntity);
         // Infobip reintenta lo que no confirmamos a tiempo: el mismo mensaje
@@ -180,7 +192,7 @@ export class WhatsappService {
         if (id && (await mensajes.findOne({ where: { tenant: tenant.codigo, waMessageId: id } }))) {
           return 0;
         }
-        await this.procesar(
+        const enCasoAbierto = await this.procesar(
           manager,
           tenant.codigo,
           de,
@@ -188,8 +200,10 @@ export class WhatsappService {
           texto ?? this.avisoDeTipoDesconocido(r?.message),
           id,
         );
+        if (enCasoAbierto) avisos.push(enCasoAbierto);
         return 1;
       });
+      await this.avisarMensajesNuevos(tenant.codigo, avisos);
     }
 
     if (sinReconocer) {
@@ -241,12 +255,32 @@ export class WhatsappService {
     return `[El ciudadano envió ${que}. Todavía no se puede ver desde FALCON: pídaselo por escrito o llámelo.]`;
   }
 
-  /** Historial de la conversación de un caso de WhatsApp. */
+  /**
+   * Historial de la conversación de un caso de WhatsApp.
+   *
+   * Pedir la conversación ES leerla: esta llamada la hace la pantalla de
+   * detalle, y quien la tiene abierta está viendo los mensajes. Así que
+   * aquí se apaga la insignia.
+   *
+   * Solo se avisa cuando el contador CAMBIÓ de verdad. El detalle repregunta
+   * cada 4 segundos mientras el caso está en pantalla; emitir en cada vuelta
+   * sería mandar un `caso:actualizado` por operador cada 4 segundos a todos
+   * los navegadores del municipio, para no decir nada nuevo.
+   */
   async historial(tenant: string, casoId: string): Promise<MensajeChatEntity[]> {
-    return this.rls.conTenant(tenant, async (manager) => {
-      await this.casoWhatsapp(manager, tenant, casoId);
-      return manager.getRepository(MensajeChatEntity).find({ where: { tenant, casoId }, order: { creadoEn: 'ASC' } });
+    const { mensajes, seLimpio } = await this.rls.conTenant(tenant, async (manager) => {
+      const caso = await this.casoWhatsapp(manager, tenant, casoId);
+      const seLimpio = (caso.mensajesSinLeer ?? 0) > 0;
+      if (seLimpio) {
+        await manager.getRepository(CasoEntity).update({ tenant, id: casoId }, { mensajesSinLeer: 0 });
+      }
+      const mensajes = await manager
+        .getRepository(MensajeChatEntity)
+        .find({ where: { tenant, casoId }, order: { creadoEn: 'ASC' } });
+      return { mensajes, seLimpio };
     });
+    if (seLimpio) await this.avisarMensajesNuevos(tenant, [casoId]);
+    return mensajes;
   }
 
   /** El operador responde: guarda el mensaje y lo envía por WhatsApp (best-effort). */
@@ -282,7 +316,16 @@ export class WhatsappService {
   }
 
   // ---------------------------------------------------------------------------
-  private async procesar(manager: EntityManager, tenant: string, from: string, nombre: string, texto: string, wamid: string | null = null): Promise<void> {
+  /**
+   * Guarda el mensaje en su caso, abriendo uno si hace falta.
+   *
+   * Devuelve el id del caso SOLO cuando el mensaje entró a uno que ya
+   * existía. Un caso nuevo ya se anuncia solo —`casosSvc.crear` emite
+   * `caso:nuevo`—, así que devolver su id haría que el tablero lo contara
+   * dos veces y enseñara una insignia de «1 sin leer» sobre un caso cuyo
+   * único mensaje es el titular que el operador ya está viendo.
+   */
+  private async procesar(manager: EntityManager, tenant: string, from: string, nombre: string, texto: string, wamid: string | null = null): Promise<string | null> {
     const abierto = await manager.getRepository(CasoEntity).findOne({
       where: { tenant, telefono: from, canal: 'whatsapp', estado: Not('cerrado') },
       order: { creadoEn: 'DESC' },
@@ -311,6 +354,34 @@ export class WhatsappService {
     await mensajesRepo.save(
       mensajesRepo.create({ tenant, casoId, autorTipo: 'ciudadano', autorNombre: nombre, texto, waMessageId: wamid }),
     );
+    if (!abierto) return null;
+    // `increment` y no leer-sumar-guardar: dos mensajes que entren a la vez
+    // por réplicas distintas se contarían una sola vez si cada una guarda
+    // el número que leyó antes.
+    await manager.getRepository(CasoEntity).increment({ tenant, id: casoId }, 'mensajesSinLeer', 1);
+    return casoId;
+  }
+
+  /**
+   * Avisa a Recepción y a Despacho de que a un caso ABIERTO le entró algo.
+   *
+   * Sin esto la insignia solo aparecería al recargar la página, que es casi
+   * lo mismo que no tenerla: quien está mirando el tablero no recarga.
+   *
+   * Nunca lanza. Un fallo avisando no puede deshacer un mensaje que YA está
+   * guardado: el dato del ciudadano pesa más que la notificación.
+   */
+  private async avisarMensajesNuevos(tenant: string, casoIds: string[]): Promise<void> {
+    for (const id of new Set(casoIds)) {
+      try {
+        const caso = await this.rls.conTenant(tenant, (manager) =>
+          manager.getRepository(CasoEntity).findOne({ where: { tenant, id } }),
+        );
+        if (caso) this.gateway.emitirCambio(tenant, caso);
+      } catch (e) {
+        this.log.warn(`No se pudo avisar del mensaje en el caso ${id}: ${(e as Error).message}`);
+      }
+    }
   }
 
   private async casoWhatsapp(manager: EntityManager, tenant: string, casoId: string): Promise<CasoEntity> {

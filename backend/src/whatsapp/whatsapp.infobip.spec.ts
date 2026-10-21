@@ -1,5 +1,6 @@
 import { Test } from '@nestjs/testing';
 
+import { CasosGateway } from '../casos/casos.gateway';
 import { CasosService } from '../casos/casos.service';
 import { TenantRlsService } from '../common/tenant-rls.service';
 import { TenantsService } from '../tenants/tenants.service';
@@ -32,7 +33,17 @@ describe('WhatsappService · mensajes de Infobip', () => {
   let yaVistos: Set<string>;
   let vigente: () => void;
   /** El caso que encuentra la búsqueda. Nulo = no hay, y se abre uno. */
-  let casoExistente: { id: string; canal: string; telefono: string } | null;
+  let casoExistente:
+    | { id: string; canal: string; telefono: string; mensajesSinLeer: number }
+    | null;
+  /** Cada `increment` sobre el contador de mensajes sin leer. */
+  let sumados: { id: string; campo: string; cuanto: number }[];
+  /** Los casos cuyo contador se puso a cero. */
+  let limpiados: string[];
+  /** Lo que se mandó a los tableros por el socket. */
+  let emitidos: { tenant: string; casoId: string }[];
+  /** Para comprobar que un socket caído no se lleva por delante el mensaje. */
+  let gatewayRoto: boolean;
 
   beforeEach(async () => {
     tenantPorNumero = {};
@@ -41,6 +52,10 @@ describe('WhatsappService · mensajes de Infobip', () => {
     yaVistos = new Set();
     vigente = () => undefined;
     casoExistente = null;
+    sumados = [];
+    limpiados = [];
+    emitidos = [];
+    gatewayRoto = false;
 
     const mensajesRepo = {
       findOne: ({ where }: { where: { waMessageId?: string } }) =>
@@ -48,6 +63,7 @@ describe('WhatsappService · mensajes de Infobip', () => {
           where.waMessageId && yaVistos.has(where.waMessageId) ? {} : null,
         ),
       create: (x: unknown) => x,
+      find: () => Promise.resolve(guardados),
       save: (x: {
         tenant: string;
         texto: string;
@@ -60,7 +76,23 @@ describe('WhatsappService · mensajes de Infobip', () => {
     };
     // Por defecto no hay caso abierto, así que cada mensaje entrante abre
     // uno. Las pruebas de `responder` ponen uno para poder responderlo.
-    const casosRepo = { findOne: () => Promise.resolve(casoExistente) };
+    const casosRepo = {
+      findOne: () => Promise.resolve(casoExistente),
+      increment: (
+        donde: { id: string },
+        campo: string,
+        cuanto: number,
+      ) => {
+        sumados.push({ id: donde.id, campo, cuanto });
+        if (casoExistente) casoExistente.mensajesSinLeer += cuanto;
+        return Promise.resolve({});
+      },
+      update: (donde: { id: string }, cambios: { mensajesSinLeer: number }) => {
+        limpiados.push(donde.id);
+        if (casoExistente) casoExistente.mensajesSinLeer = cambios.mensajesSinLeer;
+        return Promise.resolve({});
+      },
+    };
 
     const modulo = await Test.createTestingModule({
       providers: [
@@ -78,6 +110,15 @@ describe('WhatsappService · mensajes de Infobip', () => {
                 descripcion: dto.descripcion,
               });
               return Promise.resolve({ id: `caso-${casos.length}` });
+            },
+          },
+        },
+        {
+          provide: CasosGateway,
+          useValue: {
+            emitirCambio: (tenant: string, caso: { id: string }) => {
+              if (gatewayRoto) throw new Error('socket caído');
+              emitidos.push({ tenant, casoId: caso.id });
             },
           },
         },
@@ -202,6 +243,7 @@ describe('WhatsappService · mensajes de Infobip', () => {
         id: 'caso-1',
         canal: 'whatsapp',
         telefono: '573175882321',
+        mensajesSinLeer: 0,
       };
 
       const r = await svc.responder(
@@ -219,6 +261,122 @@ describe('WhatsappService · mensajes de Infobip', () => {
       await expect(
         svc.responder('itagui', 'caso-1', '   ', 'operador1'),
       ).rejects.toThrow();
+    });
+  });
+
+  describe('los mensajes que entran a un caso que ya existe', () => {
+    // El defecto real del 21/10/2026: entraron seis mensajes seguidos a la
+    // misma conversación y en Recepción y Despacho no cambió absolutamente
+    // nada. La fila seguía diciendo lo que dijo el primero, con su misma
+    // antigüedad. El hilo solo existía para quien abriera el caso.
+    //
+    // En una prueba eso es confusión. En turno es un «ya entró al cuarto de
+    // mi hija» que llega a la base de datos y a nadie en pantalla.
+
+    const yaHayCaso = () => {
+      casoExistente = {
+        id: 'caso-1',
+        canal: 'whatsapp',
+        telefono: '573175882321',
+        mensajesSinLeer: 0,
+      };
+      tenantPorNumero['573132354086'] = { codigo: 'itagui' };
+    };
+
+    it('el segundo mensaje NO abre otro caso, pero SÍ se cuenta', async () => {
+      yaHayCaso();
+
+      await svc.recibirDeInfobip(entrega({ messageId: 'msg-2' }));
+
+      expect(casos.length).toBe(0); // no se abrió ninguno nuevo
+      expect(guardados.length).toBe(1); // y el mensaje sí se guardó
+      expect(sumados).toEqual([{ id: 'caso-1', campo: 'mensajesSinLeer', cuanto: 1 }]);
+    });
+
+    it('cinco mensajes son cinco sin leer, no uno', async () => {
+      // Lo que pasó de verdad: seis seguidos. Si esto contara una sola vez,
+      // la insignia diría «1» y el operador abriría creyendo que hay un
+      // mensaje nuevo cuando hay cinco, y leería solo el último.
+      yaHayCaso();
+
+      for (let i = 0; i < 5; i++) {
+        await svc.recibirDeInfobip(entrega({ messageId: `msg-${i}` }));
+      }
+
+      expect(sumados.length).toBe(5);
+      expect(casoExistente!.mensajesSinLeer).toBe(5);
+    });
+
+    it('el tablero se entera en el momento, no al recargar', async () => {
+      // Una insignia que solo aparece recargando la página es casi lo mismo
+      // que no tenerla: quien está mirando el tablero no recarga.
+      yaHayCaso();
+
+      await svc.recibirDeInfobip(entrega({ messageId: 'msg-2' }));
+
+      expect(emitidos).toEqual([{ tenant: 'itagui', casoId: 'caso-1' }]);
+    });
+
+    it('el PRIMER mensaje no cuenta: el caso nuevo ya se anuncia solo', async () => {
+      // Si contara, el operador vería un caso recién llegado con una insignia
+      // de «1 sin leer» encima del titular que está leyendo.
+      tenantPorNumero['573132354086'] = { codigo: 'itagui' };
+
+      await svc.recibirDeInfobip(entrega());
+
+      expect(casos.length).toBe(1);
+      expect(sumados).toEqual([]);
+      expect(emitidos).toEqual([]);
+    });
+
+    it('un reintento de Infobip no infla el contador', async () => {
+      // El mismo mensaje entregado dos veces es un mensaje. Si contara dos,
+      // la insignia diría que hay algo por leer que no existe, y no se
+      // apagaría hasta que alguien abriera el caso a buscarlo.
+      yaHayCaso();
+
+      await svc.recibirDeInfobip(entrega({ messageId: 'repetido' }));
+      await svc.recibirDeInfobip(entrega({ messageId: 'repetido' }));
+
+      expect(sumados.length).toBe(1);
+    });
+
+    it('abrir la conversación apaga la insignia, y el tablero lo ve', async () => {
+      yaHayCaso();
+      casoExistente!.mensajesSinLeer = 4;
+
+      await svc.historial('itagui', 'caso-1');
+
+      expect(limpiados).toEqual(['caso-1']);
+      expect(casoExistente!.mensajesSinLeer).toBe(0);
+      expect(emitidos).toEqual([{ tenant: 'itagui', casoId: 'caso-1' }]);
+    });
+
+    it('releer una conversación ya leída no manda nada por el socket', async () => {
+      // El detalle repregunta cada 4 segundos mientras el caso está abierto.
+      // Sin esta condición, cada operador con un caso abierto generaría un
+      // «caso:actualizado» cada 4 segundos hacia TODOS los navegadores del
+      // municipio, para no decir nada nuevo.
+      yaHayCaso();
+
+      await svc.historial('itagui', 'caso-1');
+      await svc.historial('itagui', 'caso-1');
+      await svc.historial('itagui', 'caso-1');
+
+      expect(limpiados).toEqual([]);
+      expect(emitidos).toEqual([]);
+    });
+
+    it('un fallo avisando NO deshace el mensaje guardado', async () => {
+      // El dato del ciudadano pesa más que la notificación. Si el socket
+      // revienta, el mensaje tiene que seguir en el expediente.
+      yaHayCaso();
+      gatewayRoto = true;
+
+      const r = await svc.recibirDeInfobip(entrega({ messageId: 'msg-2' }));
+
+      expect(r.procesados).toBe(1);
+      expect(guardados.length).toBe(1);
     });
   });
 
