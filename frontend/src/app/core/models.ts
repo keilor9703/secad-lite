@@ -230,6 +230,14 @@ export interface MensajeChat {
   autorNombre: string;
   texto: string;
   creadoEn: string;
+  /**
+   * Solo en la respuesta de enviar: si el mensaje SALIÓ hacia el ciudadano.
+   *
+   * Guardarlo y enviarlo son dos cosas distintas. Antes, una línea sin
+   * credenciales guardaba y devolvía como si todo hubiera ido bien: el
+   * operador escribía «ya va la patrulla» y el ciudadano no recibía nada.
+   */
+  enviado?: boolean;
 }
 
 /** Chat interno entre operadores/despachadores, anclado al caso. */

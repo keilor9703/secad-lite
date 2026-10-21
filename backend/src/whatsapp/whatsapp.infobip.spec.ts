@@ -31,6 +31,8 @@ describe('WhatsappService · mensajes de Infobip', () => {
   /** Identificadores ya vistos, para la prueba de reintento. */
   let yaVistos: Set<string>;
   let vigente: () => void;
+  /** El caso que encuentra la búsqueda. Nulo = no hay, y se abre uno. */
+  let casoExistente: { id: string; canal: string; telefono: string } | null;
 
   beforeEach(async () => {
     tenantPorNumero = {};
@@ -38,6 +40,7 @@ describe('WhatsappService · mensajes de Infobip', () => {
     casos = [];
     yaVistos = new Set();
     vigente = () => undefined;
+    casoExistente = null;
 
     const mensajesRepo = {
       findOne: ({ where }: { where: { waMessageId?: string } }) =>
@@ -55,8 +58,9 @@ describe('WhatsappService · mensajes de Infobip', () => {
         return Promise.resolve(x);
       },
     };
-    // No hay caso abierto: cada mensaje de estas pruebas abre uno.
-    const casosRepo = { findOne: () => Promise.resolve(null) };
+    // Por defecto no hay caso abierto, así que cada mensaje entrante abre
+    // uno. Las pruebas de `responder` ponen uno para poder responderlo.
+    const casosRepo = { findOne: () => Promise.resolve(casoExistente) };
 
     const modulo = await Test.createTestingModule({
       providers: [
@@ -85,6 +89,9 @@ describe('WhatsappService · mensajes de Infobip', () => {
                 tenantPorNumero[(n ?? '').replace(/\D/g, '')] ?? null,
               ),
             porCodigo: (c: string) => Promise.resolve({ codigo: c }),
+            // Sin token de Meta y sin número de Infobip: una línea a medio
+            // configurar, que es justo el caso que se quiere cubrir.
+            waAccessTokenDe: () => Promise.resolve(null),
             asegurarVigente: () => vigente(),
           },
         },
@@ -181,6 +188,37 @@ describe('WhatsappService · mensajes de Infobip', () => {
 
       expect(r.procesados).toBe(0);
       expect(casos.length).toBe(0);
+    });
+  });
+
+  describe('responder: guardar y enviar NO son lo mismo', () => {
+    // El defecto real: una línea sin credenciales guardaba el mensaje,
+    // escribía una advertencia en el log del servidor y devolvía como si
+    // todo hubiera ido bien. El operador escribía «ya va la patrulla en
+    // camino», lo veía en la conversación, y el ciudadano no recibía nada.
+
+    it('sin credenciales, el mensaje se guarda pero se dice que NO salió', async () => {
+      casoExistente = {
+        id: 'caso-1',
+        canal: 'whatsapp',
+        telefono: '573175882321',
+      };
+
+      const r = await svc.responder(
+        'itagui',
+        'caso-1',
+        'ya va la patrulla',
+        'operador1',
+      );
+
+      expect(r.texto).toBe('ya va la patrulla');
+      expect(r.enviado).toBe(false);
+    });
+
+    it('un mensaje vacío ni se guarda', async () => {
+      await expect(
+        svc.responder('itagui', 'caso-1', '   ', 'operador1'),
+      ).rejects.toThrow();
     });
   });
 

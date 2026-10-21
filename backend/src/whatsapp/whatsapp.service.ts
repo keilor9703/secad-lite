@@ -250,7 +250,23 @@ export class WhatsappService {
   }
 
   /** El operador responde: guarda el mensaje y lo envía por WhatsApp (best-effort). */
-  async responder(tenant: string, casoId: string, texto: string, operador: string): Promise<MensajeChatEntity> {
+  /**
+   * El operador responde.
+   *
+   * Devuelve si se pudo ENVIAR, y no solo si se pudo guardar, porque son dos
+   * cosas distintas y confundirlas es grave: antes, una línea sin
+   * credenciales guardaba el mensaje, escribía una advertencia en el log del
+   * servidor y devolvía como si todo hubiera ido bien. El operador escribía
+   * «ya va la patrulla en camino», lo veía en la conversación, y el ciudadano
+   * no recibía nada.
+   *
+   * El mensaje se guarda igual aunque no se pueda enviar: es lo que el
+   * operador quiso decir y queda en el expediente. Lo que no puede pasar es
+   * que parezca entregado.
+   */
+  async responder(
+    tenant: string, casoId: string, texto: string, operador: string,
+  ): Promise<MensajeChatEntity & { enviado: boolean }> {
     const t = texto?.trim();
     if (!t) throw new BadRequestException('El mensaje no puede estar vacío.');
     const { mensaje, telefono } = await this.rls.conTenant(tenant, async (manager) => {
@@ -261,8 +277,8 @@ export class WhatsappService {
       );
       return { mensaje, telefono: caso.telefono };
     });
-    if (telefono) await this.enviar(tenant, telefono, t);
-    return mensaje;
+    const enviado = telefono ? await this.enviar(tenant, telefono, t) : false;
+    return { ...mensaje, enviado };
   }
 
   // ---------------------------------------------------------------------------
@@ -314,13 +330,34 @@ export class WhatsappService {
   }
 
   /** Envía un texto por la Graph API con el token del tenant. No lanza errores. */
-  private async enviar(tenant: string, to: string, texto: string): Promise<void> {
+  /**
+   * Manda el mensaje por donde corresponda, y dice si lo consiguió.
+   *
+   * Hay dos caminos porque la línea puede estar conectada a Meta directamente
+   * o a través de Infobip, y se contesta por donde se recibió: contestar por
+   * Meta una línea que vive en Infobip no falla con un error claro, falla con
+   * un 401 que parece un problema de credenciales.
+   *
+   * Devolver `false` en vez de callar es el cambio importante: quien llama
+   * tiene que poder decirle al operador que su mensaje NO salió.
+   */
+  private async enviar(tenant: string, to: string, texto: string): Promise<boolean> {
     const t = await this.tenants.porCodigo(tenant);
+
+    // La cuenta de Infobip es de quien opera FALCON, no de cada municipio:
+    // por eso las credenciales son del entorno y no de la instancia. Lo que
+    // SÍ es de la instancia es su número, que es el remitente.
+    const base = (process.env.INFOBIP_BASE_URL ?? '').trim();
+    const clave = (process.env.INFOBIP_API_KEY ?? '').trim();
+    if (t?.waNumero && base && clave) {
+      return this.enviarPorInfobip(base, clave, t.waNumero, to, texto, tenant);
+    }
+
     // El token vive cifrado en la base; se descifra solo aquí, para usarlo.
     const token = await this.tenants.waAccessTokenDe(tenant);
     if (!t?.waPhoneNumberId || !token) {
-      this.log.warn(`WhatsApp sin credenciales para tenant ${tenant}; respuesta no enviada.`);
-      return;
+      this.log.warn(`WhatsApp sin credenciales para tenant ${tenant}; respuesta NO enviada.`);
+      return false;
     }
     try {
       const res = await fetch(`https://graph.facebook.com/${GRAPH_VERSION}/${t.waPhoneNumberId}/messages`, {
@@ -328,9 +365,46 @@ export class WhatsappService {
         headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
         body: JSON.stringify({ messaging_product: 'whatsapp', to, type: 'text', text: { body: texto } }),
       });
-      if (!res.ok) this.log.warn(`WhatsApp Graph API respondió ${res.status} para tenant ${tenant}.`);
+      if (!res.ok) {
+        this.log.warn(`WhatsApp Graph API respondió ${res.status} para tenant ${tenant}.`);
+        return false;
+      }
+      return true;
     } catch (e) {
       this.log.warn(`No se pudo enviar el WhatsApp para tenant ${tenant}: ${(e as Error).message}`);
+      return false;
+    }
+  }
+
+  /**
+   * Envío por Infobip.
+   *
+   * El host NO es fijo: Infobip asigna uno por cuenta
+   * (`xxxxx.api.infobip.com`), igual que en el remitente de SMS, así que no
+   * se puede quemar en el código.
+   */
+  private async enviarPorInfobip(
+    base: string, clave: string, from: string, to: string, texto: string, tenant: string,
+  ): Promise<boolean> {
+    const host = base.replace(/^https?:\/\//, '').replace(/\/+$/, '');
+    try {
+      const res = await fetch(`https://${host}/whatsapp/1/message/text`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Accept: 'application/json',
+          Authorization: `App ${clave}`,
+        },
+        body: JSON.stringify({ from, to, content: { text: texto } }),
+      });
+      if (!res.ok) {
+        this.log.warn(`Infobip respondió ${res.status} al enviar WhatsApp del tenant ${tenant}.`);
+        return false;
+      }
+      return true;
+    } catch (e) {
+      this.log.warn(`No se pudo enviar por Infobip (${tenant}): ${(e as Error).message}`);
+      return false;
     }
   }
 }

@@ -511,7 +511,19 @@ export class DetalleComponent implements OnInit, OnDestroy {
     this.waEnviando.set(true);
     this.waError.set('');
     this.whatsappSvc.responder(this.id, t).subscribe({
-      next: (m) => { this.waMensajes.update((arr) => [...arr, m]); this.waForm.reset({ texto: '' }); this.waEnviando.set(false); },
+      next: (m) => {
+        this.waMensajes.update((arr) => [...arr, m]);
+        this.waForm.reset({ texto: '' });
+        this.waEnviando.set(false);
+        // El mensaje quedó en el expediente, pero puede NO haber salido. Si
+        // no se dice, el operador cree que el ciudadano ya lo leyó.
+        this.waError.set(
+          m?.enviado === false
+            ? 'Guardado en el caso, pero NO se pudo enviar al ciudadano. '
+              + 'Revise la configuración de WhatsApp o contáctelo por otro medio.'
+            : '',
+        );
+      },
       error: (e) => { this.waEnviando.set(false); this.waError.set(e?.error?.message ?? 'No fue posible enviar la respuesta.'); },
     });
   }
