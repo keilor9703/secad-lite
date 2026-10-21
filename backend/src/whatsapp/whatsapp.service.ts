@@ -56,6 +56,28 @@ export interface EstadoWhatsapp {
 }
 
 /**
+ * La parte del enlace que va en el botón de la plantilla.
+ *
+ * La plantilla aprobada lleva el dominio escrito dentro, así que la variable
+ * del botón es SOLO la ruta. Devolver la URL entera generaría
+ * `https://falconcad.com.co/https://falconcad.com.co/v/...`: un enlace muerto
+ * que el operador daría por enviado.
+ *
+ * Devuelve `null` cuando no hay ruta que mandar —una URL sin camino, o algo
+ * que no es una URL—, porque un botón con una ruta vacía lleva a la portada
+ * y el ciudadano se queda sin saber qué hacer.
+ */
+export function rutaDeEnlace(enlace: string): string | null {
+  try {
+    const u = new URL(enlace);
+    const ruta = `${u.pathname}${u.search}`;
+    return ruta && ruta !== '/' ? ruta : null;
+  } catch {
+    return null;
+  }
+}
+
+/**
  * Horas que WhatsApp deja contestar con texto libre, contadas desde el último
  * mensaje del ciudadano. Fuera de esa ventana hace falta una plantilla
  * aprobada por Meta, que es otro trámite y otro código.
@@ -1282,6 +1304,84 @@ export class WhatsappService {
    * (`xxxxx.api.infobip.com`), igual que en el remitente de SMS, así que no
    * se puede quemar en el código.
    */
+  /**
+   * Le escribe PRIMERO al ciudadano, con la plantilla aprobada por Meta.
+   *
+   * ──────────────────────────────────────────────────────────────────────────
+   * POR QUÉ HACE FALTA UNA PLANTILLA
+   *
+   * WhatsApp no deja escribirle a nadie que no haya escrito antes. Dentro de
+   * la ventana de 24 horas vale texto libre —eso lo hace
+   * `enviarSiHayConversacion`—; fuera de ella, lo único que Meta entrega es
+   * una plantilla que revisó y aprobó de antemano. Un texto libre fuera de
+   * plazo no da error visible: lo rechaza el proveedor y el ciudadano no
+   * recibe nada.
+   *
+   * ──────────────────────────────────────────────────────────────────────────
+   * EL BOTÓN LLEVA LA RUTA, NO LA URL ENTERA
+   *
+   * La plantilla tiene el dominio escrito dentro (`https://falconcad.com.co`)
+   * y la variable del botón es solo lo que va después. Mandar la URL completa
+   * produciría `https://falconcad.com.co/https://falconcad.com.co/v/...`, que
+   * es un enlace muerto —y el operador lo daría por enviado—. Por eso aquí se
+   * recorta el dominio y se comprueba que lo que queda sea una ruta.
+   */
+  async enviarPlantillaVideollamada(
+    tenant: string, to: string, codigoCaso: string, enlace: string,
+  ): Promise<{ ok: boolean; detalle: string }> {
+    const nombre = (process.env['WA_PLANTILLA_VIDEOLLAMADA'] ?? '').trim();
+    const idioma = (process.env['WA_PLANTILLA_IDIOMA'] ?? 'es_CO').trim();
+    if (!nombre) {
+      return { ok: false, detalle: 'No hay plantilla de videollamada configurada (WA_PLANTILLA_VIDEOLLAMADA).' };
+    }
+
+    const ruta = rutaDeEnlace(enlace);
+    if (!ruta) {
+      return { ok: false, detalle: `El enlace «${enlace}» no tiene una ruta que mandar en el botón.` };
+    }
+
+    const t = await this.tenants.porCodigo(tenant);
+    const base = (process.env['INFOBIP_BASE_URL'] ?? '').trim();
+    const clave = (process.env['INFOBIP_API_KEY'] ?? '').trim();
+    if (!t?.waNumero || !base || !clave) {
+      return { ok: false, detalle: 'La línea de WhatsApp no está configurada para enviar.' };
+    }
+
+    const host = base.replace(/^https?:\/\//, '').replace(/\/+$/, '');
+    try {
+      const res = await fetch(`https://${host}/whatsapp/1/message/template`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Accept: 'application/json',
+          Authorization: `App ${clave}`,
+        },
+        body: JSON.stringify({
+          messages: [{
+            from: t.waNumero,
+            to: to.replace(/\D/g, ''),
+            content: {
+              templateName: nombre,
+              language: idioma,
+              templateData: {
+                body: { placeholders: [codigoCaso] },
+                buttons: [{ type: 'URL', parameter: ruta }],
+              },
+            },
+          }],
+        }),
+      });
+      if (!res.ok) {
+        this.log.warn(`Infobip respondió ${res.status} al enviar la plantilla (${tenant}).`);
+        return { ok: false, detalle: `Infobip respondió ${res.status}: ${await this.cuerpoBreve(res)}` };
+      }
+      return { ok: true, detalle: 'Enviado por WhatsApp (plantilla).' };
+    } catch (e) {
+      this.log.warn(`No se pudo enviar la plantilla por Infobip (${tenant}): ${(e as Error).message}`);
+      return { ok: false, detalle: `No se pudo contactar con Infobip: ${(e as Error).message}` };
+    }
+  }
+
   private async enviarPorInfobip(
     base: string, clave: string, from: string, to: string, texto: string, tenant: string,
   ): Promise<{ ok: boolean; detalle: string }> {

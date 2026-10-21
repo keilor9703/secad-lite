@@ -245,6 +245,26 @@ export class DireccionesService {
   }
 
   /**
+   * El recuadro del municipio en números, con sus cuatro lados por nombre.
+   *
+   * Existe aparte de `viewbox()` y de `caja()` porque cada servicio los pide
+   * en un orden distinto —y confundir ese orden devuelve resultados de
+   * cualquier parte SIN dar ningún error, que es la peor forma de fallar—.
+   * Aquí los lados tienen nombre y no hay orden que recordar.
+   */
+  private recuadro(lugar: Lugar): { sur: number; norte: number; oeste: number; este: number } {
+    if (lugar.bbox) {
+      const [s, n, o, e] = lugar.bbox;
+      return { sur: s, norte: n, oeste: o, este: e };
+    }
+    // Sin extensión conocida, un cuadro generoso: ±0,3° son unos 33 km. Sirve
+    // de sesgo, pero NO para descartar — por eso quien lo use para filtrar
+    // tiene que saber que aquí está adivinando.
+    const d = 0.3;
+    return { sur: lugar.lat - d, norte: lugar.lat + d, oeste: lugar.lng - d, este: lugar.lng + d };
+  }
+
+  /**
    * El recuadro para Nominatim, en su orden: oeste,norte,este,sur.
    *
    * Distinto del de Overpass (`caja`), que los quiere al revés. Son dos
@@ -315,7 +335,15 @@ export class DireccionesService {
    * Orden de intentos, de más preciso a menos:
    *   1. esquina de las dos vías + los metros de la placa → el portal
    *   2. solo la esquina, si no hay placa o no se pudo orientar
-   *   3. Nominatim en texto libre, como último recurso (lo que había antes)
+   *   3. Google, que es el proveedor contratado y el que mejor conoce la
+   *      nomenclatura urbana colombiana
+   *   4. Nominatim en texto libre, como último recurso (lo que había antes)
+   *
+   * Google va TERCERO y no primero, y es deliberado: el cruce por Overpass
+   * consulta el grafo real de calles y devuelve el portal con los metros de
+   * la placa, que es más preciso que lo que da cualquier geocodificador para
+   * «calle 50 con carrera 70». Google no resuelve intersecciones arbitrarias;
+   * ponerlo delante cambiaría un punto exacto por uno aproximado.
    */
   async geocodificar(
     texto: string,
@@ -328,7 +356,8 @@ export class DireccionesService {
         const punto = await this.porInterseccion(d, municipio);
         if (punto) return punto;
       }
-      return this.porTextoLibre(texto, municipio);
+      return (await this.porGoogle(texto, municipio))
+        ?? (await this.porTextoLibre(texto, municipio));
     });
   }
 
@@ -386,6 +415,90 @@ export class DireccionesService {
   }
 
   /** El camino de antes: texto libre a Nominatim, acotado al municipio. */
+  /**
+   * La dirección según Google, que es el proveedor contratado.
+   *
+   * ──────────────────────────────────────────────────────────────────────────
+   * LA CLAVE DEL SERVIDOR NO ES LA DEL NAVEGADOR
+   *
+   * La que usa Recepción está —o debería estar— restringida por referente
+   * HTTP, y una clave así **falla desde el servidor**: no hay referente que
+   * mandar. Por eso se lee primero `GOOGLE_GEOCODING_API_KEY`, pensada para
+   * restringirse por IP a la del servidor de producción. Sin ella se intenta
+   * con la del navegador, que funcionará solo si no tiene restricción — y si
+   * no funciona, se cae a Nominatim y no se rompe nada.
+   *
+   * ──────────────────────────────────────────────────────────────────────────
+   * EL MUNICIPIO NO ES UNA SUGERENCIA
+   *
+   * `bounds` en la API de Google es un SESGO, no un filtro: una «Calle 53» de
+   * otra ciudad puede seguir ganando. Por eso el resultado se comprueba contra
+   * el recuadro del municipio y se descarta si cae fuera. Despachar una
+   * patrulla al municipio vecino porque el nombre de la calle coincidía es el
+   * error que esto evita.
+   */
+  private async porGoogle(
+    texto: string,
+    municipio: Lugar | null,
+  ): Promise<PuntoDireccion | null> {
+    const clave = (process.env['GOOGLE_GEOCODING_API_KEY'] ?? process.env['GOOGLE_MAPS_API_KEY'] ?? '').trim();
+    if (!clave) return null;
+
+    const q = [texto, municipio?.nombre, 'Colombia'].filter(Boolean).join(', ');
+    const caja = municipio ? this.recuadro(municipio) : null;
+    const url = 'https://maps.googleapis.com/maps/api/geocode/json'
+      + `?address=${encodeURIComponent(q)}`
+      + '&components=country:CO&language=es'
+      + (caja ? `&bounds=${caja.sur},${caja.oeste}|${caja.norte},${caja.este}` : '')
+      + `&key=${encodeURIComponent(clave)}`;
+
+    try {
+      const ctrl = new AbortController();
+      const t = setTimeout(() => ctrl.abort(), TIMEOUT_NOMINATIM_MS);
+      const r = await fetch(url, { signal: ctrl.signal });
+      clearTimeout(t);
+      if (!r.ok) return null;
+      const d = (await r.json()) as {
+        status?: string;
+        error_message?: string;
+        results?: Array<{
+          formatted_address?: string;
+          geometry?: { location?: { lat?: number; lng?: number }; location_type?: string };
+        }>;
+      };
+
+      // `REQUEST_DENIED` casi siempre es la restricción de la clave, y hay que
+      // poder leerlo: si no, esto se cae a Nominatim en silencio y nadie se
+      // entera de que se está pagando por algo que no se usa.
+      if (d.status && d.status !== 'OK' && d.status !== 'ZERO_RESULTS') {
+        this.log.warn(`Google Geocoding respondió ${d.status}: ${d.error_message ?? 'sin detalle'}`);
+        return null;
+      }
+
+      const g = d.results?.[0]?.geometry;
+      const lat = Number(g?.location?.lat);
+      const lng = Number(g?.location?.lng);
+      if (!Number.isFinite(lat) || !Number.isFinite(lng)) return null;
+      if (caja && (lat < caja.sur || lat > caja.norte || lng < caja.oeste || lng > caja.este)) {
+        this.log.warn(`Google resolvió «${texto}» fuera de ${municipio?.nombre}; se descarta.`);
+        return null;
+      }
+
+      return {
+        lat,
+        lng,
+        // Solo el portal exacto merece llamarse «placa». Lo interpolado y lo
+        // centrado en la vía es aproximado, y el despachador tiene que poder
+        // distinguirlo antes de mandar a alguien.
+        precision: g?.location_type === 'ROOFTOP' ? 'placa' : 'aproximada',
+        etiqueta: d.results?.[0]?.formatted_address?.trim() || texto.trim(),
+      };
+    } catch (e) {
+      this.log.warn(`Google Geocoding no respondió: ${(e as Error).message}`);
+      return null;
+    }
+  }
+
   private async porTextoLibre(
     texto: string,
     municipio: Lugar | null,

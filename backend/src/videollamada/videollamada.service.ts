@@ -78,7 +78,7 @@ export class VideollamadaService {
   ): Promise<{
     sesionId: string; token: string; enlace: string; expiraEn: Date;
     /** Si el enlace salió por algún lado, y por cuál. `null` = no salió. */
-    enviadoPor: 'whatsapp' | 'sms' | null;
+    enviadoPor: 'whatsapp' | 'whatsapp-plantilla' | 'sms' | null;
     mensaje: string; reutilizada: boolean;
   }> {
     if (!casoId) throw new BadRequestException('Falta el caso.');
@@ -145,10 +145,28 @@ export class VideollamadaService {
     // dictarlo por teléfono.
     const numero = numeroTelefono?.trim();
     const texto = `FALCON CAD - Linea 123. Para atenderlo por video, abra este enlace: ${enlace}`;
-    let enviadoPor: 'whatsapp' | 'sms' | null = null;
+    let enviadoPor: 'whatsapp' | 'whatsapp-plantilla' | 'sms' | null = null;
     if (numero) {
+      // TRES CAMINOS, EN ESTE ORDEN, Y EL ORDEN ES EL ARGUMENTO.
+      //
+      // 1. Conversación abierta -> texto libre. No cuesta nada y llega tal
+      //    cual se escribió.
+      // 2. Sin conversación -> la plantilla aprobada por Meta. Es la ÚNICA
+      //    forma de escribirle primero a alguien por WhatsApp; un texto
+      //    libre fuera de plazo lo rechaza el proveedor sin aviso visible.
+      // 3. Sin WhatsApp -> SMS, que es lo que había.
+      //
+      // El SMS no se retira ni se adelanta: llega a cualquier teléfono, no
+      // depende de datos, y una línea 123 no puede exigirle al ciudadano que
+      // tenga WhatsApp.
       if (await this.whatsapp.enviarSiHayConversacion(tenant, numero, texto)) {
         enviadoPor = 'whatsapp';
+      } else if (
+        (await this.whatsapp.enviarPlantillaVideollamada(
+          tenant, numero, caso.codigoCaso ?? caso.titulo.slice(0, 40), enlace,
+        )).ok
+      ) {
+        enviadoPor = 'whatsapp-plantilla';
       } else if (await this.sms.enviar(numero, texto)) {
         enviadoPor = 'sms';
       }
@@ -158,8 +176,13 @@ export class VideollamadaService {
       sesionId: sesion.id, token, enlace, expiraEn, enviadoPor, reutilizada: false,
       // Decir POR DÓNDE salió no es un detalle: si el despachador sabe que
       // fue por WhatsApp, sabe también dónde mirar si el ciudadano no entra.
+      // La plantilla se nombra aparte porque LLEGA DISTINTA —con un botón,
+      // no con el enlace suelto— y el operador va a tener que explicárselo
+      // por teléfono a quien no lo encuentre.
       mensaje:
         enviadoPor === 'whatsapp' ? 'Enlace enviado por WhatsApp.'
+        : enviadoPor === 'whatsapp-plantilla'
+          ? 'Enviado por WhatsApp: dígale que pulse el botón del mensaje.'
         : enviadoPor === 'sms' ? 'Enlace enviado por SMS.'
         : 'No se pudo enviar el enlace — cópielo o díctelo al ciudadano.',
     };

@@ -191,6 +191,18 @@ JWT_SECRET=...
 VIDEO_TOKEN_SECRET=...
 ARCHIVO_OBJETOS_URL=...      # ver «Archivado de grabaciones»
 ARCHIVO_DIAS=90
+
+# WhatsApp — la plantilla aprobada por Meta, para escribirle PRIMERO al
+# ciudadano (el enlace de la videollamada cuando no hay conversación abierta).
+WA_PLANTILLA_VIDEOLLAMADA=videollamadafalconcad
+WA_PLANTILLA_IDIOMA=es_CO
+
+# Geocodificación con Google desde el SERVIDOR. Es una clave DISTINTA de la
+# del navegador: aquella va restringida por referente HTTP y desde el servidor
+# no hay referente que mandar, así que devuelve REQUEST_DENIED. Esta se
+# restringe por IP a la de producción. Sin ella, la cadena cae a Nominatim y
+# no se rompe nada.
+GOOGLE_GEOCODING_API_KEY=...
 ```
 
 > ⚠️ **`JWT_SECRET` no es solo para las sesiones.** Con una llave derivada de

@@ -48,7 +48,7 @@ export interface VideollamadaCreada {
    * gratis, el enlace es pulsable y se sabe si lo leyó—; SMS cuando no la
    * hay, que es el caso de una emergencia que entró por teléfono.
    */
-  enviadoPor: 'whatsapp' | 'sms' | null;
+  enviadoPor: 'whatsapp' | 'whatsapp-plantilla' | 'sms' | null;
   mensaje: string;
   reutilizada: boolean;
 }
