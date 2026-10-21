@@ -156,6 +156,7 @@ export class AdminComponent implements OnInit {
   readonly waConfig = signal<WhatsappConfig | null>(null);
   readonly waForm = new FormGroup({
     phoneNumberId: new FormControl('', { nonNullable: true }),
+    numero: new FormControl('', { nonNullable: true }),
     agenciaResponsableId: new FormControl<string | null>(null),
     accessToken: new FormControl('', { nonNullable: true }),
   });
@@ -596,6 +597,7 @@ export class AdminComponent implements OnInit {
         this.waConfig.set(c);
         this.waForm.reset({
           phoneNumberId: c.phoneNumberId ?? '',
+          numero: c.numero ?? '',
           agenciaResponsableId: c.agenciaResponsableId,
           accessToken: '',
         });
@@ -622,9 +624,9 @@ export class AdminComponent implements OnInit {
     this.waGuardando.set(true);
     this.waOk.set(false);
     this.error.set('');
-    const { phoneNumberId, agenciaResponsableId, accessToken } = this.waForm.getRawValue();
+    const { phoneNumberId, numero, agenciaResponsableId, accessToken } = this.waForm.getRawValue();
     this.wa.guardarConfig(
-      phoneNumberId.trim(), accessToken.trim() || undefined,
+      phoneNumberId.trim(), numero.trim(), accessToken.trim() || undefined,
       agenciaResponsableId, this.waCanales(),
     ).subscribe({
       next: (c) => {

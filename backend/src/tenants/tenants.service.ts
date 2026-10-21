@@ -43,6 +43,8 @@ export type ImpedimentoTenant = { motivo: string } | null;
 
 export interface WaConfigDto {
   phoneNumberId: string | null;
+  /** El número de la línea, en dígitos. Es como enruta Infobip. */
+  numero: string | null;
   tokenConfigurado: boolean;
   /** Agencia responsable de los casos que entran por WhatsApp (agencias.id). */
   agenciaResponsableId: string | null;
@@ -343,6 +345,20 @@ export class TenantsService implements OnModuleInit {
     return this.repo.findOne({ where: { waPhoneNumberId: phoneNumberId.trim() } });
   }
 
+  /**
+   * La instancia dueña de un número de WhatsApp.
+   *
+   * Es el enrutamiento del camino de Infobip: ellos entregan el número de
+   * destino, no un identificador interno de Meta. Se normaliza a dígitos
+   * porque el mismo número viaja escrito de varias formas —con «+», con
+   * espacios— según quién lo escriba.
+   */
+  porWaNumero(numero: string): Promise<TenantEntity | null> {
+    const digitos = (numero ?? '').replace(/\D/g, '');
+    if (!digitos) return Promise.resolve(null);
+    return this.repo.findOne({ where: { waNumero: digitos } });
+  }
+
   /** Configuración WhatsApp del tenant (el token nunca se devuelve, solo si está puesto). */
   async getWaConfig(codigo: string): Promise<WaConfigDto> {
     const t = await this.porCodigo(codigo);
@@ -362,9 +378,25 @@ export class TenantsService implements OnModuleInit {
     accessToken?: string,
     agenciaResponsableId?: string | null,
     canales?: string[],
+    numero?: string,
   ): Promise<WaConfigDto> {
     const t = await this.porCodigo(codigo);
     if (!t) throw new NotFoundException('Tenant no encontrado.');
+    if (numero !== undefined) {
+      // Solo dígitos: el mismo número viaja escrito con «+», con espacios o
+      // con paréntesis según quién lo teclee, y si se guarda tal cual, el
+      // enrutamiento de un mensaje entrante falla por un carácter.
+      const n = numero.replace(/\D/g, '') || null;
+      if (n) {
+        const ya = await this.repo.findOne({ where: { waNumero: n } });
+        // Dos instancias con el mismo número no se puede: un mensaje
+        // entrante no tendría forma de saber de qué municipio es, y sin
+        // Row-Level Security eso es una fuga de datos entre municipios.
+        if (ya && ya.id !== t.id)
+          throw new ConflictException('Ese número de WhatsApp ya está asignado a otra instancia.');
+      }
+      t.waNumero = n;
+    }
     if (phoneNumberId !== undefined) {
       const pid = phoneNumberId.trim() || null;
       if (pid) {
@@ -395,6 +427,7 @@ export class TenantsService implements OnModuleInit {
   private waConfigDto(t: TenantEntity): WaConfigDto {
     return {
       phoneNumberId: t.waPhoneNumberId ?? null,
+      numero: t.waNumero ?? null,
       tokenConfigurado: !!t.waAccessToken,
       agenciaResponsableId: t.waAgenciaResponsableId ?? null,
       canales: t.waCanales ?? [],

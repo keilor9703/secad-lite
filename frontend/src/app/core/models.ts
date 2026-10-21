@@ -159,6 +159,8 @@ export interface CtiConfig {
 
 export interface WhatsappConfig {
   phoneNumberId: string | null;
+  /** El número de la línea, en dígitos. Es como enruta Infobip. */
+  numero: string | null;
   tokenConfigurado: boolean;
   verifyToken: string;
   webhookPath: string;

@@ -303,7 +303,7 @@ Detalle completo, con respaldos, 2FA, TURN y archivado:
 
 ---
 
-## 9. Las tres integraciones de entrada
+## 9. Las integraciones de entrada
 
 Cada una con su propia credencial; ninguna depende de la sesión institucional.
 
@@ -311,7 +311,20 @@ Cada una con su propia credencial; ninguna depende de la sesión institucional.
 |---|---|---|
 | Planta telefónica | `POST /api/pbx/webhook` · `POST /api/pbx/grabacion` | `x-api-key` del tenant |
 | WhatsApp (Meta Cloud API) | `GET`/`POST /api/whatsapp/webhook` | Firma `X-Hub-Signature-256` |
+| WhatsApp (por Infobip) | `POST /api/whatsapp/infobip` | Cabecera `x-infobip-token` (`INFOBIP_WEBHOOK_TOKEN`) |
 | Entidades externas | `POST /api/integracion/casos` | `x-api-key` de la entidad (`ek_…`) |
+
+> **WhatsApp tiene DOS entradas y no es un descuido.** Una línea puede estar
+> conectada a Meta directamente o a través de Infobip como proveedor oficial.
+> Se eligió Infobip para nuestras plantas por una razón que no tiene que ver
+> con los mensajes: es el único camino por el que la **llamada** de WhatsApp
+> llega como SIP a nuestro Asterisk. El precio es que los mensajes vienen en
+> el formato de Infobip, y por eso hay un traductor. A partir de
+> `procesar()`, los dos caminos son el mismo código.
+>
+> Enrutan distinto: Meta por `phone_number_id`, Infobip por el **número de
+> destino** (`tenants.waNumero`). Los dos campos se configuran en
+> Administración → WhatsApp.
 
 Referencia completa en
 [`docs/integraciones-externas.md`](docs/integraciones-externas.md).

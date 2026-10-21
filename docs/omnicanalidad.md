@@ -17,7 +17,8 @@ No partimos de cero. Esto es lo que ya funciona en producción:
 | Canal | Entra por | Crea caso | Estado |
 |---|---|---|---|
 | **Llamada telefónica** | Troncal SIP → planta propia → `POST /api/pbx/webhook` | Al contestar | ✔ Probado de punta a punta |
-| **Chat de WhatsApp** | `POST /api/whatsapp/webhook` (Cloud API de Meta) | **Con el primer mensaje** | ⚠ Funciona, pero sin filtro — ver §4 |
+| **Chat de WhatsApp (Meta directo)** | `POST /api/whatsapp/webhook` | **Con el primer mensaje** | ⚠ Funciona, pero sin filtro — ver §4 |
+| **Chat de WhatsApp (por Infobip)** | `POST /api/whatsapp/infobip` | **Con el primer mensaje** | ⚠ Traductor hecho el 21/10/2026, pendiente de la primera entrega real |
 | **Entidad externa** | `POST /api/integracion/casos` con `x-api-key` | Inmediato | ✔ |
 | **Videollamada** | Enlace al ciudadano desde el caso | Sobre un caso ya abierto | ✔ |
 | **Llamada de WhatsApp** | — | — | ✘ **No existe** |

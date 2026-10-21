@@ -71,6 +71,25 @@ export class TenantEntity {
   @Column({ type: 'varchar', length: 40, nullable: true })
   waPhoneNumberId?: string | null;
 
+  /**
+   * El NÚMERO de WhatsApp de la instancia, en dígitos y sin «+».
+   *
+   * Existe aparte de `waPhoneNumberId` porque los dos caminos de entrada
+   * identifican la línea con cosas distintas:
+   *
+   *  - Meta Cloud API, directo, manda `phone_number_id` — un identificador
+   *    interno suyo que no se parece a un teléfono.
+   *  - Infobip, como proveedor oficial, manda el número de destino tal cual
+   *    (`to: "573132354086"`), porque para ellos la línea ES el número.
+   *
+   * Meter el número en el campo del `phone_number_id` «porque cabe» haría
+   * que el nombre del campo mintiera, y el día que una instancia use los dos
+   * caminos, uno pisaría al otro.
+   */
+  @Index({ unique: true })
+  @Column({ type: 'varchar', length: 24, nullable: true })
+  waNumero?: string | null;
+
   /** WhatsApp Cloud API: token de acceso para enviar respuestas (secreto). */
   @Column({ type: 'varchar', length: 400, nullable: true })
   waAccessToken?: string | null;

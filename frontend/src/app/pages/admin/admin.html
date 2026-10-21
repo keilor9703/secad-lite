@@ -270,11 +270,25 @@
             </div>
           </div>
           <form [formGroup]="waForm">
+          <!-- Los dos caminos de entrada identifican la línea con cosas
+               distintas, y por eso son dos campos y no uno: Meta manda su
+               identificador interno, Infobip manda el número. -->
+          <div class="pbx-field">
+            <label>Número de la línea</label>
+            <div class="pbx-row">
+              <input class="mono" formControlName="numero" placeholder="p. ej. 573132354086" />
+            </div>
+            <small>
+              Con «+» o sin él, da igual: se guarda en dígitos. Es como se
+              decide de qué municipio es un mensaje que entra por Infobip.
+            </small>
+          </div>
           <div class="pbx-field">
             <label>phone_number_id</label>
             <div class="pbx-row">
               <input class="mono" formControlName="phoneNumberId" placeholder="p. ej. 109999888" />
             </div>
+            <small>Solo si la línea está conectada a Meta directamente.</small>
           </div>
           <div class="pbx-field">
             <label>A quién se envían los casos que entren por WhatsApp</label>

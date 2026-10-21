@@ -6,6 +6,16 @@ import { CasosService } from '../casos/casos.service';
 import { TenantsService } from '../tenants/tenants.service';
 import { TenantRlsService } from '../common/tenant-rls.service';
 
+/** Un elemento de `results[]` en la entrega de Infobip. */
+interface InfobipEntrante {
+  from?: string;
+  to?: string;
+  messageId?: string;
+  receivedAt?: string;
+  contact?: { name?: string };
+  message?: { type?: string; text?: string; caption?: string };
+}
+
 /** Versión de la Graph API de Meta para enviar respuestas. */
 const GRAPH_VERSION = 'v20.0';
 
@@ -76,6 +86,159 @@ export class WhatsappService {
       }
     }
     return { procesados };
+  }
+
+  /**
+   * MENSAJES QUE ENTRAN POR INFOBIP, NO POR META DIRECTAMENTE.
+   *
+   * ──────────────────────────────────────────────────────────────────────────
+   * POR QUÉ HAY DOS CAMINOS Y NO UNO
+   *
+   * Porque la línea puede estar conectada a Meta directamente, o a través de
+   * Infobip como proveedor oficial. Se eligió Infobip para las plantas
+   * nuestras por una razón que no tiene que ver con los mensajes: es el único
+   * camino por el que la LLAMADA de WhatsApp llega como SIP a nuestro
+   * Asterisk, por la troncal que ya existe. Pero lo que Infobip entrega por
+   * webhook viene en SU formato, no en el de Meta.
+   *
+   * Lo que cambia entre los dos:
+   *
+   *  - Meta enruta por `phone_number_id`; Infobip, por el número de destino.
+   *  - Meta anida `entry[].changes[].value.messages[]`; Infobip entrega una
+   *    lista plana en `results[]`.
+   *  - Meta nombra los tipos en minúscula (`text`); Infobip en mayúscula
+   *    (`TEXT`).
+   *
+   * Lo que NO cambia: a partir de aquí es el mismo `procesar()`. Un caso de
+   * WhatsApp es un caso de WhatsApp, haya entrado por donde haya entrado, y
+   * duplicar esa lógica sería garantizar que un día se arregle en un camino
+   * y no en el otro.
+   *
+   * ──────────────────────────────────────────────────────────────────────────
+   * LO QUE NO SE RECONOCE SE REGISTRA, NO SE DESCARTA EN SILENCIO
+   *
+   * Este traductor se escribió contra el formato documentado de Infobip,
+   * ANTES de haber visto un mensaje real suyo. Así que un cuerpo que no
+   * encaje no se tira: se cuenta y se avisa, para que la primera entrega real
+   * diga qué falta en vez de desaparecer.
+   */
+  async recibirDeInfobip(payload: unknown): Promise<{ procesados: number; sinReconocer: number }> {
+    const cuerpo = payload as { results?: unknown[] } | null;
+    const lista = Array.isArray(cuerpo?.results) ? cuerpo!.results! : [];
+    if (!lista.length) {
+      this.log.warn(
+        'Infobip entregó un cuerpo sin `results`: no se procesó nada. ' +
+          'Si esto se repite, el formato cambió y hay que ajustar el traductor.',
+      );
+      return { procesados: 0, sinReconocer: 0 };
+    }
+
+    let procesados = 0;
+    let sinReconocer = 0;
+
+    for (const cruda of lista) {
+      const r = cruda as InfobipEntrante;
+      const de = String(r?.from ?? '').trim();
+      const para = String(r?.to ?? '').trim();
+      if (!de || !para) {
+        sinReconocer++;
+        continue;
+      }
+
+      // El número de destino ES la línea: así se sabe de qué municipio es.
+      const tenant = await this.tenants.porWaNumero(para);
+      if (!tenant) {
+        // No es un error del que haya que avisar a gritos: puede ser otra
+        // línea de la misma cuenta de Infobip que no es de FALCON. Pero se
+        // deja escrito, porque también es como se ve un `waNumero` mal
+        // escrito en la configuración de una instancia.
+        this.log.warn(`Mensaje de WhatsApp para ${para}: ninguna instancia tiene ese número.`);
+        sinReconocer++;
+        continue;
+      }
+      try {
+        this.tenants.asegurarVigente(tenant, 'whatsapp');
+      } catch {
+        continue;
+      }
+
+      const texto = this.textoDeInfobip(r?.message);
+      if (texto === null) {
+        // Un tipo que todavía no sabemos leer —una ubicación, un audio— NO se
+        // descarta: el ciudadano mandó algo y el operador tiene que enterarse
+        // de que existe, aunque todavía no podamos enseñárselo bien.
+        sinReconocer++;
+      }
+
+      const id = r?.messageId ? String(r.messageId).slice(0, 120) : null;
+      const nombre = String(r?.contact?.name ?? '').trim() || de;
+
+      procesados += await this.rls.conTenant(tenant.codigo, async (manager) => {
+        const mensajes = manager.getRepository(MensajeChatEntity);
+        // Infobip reintenta lo que no confirmamos a tiempo: el mismo mensaje
+        // no puede abrir dos casos ni aparecer dos veces en la conversación.
+        if (id && (await mensajes.findOne({ where: { tenant: tenant.codigo, waMessageId: id } }))) {
+          return 0;
+        }
+        await this.procesar(
+          manager,
+          tenant.codigo,
+          de,
+          nombre,
+          texto ?? this.avisoDeTipoDesconocido(r?.message),
+          id,
+        );
+        return 1;
+      });
+    }
+
+    if (sinReconocer) {
+      this.log.warn(`Infobip: ${sinReconocer} elemento(s) sin reconocer en esta entrega.`);
+    }
+    return { procesados, sinReconocer };
+  }
+
+  /**
+   * El texto de un mensaje de Infobip, o `null` si es de un tipo que todavía
+   * no sabemos leer.
+   *
+   * `null` y cadena vacía NO son lo mismo aquí: vacío es «mandó un texto
+   * vacío», `null` es «mandó algo que no sabemos mostrar». La diferencia
+   * decide si esto se cuenta como sin reconocer.
+   */
+  private textoDeInfobip(m: unknown): string | null {
+    const msg = m as { type?: string; text?: string; caption?: string } | null;
+    const tipo = String(msg?.type ?? '').toUpperCase();
+    if (tipo === 'TEXT') return String(msg?.text ?? '');
+    // Un pie de foto es lo que el ciudadano escribió, y en una emergencia
+    // suele ser lo importante: «es en esta esquina».
+    if (msg?.caption) return String(msg.caption);
+    if (tipo === 'BUTTON' || tipo === 'INTERACTIVE_BUTTON_REPLY' || tipo === 'INTERACTIVE_LIST_REPLY') {
+      return String(msg?.text ?? '');
+    }
+    return null;
+  }
+
+  /**
+   * Lo que se le escribe al operador cuando llega algo que no sabemos leer.
+   *
+   * Decir el tipo importa: «mandó un audio» hace que el operador lo pida de
+   * otra forma o llame. Un caso vacío hace que crea que fue un error.
+   */
+  private avisoDeTipoDesconocido(m: unknown): string {
+    const tipo = String((m as { type?: string } | null)?.type ?? '').toUpperCase();
+    const legible: Record<string, string> = {
+      IMAGE: 'una imagen',
+      VIDEO: 'un video',
+      VOICE: 'una nota de voz',
+      AUDIO: 'un audio',
+      DOCUMENT: 'un documento',
+      LOCATION: 'su ubicación',
+      CONTACT: 'un contacto',
+      STICKER: 'un sticker',
+    };
+    const que = legible[tipo] ?? `un mensaje de tipo ${tipo || 'desconocido'}`;
+    return `[El ciudadano envió ${que}. Todavía no se puede ver desde FALCON: pídaselo por escrito o llámelo.]`;
   }
 
   /** Historial de la conversación de un caso de WhatsApp. */

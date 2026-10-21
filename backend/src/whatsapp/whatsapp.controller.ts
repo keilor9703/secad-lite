@@ -59,6 +59,80 @@ export class WhatsappController {
     return { received: true };
   }
 
+  /**
+   * POST /api/whatsapp/infobip — mensajes entrantes por Infobip.
+   *
+   * ──────────────────────────────────────────────────────────────────────────
+   * POR QUÉ UNA RUTA APARTE Y NO LA MISMA
+   *
+   * Porque lo que llega es otra cosa. Infobip entrega en SU formato y se
+   * autentica de otra manera. Meterlo en la misma ruta obligaría a adivinar
+   * de quién viene cada cuerpo antes de poder validarlo, que es exactamente
+   * el orden equivocado: primero se autentica, después se interpreta.
+   *
+   * ──────────────────────────────────────────────────────────────────────────
+   * LA AUTENTICACIÓN ES UN SECRETO COMPARTIDO EN UNA CABECERA
+   *
+   * Infobip ofrece Básico, HMAC y OAuth, y además cabeceras propias. Se eligió
+   * la cabecera con un secreto por una razón práctica: HMAC obligaría a
+   * reimplementar EXACTAMENTE su esquema de firma —qué cadena firman, con qué
+   * algoritmo, en qué cabecera— sin poder comprobarlo contra su servidor, y un
+   * error en cualquiera de los tres deja el endpoint rechazando todo sin
+   * poder distinguir un ataque de un error nuestro. El contenido ya va
+   * cifrado: el perfil obliga TLS 1.2/1.3.
+   *
+   * Lo que esto impide es lo que hay que impedir: que alguien que descubra la
+   * URL inyecte emergencias falsas. Una emergencia falsa en una línea del 123
+   * despacha una patrulla a una dirección inventada.
+   *
+   * Sin `INFOBIP_WEBHOOK_TOKEN` configurado, en producción se rechaza todo:
+   * mejor caído que falsificable, igual que el webhook de Meta.
+   *
+   * ──────────────────────────────────────────────────────────────────────────
+   * SIEMPRE 200, SALVO QUE NO ESTÉ AUTENTICADO
+   *
+   * Un cuerpo que no entendemos NO se contesta con error: Infobip lo
+   * reintentaría, y reintentar algo que no sabemos leer no lo vuelve legible;
+   * solo multiplica el ruido. Se cuenta y se avisa en el log, y la respuesta
+   * dice cuántos quedaron sin reconocer para poder verlo desde fuera.
+   */
+  @Public()
+  @Post('infobip')
+  async recibirDeInfobip(@Req() req: Request, @Body() payload: unknown) {
+    this.verificarToken(req);
+    const r = await this.wa.recibirDeInfobip(payload);
+    return { received: true, ...r };
+  }
+
+  private static avisoSinToken = false;
+
+  private verificarToken(req: Request): void {
+    const esperado = this.config.get<string>('INFOBIP_WEBHOOK_TOKEN')?.trim();
+    if (!esperado) {
+      if (process.env.NODE_ENV === 'production') {
+        throw new ForbiddenException(
+          'Webhook de Infobip deshabilitado: falta INFOBIP_WEBHOOK_TOKEN.',
+        );
+      }
+      if (!WhatsappController.avisoSinToken) {
+        WhatsappController.avisoSinToken = true;
+        new Logger(WhatsappController.name).warn(
+          'INFOBIP_WEBHOOK_TOKEN no está configurado: el webhook de Infobip acepta ' +
+            'cuerpos SIN autenticar (solo desarrollo).',
+        );
+      }
+      return;
+    }
+    const recibido = req.header('x-infobip-token') ?? '';
+    // Comparación de tiempo constante: una comparación normal revela el
+    // secreto carácter por carácter a quien mida cuánto tarda en fallar.
+    const a = Buffer.from(esperado, 'utf8');
+    const b = Buffer.from(recibido, 'utf8');
+    if (a.length !== b.length || !timingSafeEqual(a, b)) {
+      throw new ForbiddenException('Token del webhook de Infobip inválido.');
+    }
+  }
+
   private static avisoSinSecreto = false;
 
   private verificarFirma(req: RawBodyRequest<Request>): void {
@@ -107,14 +181,15 @@ export class WhatsappController {
   async setConfig(
     @Tenant() tenant: string,
     @Usuario() u: JwtPayload,
-    @Body() dto: { phoneNumberId?: string; accessToken?: string; agenciaResponsableId?: string | null; canales?: string[] },
+    @Body() dto: { phoneNumberId?: string; accessToken?: string; agenciaResponsableId?: string | null; canales?: string[]; numero?: string },
   ) {
     const cfg = await this.tenants.setWaConfig(
-      tenant, dto?.phoneNumberId, dto?.accessToken, dto?.agenciaResponsableId, dto?.canales,
+      tenant, dto?.phoneNumberId, dto?.accessToken, dto?.agenciaResponsableId, dto?.canales, dto?.numero,
     );
     const conToken = dto?.accessToken?.trim() ? ', token renovado' : '';
     await this.auditoria.registrar(tenant, u?.sub ?? 'desconocido', 'whatsapp.config',
-      `Actualizó la configuración de WhatsApp (phone_number_id: ${cfg.phoneNumberId ?? '—'}${conToken}).`);
+      `Actualizó la configuración de WhatsApp (número: ${cfg.numero ?? '—'}, `
+      + `phone_number_id: ${cfg.phoneNumberId ?? '—'}${conToken}).`);
     return { ...cfg, verifyToken: this.verifyToken, webhookPath: '/api/whatsapp/webhook' };
   }
 

@@ -26,12 +26,13 @@ export class WhatsappService {
 
   guardarConfig(
     phoneNumberId: string,
+    numero: string,
     accessToken?: string,
     agenciaResponsableId?: string | null,
     canales?: string[],
   ): Observable<WhatsappConfig> {
     return this.http.put<WhatsappConfig>(
-      `${this.base}/whatsapp/config`, { phoneNumberId, accessToken, agenciaResponsableId, canales },
+      `${this.base}/whatsapp/config`, { phoneNumberId, numero, accessToken, agenciaResponsableId, canales },
     );
   }
 
