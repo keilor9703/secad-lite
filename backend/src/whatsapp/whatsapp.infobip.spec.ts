@@ -1,10 +1,17 @@
 import { Test } from '@nestjs/testing';
 
 import { CasosGateway } from '../casos/casos.gateway';
+import { CatalogosService } from '../catalogos/catalogos.service';
 import { CasosService } from '../casos/casos.service';
 import { TenantRlsService } from '../common/tenant-rls.service';
 import { TenantsService } from '../tenants/tenants.service';
 import { WhatsappService } from './whatsapp.service';
+/** Catálogo del municipio con el que se arma el menú de tipificación. */
+const catalogoDePrueba = [
+  { codigo: 'RIN', descripcion: 'Riña o agresión', prioridad: 'alta' },
+  { codigo: 'INC', descripcion: 'Incendio', prioridad: 'alta' },
+];
+
 
 /**
  * EL TRADUCTOR DE INFOBIP.
@@ -26,6 +33,8 @@ describe('WhatsappService · mensajes de Infobip', () => {
     tenant: string;
     texto: string;
     waMessageId: string | null;
+    /** Quién lo escribió. El bot se calla en cuanto aparece un 'operador'. */
+    autorTipo?: string;
   }[];
   /** Los casos creados. */
   let casos: { tenant: string; telefono: string; descripcion: string }[];
@@ -33,6 +42,10 @@ describe('WhatsappService · mensajes de Infobip', () => {
   let yaVistos: Set<string>;
   let vigente: () => void;
   /** El caso que encuentra la búsqueda. Nulo = no hay, y se abre uno. */
+  /** La conversación de admisión de ese número, si ya existe. */
+  let conversacion: {
+    estado: string; casoId?: string | null; mensajesDelBot: number;
+  } | null;
   let casoExistente:
     | { id: string; canal: string; telefono: string; mensajesSinLeer: number }
     | null;
@@ -40,6 +53,10 @@ describe('WhatsappService · mensajes de Infobip', () => {
   let sumados: { id: string; campo: string; cuanto: number }[];
   /** Los casos cuyo contador se puso a cero. */
   let limpiados: string[];
+  /** Lo que el bot escribió EN el caso: tipificación, dirección. */
+  let cambiosAlCaso: Record<string, unknown>[];
+  /** Lo que el bot le mandó al ciudadano. */
+  let delBot: string[];
   /** Lo que se mandó a los tableros por el socket. */
   let emitidos: { tenant: string; casoId: string }[];
   /** Para comprobar que un socket caído no se lleva por delante el mensaje. */
@@ -52,16 +69,27 @@ describe('WhatsappService · mensajes de Infobip', () => {
     yaVistos = new Set();
     vigente = () => undefined;
     casoExistente = null;
+    conversacion = null;
     sumados = [];
     limpiados = [];
+    cambiosAlCaso = [];
+    delBot = [];
     emitidos = [];
     gatewayRoto = false;
 
     const mensajesRepo = {
-      findOne: ({ where }: { where: { waMessageId?: string } }) =>
-        Promise.resolve(
+      findOne: ({ where }: { where: { waMessageId?: string; autorTipo?: string } }) => {
+        // «¿Ya hay un operador en esta conversación?» y «¿este mensaje ya
+        // lo vimos?» son dos preguntas distintas sobre la misma tabla.
+        if (where.autorTipo) {
+          return Promise.resolve(
+            guardados.find((g) => g.autorTipo === where.autorTipo) ?? null,
+          );
+        }
+        return Promise.resolve(
           where.waMessageId && yaVistos.has(where.waMessageId) ? {} : null,
-        ),
+        );
+      },
       create: (x: unknown) => x,
       find: () => Promise.resolve(guardados),
       save: (x: {
@@ -71,6 +99,16 @@ describe('WhatsappService · mensajes de Infobip', () => {
       }) => {
         guardados.push(x);
         if (x.waMessageId) yaVistos.add(x.waMessageId);
+        return Promise.resolve(x);
+      },
+    };
+    // La conversación de admisión: el paso previo al caso. Se guarda en
+    // memoria para poder comprobar en qué estado quedó.
+    const convRepo = {
+      findOne: () => Promise.resolve(conversacion),
+      create: (x: Record<string, unknown>) => ({ ...x }),
+      save: (x: Record<string, unknown>) => {
+        conversacion = x as typeof conversacion;
         return Promise.resolve(x);
       },
     };
@@ -87,9 +125,13 @@ describe('WhatsappService · mensajes de Infobip', () => {
         if (casoExistente) casoExistente.mensajesSinLeer += cuanto;
         return Promise.resolve({});
       },
-      update: (donde: { id: string }, cambios: { mensajesSinLeer: number }) => {
-        limpiados.push(donde.id);
-        if (casoExistente) casoExistente.mensajesSinLeer = cambios.mensajesSinLeer;
+      update: (donde: { id: string }, cambios: Record<string, unknown>) => {
+        if ('mensajesSinLeer' in cambios) {
+          limpiados.push(donde.id);
+          if (casoExistente) casoExistente.mensajesSinLeer = cambios['mensajesSinLeer'] as number;
+        } else {
+          cambiosAlCaso.push(cambios);
+        }
         return Promise.resolve({});
       },
     };
@@ -114,6 +156,10 @@ describe('WhatsappService · mensajes de Infobip', () => {
           },
         },
         {
+          provide: CatalogosService,
+          useValue: { listarCodigos: () => Promise.resolve(catalogoDePrueba) },
+        },
+        {
           provide: CasosGateway,
           useValue: {
             emitirCambio: (tenant: string, caso: { id: string }) => {
@@ -129,7 +175,10 @@ describe('WhatsappService · mensajes de Infobip', () => {
               Promise.resolve(
                 tenantPorNumero[(n ?? '').replace(/\D/g, '')] ?? null,
               ),
-            porCodigo: (c: string) => Promise.resolve({ codigo: c }),
+            // Con número de línea: es el remitente con el que contesta el
+            // bot. Sin las variables de Infobip en el entorno igual no sale
+            // nada, que es lo que comprueban las pruebas de `responder`.
+            porCodigo: (c: string) => Promise.resolve({ codigo: c, waNumero: '573132354086' }),
             // Sin token de Meta y sin número de Infobip: una línea a medio
             // configurar, que es justo el caso que se quiere cubrir.
             waAccessTokenDe: () => Promise.resolve(null),
@@ -142,7 +191,9 @@ describe('WhatsappService · mensajes de Infobip', () => {
             conTenant: (_t: string, fn: (m: unknown) => unknown) =>
               fn({
                 getRepository: (e: { name?: string }) =>
-                  e?.name === 'CasoEntity' ? casosRepo : mensajesRepo,
+                    e?.name === 'CasoEntity' ? casosRepo
+                  : e?.name === 'ConversacionWaEntity' ? convRepo
+                  : mensajesRepo,
               }),
           },
         },
@@ -199,6 +250,192 @@ describe('WhatsappService · mensajes de Infobip', () => {
 
       expect(casos.length).toBe(1);
       expect(guardados.length).toBe(1);
+    });
+  });
+
+  describe('la admisión: un mensaje no es un caso', () => {
+    // El defecto del 21/10/2026: «Holaaa», «Hola buenas», «Hola buenas
+    // noches» y «Buenas noches porfavor» entraron a la bandeja de Recepción
+    // a competir por atención con una emergencia real. Una línea 123
+    // publicada recibe eso todo el día.
+    //
+    // La regla que gobierna todo esto: EN CASO DE DUDA, SE ABRE EL CASO. Un
+    // caso de más se cierra en diez segundos; una emergencia descartada en
+    // silencio no se recupera.
+
+    beforeEach(() => {
+      tenantPorNumero['573132354086'] = { codigo: 'itagui' };
+      // Línea conectada, para poder ver lo que contesta el bot.
+      process.env['INFOBIP_BASE_URL'] = 'ejemplo.api.infobip.com';
+      process.env['INFOBIP_API_KEY'] = 'clave';
+      globalThis.fetch = ((_u: string, init: { body: string }) => {
+        const c = JSON.parse(init.body) as { content: { text: string } };
+        delBot.push(c.content.text);
+        return Promise.resolve({ ok: true, status: 200, text: () => Promise.resolve('{}') });
+      }) as unknown as typeof fetch;
+    });
+
+    afterEach(() => {
+      delete process.env['INFOBIP_BASE_URL'];
+      delete process.env['INFOBIP_API_KEY'];
+    });
+
+    const llega = (texto: string, id = `m-${Math.random()}`) =>
+      svc.recibirDeInfobip(entrega({ messageId: id, message: { type: 'TEXT', text: texto } }));
+
+    it('un saludo NO abre caso', async () => {
+      await llega('Holaaa');
+
+      expect(casos.length).toBe(0);
+      expect(guardados.length).toBe(0);
+    });
+
+    it('pero sí contesta, una vez, diciendo cómo pedir ayuda', async () => {
+      // Callarse del todo deja al ciudadano creyendo que no hay nadie. Y el
+      // número de teléfono va en esa respuesta: quien no pueda escribir, o
+      // esté a oscuras, tiene que poder llamar.
+      await llega('Holaaa');
+
+      expect(delBot.length).toBe(1);
+      expect(delBot[0]).toContain('123');
+    });
+
+    it('y NO insiste: el segundo saludo no vuelve a contestar', async () => {
+      // Un bot que repite en una línea de emergencias estorba.
+      await llega('Holaaa', 'm-1');
+      await llega('buenas', 'm-2');
+
+      expect(delBot.length).toBe(1);
+      expect(casos.length).toBe(0);
+    });
+
+    it('un mensaje con contenido abre el caso DE INMEDIATO', async () => {
+      // Lo que no puede pasar: que una emergencia espere a que alguien
+      // conteste un menú. El caso primero, la tipificación después.
+      await llega('se está incendiando una casa en la 50 con 70');
+
+      expect(casos.length).toBe(1);
+      expect(casos[0].descripcion).toBe('se está incendiando una casa en la 50 con 70');
+    });
+
+    it('un saludo CON petición también abre caso', async () => {
+      await llega('Buenas noches porfavor');
+      expect(casos.length).toBe(1);
+    });
+
+    it('una nota de voz abre caso aunque no traiga una sola letra', async () => {
+      // Quien se esconde de un agresor manda un audio y no contesta menús.
+      await svc.recibirDeInfobip(entrega({ message: { type: 'VOICE' } }));
+
+      expect(casos.length).toBe(1);
+      expect(guardados[0].texto).toContain('nota de voz');
+    });
+
+    it('una FOTO con un pie trivial abre caso igual', async () => {
+      // El agujero que encontró el sabotaje: el pie de foto se lee como el
+      // texto del mensaje, así que una imagen de un accidente con el pie
+      // «ok» pasaba por el filtro de ruido y se descartaba — con la foto
+      // dentro. Lo que decide es el TIPO del mensaje, no si se pudo sacar
+      // texto de él.
+      await svc.recibirDeInfobip(
+        entrega({ message: { type: 'IMAGE', caption: 'ok' } }),
+      );
+
+      expect(casos.length).toBe(1);
+    });
+
+    it('una ubicación abre caso: es el dato más valioso que hay', async () => {
+      await svc.recibirDeInfobip(entrega({ message: { type: 'LOCATION' } }));
+      expect(casos.length).toBe(1);
+    });
+
+    it('después de abrir el caso, pregunta el tipo con el catálogo del municipio', async () => {
+      await llega('se está incendiando una casa');
+
+      expect(delBot.length).toBe(1);
+      expect(delBot[0]).toContain('1. Riña o agresión');
+      expect(delBot[0]).toContain('2. Incendio');
+    });
+  });
+
+  describe('la admisión: tipificar y ubicar lo que ya es caso', () => {
+    beforeEach(() => {
+      tenantPorNumero['573132354086'] = { codigo: 'itagui' };
+      casoExistente = {
+        id: 'caso-1', canal: 'whatsapp', telefono: '573175882321', mensajesSinLeer: 0,
+      };
+      conversacion = { estado: 'esperando_tipo', casoId: 'caso-1', mensajesDelBot: 1 };
+      process.env['INFOBIP_BASE_URL'] = 'ejemplo.api.infobip.com';
+      process.env['INFOBIP_API_KEY'] = 'clave';
+      globalThis.fetch = ((_u: string, init: { body: string }) => {
+        const c = JSON.parse(init.body) as { content: { text: string } };
+        delBot.push(c.content.text);
+        return Promise.resolve({ ok: true, status: 200, text: () => Promise.resolve('{}') });
+      }) as unknown as typeof fetch;
+    });
+
+    afterEach(() => {
+      delete process.env['INFOBIP_BASE_URL'];
+      delete process.env['INFOBIP_API_KEY'];
+    });
+
+    const llega = (texto: string, id = `m-${Math.random()}`) =>
+      svc.recibirDeInfobip(entrega({ messageId: id, message: { type: 'TEXT', text: texto } }));
+
+    it('responder «2» tipifica el caso con el código y su prioridad', async () => {
+      await llega('2');
+
+      expect(cambiosAlCaso.length).toBe(1);
+      expect(cambiosAlCaso[0]['codigoCaso']).toBe('INC');
+      expect(cambiosAlCaso[0]['prioridad']).toBe('alta');
+      expect(cambiosAlCaso[0]['titulo']).toBe('Incendio');
+    });
+
+    it('y después pregunta DÓNDE, que es lo que falta para despachar', async () => {
+      await llega('2');
+
+      expect(delBot.length).toBe(1);
+      expect(delBot[0]).toContain('DIRECCION');
+      expect(conversacion!.estado).toBe('esperando_lugar');
+    });
+
+    it('un número DENTRO de una frase NO tipifica', async () => {
+      // «hay 2 heridos en la calle 50» no es elegir la opción 2. Tipificarlo
+      // así le pondría a un caso con heridos la prioridad del código
+      // equivocado, y la prioridad es lo que decide a quién se despacha antes.
+      await llega('hay 2 heridos en la calle 50');
+
+      expect(cambiosAlCaso).toEqual([]);
+    });
+
+    it('si contesta otra cosa, el bot no insiste: se calla y lo lee un operador', async () => {
+      await llega('está saliendo humo por el techo');
+
+      expect(delBot).toEqual([]);
+      expect(conversacion!.estado).toBe('cerrada');
+      // Y el mensaje SÍ queda en el caso: no se pierde nada.
+      expect(guardados.length).toBe(1);
+    });
+
+    it('la dirección que contesta se guarda en el caso', async () => {
+      conversacion = { estado: 'esperando_lugar', casoId: 'caso-1', mensajesDelBot: 2 };
+
+      await llega('Calle 50 # 70-20, barrio Centro');
+
+      expect(cambiosAlCaso[0]['direccion']).toBe('Calle 50 # 70-20, barrio Centro');
+      expect(conversacion!.estado).toBe('cerrada');
+    });
+
+    it('EN CUANTO HAY UN OPERADOR, el bot se calla', async () => {
+      // Dos voces a la vez sobre una persona en una emergencia, sin saber a
+      // cuál contestar, es peor que no tener bot.
+      guardados.push({ tenant: 'itagui', texto: 'ya va la patrulla', waMessageId: null, autorTipo: 'operador' });
+
+      await llega('2');
+
+      expect(delBot).toEqual([]);
+      expect(cambiosAlCaso).toEqual([]);
+      expect(conversacion!.estado).toBe('cerrada');
     });
   });
 

@@ -4,6 +4,10 @@ import { MensajeChatEntity } from '../chat/mensaje.entity';
 import { CasoEntity } from '../casos/caso.entity';
 import { CasosService } from '../casos/casos.service';
 import { CasosGateway } from '../casos/casos.gateway';
+import { CatalogosService } from '../catalogos/catalogos.service';
+import { PrioridadCaso } from '../catalogos/codigo-caso.entity';
+import { ConversacionWaEntity } from './conversacion.entity';
+import { esRuido, menuDeTipos, opcionElegida, textoDelMenu } from './admision';
 import { TenantsService } from '../tenants/tenants.service';
 import { TenantRlsService } from '../common/tenant-rls.service';
 
@@ -64,6 +68,26 @@ export const HORAS_VENTANA_WHATSAPP = 24;
  */
 const LARGO_COLA_TELEFONO = 10;
 
+/**
+ * Lo único que recibe quien solo saluda.
+ *
+ * No abre caso, y dice cómo pedir ayuda de verdad. Dar el número de teléfono
+ * no es un adorno: quien no sepa escribir, o no tenga datos, o esté a oscuras,
+ * tiene que poder llamar.
+ */
+const SALUDO_INICIAL =
+  'Linea de emergencias. Escriba QUE ESTA PASANDO y DONDE, o llame al 123. ' +
+  'Tambien puede enviar su ubicacion, una foto o una nota de voz.';
+
+/** Lo que se pregunta después de abrir el caso, no antes. */
+const PREGUNTA_LUGAR =
+  'Recibido, ya hay un operador viendo su reporte. ' +
+  'Responda con la DIRECCION donde esta ocurriendo, o envie su ubicacion.';
+
+/** El bot se despide: a partir de aquí habla una persona. */
+const CIERRE =
+  'Gracias. Un operador lo atendera por aqui mismo. Si es urgente, llame al 123.';
+
 /** Ventana sobre la que se cuenta el movimiento de la línea. */
 const DIAS_CONSUMO = 30;
 
@@ -82,6 +106,7 @@ export class WhatsappService {
   constructor(
     private readonly casosSvc: CasosService,
     private readonly gateway: CasosGateway,
+    private readonly catalogos: CatalogosService,
     private readonly tenants: TenantsService,
     private readonly rls: TenantRlsService,
   ) {}
@@ -121,6 +146,10 @@ export class WhatsappService {
         // después: `conTenant` es una transacción, y emitir desde dentro
         // anuncia a los tableros algo que todavía puede deshacerse.
         const avisos: string[] = [];
+        // Lo que el bot de admisión tiene que contestar. Se manda FUERA de la
+        // transacción: es una llamada de red, y tenerla abierta mientras se
+        // espera al proveedor bloquea filas de `casos` del municipio entero.
+        const respuestas: { a: string; texto: string }[] = [];
         procesados += await this.rls.conTenant(tenant.codigo, async (manager) => {
           const mensajesRepo = manager.getRepository(MensajeChatEntity);
           let n = 0;
@@ -134,15 +163,17 @@ export class WhatsappService {
               continue;
             }
             const texto = this.textoDe(m);
-            const enCasoAbierto = await this.procesar(
+            const r = await this.procesar(
               manager, tenant.codigo, from, nombres.get(from) || from, texto, wamid,
             );
-            if (enCasoAbierto) avisos.push(enCasoAbierto);
+            if (r.avisar) avisos.push(r.avisar);
+            if (r.responder) respuestas.push({ a: from, texto: r.responder });
             n++;
           }
           return n;
         });
         await this.avisarMensajesNuevos(tenant.codigo, avisos);
+        await this.contestar(tenant.codigo, respuestas);
       }
     }
     return { procesados };
@@ -235,6 +266,7 @@ export class WhatsappService {
 
       // Ver el comentario del camino de Meta: se avisa fuera de la transacción.
       const avisos: string[] = [];
+      const respuestas: { a: string; texto: string }[] = [];
       procesados += await this.rls.conTenant(tenant.codigo, async (manager) => {
         const mensajes = manager.getRepository(MensajeChatEntity);
         // Infobip reintenta lo que no confirmamos a tiempo: el mismo mensaje
@@ -242,18 +274,28 @@ export class WhatsappService {
         if (id && (await mensajes.findOne({ where: { tenant: tenant.codigo, waMessageId: id } }))) {
           return 0;
         }
-        const enCasoAbierto = await this.procesar(
+        const res = await this.procesar(
           manager,
           tenant.codigo,
           de,
           nombre,
           texto ?? this.avisoDeTipoDesconocido(r?.message),
           id,
+          // Un audio, una foto o una ubicación NO pasan por el filtro de
+          // ruido: abren caso siempre.
+          //
+          // Se mira el TIPO del mensaje y no si se pudo sacar texto. Una
+          // foto trae pie, y `textoDeInfobip` devuelve ese pie: una imagen
+          // de un accidente con el pie «ok» habría pasado por el filtro de
+          // ruido y se habría descartado, con la foto dentro.
+          this.esSoloTextoDe(r?.message),
         );
-        if (enCasoAbierto) avisos.push(enCasoAbierto);
+        if (res.avisar) avisos.push(res.avisar);
+        if (res.responder) respuestas.push({ a: de, texto: res.responder });
         return 1;
       });
       await this.avisarMensajesNuevos(tenant.codigo, avisos);
+      await this.contestar(tenant.codigo, respuestas);
     }
 
     if (sinReconocer) {
@@ -270,7 +312,19 @@ export class WhatsappService {
    * vacío», `null` es «mandó algo que no sabemos mostrar». La diferencia
    * decide si esto se cuenta como sin reconocer.
    */
-  private textoDeInfobip(m: unknown): string | null {
+/**
+   * ¿Lo que llegó era SOLO texto?
+   *
+   * Solo lo que es puro texto puede ser ruido. Todo lo demás —audio, foto,
+   * video, ubicación, documento— es un reporte en sí mismo, por mucho que el
+   * pie de foto diga «ok».
+   */
+  private esSoloTextoDe(m: unknown): boolean {
+    const tipo = String((m as { type?: string } | null)?.type ?? '').toUpperCase();
+    return tipo === 'TEXT' || tipo === 'BUTTON' || tipo.startsWith('INTERACTIVE');
+  }
+
+    private textoDeInfobip(m: unknown): string | null {
     const msg = m as { type?: string; text?: string; caption?: string } | null;
     const tipo = String(msg?.type ?? '').toUpperCase();
     if (tipo === 'TEXT') return String(msg?.text ?? '');
@@ -375,18 +429,64 @@ export class WhatsappService {
    * dos veces y enseñara una insignia de «1 sin leer» sobre un caso cuyo
    * único mensaje es el titular que el operador ya está viendo.
    */
-  private async procesar(manager: EntityManager, tenant: string, from: string, nombre: string, texto: string, wamid: string | null = null): Promise<string | null> {
-    const abierto = await manager.getRepository(CasoEntity).findOne({
+  /**
+   * Guarda el mensaje donde corresponda, y decide si hay caso.
+   *
+   * ──────────────────────────────────────────────────────────────────────────
+   * UN MENSAJE NO ES UN CASO
+   *
+   * Hasta el 21/10/2026 sí lo era, y por eso «Holaaa» acababa en la bandeja
+   * de Recepción compitiendo por atención con una emergencia real. Una línea
+   * 123 publicada recibe saludos, stickers, números equivocados y gente
+   * probando si contesta un robot.
+   *
+   * Ahora un mensaje nace como CONVERSACIÓN, y el caso se abre en cuanto hay
+   * algo que no sea ruido reconocible. El orden importa y es deliberado: el
+   * caso se crea PRIMERO y se tipifica DESPUÉS. Hacerlo al revés —preguntar
+   * el tipo antes de abrir el caso— dejaría una emergencia esperando a que
+   * alguien conteste un menú.
+   *
+   * Devuelve qué caso hay que refrescar en los tableros y qué debe
+   * contestarle el bot al ciudadano. Lo segundo se manda FUERA de esta
+   * transacción: es una llamada de red, y tenerla abierta mientras se espera
+   * a Infobip bloquea filas de `casos` para todo el municipio.
+   */
+  private async procesar(
+    manager: EntityManager, tenant: string, from: string, nombre: string, texto: string,
+    wamid: string | null = null,
+    /**
+     * `false` cuando lo que llegó NO era texto (un audio, una foto, una
+     * ubicación). Eso nunca pasa por el filtro de ruido: quien se esconde de
+     * un agresor manda una nota de voz y no va a contestar un menú.
+     */
+    eraTexto = true,
+  ): Promise<{ avisar: string | null; responder: string | null }> {
+    const casos = manager.getRepository(CasoEntity);
+    const mensajesRepo = manager.getRepository(MensajeChatEntity);
+    const convRepo = manager.getRepository(ConversacionWaEntity);
+
+    const abierto = await casos.findOne({
       where: { tenant, telefono: from, canal: 'whatsapp', estado: Not('cerrado') },
       order: { creadoEn: 'DESC' },
     });
-    let casoId: string;
-    if (abierto) {
-      casoId = abierto.id;
-    } else {
-      // A quién se envía: la agencia/canales configurados para WhatsApp en
-      // Administración. Sin esa configuración el caso queda sin canal (solo
-      // lo ve un supervisor) — es la misma situación de antes de este ajuste.
+
+    const conv =
+      (await convRepo.findOne({ where: { tenant, telefono: from } })) ??
+      convRepo.create({ tenant, telefono: from, estado: 'nueva', mensajesDelBot: 0 });
+
+    // ── Todavía no hay caso ────────────────────────────────────────────────
+    if (!abierto) {
+      if (eraTexto && esRuido(texto)) {
+        // No se abre caso y NO se guarda el mensaje: no hay expediente al que
+        // pertenezca. Se pierde un «hola», que es exactamente lo que vale.
+        // Si resultara no ser ruido, el siguiente mensaje abre el caso.
+        const primeraVez = conv.mensajesDelBot === 0;
+        conv.estado = 'nueva';
+        if (primeraVez) conv.mensajesDelBot += 1;
+        await convRepo.save(conv);
+        return { avisar: null, responder: primeraVez ? SALUDO_INICIAL : null };
+      }
+
       const t = await this.tenants.porCodigo(tenant);
       const caso = await this.casosSvc.crear(
         tenant,
@@ -398,18 +498,77 @@ export class WhatsappService {
         },
         'whatsapp',
       );
-      casoId = caso.id;
+      await mensajesRepo.save(
+        mensajesRepo.create({
+          tenant, casoId: caso.id, autorTipo: 'ciudadano', autorNombre: nombre, texto,
+          waMessageId: wamid,
+        }),
+      );
+
+      const menu = menuDeTipos(await this.tiposDe(tenant));
+      conv.casoId = caso.id;
+      conv.estado = 'esperando_tipo';
+      conv.mensajesDelBot += 1;
+      await convRepo.save(conv);
+      // El caso ya está en la bandeja; esto solo lo enriquece.
+      return { avisar: null, responder: textoDelMenu(menu) };
     }
-    const mensajesRepo = manager.getRepository(MensajeChatEntity);
+
+    // ── El caso ya existe ──────────────────────────────────────────────────
+    const casoId = abierto.id;
     await mensajesRepo.save(
-      mensajesRepo.create({ tenant, casoId, autorTipo: 'ciudadano', autorNombre: nombre, texto, waMessageId: wamid }),
+      mensajesRepo.create({
+        tenant, casoId, autorTipo: 'ciudadano', autorNombre: nombre, texto, waMessageId: wamid,
+      }),
     );
-    if (!abierto) return null;
     // `increment` y no leer-sumar-guardar: dos mensajes que entren a la vez
-    // por réplicas distintas se contarían una sola vez si cada una guarda
-    // el número que leyó antes.
-    await manager.getRepository(CasoEntity).increment({ tenant, id: casoId }, 'mensajesSinLeer', 1);
-    return casoId;
+    // por réplicas distintas se contarían una sola vez si cada una guarda el
+    // número que leyó antes.
+    await casos.increment({ tenant, id: casoId }, 'mensajesSinLeer', 1);
+
+    // EL BOT SE CALLA EN CUANTO HAY UN OPERADOR. Un cuestionario automático
+    // encima de una persona que ya está atendiendo la emergencia estorba, y
+    // al ciudadano le llegan dos voces a la vez sin saber a cuál contestar.
+    const hayOperador = await mensajesRepo.findOne({
+      where: { tenant, casoId, autorTipo: 'operador' },
+    });
+    if (hayOperador) {
+      conv.casoId = casoId;
+      conv.estado = 'cerrada';
+      await convRepo.save(conv);
+      return { avisar: casoId, responder: null };
+    }
+
+    conv.casoId = casoId;
+
+    if (conv.estado === 'esperando_tipo' && eraTexto) {
+      const menu = menuDeTipos(await this.tiposDe(tenant));
+      const op = opcionElegida(texto, menu);
+      if (op) {
+        if (op.codigo) await this.tipificar(manager, tenant, casoId, op.codigo);
+        conv.estado = 'esperando_lugar';
+        conv.mensajesDelBot += 1;
+        await convRepo.save(conv);
+        return { avisar: casoId, responder: PREGUNTA_LUGAR };
+      }
+      // No eligió: contestó otra cosa. No se insiste — el mensaje ya está en
+      // el caso y un operador lo va a leer. Insistir en una línea 123 es peor
+      // que no preguntar.
+      conv.estado = 'cerrada';
+      await convRepo.save(conv);
+      return { avisar: casoId, responder: null };
+    }
+
+    if (conv.estado === 'esperando_lugar' && eraTexto) {
+      await casos.update({ tenant, id: casoId }, { direccion: texto.slice(0, 200) });
+      conv.estado = 'cerrada';
+      conv.mensajesDelBot += 1;
+      await convRepo.save(conv);
+      return { avisar: casoId, responder: CIERRE };
+    }
+
+    await convRepo.save(conv);
+    return { avisar: casoId, responder: null };
   }
 
   /**
@@ -432,6 +591,60 @@ export class WhatsappService {
         this.log.warn(`No se pudo avisar del mensaje en el caso ${id}: ${(e as Error).message}`);
       }
     }
+  }
+
+  /**
+   * Manda lo que el bot de admisión tenga que decir.
+   *
+   * Nunca lanza, y a propósito: el mensaje del ciudadano YA está guardado y
+   * el caso YA está en la bandeja. Que el bot no pueda contestar es una
+   * molestia; perder el reporte por eso sería otra cosa.
+   */
+  private async contestar(tenant: string, respuestas: { a: string; texto: string }[]): Promise<void> {
+    for (const r of respuestas) {
+      try {
+        await this.enviar(tenant, r.a, r.texto);
+      } catch (e) {
+        this.log.warn(`El bot de admisión no pudo contestar (${tenant}): ${(e as Error).message}`);
+      }
+    }
+  }
+
+  /** Los códigos de caso activos del municipio, para armar el menú. */
+  private async tiposDe(tenant: string): Promise<{ codigo: string; descripcion: string }[]> {
+    try {
+      return await this.catalogos.listarCodigos(tenant, true);
+    } catch (e) {
+      // Sin catálogo no se pregunta el tipo, pero el caso ya está abierto.
+      this.log.warn(`No se pudo leer el catálogo de ${tenant}: ${(e as Error).message}`);
+      return [];
+    }
+  }
+
+  /**
+   * Aplica al caso el tipo que eligió el ciudadano.
+   *
+   * Se tocan la tipificación, la prioridad y el título, y NO la agencia
+   * responsable, aunque el código del catálogo sugiera una. Mover un caso de
+   * bandeja después de creado se lo quita de delante a quien ya lo tenía
+   * abierto, y eso en mitad de una emergencia es peor que una tipificación
+   * que un operador corrige en dos clics.
+   */
+  private async tipificar(
+    manager: EntityManager, tenant: string, casoId: string, codigo: string,
+  ): Promise<void> {
+    const tipo = (await this.tiposDe(tenant)).find(
+      (c) => c.codigo.toUpperCase() === codigo.toUpperCase(),
+    ) as { codigo: string; descripcion: string; prioridad?: PrioridadCaso } | undefined;
+    if (!tipo) return;
+    await manager.getRepository(CasoEntity).update(
+      { tenant, id: casoId },
+      {
+        codigoCaso: tipo.codigo,
+        titulo: tipo.descripcion.slice(0, 200),
+        ...(tipo.prioridad ? { prioridad: tipo.prioridad } : {}),
+      },
+    );
   }
 
   /**

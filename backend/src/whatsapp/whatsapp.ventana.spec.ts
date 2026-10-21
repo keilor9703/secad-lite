@@ -1,10 +1,17 @@
 import { Test } from '@nestjs/testing';
 
 import { CasosGateway } from '../casos/casos.gateway';
+import { CatalogosService } from '../catalogos/catalogos.service';
 import { CasosService } from '../casos/casos.service';
 import { TenantRlsService } from '../common/tenant-rls.service';
 import { TenantsService } from '../tenants/tenants.service';
 import { HORAS_VENTANA_WHATSAPP, WhatsappService } from './whatsapp.service';
+/** Catálogo del municipio con el que se arma el menú de tipificación. */
+const catalogoDePrueba = [
+  { codigo: 'RIN', descripcion: 'Riña o agresión', prioridad: 'alta' },
+  { codigo: 'INC', descripcion: 'Incendio', prioridad: 'alta' },
+];
+
 
 /**
  * MANDAR EL ENLACE DE LA VIDEOLLAMADA POR WHATSAPP.
@@ -52,6 +59,10 @@ describe('WhatsappService · ¿se puede escribir por WhatsApp?', () => {
       providers: [
         WhatsappService,
         { provide: CasosService, useValue: { crear: () => Promise.resolve({ id: 'x' }) } },
+        {
+          provide: CatalogosService,
+          useValue: { listarCodigos: () => Promise.resolve(catalogoDePrueba) },
+        },
         { provide: CasosGateway, useValue: { emitirCambio: () => undefined } },
         {
           provide: TenantsService,

@@ -1,10 +1,17 @@
 import { Test } from '@nestjs/testing';
 
 import { CasosGateway } from '../casos/casos.gateway';
+import { CatalogosService } from '../catalogos/catalogos.service';
 import { CasosService } from '../casos/casos.service';
 import { TenantRlsService } from '../common/tenant-rls.service';
 import { TenantsService } from '../tenants/tenants.service';
 import { WhatsappService } from './whatsapp.service';
+/** Catálogo del municipio con el que se arma el menú de tipificación. */
+const catalogoDePrueba = [
+  { codigo: 'RIN', descripcion: 'Riña o agresión', prioridad: 'alta' },
+  { codigo: 'INC', descripcion: 'Incendio', prioridad: 'alta' },
+];
+
 
 /**
  * «QUÉ ME FALTA PARA QUE ESTO FUNCIONE».
@@ -37,6 +44,10 @@ describe('WhatsappService · qué le falta a la línea', () => {
       providers: [
         WhatsappService,
         { provide: CasosService, useValue: { crear: () => Promise.resolve({ id: 'x' }) } },
+        {
+          provide: CatalogosService,
+          useValue: { listarCodigos: () => Promise.resolve(catalogoDePrueba) },
+        },
         { provide: CasosGateway, useValue: { emitirCambio: () => undefined } },
         {
           provide: TenantsService,

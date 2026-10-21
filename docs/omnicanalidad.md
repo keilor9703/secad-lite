@@ -138,6 +138,13 @@ WhatsApp Calling para Colombia antes de prometerle nada a la alcaldía.]**
 
 ## 4. El filtro de mensajes: el problema de verdad
 
+> **Hecho el 21/10/2026.** Lo que sigue describe el problema y el diseño que
+> se discutió; la §4.6 cuenta lo que finalmente se construyó y en qué se
+> apartó de este plan. Queda pendiente la §4.4 (ubicación, audio y adjuntos:
+> hoy abren caso y se nombran, pero el contenido no se guarda) y la §4.5 (el
+> reloj de las 24 horas en la pantalla del caso).
+
+
 Hoy **cada mensaje de WhatsApp que llega crea o continúa un caso**. Para una
 línea de atención eso es insostenible, y conviene decir por qué con nombres
 propios: una línea de emergencias publicada recibe «hola», «buenos días»,
@@ -191,6 +198,52 @@ hay que usar una plantilla aprobada. Hoy FALCON no lo sabe, así que un
 operador que responde a las 30 horas **cree que respondió y no respondió**.
 Hay que mostrar el reloj en la pantalla del caso y tener plantillas
 aprobadas. **[confirmar la política vigente de Meta antes de implementarlo.]**
+
+### 4.6. Lo que se construyó, y en qué se apartó del plan
+
+**La regla que gobierna el filtro: en caso de duda, se abre el caso.** Un
+falso positivo es un caso de más, que se cierra en diez segundos. Un falso
+negativo es una emergencia descartada en silencio. No son comparables.
+
+Por eso el filtro **no intenta reconocer emergencias: reconoce ruido**, que es
+una lista cerrada y corta de saludos y cortesías (`admision.ts`). Lo que no
+está en esa lista abre caso. No hay regla de longitud mínima — «fuego» tiene
+cinco letras.
+
+**Se apartó del plan en una cosa, y es la importante.** La §4.2 proponía un
+menú ANTES del caso: nada abre caso hasta que el ciudadano elige una opción.
+Eso dejaría una emergencia escrita en texto libre esperando a que alguien
+conteste un menú. Lo construido invierte el orden:
+
+1. Ruido reconocible → no hay caso. El bot contesta **una vez** diciendo cómo
+   pedir ayuda, con el número de teléfono dentro, y no insiste.
+2. Cualquier otra cosa → **el caso se abre de inmediato**, sin tipificar.
+3. *Después*, el bot pregunta el tipo con el catálogo del municipio, y luego
+   la dirección. El caso ya está en la bandeja mientras eso ocurre.
+4. **El bot se calla en cuanto escribe un operador.** Dos voces a la vez sobre
+   una persona en una emergencia es peor que no tener bot.
+
+**Lo que no es texto nunca pasa por el filtro.** Un audio, una foto, un video
+o una ubicación abren caso siempre: quien se esconde de un agresor manda una
+nota de voz y no va a contestar un menú. La comprobación mira el **tipo** del
+mensaje y no si se pudo extraer texto — una foto trae pie, y una imagen de un
+accidente con el pie «ok» se habría descartado con la foto dentro.
+
+**La tipificación no cambia la agencia**, aunque el código del catálogo
+sugiera una. Mover un caso de bandeja después de creado se lo quita de delante
+a quien ya lo tenía abierto, y eso en mitad de una emergencia es peor que una
+tipificación que un operador corrige en dos clics.
+
+**La conversación vive en la base** (`whatsapp_conversaciones`), no en memoria
+del proceso: con tres réplicas, dos mensajes seguidos del mismo ciudadano caen
+en réplicas distintas.
+
+**Lo que todavía no es configurable:** la lista de ruido está en el código. La
+§4.3 pedía reglas por instancia en pantalla; añadir una palabra a esa lista es
+añadir una forma de perder una emergencia, así que de momento pasa por una
+revisión de código a propósito.
+
+---
 
 ---
 

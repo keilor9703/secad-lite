@@ -3,9 +3,11 @@ import { AuditoriaModule } from '../auditoria/auditoria.module';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { MensajeChatEntity } from '../chat/mensaje.entity';
 import { CasoEntity } from '../casos/caso.entity';
+import { ConversacionWaEntity } from './conversacion.entity';
 import { WhatsappService } from './whatsapp.service';
 import { WhatsappController } from './whatsapp.controller';
 import { CasosModule } from '../casos/casos.module';
+import { CatalogosModule } from '../catalogos/catalogos.module';
 import { TenantsModule } from '../tenants/tenants.module';
 
 /**
@@ -16,8 +18,10 @@ import { TenantsModule } from '../tenants/tenants.module';
 @Module({
   imports: [
     AuditoriaModule,
-    TypeOrmModule.forFeature([MensajeChatEntity, CasoEntity]),
+    TypeOrmModule.forFeature([MensajeChatEntity, CasoEntity, ConversacionWaEntity]),
     CasosModule,
+    // El menú de tipificación sale del catálogo de códigos del municipio.
+    CatalogosModule,
     TenantsModule,
   ],
   controllers: [WhatsappController],
