@@ -314,6 +314,25 @@ contestó el proveedor. Con una advertencia que conviene leer antes de asustarse
 ese teléfono tiene que haberle escrito a la línea en las últimas 24 horas. Si
 no, el rechazo es normal y no significa que la configuración esté mal.
 
+### La clave de API necesita DOS permisos, no uno
+
+Al crear la clave en Infobip hay que marcar el envío **y la lectura de lo
+entrante**. Parece que con el envío basta —los mensajes entrantes llegan solos
+por el webhook— y no es así:
+
+**El contenido de una foto, un audio o un documento NO viaja en el webhook.**
+Lo que llega es una URL, y FALCON tiene que ir a buscarla. Sin permiso de
+lectura esa descarga devuelve **403**.
+
+Lo traicionero es cómo se ve: el envío funciona, la prueba de la línea sale
+verde, los mensajes de texto entran bien, y solo las fotos fallan — con un
+error que parece de red. Pasó el 22/10/2026 y costó un despliegue entero de
+diagnóstico. Desde entonces el log y el aviso del caso lo dicen con todas las
+letras, pero es más barato marcarlo al crear la clave.
+
+La restricción por IP, si la pone, tiene que incluir la del servidor de
+producción (`157.137.211.196`): la descarga sale desde ahí.
+
 ### Por qué un número no puede estar en dos municipios
 
 `tenants.waNumero` tiene índice único. Cuando entra un mensaje, Infobip no

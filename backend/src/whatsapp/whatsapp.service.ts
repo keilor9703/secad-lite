@@ -94,6 +94,17 @@ const CIERRE =
 /** Lo que se le añade al aviso cuando el archivo SÍ quedó guardado. */
 const EN_LOS_ADJUNTOS = 'Está en los adjuntos del caso.';
 
+/**
+ * Cuando el proveedor rechaza la descarga por credenciales.
+ *
+ * Se separa del fallo genérico porque lo que hay que hacer es distinto, y
+ * porque quien lee esto es un operador: no le sirve «403», le sirve saber que
+ * el archivo existe y que el problema es de configuración, no suyo.
+ */
+const SIN_PERMISO_DE_LECTURA =
+  'No se pudo descargar por un problema de configuración de la línea: ' +
+  'avise al administrador. Mientras tanto, pídaselo por escrito o llámelo.';
+
 /** Y cuando no se pudo. Dice qué hacer, no solo que falló. */
 const NO_SE_PUDO_BAJAR =
   'No se pudo descargar: pídaselo por escrito o llámelo.';
@@ -759,8 +770,27 @@ export class WhatsappService {
         headers: clave ? { Authorization: `App ${clave}` } : {},
       });
       if (!res.ok) {
-        this.log.warn(`No se pudo bajar el adjunto de WhatsApp (${tenant}): ${res.status}`);
-        await this.rematarAviso(tenant, wamid, NO_SE_PUDO_BAJAR);
+        // UN 401 O UN 403 NO ES UN FALLO DE RED: ES LA CLAVE.
+        //
+        // El contenido del adjunto no viaja en el webhook; lo que llega es
+        // una URL que hay que ir a buscar, y para eso la clave de API
+        // necesita permiso de LECTURA de lo entrante. Con solo `message:send`
+        // el envío funciona, la prueba de la línea sale verde, y las fotos
+        // devuelven 403 — un fallo que parece de red y no lo es.
+        //
+        // Decirlo aquí ahorra el diagnóstico entero la próxima vez, que con
+        // un municipio nuevo cada mes es lo que cuenta.
+        const esPermiso = res.status === 401 || res.status === 403;
+        this.log.warn(
+          esPermiso
+            ? `No se pudo bajar el adjunto de WhatsApp (${tenant}): ${res.status}. ` +
+              'La clave INFOBIP_API_KEY no tiene permiso para LEER el contenido entrante ' +
+              '(no basta con message:send), o su restricción por IP no incluye a este servidor.'
+            : `No se pudo bajar el adjunto de WhatsApp (${tenant}): ${res.status}`,
+        );
+        await this.rematarAviso(
+          tenant, wamid, esPermiso ? SIN_PERMISO_DE_LECTURA : NO_SE_PUDO_BAJAR,
+        );
         return;
       }
 

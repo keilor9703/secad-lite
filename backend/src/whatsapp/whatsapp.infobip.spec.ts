@@ -574,6 +574,29 @@ describe('WhatsappService · mensajes de Infobip', () => {
       expect(adjuntados.length).toBe(2);
     });
 
+    it('un 403 se distingue de un fallo de red: es la clave, no el cable', async () => {
+      // El 22/10/2026 las fotos daban 403 y el aviso decía «no se pudo
+      // descargar», que mandaba a buscar un problema de red. La causa era que
+      // la clave de API se creó solo con permiso de ENVÍO: el contenido del
+      // adjunto no viaja en el webhook, hay que ir a buscarlo, y para eso
+      // hace falta permiso de lectura. Con un mensaje genérico, el
+      // diagnóstico hay que repetirlo entero en cada municipio.
+      globalThis.fetch = ((_u: string, init: { body?: string }) => {
+        if (init?.body) {
+          return Promise.resolve({ ok: true, status: 200, text: () => Promise.resolve('{}') });
+        }
+        return Promise.resolve({ ok: false, status: 403, text: () => Promise.resolve('') });
+      }) as unknown as typeof fetch;
+
+      await svc.recibirDeInfobip(
+        entrega({ messageId: 'foto-403', message: { type: 'IMAGE', url: 'https://m/x.jpg' } }),
+      );
+
+      const aviso = actualizados.find((a) => String(a['texto']).includes('imagen'));
+      expect(String(aviso!['texto'])).toContain('configuración de la línea');
+      expect(String(aviso!['texto'])).toContain('avise al administrador');
+    });
+
     it('si no hay URL por ningún lado, se dice y el aviso no miente', async () => {
       await svc.recibirDeInfobip(
         entrega({ messageId: 'm-c', message: { type: 'IMAGE', algoRaro: 1 } }),
