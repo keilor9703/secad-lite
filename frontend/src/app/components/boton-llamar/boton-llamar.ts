@@ -74,7 +74,23 @@ export class BotonLlamarComponent {
     this.auth.tieneIntegracion('pbx')
     && this.auth.tienePermiso('pbx.usar')
     && this.pbx.puede('marcar')
+    && this.tieneExtension()
     && PbxService.esNumeroMarcable(this.numero()));
+
+  /**
+   * ¿Este usuario tiene a dónde recibir el timbre?
+   *
+   * La planta timbra PRIMERO al operador y después al ciudadano, así que sin
+   * extensión no hay llamada posible — ni con softphone, que necesita la misma
+   * cuenta SIP. Un despachador sin extensión apretaba el botón y solo entonces
+   * se enteraba, en mitad de una emergencia.
+   *
+   * Se le asigna en Administración → Usuarios. El backend sigue comprobándolo
+   * por su cuenta: esto decide qué se dibuja, no quién puede llamar.
+   */
+  private readonly tieneExtension = computed(
+    () => !!this.auth.sesion()?.extension?.trim(),
+  );
 
   llamar(): void {
     const numero = this.numero();

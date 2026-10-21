@@ -16,6 +16,8 @@ describe('BotonLlamarComponent', () => {
   let capacidades: CapacidadesPbx | null;
   let permisos: string[];
   let integraciones: string[];
+  /** La extensión del usuario; nula = no atiende por PBX. */
+  let extension: string | null;
 
   function crear(numero: string | null = '3001234567'): BotonLlamarComponent {
     marcar = jasmine.createSpy('marcar').and.returnValue(of({ ok: true, mensaje: 'Va a timbrar su extensión 102.', extension: '102' }));
@@ -34,6 +36,7 @@ describe('BotonLlamarComponent', () => {
           useValue: {
             tienePermiso: (p: string) => permisos.includes(p),
             tieneIntegracion: (i: string) => integraciones.includes(i),
+            sesion: () => ({ usuario: 'u', nombre: 'U', extension }),
           },
         },
       ],
@@ -47,6 +50,7 @@ describe('BotonLlamarComponent', () => {
   beforeEach(() => {
     permisos = ['pbx.usar'];
     integraciones = ['pbx'];
+    extension = '102';
     capacidades = { proveedor: 'ZADARMA', nombre: 'Zadarma', activo: true, capacidades: ['entrantes', 'marcar'] };
   });
 
@@ -55,6 +59,20 @@ describe('BotonLlamarComponent', () => {
   });
 
   describe('no se dibuja', () => {
+    it('si el usuario NO tiene extensión', () => {
+      // El caso del despachador: la planta timbra PRIMERO al operador y
+      // después al ciudadano, así que sin extensión no hay llamada posible —
+      // ni con softphone, que necesita la misma cuenta SIP. Antes apretaba el
+      // botón y solo entonces se enteraba, en mitad de una emergencia.
+      extension = null;
+      expect(crear().visible()).toBeFalse();
+    });
+
+    it('si la extensión está en blanco', () => {
+      extension = '   ';
+      expect(crear().visible()).toBeFalse();
+    });
+
     it('si la instancia no contrató la planta telefónica', () => {
       integraciones = [];
       expect(crear().visible()).toBeFalse();

@@ -339,6 +339,13 @@ export interface Sesion {
    * tenant no tiene la lista configurada: sin restricción, no "ninguna".
    */
   integraciones?: string[] | null;
+  /**
+   * La extensión de la planta de este usuario. `null` si no atiende por PBX.
+   *
+   * Sirve para decidir si se le ofrece llamar: la planta timbra primero al
+   * operador, así que sin extensión no hay llamada posible.
+   */
+  extension?: string | null;
   /** Bandera/logo de SU tenant (data URL), para mostrarla junto al indicador de tenant en la barra superior. */
   logoDataUrl?: string | null;
   /** Código DANE (DIVIPOLA) del municipio de SU tenant — municipio por defecto en Recepción y centro del mapa. */

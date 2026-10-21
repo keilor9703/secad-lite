@@ -40,6 +40,19 @@ export interface LoginResult {
    * a esta funcionalidad): sin restricción, igual que en el backend.
    */
   integraciones: string[] | null;
+  /**
+   * La extensión de la planta de ESTE usuario. `null` si no atiende por PBX.
+   *
+   * Viaja para que la pantalla sepa, antes de ofrecer un botón de llamar,
+   * si hay a dónde timbrarle: la planta timbra primero al operador, así que
+   * sin extensión no hay llamada posible. Antes el operador lo descubría
+   * apretando.
+   *
+   * NO se usa para originar. Esa extensión la saca el backend de la base en
+   * cada petición, porque una que viniera del cliente dejaría llamadas
+   * facturables a nombre de otro.
+   */
+  extension?: string | null;
   /** Bandera/logo de SU tenant (data URL), para mostrarla junto al indicador de tenant. Null si no configuró una. */
   logoDataUrl: string | null;
   /**

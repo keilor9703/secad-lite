@@ -89,7 +89,7 @@ export class AuthService {
     const { integraciones, logoDataUrl, municipioCodigo } = await this.datosTenant(u.tenant ?? null);
     return this.emitir(
       u.username, u.nombre, u.rol, u.tenant ?? null, permisos, u.agenciaId ?? null,
-      integraciones, logoDataUrl, municipioCodigo,
+      integraciones, logoDataUrl, municipioCodigo, u.extension ?? null,
     );
   }
 
@@ -106,7 +106,7 @@ export class AuthService {
     return {
       usuario: u.username, nombre: u.nombre, rol: u.rol, tipo: 'institucional' as const,
       tenant: u.tenant ?? null, permisos, agencia: u.agenciaId ?? null, canales: u.canales ?? [],
-      integraciones, logoDataUrl, municipioCodigo,
+      integraciones, logoDataUrl, municipioCodigo, extension: u.extension ?? null,
     };
   }
 
@@ -143,12 +143,25 @@ export class AuthService {
     integraciones: string[] | null = null,
     logoDataUrl: string | null = null,
     municipioCodigo: string | null = null,
+    /**
+     * La extensión de la planta de ESTE usuario, si tiene.
+     *
+     * Viaja en la sesión para que la pantalla sepa, ANTES de ofrecer un
+     * botón de llamar, si hay a dónde timbrarle. Sin esto el operador
+     * apretaba y solo entonces se enteraba de que no tiene teléfono.
+     *
+     * No viaja en el JWT y es deliberado: el backend NO la lee de aquí para
+     * originar la llamada —la saca de la base cada vez—, porque una
+     * extensión que viniera del cliente dejaría llamadas facturables a
+     * nombre de otro. Esto es solo para decidir qué se dibuja.
+     */
+    extension: string | null = null,
   ): LoginResult {
     const tipo = 'institucional' as const;
     const payload: JwtPayload = { sub, tipo, nombre, rol, permisos, tenant, agencia };
     return {
       token: this.jwt.sign(payload), usuario: sub, tipo, nombre, rol, permisos, tenant, agencia,
-      integraciones, logoDataUrl, municipioCodigo,
+      integraciones, logoDataUrl, municipioCodigo, extension,
     };
   }
 }
