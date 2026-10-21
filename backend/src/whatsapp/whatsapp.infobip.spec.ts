@@ -560,6 +560,30 @@ describe('WhatsappService · mensajes de Infobip', () => {
       expect(String(a['nombre'])).toContain('nota-de-voz');
     });
 
+    it('el archivo se encuentra aunque el campo se llame de otra forma', async () => {
+      // Los proveedores ponen lo mismo en tres sitios distintos: `url`,
+      // `mediaUrl` o `media.url`. Aceptarlos todos es más barato que acertar,
+      // y fallar aquí cuesta la foto de una emergencia.
+      await svc.recibirDeInfobip(
+        entrega({ messageId: 'm-a', message: { type: 'IMAGE', mediaUrl: 'https://m/a.jpg' } }),
+      );
+      await svc.recibirDeInfobip(
+        entrega({ messageId: 'm-b', message: { type: 'IMAGE', media: { url: 'https://m/b.jpg' } } }),
+      );
+
+      expect(adjuntados.length).toBe(2);
+    });
+
+    it('si no hay URL por ningún lado, se dice y el aviso no miente', async () => {
+      await svc.recibirDeInfobip(
+        entrega({ messageId: 'm-c', message: { type: 'IMAGE', algoRaro: 1 } }),
+      );
+
+      expect(adjuntados.length).toBe(0);
+      const aviso = actualizados.find((a) => String(a['texto']).includes('imagen'));
+      expect(String(aviso!['texto'])).toContain('pídaselo por escrito');
+    });
+
     it('un texto normal no baja nada', async () => {
       await svc.recibirDeInfobip(entrega());
       expect(adjuntados.length).toBe(0);

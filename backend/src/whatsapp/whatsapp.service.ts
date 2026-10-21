@@ -8,7 +8,9 @@ import { ArchivosService } from '../archivos/archivos.service';
 import { CatalogosService } from '../catalogos/catalogos.service';
 import { PrioridadCaso } from '../catalogos/codigo-caso.entity';
 import { ConversacionWaEntity } from './conversacion.entity';
-import { UbicacionCiudadano, esRuido, menuDeTipos, opcionElegida, textoDelMenu, ubicacionDe } from './admision';
+import {
+  UbicacionCiudadano, esRuido, formaDe, menuDeTipos, opcionElegida, textoDelMenu, ubicacionDe,
+} from './admision';
 import { TenantsService } from '../tenants/tenants.service';
 import { TenantRlsService } from '../common/tenant-rls.service';
 
@@ -276,6 +278,17 @@ export class WhatsappService {
         this.tenants.asegurarVigente(tenant, 'whatsapp');
       } catch {
         continue;
+      }
+
+      // LO QUE NO ES TEXTO SE ANOTA POR SU FORMA, NO POR SU CONTENIDO.
+      //
+      // Este traductor se escribió contra el formato documentado, antes de
+      // ver una entrega real. El 22/10/2026 una foto y una ubicación reales
+      // no se pudieron leer y el log solo decía que había fallado, no qué
+      // venía dentro. `formaDe` da los nombres de los campos y nunca sus
+      // valores: lo que mandó el ciudadano no acaba escrito en un log.
+      if (!this.esSoloTextoDe(r?.message)) {
+        this.log.warn(`Infobip, mensaje no-texto: ${formaDe(r?.message)}`);
       }
 
       const texto = this.textoDeInfobip(r?.message);
@@ -722,12 +735,23 @@ export class WhatsappService {
   private async guardarAdjunto(
     tenant: string, casoId: string, mensaje: unknown, wamid: string | null,
   ): Promise<void> {
-    const m = mensaje as { type?: string; url?: string; caption?: string } | null;
-    const url = String(m?.url ?? '').trim();
-    if (!url || !/^https?:\/\//i.test(url)) return;
-
+    const m = mensaje as {
+      type?: string; url?: string; mediaUrl?: string; caption?: string;
+      media?: { url?: string };
+    } | null;
     const tipo = String(m?.type ?? '').toUpperCase();
     if (!TIPOS_CON_ARCHIVO.has(tipo)) return;
+
+    // Tres sitios donde los proveedores ponen lo mismo. Aceptarlos todos es
+    // más barato que acertar, y fallar aquí cuesta la foto de una emergencia.
+    const url = String(m?.url ?? m?.mediaUrl ?? m?.media?.url ?? '').trim();
+    if (!url || !/^https?:\/\//i.test(url)) {
+      this.log.warn(
+        `Adjunto de WhatsApp sin URL reconocible (${tenant}): ${formaDe(mensaje)}`,
+      );
+      await this.rematarAviso(tenant, wamid, NO_SE_PUDO_BAJAR);
+      return;
+    }
 
     try {
       const clave = (process.env.INFOBIP_API_KEY ?? '').trim();

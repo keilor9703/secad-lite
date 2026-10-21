@@ -158,7 +158,12 @@ export interface UbicacionCiudadano {
  * que parece buena, no.
  */
 export function ubicacionDe(m: unknown): UbicacionCiudadano | null {
-  const msg = m as {
+  // Dos convenciones conviven entre proveedores: unos ponen las coordenadas
+  // al nivel del mensaje y otros las anidan en `location`. Se aceptan las
+  // dos, porque distinguirlas no aporta nada y equivocarse cuesta la
+  // ubicación de una emergencia.
+  const raw = m as { location?: unknown } | null;
+  const msg = (raw?.location ?? raw) as {
     latitude?: unknown; longitude?: unknown; address?: unknown; name?: unknown;
   } | null;
   const lat = Number(msg?.latitude);
@@ -175,4 +180,32 @@ export function ubicacionDe(m: unknown): UbicacionCiudadano | null {
     .join(' · ');
 
   return direccion ? { lat, lng, direccion } : { lat, lng };
+}
+
+/**
+ * La FORMA de un mensaje: sus campos, sin su contenido.
+ *
+ * ────────────────────────────────────────────────────────────────────────────
+ * POR QUÉ EXISTE
+ *
+ * El traductor de Infobip se escribió contra el formato documentado, antes de
+ * haber visto una entrega real. El 22/10/2026 una foto y una ubicación reales
+ * no se pudieron leer, y averiguar por qué era imposible: el log decía que
+ * había fallado, no QUÉ venía dentro.
+ *
+ * Esto cierra ese agujero sin abrir otro. Devuelve los NOMBRES de los campos
+ * y nunca sus valores, así que un mensaje de un ciudadano —su texto, su
+ * dirección, sus coordenadas— no acaba escrito en el log de un servidor.
+ */
+export function formaDe(m: unknown, profundidad = 2): string {
+  if (m === null || m === undefined) return 'nada';
+  if (Array.isArray(m)) return `[${m.length}]`;
+  if (typeof m !== 'object') return typeof m;
+  if (profundidad <= 0) return '{…}';
+
+  const campos = Object.entries(m as Record<string, unknown>).map(([k, v]) => {
+    if (v && typeof v === 'object') return `${k}${formaDe(v, profundidad - 1)}`;
+    return k;
+  });
+  return `{${campos.join(',')}}`;
 }

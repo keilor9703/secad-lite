@@ -1,5 +1,6 @@
 import {
-  esRuido, menuDeTipos, opcionElegida, palabras, textoDelMenu, ubicacionDe, MAX_OPCIONES,
+  esRuido, formaDe, menuDeTipos, opcionElegida, palabras, textoDelMenu, ubicacionDe,
+  MAX_OPCIONES,
 } from './admision';
 
 /**
@@ -208,5 +209,58 @@ describe('Admisión de WhatsApp · la ubicación del ciudadano', () => {
       expect(ubicacionDe({ latitude: 0, longitude: -75.5 })).toEqual({ lat: 0, lng: -75.5 });
       expect(ubicacionDe({ latitude: 6.18, longitude: 0 })).toEqual({ lat: 6.18, lng: 0 });
     });
+  });
+});
+
+describe('Admisión de WhatsApp · la forma de un mensaje', () => {
+  // El 22/10/2026 una foto y una ubicación reales no se pudieron leer, y
+  // averiguar por qué era imposible: el log decía que había fallado, no QUÉ
+  // venía dentro. Esto cierra ese agujero sin abrir otro.
+
+  it('dice los campos, no lo que llevan dentro', () => {
+    // Es la garantía que importa: un reporte de emergencia —su texto, su
+    // dirección, sus coordenadas— no puede acabar escrito en el log de un
+    // servidor por querer depurar el formato.
+    const f = formaDe({
+      type: 'LOCATION', latitude: 6.1845, longitude: -75.5986,
+      address: 'Calle 50 #70-20',
+    });
+
+    expect(f).toContain('latitude');
+    expect(f).toContain('address');
+    expect(f).not.toContain('6.1845');
+    expect(f).not.toContain('Calle 50');
+    expect(f).not.toContain('LOCATION');
+  });
+
+  it('entra un nivel en lo anidado, que es donde se escondía el problema', () => {
+    const f = formaDe({ type: 'LOCATION', location: { latitude: 1, longitude: 2 } });
+    expect(f).toContain('location{latitude,longitude}');
+  });
+
+  it('no se hunde en algo muy anidado', () => {
+    const f = formaDe({ a: { b: { c: { d: 1 } } } });
+    expect(f).toContain('…');
+  });
+
+  it('un cuerpo vacío o raro no revienta', () => {
+    expect(formaDe(null)).toBe('nada');
+    expect(formaDe(undefined)).toBe('nada');
+    expect(formaDe('texto')).toBe('string');
+    expect(formaDe([1, 2, 3])).toBe('[3]');
+  });
+});
+
+describe('Admisión de WhatsApp · la ubicación anidada', () => {
+  it('se acepta tanto al nivel del mensaje como dentro de «location»', () => {
+    // Dos convenciones conviven entre proveedores. Distinguirlas no aporta
+    // nada y equivocarse cuesta la ubicación de una emergencia.
+    expect(ubicacionDe({ latitude: 6.18, longitude: -75.59 })).toEqual({ lat: 6.18, lng: -75.59 });
+    expect(ubicacionDe({ location: { latitude: 6.18, longitude: -75.59 } }))
+      .toEqual({ lat: 6.18, lng: -75.59 });
+  });
+
+  it('y «0, 0» sigue rechazándose venga como venga', () => {
+    expect(ubicacionDe({ location: { latitude: 0, longitude: 0 } })).toBeNull();
   });
 });
