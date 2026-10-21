@@ -1,11 +1,15 @@
 import { Test } from '@nestjs/testing';
 
+import { ArchivosService } from '../archivos/archivos.service';
 import { CasosGateway } from '../casos/casos.gateway';
 import { CatalogosService } from '../catalogos/catalogos.service';
 import { CasosService } from '../casos/casos.service';
 import { TenantRlsService } from '../common/tenant-rls.service';
 import { TenantsService } from '../tenants/tenants.service';
 import { HORAS_VENTANA_WHATSAPP, WhatsappService } from './whatsapp.service';
+/** Lo que se mandó al expediente del caso. */
+const adjuntados: unknown[] = [];
+
 /** Catálogo del municipio con el que se arma el menú de tipificación. */
 const catalogoDePrueba = [
   { codigo: 'RIN', descripcion: 'Riña o agresión', prioridad: 'alta' },
@@ -59,6 +63,10 @@ describe('WhatsappService · ¿se puede escribir por WhatsApp?', () => {
       providers: [
         WhatsappService,
         { provide: CasosService, useValue: { crear: () => Promise.resolve({ id: 'x' }) } },
+        {
+          provide: ArchivosService,
+          useValue: { subirCompleto: (_t: string, d: unknown) => { adjuntados.push(d); return Promise.resolve({}); } },
+        },
         {
           provide: CatalogosService,
           useValue: { listarCodigos: () => Promise.resolve(catalogoDePrueba) },

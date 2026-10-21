@@ -138,11 +138,10 @@ WhatsApp Calling para Colombia antes de prometerle nada a la alcaldía.]**
 
 ## 4. El filtro de mensajes: el problema de verdad
 
-> **Hecho el 21/10/2026.** Lo que sigue describe el problema y el diseño que
-> se discutió; la §4.6 cuenta lo que finalmente se construyó y en qué se
-> apartó de este plan. Queda pendiente la §4.4 (ubicación, audio y adjuntos:
-> hoy abren caso y se nombran, pero el contenido no se guarda) y la §4.5 (el
-> reloj de las 24 horas en la pantalla del caso).
+> **Hecho el 21/10/2026**, §4.1 a §4.4. Lo que sigue describe el problema y
+> el diseño que se discutió; la §4.6 cuenta lo que se construyó y en qué se
+> apartó de este plan. Queda pendiente la §4.5 (el reloj de las 24 horas en la
+> pantalla del caso) y, de la §4.3, que las reglas se editen en pantalla.
 
 
 Hoy **cada mensaje de WhatsApp que llega crea o continúa un caso**. Para una
@@ -228,6 +227,28 @@ o una ubicación abren caso siempre: quien se esconde de un agresor manda una
 nota de voz y no va a contestar un menú. La comprobación mira el **tipo** del
 mensaje y no si se pudo extraer texto — una foto trae pie, y una imagen de un
 accidente con el pie «ok» se habría descartado con la foto dentro.
+
+**La ubicación entra directo a las coordenadas del caso**, y se valida antes
+de guardarla. El caso que importa es el `0, 0`: un campo ausente o ilegible se
+vuelve cero sin que nada falle, y `0, 0` es un punto real en el golfo de
+Guinea. Guardarlo mandaría una patrulla al Atlántico y —peor— haría creer al
+despachador que tiene la ubicación, así que dejaría de preguntarla. No tenerla
+es recuperable; tener una falsa que parece buena, no.
+
+Mandar la ubicación además **contesta la pregunta del bot**: seguir pidiendo
+una dirección escrita después de que el ciudadano mandó el punto exacto es no
+haber leído lo que mandó.
+
+**La foto, el audio, el video y el documento se bajan al expediente** del
+caso, como cualquier otro adjunto. Antes el caso decía «[El ciudadano envió
+una nota de voz]» y ahí se acababa: el operador sabía que existía y no podía
+oírla. Tres límites, los tres por el mismo motivo —el caso ya está abierto y
+perderlo sería peor que perder el adjunto—: solo URL `http(s)`, un tope de
+32 MB comprobado en la cabecera **antes** de leer el cuerpo (traer 400 MB a
+memoria tumbaría el proceso y con él la bandeja del municipio), y cualquier
+fallo de descarga se registra y se sigue. Esto funciona por el camino de
+Infobip; por el de Meta, los adjuntos piden una llamada aparte a la Graph API
+y **todavía no se bajan**.
 
 **La tipificación no cambia la agencia**, aunque el código del catálogo
 sugiera una. Mover un caso de bandeja después de creado se lo quita de delante

@@ -7,6 +7,7 @@ import { ConversacionWaEntity } from './conversacion.entity';
 import { WhatsappService } from './whatsapp.service';
 import { WhatsappController } from './whatsapp.controller';
 import { CasosModule } from '../casos/casos.module';
+import { ArchivosModule } from '../archivos/archivos.module';
 import { CatalogosModule } from '../catalogos/catalogos.module';
 import { TenantsModule } from '../tenants/tenants.module';
 
@@ -22,6 +23,9 @@ import { TenantsModule } from '../tenants/tenants.module';
     CasosModule,
     // El menú de tipificación sale del catálogo de códigos del municipio.
     CatalogosModule,
+    // La foto, el audio y el documento que manda el ciudadano van al
+    // expediente del caso como cualquier otro adjunto.
+    ArchivosModule,
     TenantsModule,
   ],
   controllers: [WhatsappController],

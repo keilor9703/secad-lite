@@ -1,11 +1,15 @@
 import { Test } from '@nestjs/testing';
 
+import { ArchivosService } from '../archivos/archivos.service';
 import { CasosGateway } from '../casos/casos.gateway';
 import { CatalogosService } from '../catalogos/catalogos.service';
 import { CasosService } from '../casos/casos.service';
 import { TenantRlsService } from '../common/tenant-rls.service';
 import { TenantsService } from '../tenants/tenants.service';
 import { WhatsappService } from './whatsapp.service';
+/** Lo que se mandó al expediente del caso. */
+const adjuntados: unknown[] = [];
+
 /** Catálogo del municipio con el que se arma el menú de tipificación. */
 const catalogoDePrueba = [
   { codigo: 'RIN', descripcion: 'Riña o agresión', prioridad: 'alta' },
@@ -154,6 +158,10 @@ describe('WhatsappService · mensajes de Infobip', () => {
               return Promise.resolve({ id: `caso-${casos.length}` });
             },
           },
+        },
+        {
+          provide: ArchivosService,
+          useValue: { subirCompleto: (_t: string, d: unknown) => { adjuntados.push(d); return Promise.resolve({}); } },
         },
         {
           provide: CatalogosService,
@@ -436,6 +444,171 @@ describe('WhatsappService · mensajes de Infobip', () => {
       expect(delBot).toEqual([]);
       expect(cambiosAlCaso).toEqual([]);
       expect(conversacion!.estado).toBe('cerrada');
+    });
+  });
+
+  describe('la ubicación y los adjuntos', () => {
+    beforeEach(() => {
+      tenantPorNumero['573132354086'] = { codigo: 'itagui' };
+      adjuntados.length = 0;
+      process.env['INFOBIP_BASE_URL'] = 'ejemplo.api.infobip.com';
+      process.env['INFOBIP_API_KEY'] = 'clave';
+      globalThis.fetch = ((u: string, init: { body?: string }) => {
+        // El envío del bot lleva cuerpo; la descarga del adjunto, no.
+        if (init?.body) {
+          const c = JSON.parse(init.body) as { content: { text: string } };
+          delBot.push(c.content.text);
+          return Promise.resolve({ ok: true, status: 200, text: () => Promise.resolve('{}') });
+        }
+        return Promise.resolve({
+          ok: true,
+          status: 200,
+          headers: new Map([['content-length', '2048'], ['content-type', 'audio/ogg']]) as unknown as Headers,
+          arrayBuffer: () => Promise.resolve(new ArrayBuffer(2048)),
+        });
+      }) as unknown as typeof fetch;
+    });
+
+    afterEach(() => {
+      delete process.env['INFOBIP_BASE_URL'];
+      delete process.env['INFOBIP_API_KEY'];
+    });
+
+    it('una ubicación cae en las coordenadas del caso', async () => {
+      // Es el dato más valioso que existe para un CAD: el ciudadano lo manda
+      // con un toque y resuelve lo que más cuesta por teléfono.
+      await svc.recibirDeInfobip(
+        entrega({ message: { type: 'LOCATION', latitude: 6.1845, longitude: -75.5986 } }),
+      );
+
+      expect(casos.length).toBe(1);
+      const puesto = cambiosAlCaso.find((c) => 'lat' in c);
+      expect(puesto!['lat']).toBe(6.1845);
+      expect(puesto!['lng']).toBe(-75.5986);
+    });
+
+    it('también cae en un caso que YA existía', async () => {
+      // El ciudadano escribe primero y manda la ubicación después, que es lo
+      // normal. Si solo se guardara al abrir el caso, el punto llegaría
+      // cuando ya no hay dónde ponerlo.
+      casoExistente = {
+        id: 'caso-1', canal: 'whatsapp', telefono: '573175882321', mensajesSinLeer: 0,
+      };
+      conversacion = { estado: 'esperando_tipo', casoId: 'caso-1', mensajesDelBot: 1 };
+
+      await svc.recibirDeInfobip(
+        entrega({ message: { type: 'LOCATION', latitude: 6.1845, longitude: -75.5986 } }),
+      );
+
+      expect(casos.length).toBe(0); // no se abrió otro
+      const puesto = cambiosAlCaso.find((c) => 'lat' in c);
+      expect(puesto!['lat']).toBe(6.1845);
+    });
+
+    it('«0, 0» NO se guarda: mandaría una patrulla al Atlántico', async () => {
+      // Y, peor que eso, haría creer al despachador que tiene la ubicación.
+      await svc.recibirDeInfobip(
+        entrega({ message: { type: 'LOCATION', latitude: 0, longitude: 0 } }),
+      );
+
+      // El caso sí se abre —algo mandó el ciudadano— pero sin coordenadas.
+      expect(casos.length).toBe(1);
+      expect(cambiosAlCaso.find((c) => 'lat' in c)).toBeUndefined();
+    });
+
+    it('mandar la ubicación CONTESTA la pregunta: el bot no la vuelve a pedir', async () => {
+      // Seguir pidiendo una dirección escrita después de que el ciudadano
+      // mandó el punto exacto es no haber leído lo que mandó.
+      casoExistente = {
+        id: 'caso-1', canal: 'whatsapp', telefono: '573175882321', mensajesSinLeer: 0,
+      };
+      conversacion = { estado: 'esperando_lugar', casoId: 'caso-1', mensajesDelBot: 2 };
+
+      await svc.recibirDeInfobip(
+        entrega({ message: { type: 'LOCATION', latitude: 6.1845, longitude: -75.5986 } }),
+      );
+
+      expect(conversacion!.estado).toBe('cerrada');
+      expect(delBot.join(' ')).not.toContain('DIRECCION');
+    });
+
+    it('una nota de voz se baja y queda en el expediente', async () => {
+      // Antes el caso decía «[El ciudadano envió una nota de voz]» y ahí se
+      // acababa: el operador sabía que existía y no podía oírla. Quien se
+      // esconde de un agresor manda un audio porque no puede hablar, y ese
+      // audio ERA el reporte.
+      await svc.recibirDeInfobip(
+        entrega({ message: { type: 'VOICE', url: 'https://media.infobip.com/x.ogg' } }),
+      );
+
+      expect(adjuntados.length).toBe(1);
+      const a = adjuntados[0] as Record<string, unknown>;
+      expect(a['casoId']).toBeTruthy();
+      expect(a['tipoMime']).toBe('audio/ogg');
+      expect(String(a['nombre'])).toContain('nota-de-voz');
+    });
+
+    it('un texto normal no baja nada', async () => {
+      await svc.recibirDeInfobip(entrega());
+      expect(adjuntados.length).toBe(0);
+    });
+
+    it('una URL que no es http no se intenta bajar', async () => {
+      // Un campo `url` que llega con otra cosa dentro no se toca.
+      await svc.recibirDeInfobip(
+        entrega({ message: { type: 'IMAGE', url: 'file:///etc/passwd' } }),
+      );
+      expect(adjuntados.length).toBe(0);
+    });
+
+    it('un adjunto demasiado grande NI SE LEE', async () => {
+      // Traerlo a memoria para trocearlo tumbaría el proceso, y con él la
+      // bandeja del municipio entero. Por eso se mira la cabecera ANTES de
+      // tocar el cuerpo: preguntar el tamaño después de habérselo tragado no
+      // evita nada, y es justo lo que comprueba este `leido`.
+      let leido = false;
+      globalThis.fetch = ((_u: string, init: { body?: string }) => {
+        if (init?.body) {
+          return Promise.resolve({ ok: true, status: 200, text: () => Promise.resolve('{}') });
+        }
+        return Promise.resolve({
+          ok: true, status: 200,
+          headers: new Map([
+            ['content-length', String(400 * 1024 * 1024)],
+            ['content-type', 'video/mp4'],
+          ]) as unknown as Headers,
+          arrayBuffer: () => {
+            leido = true;
+            return Promise.resolve(new ArrayBuffer(1024));
+          },
+        });
+      }) as unknown as typeof fetch;
+
+      await svc.recibirDeInfobip(
+        entrega({ message: { type: 'VIDEO', url: 'https://media.infobip.com/x.mp4' } }),
+      );
+
+      // Si esto falla, se leyó el cuerpo de un archivo de 400 MB.
+      expect(leido).toBe(false);
+      expect(adjuntados.length).toBe(0);
+      expect(casos.length).toBe(1); // el caso sigue abierto
+    });
+
+    it('si la descarga falla, el caso NO se pierde', async () => {
+      globalThis.fetch = ((_u: string, init: { body?: string }) => {
+        if (init?.body) {
+          return Promise.resolve({ ok: true, status: 200, text: () => Promise.resolve('{}') });
+        }
+        return Promise.reject(new Error('red caída'));
+      }) as unknown as typeof fetch;
+
+      const r = await svc.recibirDeInfobip(
+        entrega({ message: { type: 'IMAGE', url: 'https://media.infobip.com/x.jpg' } }),
+      );
+
+      expect(r.procesados).toBe(1);
+      expect(casos.length).toBe(1);
+      expect(adjuntados.length).toBe(0);
     });
   });
 

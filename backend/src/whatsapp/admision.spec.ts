@@ -1,5 +1,5 @@
 import {
-  esRuido, menuDeTipos, opcionElegida, palabras, textoDelMenu, MAX_OPCIONES,
+  esRuido, menuDeTipos, opcionElegida, palabras, textoDelMenu, ubicacionDe, MAX_OPCIONES,
 } from './admision';
 
 /**
@@ -167,5 +167,46 @@ describe('Admisión de WhatsApp · leer la respuesta al menú', () => {
   it('«otra» se puede elegir como cualquier otra', () => {
     expect(opcionElegida('3', ops)?.codigo).toBeNull();
     expect(opcionElegida('3', ops)?.numero).toBe(3);
+  });
+});
+
+describe('Admisión de WhatsApp · la ubicación del ciudadano', () => {
+  it('unas coordenadas normales se leen', () => {
+    const u = ubicacionDe({ type: 'LOCATION', latitude: 6.1845, longitude: -75.5986 });
+    expect(u).toEqual({ lat: 6.1845, lng: -75.5986 });
+  });
+
+  it('la dirección que resuelve WhatsApp viene con ellas', () => {
+    const u = ubicacionDe({
+      latitude: 6.1845, longitude: -75.5986,
+      name: 'Parque de Itagüí', address: 'Cra 51 #51-55',
+    });
+    expect(u!.direccion).toContain('Parque de Itagüí');
+    expect(u!.direccion).toContain('Cra 51');
+  });
+
+  describe('lo que NO se guarda', () => {
+    it('«0, 0» se rechaza: es el golfo de Guinea, no una emergencia', () => {
+      // Un campo ausente o ilegible se vuelve cero sin que nada falle, y 0,0
+      // es un punto real en el Atlántico. Guardarlo mandaría una patrulla
+      // allá y, peor, haría creer al despachador que tiene la ubicación —
+      // dejaría de preguntarla. No tenerla es recuperable; tener una falsa
+      // que parece buena, no.
+      expect(ubicacionDe({ latitude: 0, longitude: 0 })).toBeNull();
+      expect(ubicacionDe({})).toBeNull();
+      expect(ubicacionDe({ latitude: 'x', longitude: 'y' })).toBeNull();
+      expect(ubicacionDe(null)).toBeNull();
+    });
+
+    it('una coordenada fuera del planeta se rechaza', () => {
+      expect(ubicacionDe({ latitude: 91, longitude: 0 })).toBeNull();
+      expect(ubicacionDe({ latitude: 0, longitude: 181 })).toBeNull();
+    });
+
+    it('pero una coordenada con UN cero sí vale', () => {
+      // El ecuador y el meridiano existen. Solo se rechaza el par completo.
+      expect(ubicacionDe({ latitude: 0, longitude: -75.5 })).toEqual({ lat: 0, lng: -75.5 });
+      expect(ubicacionDe({ latitude: 6.18, longitude: 0 })).toEqual({ lat: 6.18, lng: 0 });
+    });
   });
 });

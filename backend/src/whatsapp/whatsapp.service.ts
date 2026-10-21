@@ -4,10 +4,11 @@ import { MensajeChatEntity } from '../chat/mensaje.entity';
 import { CasoEntity } from '../casos/caso.entity';
 import { CasosService } from '../casos/casos.service';
 import { CasosGateway } from '../casos/casos.gateway';
+import { ArchivosService } from '../archivos/archivos.service';
 import { CatalogosService } from '../catalogos/catalogos.service';
 import { PrioridadCaso } from '../catalogos/codigo-caso.entity';
 import { ConversacionWaEntity } from './conversacion.entity';
-import { esRuido, menuDeTipos, opcionElegida, textoDelMenu } from './admision';
+import { UbicacionCiudadano, esRuido, menuDeTipos, opcionElegida, textoDelMenu, ubicacionDe } from './admision';
 import { TenantsService } from '../tenants/tenants.service';
 import { TenantRlsService } from '../common/tenant-rls.service';
 
@@ -88,6 +89,19 @@ const PREGUNTA_LUGAR =
 const CIERRE =
   'Gracias. Un operador lo atendera por aqui mismo. Si es urgente, llame al 123.';
 
+/** Los tipos de mensaje que traen un archivo que vale la pena guardar. */
+const TIPOS_CON_ARCHIVO = new Set(['IMAGE', 'VIDEO', 'VOICE', 'AUDIO', 'DOCUMENT']);
+
+/**
+ * Lo más grande que se baja de un adjunto de WhatsApp.
+ *
+ * El archivo se trae entero a memoria para trocearlo, así que el límite no es
+ * una preferencia: dos videos grandes a la vez tumbarían el proceso, y con él
+ * la bandeja del municipio. WhatsApp ya limita a 16 MB el video y a 100 MB el
+ * documento; esto corta por debajo y lo deja escrito en el log.
+ */
+const MAX_BYTES_ADJUNTO = 32 * 1024 * 1024;
+
 /** Ventana sobre la que se cuenta el movimiento de la línea. */
 const DIAS_CONSUMO = 30;
 
@@ -107,6 +121,7 @@ export class WhatsappService {
     private readonly casosSvc: CasosService,
     private readonly gateway: CasosGateway,
     private readonly catalogos: CatalogosService,
+    private readonly archivos: ArchivosService,
     private readonly tenants: TenantsService,
     private readonly rls: TenantRlsService,
   ) {}
@@ -267,6 +282,10 @@ export class WhatsappService {
       // Ver el comentario del camino de Meta: se avisa fuera de la transacción.
       const avisos: string[] = [];
       const respuestas: { a: string; texto: string }[] = [];
+      // Los adjuntos se bajan DESPUÉS de cerrar la transacción: descargar
+      // un video de diez megas con filas de `casos` bloqueadas deja al
+      // municipio entero esperando a la red de otro.
+      const adjuntos: { casoId: string; mensaje: unknown }[] = [];
       procesados += await this.rls.conTenant(tenant.codigo, async (manager) => {
         const mensajes = manager.getRepository(MensajeChatEntity);
         // Infobip reintenta lo que no confirmamos a tiempo: el mismo mensaje
@@ -289,13 +308,16 @@ export class WhatsappService {
           // de un accidente con el pie «ok» habría pasado por el filtro de
           // ruido y se habría descartado, con la foto dentro.
           this.esSoloTextoDe(r?.message),
+          ubicacionDe(r?.message),
         );
         if (res.avisar) avisos.push(res.avisar);
         if (res.responder) respuestas.push({ a: de, texto: res.responder });
+        if (res.casoId) adjuntos.push({ casoId: res.casoId, mensaje: r?.message });
         return 1;
       });
       await this.avisarMensajesNuevos(tenant.codigo, avisos);
       await this.contestar(tenant.codigo, respuestas);
+      for (const a of adjuntos) await this.guardarAdjunto(tenant.codigo, a.casoId, a.mensaje);
     }
 
     if (sinReconocer) {
@@ -460,7 +482,16 @@ export class WhatsappService {
      * un agresor manda una nota de voz y no va a contestar un menú.
      */
     eraTexto = true,
-  ): Promise<{ avisar: string | null; responder: string | null }> {
+    /**
+     * Dónde dice el ciudadano que está, si mandó su ubicación.
+     *
+     * Entra por aquí y no se resuelve fuera porque es la misma decisión:
+     * guardar las coordenadas Y dar por contestada la pregunta del bot. Si
+     * se hiciera aparte, el bot seguiría pidiendo una dirección que el
+     * ciudadano acaba de mandar con un toque.
+     */
+    ubicacion: UbicacionCiudadano | null = null,
+  ): Promise<{ casoId: string | null; avisar: string | null; responder: string | null }> {
     const casos = manager.getRepository(CasoEntity);
     const mensajesRepo = manager.getRepository(MensajeChatEntity);
     const convRepo = manager.getRepository(ConversacionWaEntity);
@@ -484,7 +515,7 @@ export class WhatsappService {
         conv.estado = 'nueva';
         if (primeraVez) conv.mensajesDelBot += 1;
         await convRepo.save(conv);
-        return { avisar: null, responder: primeraVez ? SALUDO_INICIAL : null };
+        return { casoId: null, avisar: null, responder: primeraVez ? SALUDO_INICIAL : null };
       }
 
       const t = await this.tenants.porCodigo(tenant);
@@ -505,13 +536,14 @@ export class WhatsappService {
         }),
       );
 
+      if (ubicacion) await this.ubicar(manager, tenant, caso.id, ubicacion);
       const menu = menuDeTipos(await this.tiposDe(tenant));
       conv.casoId = caso.id;
       conv.estado = 'esperando_tipo';
       conv.mensajesDelBot += 1;
       await convRepo.save(conv);
       // El caso ya está en la bandeja; esto solo lo enriquece.
-      return { avisar: null, responder: textoDelMenu(menu) };
+      return { casoId: caso.id, avisar: null, responder: textoDelMenu(menu) };
     }
 
     // ── El caso ya existe ──────────────────────────────────────────────────
@@ -536,10 +568,22 @@ export class WhatsappService {
       conv.casoId = casoId;
       conv.estado = 'cerrada';
       await convRepo.save(conv);
-      return { avisar: casoId, responder: null };
+      if (ubicacion) await this.ubicar(manager, tenant, casoId, ubicacion);
+      return { casoId, avisar: casoId, responder: null };
     }
 
     conv.casoId = casoId;
+
+    // LA UBICACIÓN CONTESTA LA PREGUNTA. El ciudadano la manda con un toque
+    // y resuelve lo que más cuesta por teléfono; seguir pidiéndole una
+    // dirección escrita después de eso es no haber leído lo que mandó.
+    if (ubicacion) {
+      await this.ubicar(manager, tenant, casoId, ubicacion);
+      const faltabaElLugar = conv.estado === 'esperando_lugar' || conv.estado === 'esperando_tipo';
+      conv.estado = 'cerrada';
+      await convRepo.save(conv);
+      return { casoId, avisar: casoId, responder: faltabaElLugar ? CIERRE : null };
+    }
 
     if (conv.estado === 'esperando_tipo' && eraTexto) {
       const menu = menuDeTipos(await this.tiposDe(tenant));
@@ -549,14 +593,14 @@ export class WhatsappService {
         conv.estado = 'esperando_lugar';
         conv.mensajesDelBot += 1;
         await convRepo.save(conv);
-        return { avisar: casoId, responder: PREGUNTA_LUGAR };
+        return { casoId, avisar: casoId, responder: PREGUNTA_LUGAR };
       }
       // No eligió: contestó otra cosa. No se insiste — el mensaje ya está en
       // el caso y un operador lo va a leer. Insistir en una línea 123 es peor
       // que no preguntar.
       conv.estado = 'cerrada';
       await convRepo.save(conv);
-      return { avisar: casoId, responder: null };
+      return { casoId, avisar: casoId, responder: null };
     }
 
     if (conv.estado === 'esperando_lugar' && eraTexto) {
@@ -564,11 +608,21 @@ export class WhatsappService {
       conv.estado = 'cerrada';
       conv.mensajesDelBot += 1;
       await convRepo.save(conv);
-      return { avisar: casoId, responder: CIERRE };
+      return { casoId, avisar: casoId, responder: CIERRE };
     }
 
     await convRepo.save(conv);
-    return { avisar: casoId, responder: null };
+    return { casoId, avisar: casoId, responder: null };
+  }
+
+  /** Pone las coordenadas en el caso, y la dirección si WhatsApp la resolvió. */
+  private async ubicar(
+    manager: EntityManager, tenant: string, casoId: string, u: UbicacionCiudadano,
+  ): Promise<void> {
+    await manager.getRepository(CasoEntity).update(
+      { tenant, id: casoId },
+      { lat: u.lat, lng: u.lng, ...(u.direccion ? { direccion: u.direccion.slice(0, 200) } : {}) },
+    );
   }
 
   /**
@@ -608,6 +662,84 @@ export class WhatsappService {
         this.log.warn(`El bot de admisión no pudo contestar (${tenant}): ${(e as Error).message}`);
       }
     }
+  }
+
+  /**
+   * Baja la foto, el audio o el documento que mandó el ciudadano y lo deja en
+   * el expediente del caso.
+   *
+   * ──────────────────────────────────────────────────────────────────────────
+   * POR QUÉ ESTO IMPORTA MÁS DE LO QUE PARECE
+   *
+   * Hasta ahora un audio abría el caso y escribía «[El ciudadano envió una
+   * nota de voz]», y ahí se acababa: el operador sabía que existía y no podía
+   * oírla. Quien se esconde de un agresor manda una nota de voz porque no
+   * puede hablar ni escribir, y esa nota ERA el reporte.
+   *
+   * ──────────────────────────────────────────────────────────────────────────
+   * NUNCA LANZA, Y SE SALTA LO QUE NO QUEPA
+   *
+   * El caso ya está abierto y el mensaje ya está en la conversación. Que no se
+   * pueda bajar el adjunto es una pérdida; perder el reporte entero por eso
+   * sería otra cosa. Y un archivo enorme no se intenta: traerlo a memoria para
+   * trocearlo tumbaría el proceso, y con él la bandeja del municipio.
+   */
+  private async guardarAdjunto(tenant: string, casoId: string, mensaje: unknown): Promise<void> {
+    const m = mensaje as { type?: string; url?: string; caption?: string } | null;
+    const url = String(m?.url ?? '').trim();
+    if (!url || !/^https?:\/\//i.test(url)) return;
+
+    const tipo = String(m?.type ?? '').toUpperCase();
+    if (!TIPOS_CON_ARCHIVO.has(tipo)) return;
+
+    try {
+      const clave = (process.env.INFOBIP_API_KEY ?? '').trim();
+      const res = await fetch(url, {
+        headers: clave ? { Authorization: `App ${clave}` } : {},
+      });
+      if (!res.ok) {
+        this.log.warn(`No se pudo bajar el adjunto de WhatsApp (${tenant}): ${res.status}`);
+        return;
+      }
+
+      // Se mira la cabecera ANTES de leer el cuerpo: preguntar después de
+      // habérselo tragado no evita nada.
+      const anunciado = Number(res.headers.get('content-length') ?? 0);
+      if (anunciado > MAX_BYTES_ADJUNTO) {
+        this.log.warn(`Adjunto de WhatsApp demasiado grande (${anunciado} bytes), no se guarda.`);
+        return;
+      }
+
+      const datos = Buffer.from(await res.arrayBuffer());
+      if (!datos.length || datos.length > MAX_BYTES_ADJUNTO) return;
+
+      const mime = res.headers.get('content-type') ?? 'application/octet-stream';
+      await this.archivos.subirCompleto(
+        tenant,
+        {
+          casoId,
+          nombre: this.nombreDeAdjunto(tipo, mime),
+          tipoMime: mime.split(';')[0].trim(),
+          usuario: 'whatsapp',
+          descripcion: String(m?.caption ?? '').trim() || null,
+          origen: 'ADJUNTO',
+        },
+        datos,
+      );
+    } catch (e) {
+      this.log.warn(`Falló el adjunto de WhatsApp (${tenant}): ${(e as Error).message}`);
+    }
+  }
+
+  /** Un nombre reconocible en la lista de adjuntos del caso. */
+  private nombreDeAdjunto(tipo: string, mime: string): string {
+    const sello = new Date().toISOString().replace(/[:.]/g, '-');
+    const ext = (mime.split('/')[1] ?? 'bin').split(';')[0].trim();
+    const base: Record<string, string> = {
+      IMAGE: 'foto', VIDEO: 'video', VOICE: 'nota-de-voz',
+      AUDIO: 'audio', DOCUMENT: 'documento', STICKER: 'sticker',
+    };
+    return `whatsapp-${base[tipo] ?? 'adjunto'}-${sello}.${ext}`;
   }
 
   /** Los códigos de caso activos del municipio, para armar el menú. */

@@ -130,3 +130,49 @@ export function opcionElegida(texto: string, ops: OpcionTipo[]): OpcionTipo | nu
   const n = Number(m[1]);
   return ops.find((o) => o.numero === n) ?? null;
 }
+
+/** Dónde dice el ciudadano que está. */
+export interface UbicacionCiudadano {
+  lat: number;
+  lng: number;
+  /** La dirección que WhatsApp resuelve, si la trae. */
+  direccion?: string;
+}
+
+/**
+ * Las coordenadas de un mensaje de ubicación, o `null` si no sirven.
+ *
+ * ────────────────────────────────────────────────────────────────────────────
+ * POR QUÉ SE VALIDA Y NO SE GUARDA LO QUE VENGA
+ *
+ * Una ubicación de WhatsApp es el dato más valioso que existe para un CAD: el
+ * ciudadano la manda con un toque y resuelve la pregunta que más tiempo cuesta
+ * por teléfono. Precisamente por eso no puede entrar sin mirar.
+ *
+ * El caso que importa es el `0, 0`. Un campo ausente o ilegible se convierte
+ * en cero sin que nada falle, y `0, 0` es un punto REAL en el golfo de Guinea.
+ * Guardarlo mandaría una patrulla al Atlántico y, peor, haría creer al
+ * despachador que tiene la ubicación — dejaría de preguntarla.
+ *
+ * Que no haya coordenadas es recuperable: se pregunta. Una coordenada falsa
+ * que parece buena, no.
+ */
+export function ubicacionDe(m: unknown): UbicacionCiudadano | null {
+  const msg = m as {
+    latitude?: unknown; longitude?: unknown; address?: unknown; name?: unknown;
+  } | null;
+  const lat = Number(msg?.latitude);
+  const lng = Number(msg?.longitude);
+
+  if (!Number.isFinite(lat) || !Number.isFinite(lng)) return null;
+  // La isla nula. Ver el comentario de arriba.
+  if (lat === 0 && lng === 0) return null;
+  if (Math.abs(lat) > 90 || Math.abs(lng) > 180) return null;
+
+  const direccion = [msg?.name, msg?.address]
+    .map((x) => String(x ?? '').trim())
+    .filter(Boolean)
+    .join(' · ');
+
+  return direccion ? { lat, lng, direccion } : { lat, lng };
+}
