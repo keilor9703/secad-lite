@@ -209,3 +209,29 @@ export function formaDe(m: unknown, profundidad = 2): string {
   });
   return `{${campos.join(',')}}`;
 }
+
+/**
+ * ¿Este número puede tener WhatsApp?
+ *
+ * ────────────────────────────────────────────────────────────────────────────
+ * POR QUÉ HAY QUE PREGUNTARLO ANTES DE INTENTARLO
+ *
+ * El proveedor acepta la petición y responde 200 aunque el número sea un fijo
+ * sin WhatsApp: el rechazo llega después, por un informe de entrega que no
+ * estamos escuchando. Así que sin esta comprobación, mandarle el enlace a un
+ * teléfono fijo salía «enviado por WhatsApp», el ciudadano no recibía nada, y
+ * —lo peor— nunca se intentaba el SMS, que sí le habría llegado.
+ *
+ * En Colombia un móvil son diez dígitos que empiezan por 3; un fijo tiene
+ * siete u ocho, o diez empezando por 60. Se mira la cola porque el mismo
+ * número llega con indicativo y sin él.
+ *
+ * Es deliberadamente permisivo: ante la duda devuelve `true` y se intenta.
+ * Equivocarse hacia «intentar WhatsApp» cuesta una petición de más; hacia «no
+ * intentarlo» cuesta mandar por SMS algo que habría llegado mejor.
+ */
+export function pareceMovil(telefono: string): boolean {
+  const d = (telefono ?? '').replace(/\D/g, '');
+  if (d.length < 10) return false;
+  return d.slice(-10).startsWith('3');
+}

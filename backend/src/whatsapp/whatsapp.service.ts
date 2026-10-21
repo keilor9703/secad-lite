@@ -9,7 +9,8 @@ import { CatalogosService } from '../catalogos/catalogos.service';
 import { PrioridadCaso } from '../catalogos/codigo-caso.entity';
 import { ConversacionWaEntity } from './conversacion.entity';
 import {
-  UbicacionCiudadano, esRuido, formaDe, menuDeTipos, opcionElegida, textoDelMenu, ubicacionDe,
+  UbicacionCiudadano, esRuido, formaDe, menuDeTipos, opcionElegida, pareceMovil, textoDelMenu,
+  ubicacionDe,
 } from './admision';
 import { TenantsService } from '../tenants/tenants.service';
 import { TenantRlsService } from '../common/tenant-rls.service';
@@ -1333,6 +1334,15 @@ export class WhatsappService {
     const idioma = (process.env['WA_PLANTILLA_IDIOMA'] ?? 'es_CO').trim();
     if (!nombre) {
       return { ok: false, detalle: 'No hay plantilla de videollamada configurada (WA_PLANTILLA_VIDEOLLAMADA).' };
+    }
+
+    // Un fijo no tiene WhatsApp, y el proveedor NO lo dice en el momento:
+    // acepta la petición y el rechazo llega luego por un informe de entrega
+    // que no escuchamos. Sin este freno, el enlace salía «enviado» y el
+    // ciudadano no recibía nada — y nunca se intentaba el SMS, que sí le
+    // habría llegado.
+    if (!pareceMovil(to)) {
+      return { ok: false, detalle: `${to} no parece un móvil: WhatsApp no aplica.` };
     }
 
     const ruta = rutaDeEnlace(enlace);

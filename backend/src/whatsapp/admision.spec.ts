@@ -1,6 +1,6 @@
 import {
-  esRuido, formaDe, menuDeTipos, opcionElegida, palabras, textoDelMenu, ubicacionDe,
-  MAX_OPCIONES,
+  esRuido, formaDe, menuDeTipos, opcionElegida, palabras, pareceMovil, textoDelMenu,
+  ubicacionDe, MAX_OPCIONES,
 } from './admision';
 
 /**
@@ -262,5 +262,76 @@ describe('Admisión de WhatsApp · la ubicación anidada', () => {
 
   it('y «0, 0» sigue rechazándose venga como venga', () => {
     expect(ubicacionDe({ location: { latitude: 0, longitude: 0 } })).toBeNull();
+  });
+});
+
+/**
+ * ¿A ESTE NÚMERO SE LE PUEDE ESCRIBIR POR WHATSAPP?
+ *
+ * Esta pregunta existe porque el proveedor NO la contesta. Le mandas una
+ * plantilla a un teléfono fijo y responde 200: el rechazo llega después, en un
+ * informe de entrega que no estamos escuchando. Resultado sin este freno: el
+ * operador leía «Enviado por WhatsApp», el ciudadano no recibía nada, y el SMS
+ * —que sí le habría llegado— no se intentaba nunca.
+ *
+ * El sesgo es deliberado: ante la duda, intentarlo. Equivocarse hacia «parece
+ * móvil» cuesta una petición de más; hacia el otro lado cuesta mandar por SMS
+ * algo que habría llegado mejor por WhatsApp.
+ */
+describe('pareceMovil · a quién se le puede mandar la plantilla', () => {
+  describe('sí, es un móvil colombiano', () => {
+    it('con indicativo, como lo escribe el webhook', () => {
+      expect(pareceMovil('573175882321')).toBe(true);
+      expect(pareceMovil('573132354086')).toBe(true);
+    });
+
+    it('sin indicativo, como lo teclea el operador', () => {
+      expect(pareceMovil('3175882321')).toBe(true);
+    });
+
+    it('con el signo, los espacios y los guiones que la gente escribe', () => {
+      // El número llega de una ficha rellenada a mano: si el formato decidiera
+      // el canal, el mismo ciudadano recibiría WhatsApp o SMS según cómo lo
+      // hubiera copiado el operador.
+      expect(pareceMovil('+57 317 588 2321')).toBe(true);
+      expect(pareceMovil('+57-317-588-2321')).toBe(true);
+      expect(pareceMovil('(317) 588 2321')).toBe(true);
+    });
+
+    it('un móvil de otro país con cola de diez dígitos también se intenta', () => {
+      // No se sabe marcar la numeración del mundo, y rechazar de más deja al
+      // ciudadano con un SMS. Si no tiene WhatsApp, el envío falla y quien
+      // llama tiene el SMS detrás.
+      expect(pareceMovil('13055882321')).toBe(true);
+    });
+  });
+
+  describe('no, y aquí está el valor de la prueba', () => {
+    it('un fijo de Medellín con indicativo nacional', () => {
+      // 604 + siete dígitos. El proveedor aceptaría la plantilla y diría 200.
+      expect(pareceMovil('576042161000')).toBe(false);
+      expect(pareceMovil('6042161000')).toBe(false);
+    });
+
+    it('un fijo de Bogotá', () => {
+      expect(pareceMovil('576012194000')).toBe(false);
+    });
+
+    it('un fijo escrito corto, como está en media base de datos', () => {
+      expect(pareceMovil('2161000')).toBe(false);
+      expect(pareceMovil('42161000')).toBe(false);
+    });
+
+    it('una línea 123 o cualquier número de emergencias', () => {
+      expect(pareceMovil('123')).toBe(false);
+    });
+
+    it('nada, vacío o basura', () => {
+      expect(pareceMovil('')).toBe(false);
+      expect(pareceMovil('   ')).toBe(false);
+      expect(pareceMovil('sin teléfono')).toBe(false);
+      expect(pareceMovil(undefined as unknown as string)).toBe(false);
+      expect(pareceMovil(null as unknown as string)).toBe(false);
+    });
   });
 });
