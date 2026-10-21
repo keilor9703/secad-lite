@@ -2,6 +2,7 @@ import { ChangeDetectionStrategy, Component, ElementRef, OnDestroy, OnInit, comp
 import { GrabacionEnCustodia, cuerpoDeError, leerCustodia } from './custodia';
 import { AdjuntosCasoComponent } from './adjuntos-caso';
 import { esDelCasoAbierto, fusionarCasoEnVivo } from './caso-en-vivo';
+import { enlaceDeMapa } from '../../shared/mapa-externo';
 import { ArchivosService } from '../../core/archivos.service';
 import { GrabacionLlamadaComponent } from './grabacion-llamada';
 import { CommonModule } from '@angular/common';
@@ -593,6 +594,11 @@ export class DetalleComponent implements OnInit, OnDestroy {
    *
    * Es solo el listado, que es texto. Los bytes no se bajan aquí.
    */
+  /** El enlace al mapa externo. Ver `shared/mapa-externo.ts`. */
+  enlaceDeMapa(lat: number, lng: number): string {
+    return enlaceDeMapa(lat, lng);
+  }
+
   private contarAdjuntos(id: string): void {
     this.adjuntosCuantos.set(0);
     this.archivosSvc.listarDeCaso(id).subscribe({

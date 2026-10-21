@@ -108,9 +108,9 @@
                   <span class="ubic-lbl"><app-icono nombre="ubicacion" [tam]="14" /> Ubicación</span>
                   <span>{{ ubicacionTexto(c) }}</span>
                   @if (c.lat && c.lng) {
-                    <a class="mono coord"
-                      [href]="'https://www.openstreetmap.org/?mlat=' + c.lat + '&mlon=' + c.lng + '#map=17/' + c.lat + '/' + c.lng"
-                    target="_blank" rel="noopener">{{ c.lat }}, {{ c.lng }}</a>
+                    <a class="mono coord" [href]="enlaceDeMapa(c.lat, c.lng)"
+                      target="_blank" rel="noopener"
+                      title="Abrir en Google Maps">{{ c.lat }}, {{ c.lng }}</a>
                   }
                 </div>
               }
