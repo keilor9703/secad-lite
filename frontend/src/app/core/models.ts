@@ -176,7 +176,19 @@ export interface WhatsappConfig {
   /** A quién se envían los casos que entran por WhatsApp. */
   agenciaResponsableId: string | null;
   canales: string[];
+  /**
+   * Por dónde sale el enlace de la videollamada, en orden de intento.
+   * `null` = que lo decida el sistema.
+   */
+  ordenEnlace: CanalEnlace[] | null;
 }
+
+/**
+ * Los tres caminos por los que el enlace de la videollamada puede llegarle al
+ * ciudadano. Se nombran igual que en el backend (`videollamada/orden-envio.ts`)
+ * porque viajan tal cual por la API.
+ */
+export type CanalEnlace = 'whatsapp' | 'plantilla' | 'sms';
 
 /** A quién se envía, en ESTA instancia, un caso que llegue por remisión de otra jurisdicción (otro tenant). */
 export interface RemisionConfig {

@@ -17,9 +17,13 @@ import { SelectorComponent } from '../../shared/selector/selector';
 import { OpcionComponent } from '../../shared/selector/opcion';
 import { IconoComponent, NombreIcono } from '../../shared/icono/icono';
 import {
-  Agencia, CanalAtencion, CodigoCaso, CtiConfig, EntidadExterna, ModuloPermisos, PbxConfig, PermisoDef, PrioridadCaso,
-  RemisionConfig, RolTenant, Tenant, TipoAgencia, UsuarioAdmin, WhatsappConfig,
+  Agencia, CanalAtencion, CanalEnlace, CodigoCaso, CtiConfig, EntidadExterna, ModuloPermisos, PbxConfig,
+  PermisoDef, PrioridadCaso, RemisionConfig, RolTenant, Tenant, TipoAgencia, UsuarioAdmin, WhatsappConfig,
 } from '../../core/models';
+import {
+  FilaDeCamino, alternarCamino, filasDesde, moverCamino, nombreDelCamino, notaDelCamino,
+  ordenParaGuardar, sinNingunCamino, todosEnUso,
+} from './orden-del-enlace';
 
 /**
  * Funcionalidades que cruzan varios módulos (no pertenecen a uno solo): se
@@ -171,6 +175,14 @@ export class AdminComponent implements OnInit {
   /** Lo que contestó la última prueba. Nulo = todavía no se ha probado. */
   readonly waPrueba = signal<{ ok: boolean; detalle: string } | null>(null);
   readonly waOk = signal(false);
+
+  // Por dónde sale el enlace de la videollamada. Vive junto a la
+  // configuración de WhatsApp porque es aquí donde se decide cómo se le
+  // escribe al ciudadano, aunque uno de los tres caminos sea el SMS.
+  /** ¿Lo decide el sistema? Falso = el orden lo pone el administrador. */
+  readonly waOrdenAuto = signal(true);
+  /** Los tres caminos en el orden elegido, con cuáles se usan. */
+  readonly waOrden = signal<FilaDeCamino[]>(todosEnUso());
 
   // Remisiones entre jurisdicciones (otro tenant remite un caso a esta instancia)
   readonly remisionConfig = signal<RemisionConfig | null>(null);
@@ -609,6 +621,7 @@ export class AdminComponent implements OnInit {
           accessToken: '',
         });
         this.waCanales.set([...(c.canales ?? [])]);
+        this.cargarOrdenDelEnlace(c);
         this.cargarEstadoWa();
       },
       error: () => {},
@@ -667,19 +680,60 @@ export class AdminComponent implements OnInit {
     return c ? this.wa.webhookUrl(c.webhookPath) : '';
   }
 
+  /** Pinta lo guardado. Ver `filasDesde`. */
+  private cargarOrdenDelEnlace(c: WhatsappConfig): void {
+    const { auto, filas } = filasDesde(c.ordenEnlace);
+    this.waOrdenAuto.set(auto);
+    this.waOrden.set(filas);
+  }
+
+  nombreDelCamino(canal: CanalEnlace): string { return nombreDelCamino(canal); }
+
+  notaDelCamino(canal: CanalEnlace): string { return notaDelCamino(canal); }
+
+  alternarCamino(canal: CanalEnlace): void {
+    this.waOrden.update((fs) => alternarCamino(fs, canal));
+  }
+
+  /** Mueve un camino una posición. `-1` lo sube, `+1` lo baja. */
+  moverCamino(i: number, delta: number): void {
+    this.waOrden.update((fs) => moverCamino(fs, i, delta));
+  }
+
+  ordenParaGuardar(): CanalEnlace[] | null {
+    return ordenParaGuardar(this.waOrdenAuto(), this.waOrden());
+  }
+
+  /**
+   * Quitar los tres caminos deja al ciudadano sin enlace por ningún lado, y el
+   * operador no se enteraría hasta la primera emergencia. El backend también
+   * lo rechaza; aquí se avisa antes de pulsar Guardar.
+   */
+  readonly sinNingunCamino = computed(
+    () => sinNingunCamino(this.waOrdenAuto(), this.waOrden()));
+
   guardarWa(): void {
+    if (this.sinNingunCamino()) {
+      this.error.set('Deje al menos un camino para el enlace de la videollamada, '
+        + 'o vuelva a «que lo decida el sistema».');
+      return;
+    }
     this.waGuardando.set(true);
     this.waOk.set(false);
     this.error.set('');
     const { phoneNumberId, numero, agenciaResponsableId, accessToken } = this.waForm.getRawValue();
     this.wa.guardarConfig(
       phoneNumberId.trim(), numero.trim(), accessToken.trim() || undefined,
-      agenciaResponsableId, this.waCanales(),
+      agenciaResponsableId, this.waCanales(), this.ordenParaGuardar(),
     ).subscribe({
       next: (c) => {
         this.waConfig.set(c);
         this.waForm.patchValue({ agenciaResponsableId: c.agenciaResponsableId, accessToken: '' });
         this.waCanales.set([...(c.canales ?? [])]);
+        // Con lo que confirmó el SERVIDOR, no con lo que se mandó: elegir a
+        // mano el orden automático se guarda como automático, y la pantalla
+        // tiene que reflejarlo en vez de quedarse en «yo defino el orden».
+        this.cargarOrdenDelEnlace(c);
         this.waGuardando.set(false); this.waOk.set(true);
         // Lo que falta acaba de cambiar: volver a preguntarlo es la diferencia
         // entre una lista viva y una que miente hasta que alguien recargue.

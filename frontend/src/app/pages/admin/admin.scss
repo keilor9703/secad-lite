@@ -172,6 +172,45 @@
 
 .wa-prueba--mal { color: var(--warn); }
 
+/* --- Orden de salida del enlace de la videollamada -----------------------
+   Una lista numerada de verdad (<ol>): el número ES la información —en qué
+   orden se intenta cada camino—, así que se deja a la vista en vez de
+   esconderlo con list-style: none. */
+.enlace-orden .caminos {
+  margin: 0.4rem 0 0;
+  padding-left: 1.4rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+.camino {
+  /* El nombre y los botones en una fila; la nota debajo, ocupando el ancho.
+     min-width: 0 en el nombre para que una nota larga envuelva dentro de su
+     fila en vez de ensanchar la tarjeta en una pantalla angosta. */
+  display: grid;
+  grid-template-columns: 1fr auto;
+  gap: 0.2rem 0.6rem;
+  align-items: center;
+  padding: 0.5rem 0.7rem;
+  border: 1px solid var(--border-2);
+  border-radius: var(--radius-sm);
+  background: var(--surface-2);
+}
+.camino-usar { display: flex; align-items: center; gap: 0.4rem; cursor: pointer; min-width: 0; }
+.camino-usar input { width: auto; }
+.camino-nombre { font-size: var(--texto-base); font-weight: 600; }
+.camino-nota {
+  grid-column: 1 / -1;
+  color: var(--muted);
+  font-size: var(--texto-xs);
+  line-height: 1.45;
+}
+.camino-mover { display: flex; gap: 0.25rem; }
+/* Destildado: se ve, pero se ve apagado. Que siga en la lista es a propósito
+   —es como se vuelve a activar— pero no puede parecer que está en uso. */
+.camino--off { opacity: 0.55; }
+.camino--off .camino-nombre { text-decoration: line-through; }
+
 /* Matriz de roles y permisos */
 .matriz-wrap { overflow-x: auto; min-width: 0; margin-top: 0.8rem; }
 .matriz { width: 100%; border-collapse: collapse; }

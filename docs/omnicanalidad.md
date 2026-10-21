@@ -307,6 +307,51 @@ revisión de código a propósito.
 
 ---
 
+### 4.7. Por dónde sale el enlace de la videollamada
+
+Hay tres caminos para hacerle llegar al ciudadano el enlace, y **no son
+equivalentes**:
+
+| Camino | Cuesta | Cuándo se puede | Cómo llega |
+|---|---|---|---|
+| `whatsapp` · texto libre | nada | solo si el ciudadano escribió a la línea en las últimas 24 h | enlace pulsable, en la misma conversación |
+| `plantilla` · plantilla aprobada | por mensaje | siempre, pero **solo a móviles** | un **botón**; el operador tiene que decírselo |
+| `sms` | por mensaje | siempre, a cualquier teléfono | texto; en muchos equipos el enlace no se vuelve pulsable |
+
+Se intentan en orden y **gana el primero que funcione**. El automático es
+`whatsapp → plantilla → sms`: primero lo gratis y pulsable, después lo que
+permite escribir primero, y el SMS al final porque se paga y llega peor —pero
+llega a todos, y por eso es el último y no se quita.
+
+**El orden lo elige cada instancia** en Administración → WhatsApp, porque no
+hay una respuesta correcta para todos: un municipio con SMS incluido en su
+plan lo quiere primero por fiabilidad, y otro que paga cada mensaje lo quiere
+al final. También se puede **dejar un camino fuera** —un municipio que no
+quiere pagar SMS—, con el costo de que a un teléfono fijo no le llegará nada.
+
+Tres decisiones que no se negocian, cada una por un fallo que ya se vio:
+
+- **Una configuración que no se entiende vuelve al orden automático.** Un
+  valor raro en la columna no puede dejar al ciudadano sin enlace por ningún
+  camino: eso no falla, simplemente no pasa.
+- **Quedarse sin ningún camino se rechaza**, en la pantalla y en el backend.
+- **Elegir a mano el orden automático se guarda como «automático»**, no como
+  esa lista: si mañana cambia la lógica por defecto, el cambio alcanza a quien
+  nunca eligió nada.
+
+Y un detalle que no es del orden pero sí del envío: **un teléfono fijo no
+recibe la plantilla, y el proveedor no lo dice**. Acepta la petición y
+responde 200; el rechazo llega después, en un informe de entrega que no
+escuchamos. Sin comprobarlo antes, el operador leía «Enviado por WhatsApp», el
+ciudadano no recibía nada, y el SMS —que sí le habría llegado— no se intentaba
+nunca.
+
+Dónde está: `backend/src/videollamada/orden-envio.ts` decide,
+`videollamada.service.ts` lo usa, `tenants.ordenEnlaceVideollamada` lo guarda
+(nulo = automático) y `frontend/.../admin/orden-del-enlace.ts` es la pantalla.
+
+---
+
 ---
 
 ## 5. Lo que se le escapa: el resto de la omnicanalidad

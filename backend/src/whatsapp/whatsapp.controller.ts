@@ -181,15 +181,28 @@ export class WhatsappController {
   async setConfig(
     @Tenant() tenant: string,
     @Usuario() u: JwtPayload,
-    @Body() dto: { phoneNumberId?: string; accessToken?: string; agenciaResponsableId?: string | null; canales?: string[]; numero?: string },
+    @Body() dto: {
+      phoneNumberId?: string; accessToken?: string; agenciaResponsableId?: string | null;
+      canales?: string[]; numero?: string;
+      /**
+       * Por dónde sale el enlace de la videollamada, en orden. Viaja con la
+       * configuración de WhatsApp porque es aquí donde el administrador
+       * decide cómo se le escribe al ciudadano, aunque el SMS no sea de
+       * WhatsApp. Ausente = no se toca; nulo = que decida el sistema.
+       */
+      ordenEnlace?: string[] | null;
+    },
   ) {
     const cfg = await this.tenants.setWaConfig(
-      tenant, dto?.phoneNumberId, dto?.accessToken, dto?.agenciaResponsableId, dto?.canales, dto?.numero,
+      tenant, dto?.phoneNumberId, dto?.accessToken, dto?.agenciaResponsableId, dto?.canales,
+      dto?.numero, dto?.ordenEnlace,
     );
     const conToken = dto?.accessToken?.trim() ? ', token renovado' : '';
+    const orden = cfg.ordenEnlace ? cfg.ordenEnlace.join(' → ') : 'automático';
     await this.auditoria.registrar(tenant, u?.sub ?? 'desconocido', 'whatsapp.config',
       `Actualizó la configuración de WhatsApp (número: ${cfg.numero ?? '—'}, `
-      + `phone_number_id: ${cfg.phoneNumberId ?? '—'}${conToken}).`);
+      + `phone_number_id: ${cfg.phoneNumberId ?? '—'}${conToken}, `
+      + `enlace de videollamada: ${orden}).`);
     return { ...cfg, verifyToken: this.verifyToken, webhookPath: '/api/whatsapp/webhook' };
   }
 

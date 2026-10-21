@@ -170,6 +170,7 @@ describe('WhatsappService (frontend) · probar la línea', () => {
           useValue: {
             get: (url: string) => { ultimo = { url, cuerpo: null }; return respuesta; },
             post: (url: string, cuerpo: unknown) => { ultimo = { url, cuerpo }; return respuesta; },
+            put: (url: string, cuerpo: unknown) => { ultimo = { url, cuerpo }; return respuesta; },
           },
         },
       ],
@@ -181,6 +182,25 @@ describe('WhatsappService (frontend) · probar la línea', () => {
     svc.probar('573175882321').subscribe();
     expect(ultimo!.url).toContain('/whatsapp/probar');
     expect(ultimo!.cuerpo).toEqual({ a: '573175882321' });
+  });
+
+  it('el orden del enlace de la videollamada viaja con la configuración', () => {
+    // Es el cable entre la pantalla y el backend: sin esto, reordenar los
+    // caminos se vería bonito y no cambiaría nada.
+    svc.guardarConfig('', '573132354086', undefined, null, [], ['sms', 'whatsapp']).subscribe();
+
+    expect(ultimo!.url).toContain('/whatsapp/config');
+    expect((ultimo!.cuerpo as { ordenEnlace: string[] }).ordenEnlace).toEqual(['sms', 'whatsapp']);
+  });
+
+  it('«que decida el sistema» viaja como nulo, no como ausente', () => {
+    // Ausente significa «no lo toques» en el backend: un administrador que
+    // vuelve a automático no vería ningún cambio.
+    svc.guardarConfig('', '573132354086', undefined, null, [], null).subscribe();
+
+    const cuerpo = ultimo!.cuerpo as { ordenEnlace: unknown };
+    expect('ordenEnlace' in cuerpo).toBe(true);
+    expect(cuerpo.ordenEnlace).toBeNull();
   });
 
   it('el estado se pide a su propia ruta, no a la de configuración', () => {

@@ -43,7 +43,7 @@ secad-lite/
 │     ├─ chat/ videollamada/ archivos/ els/            atención al ciudadano
 │     ├─ metricas/ auditoria/ soporte/                 operación
 │     ├─ credenciales/ common/                         cifrado, guardias, utilidades
-│     └─ migrations/                                   59 migraciones, en orden
+│     └─ migrations/                                   66 migraciones, en orden
 ├─ frontend/       Angular 20 standalone · señales · tema teal
 │  └─ src/app/
 │     ├─ core/        servicios, guardias, interceptores, softphone
@@ -81,11 +81,11 @@ datos de demostración. **En producción no**: ahí mandan las migraciones.
 ### Pruebas y verificación
 
 ```bash
-cd backend  && npx jest                          # 624 pruebas (Jest)
+cd backend  && npx jest                          # 869 pruebas (Jest)
 cd backend  && npx jest src/pbx/planta           # un módulo
 cd frontend && CHROME_BIN=/opt/pw-browsers/chromium \
                npm test -- --watch=false --browsers=ChromeHeadlessNoSandbox
-                                                 # 365 pruebas (Karma/Jasmine)
+                                                 # 451 pruebas (Karma/Jasmine)
 cd frontend && npm run build                     # build de producción
 ```
 
@@ -104,7 +104,7 @@ npm run migration:revert
 ```
 
 Numeración: el prefijo es un ordinal, no una fecha real. La última es
-`1821000000000`. Una migración nueva toma el siguiente número.
+`1828000000000`. Una migración nueva toma el siguiente número.
 
 ---
 
@@ -282,7 +282,7 @@ Detalle completo, con respaldos, 2FA, TURN y archivado:
 ### Integraciones y API
 | | |
 |---|---|
-| [`omnicanalidad.md`](docs/omnicanalidad.md) | **Qué falta para que la emergencia entre por donde el ciudadano quiera.** Llamada de WhatsApp, filtro de mensajes, caso único, cola única |
+| [`omnicanalidad.md`](docs/omnicanalidad.md) | **Qué falta para que la emergencia entre por donde el ciudadano quiera.** Llamada de WhatsApp, filtro de mensajes, caso único, cola única. Su §4.7 es por dónde sale el enlace de la videollamada y cómo se configura el orden |
 | [`whatsapp-alta-paso-a-paso.md`](docs/whatsapp-alta-paso-a-paso.md) | **El trámite con Meta e Infobip**, desde cero, para abrir la línea de WhatsApp. Su sección «Agregar un municipio nuevo» es lo que se repite por cada instancia — que es mucho menos de lo que parece |
 | [`integraciones-externas.md`](docs/integraciones-externas.md) | **Referencia técnica**: URL, cabeceras, cuerpo y respuesta de cada endpoint |
 | [`importacion.md`](docs/importacion.md) | Carga masiva de catálogos e histórico |

@@ -358,6 +358,63 @@
               </p>
             }
           </div>
+          <!-- POR DÓNDE SALE EL ENLACE DE LA VIDEOLLAMADA.
+               Está aquí, y no en una pantalla propia, porque es la misma
+               decisión que el resto de esta sección: cómo se le escribe al
+               ciudadano. Que uno de los tres caminos sea el SMS no cambia
+               eso. Se guarda con el mismo botón de abajo. -->
+          <div class="pbx-field enlace-orden">
+            <label>Enlace de la videollamada: por dónde sale</label>
+            <div class="canales-pick">
+              <label class="chip">
+                <input type="radio" name="ordenEnlace" [checked]="waOrdenAuto()"
+                  (click)="waOrdenAuto.set(true)" />
+                <span>Que lo decida el sistema</span>
+              </label>
+              <label class="chip">
+                <input type="radio" name="ordenEnlace" [checked]="!waOrdenAuto()"
+                  (click)="waOrdenAuto.set(false)" />
+                <span>Yo defino el orden</span>
+              </label>
+            </div>
+            @if (waOrdenAuto()) {
+              <p class="pbx-hint">
+                Se intenta WhatsApp en texto libre, después la plantilla aprobada, y el SMS al
+                final. Gana el primero que funcione.
+              </p>
+            } @else {
+              <p class="pbx-hint">
+                Se intentan de arriba abajo y gana el primero que funcione. Lo que destilde no se
+                intenta nunca.
+              </p>
+              <ol class="caminos">
+                @for (c of waOrden(); track c.canal; let i = $index) {
+                  <li class="camino" [class.camino--off]="!c.usar">
+                    <label class="camino-usar">
+                      <input type="checkbox" [checked]="c.usar" (change)="alternarCamino(c.canal)" />
+                      <span class="camino-nombre">{{ nombreDelCamino(c.canal) }}</span>
+                    </label>
+                    <small class="camino-nota">{{ notaDelCamino(c.canal) }}</small>
+                    <div class="camino-mover">
+                      <button type="button" class="btn btn--ghost mini" [disabled]="i === 0"
+                        [attr.aria-label]="'Subir ' + nombreDelCamino(c.canal)"
+                        (click)="moverCamino(i, -1)">&uarr;</button>
+                      <button type="button" class="btn btn--ghost mini"
+                        [disabled]="i === waOrden().length - 1"
+                        [attr.aria-label]="'Bajar ' + nombreDelCamino(c.canal)"
+                        (click)="moverCamino(i, 1)">&darr;</button>
+                    </div>
+                  </li>
+                }
+              </ol>
+              @if (sinNingunCamino()) {
+                <p class="pbx-warn">
+                  Sin ningún camino activo, el ciudadano no recibiría el enlace por ninguna vía —
+                  el despachador tendría que dictárselo por teléfono en cada caso.
+                </p>
+              }
+            }
+          </div>
           <div class="pbx-field">
             <label>Token de acceso {{ wcfg.tokenConfigurado ? '(configurado — deje vacío para conservarlo)' : '' }}</label>
             <div class="pbx-row">

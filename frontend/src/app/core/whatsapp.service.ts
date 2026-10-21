@@ -2,7 +2,7 @@ import { Injectable, inject } from '@angular/core';
 import { HttpClient } from '@angular/common/http';
 import { Observable } from 'rxjs';
 import { environment } from '../../environments/environment';
-import { MensajeChat, WhatsappConfig } from './models';
+import { CanalEnlace, MensajeChat, WhatsappConfig } from './models';
 
 /** Algo que impide que la línea funcione, y dónde se arregla. */
 export interface FaltaWhatsapp {
@@ -48,9 +48,15 @@ export class WhatsappService {
     accessToken?: string,
     agenciaResponsableId?: string | null,
     canales?: string[],
+    /**
+     * Orden de salida del enlace de la videollamada. `null` = que decida el
+     * sistema; omitirlo deja el que haya guardado.
+     */
+    ordenEnlace?: CanalEnlace[] | null,
   ): Observable<WhatsappConfig> {
     return this.http.put<WhatsappConfig>(
-      `${this.base}/whatsapp/config`, { phoneNumberId, numero, accessToken, agenciaResponsableId, canales },
+      `${this.base}/whatsapp/config`,
+      { phoneNumberId, numero, accessToken, agenciaResponsableId, canales, ordenEnlace },
     );
   }
 

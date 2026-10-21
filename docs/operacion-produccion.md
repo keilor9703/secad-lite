@@ -196,6 +196,9 @@ ARCHIVO_DIAS=90
 # ciudadano (el enlace de la videollamada cuando no hay conversación abierta).
 WA_PLANTILLA_VIDEOLLAMADA=videollamadafalconcad
 WA_PLANTILLA_IDIOMA=es_CO
+# El ORDEN en que se intentan los caminos (WhatsApp libre, plantilla, SMS) NO
+# está aquí: lo elige cada instancia en Administración → WhatsApp. Ver
+# docs/omnicanalidad.md §4.7.
 
 # Geocodificación con Google desde el SERVIDOR. Es una clave DISTINTA de la
 # del navegador: aquella va restringida por referente HTTP y desde el servidor

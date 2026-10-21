@@ -8,6 +8,7 @@ import { UsuarioEntity } from '../usuarios/usuario.entity';
 import { CatalogosService } from '../catalogos/catalogos.service';
 import { GeografiaService } from '../geografia/geografia.service';
 import { cifrar, descifrar, digestApiKey, esDigest } from '../common/secretos';
+import { CanalEnlace, canalesValidos, parsearOrden, textoDeOrden } from '../videollamada/orden-envio';
 
 /** Tenant tal como lo ve el dueño de la plataforma: con cuántas cuentas tiene cada instancia. */
 export type TenantConUsuarios = TenantEntity & { totalUsuarios: number };
@@ -50,6 +51,11 @@ export interface WaConfigDto {
   agenciaResponsableId: string | null;
   /** Canales de esa agencia a los que se envían. */
   canales: string[];
+  /**
+   * Por dónde sale el enlace de la videollamada, en orden. `null` = que lo
+   * decida el sistema (ver `videollamada/orden-envio.ts`).
+   */
+  ordenEnlace: CanalEnlace[] | null;
 }
 
 export interface RemisionConfigDto {
@@ -379,6 +385,11 @@ export class TenantsService implements OnModuleInit {
     agenciaResponsableId?: string | null,
     canales?: string[],
     numero?: string,
+    /**
+     * Orden de salida del enlace de la videollamada. `undefined` = no se
+     * toca; `null` = que decida el sistema; una lista = ese orden.
+     */
+    ordenEnlace?: string[] | null,
   ): Promise<WaConfigDto> {
     const t = await this.porCodigo(codigo);
     if (!t) throw new NotFoundException('Tenant no encontrado.');
@@ -420,6 +431,17 @@ export class TenantsService implements OnModuleInit {
         t.waCanales = validos.map((c) => c.id);
       }
     }
+    if (ordenEnlace !== undefined) {
+      // Una lista que no deja ningún camino en pie se rechaza en vez de
+      // guardarse: dejaría al ciudadano sin enlace por ningún lado, y el
+      // operador no tendría forma de enterarse hasta la primera emergencia.
+      if (ordenEnlace && ordenEnlace.length && !canalesValidos(ordenEnlace).length) {
+        throw new BadRequestException(
+          'Ese orden no deja ningún camino válido para enviar el enlace de la videollamada.',
+        );
+      }
+      t.ordenEnlaceVideollamada = textoDeOrden(ordenEnlace);
+    }
     await this.repo.save(t);
     return this.waConfigDto(t);
   }
@@ -431,7 +453,24 @@ export class TenantsService implements OnModuleInit {
       tokenConfigurado: !!t.waAccessToken,
       agenciaResponsableId: t.waAgenciaResponsableId ?? null,
       canales: t.waCanales ?? [],
+      // Nulo en la columna = automático, y se devuelve nulo tal cual: la
+      // pantalla tiene que poder distinguir «el sistema decide» de «alguien
+      // eligió justo este orden». Si se devolviera el orden ya resuelto,
+      // guardar sin tocar nada congelaría el automático de hoy.
+      ordenEnlace: t.ordenEnlaceVideollamada
+        ? parsearOrden(t.ordenEnlaceVideollamada)
+        : null,
     };
+  }
+
+  /**
+   * El orden en el que esta instancia intenta hacerle llegar el enlace de la
+   * videollamada al ciudadano. Nunca devuelve una lista vacía: sin
+   * configuración, o con una ilegible, manda el orden automático.
+   */
+  async ordenDelEnlace(codigo: string): Promise<CanalEnlace[]> {
+    const t = await this.porCodigo(codigo);
+    return parsearOrden(t?.ordenEnlaceVideollamada ?? null);
   }
 
   async getRemisionConfig(codigo: string): Promise<RemisionConfigDto> {

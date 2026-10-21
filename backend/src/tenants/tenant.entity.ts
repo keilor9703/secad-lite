@@ -106,6 +106,22 @@ export class TenantEntity {
   waCanales?: string[] | null;
 
   /**
+   * Por dónde sale el enlace de la videollamada, y en qué orden: los nombres
+   * de los canales separados por comas (`sms,whatsapp,plantilla`).
+   *
+   * `null` —y es lo normal— significa «que decida el sistema». Se guarda nulo
+   * también cuando el orden elegido coincide con el automático, para que un
+   * cambio futuro en la lógica por defecto alcance a quien nunca eligió nada.
+   *
+   * Es texto y no una tabla a propósito: son tres valores de un catálogo
+   * cerrado, y lo que se lee siempre se valida al parsear
+   * (`videollamada/orden-envio.ts`), así que un valor raro en la columna
+   * degrada al orden automático en vez de romper el envío.
+   */
+  @Column({ type: 'varchar', length: 64, nullable: true })
+  ordenEnlaceVideollamada?: string | null;
+
+  /**
    * A quién se envía un caso que llega por remisión de OTRA jurisdicción
    * (otro tenant): agencia responsable y sus canales, en el catálogo de
    * ESTE tenant (el destino). Sin esto configurado, el caso llega sin

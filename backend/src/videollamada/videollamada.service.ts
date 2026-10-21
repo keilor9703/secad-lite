@@ -9,6 +9,8 @@ import { TenantRlsService } from '../common/tenant-rls.service';
 import { SmsService } from '../sms/sms.service';
 import { WhatsappService } from '../whatsapp/whatsapp.service';
 import { CasoEntity } from '../casos/caso.entity';
+import { TenantsService } from '../tenants/tenants.service';
+import { enviarPorElPrimeroQuePueda } from './orden-envio';
 
 /** Estados en los que la llamada todavía se puede retomar. */
 const ESTADOS_VIVOS = ['PENDIENTE', 'CONECTADA'] as const;
@@ -42,14 +44,18 @@ export class VideollamadaService {
     private readonly tokens: VideoTokenService,
     private readonly sms: SmsService,
     private readonly whatsapp: WhatsappService,
+    // Para saber por dónde quiere ESTA instancia que salga el enlace.
+    private readonly tenants: TenantsService,
     private readonly config: ConfigService,
   ) {}
 
   /**
    * Abre una videollamada para un caso y le hace llegar el enlace al ciudadano.
    *
-   * POR DÓNDE SALE EL ENLACE. Primero WhatsApp, si hay conversación abierta
-   * con ese número; si no, SMS. No es una preferencia estética:
+   * POR DÓNDE SALE EL ENLACE. El orden lo elige cada instancia en
+   * Administración → WhatsApp; el automático —WhatsApp libre, plantilla
+   * aprobada, SMS— es el que se usa mientras nadie elija otro, y no es una
+   * preferencia estética:
    *
    * - Dentro de la ventana de 24 h el mensaje de WhatsApp no cuesta; el SMS
    *   se paga siempre.
@@ -147,29 +153,30 @@ export class VideollamadaService {
     const texto = `FALCON CAD - Linea 123. Para atenderlo por video, abra este enlace: ${enlace}`;
     let enviadoPor: 'whatsapp' | 'whatsapp-plantilla' | 'sms' | null = null;
     if (numero) {
-      // TRES CAMINOS, EN ESTE ORDEN, Y EL ORDEN ES EL ARGUMENTO.
+      // TRES CAMINOS, Y EL ORDEN LO DECIDE LA INSTANCIA.
       //
-      // 1. Conversación abierta -> texto libre. No cuesta nada y llega tal
-      //    cual se escribió.
-      // 2. Sin conversación -> la plantilla aprobada por Meta. Es la ÚNICA
-      //    forma de escribirle primero a alguien por WhatsApp; un texto
-      //    libre fuera de plazo lo rechaza el proveedor sin aviso visible.
-      // 3. Sin WhatsApp -> SMS, que es lo que había.
+      // Estuvo escrito aquí —WhatsApp libre, plantilla, SMS— hasta que quedó
+      // claro que no hay un orden correcto para todos: un municipio con SMS
+      // incluido en su plan lo quiere primero por fiabilidad, y otro que paga
+      // cada mensaje lo quiere al final. Se elige en Administración →
+      // WhatsApp; sin elegir nada, `ordenDelEnlace` devuelve el automático de
+      // siempre, que es el que explica `orden-envio.ts`.
       //
-      // El SMS no se retira ni se adelanta: llega a cualquier teléfono, no
-      // depende de datos, y una línea 123 no puede exigirle al ciudadano que
-      // tenga WhatsApp.
-      if (await this.whatsapp.enviarSiHayConversacion(tenant, numero, texto)) {
-        enviadoPor = 'whatsapp';
-      } else if (
-        (await this.whatsapp.enviarPlantillaVideollamada(
-          tenant, numero, caso.codigoCaso ?? caso.titulo.slice(0, 40), enlace,
-        )).ok
-      ) {
-        enviadoPor = 'whatsapp-plantilla';
-      } else if (await this.sms.enviar(numero, texto)) {
-        enviadoPor = 'sms';
-      }
+      // Se prueba uno por uno y gana el primero que funcione. Que uno reviente
+      // no puede impedir que se pruebe el siguiente: el camino alterno existe
+      // justamente para cuando el primero falla.
+      enviadoPor = await enviarPorElPrimeroQuePueda(
+        await this.tenants.ordenDelEnlace(tenant),
+        {
+          whatsapp: () => this.whatsapp.enviarSiHayConversacion(tenant, numero, texto),
+          plantilla: async () => (await this.whatsapp.enviarPlantillaVideollamada(
+            tenant, numero, caso.codigoCaso ?? caso.titulo.slice(0, 40), enlace,
+          )).ok,
+          sms: () => this.sms.enviar(numero, texto),
+        },
+        (canal, e) => this.logger.warn(
+          `El enlace de la videollamada no pudo salir por ${canal} (${tenant}): ${e.message}`),
+      );
     }
 
     return {

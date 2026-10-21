@@ -10,6 +10,7 @@ import { VideoTokenService } from './video-token.service';
 import { TurnService } from './turn.service';
 import { SmsModule } from '../sms/sms.module';
 import { WhatsappModule } from '../whatsapp/whatsapp.module';
+import { TenantsModule } from '../tenants/tenants.module';
 import { ArchivosModule } from '../archivos/archivos.module';
 import { AuthModule } from '../auth/auth.module';
 
@@ -25,6 +26,8 @@ import { AuthModule } from '../auth/auth.module';
     // Para mandar el enlace por WhatsApp cuando ya hay conversación abierta
     // con el ciudadano. Ver `VideollamadaService.crear`.
     WhatsappModule,
+    // Por el orden de salida del enlace, que se configura por instancia.
+    TenantsModule,
     ArchivosModule,
     // Por el JwtService que usa el gateway para identificar al despachador —
     // AuthModule exporta JwtModule, igual que lo toma CasosModule.
