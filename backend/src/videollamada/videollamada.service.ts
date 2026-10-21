@@ -7,6 +7,7 @@ import { VideoChatMensajeEntity } from './video-chat-mensaje.entity';
 import { VideoTokenService } from './video-token.service';
 import { TenantRlsService } from '../common/tenant-rls.service';
 import { SmsService } from '../sms/sms.service';
+import { WhatsappService } from '../whatsapp/whatsapp.service';
 import { CasoEntity } from '../casos/caso.entity';
 
 /** Estados en los que la llamada todavía se puede retomar. */
@@ -40,11 +41,27 @@ export class VideollamadaService {
     private readonly rls: TenantRlsService,
     private readonly tokens: VideoTokenService,
     private readonly sms: SmsService,
+    private readonly whatsapp: WhatsappService,
     private readonly config: ConfigService,
   ) {}
 
   /**
-   * Abre una videollamada para un caso y manda el enlace por SMS.
+   * Abre una videollamada para un caso y le hace llegar el enlace al ciudadano.
+   *
+   * POR DÓNDE SALE EL ENLACE. Primero WhatsApp, si hay conversación abierta
+   * con ese número; si no, SMS. No es una preferencia estética:
+   *
+   * - Dentro de la ventana de 24 h el mensaje de WhatsApp no cuesta; el SMS
+   *   se paga siempre.
+   * - En WhatsApp el enlace es pulsable. En SMS muchos teléfonos no lo
+   *   convierten en enlace y el ciudadano tendría que copiar a mano una URL
+   *   con un código largo, en plena emergencia.
+   * - WhatsApp dice si llegó y si lo leyeron. El SMS, con suerte, dice que lo
+   *   recibió el operador móvil.
+   *
+   * El SMS no se retira: un caso que nació de una llamada no tiene ninguna
+   * conversación abierta, y ahí WhatsApp exigiría una plantilla aprobada por
+   * Meta que todavía no tenemos.
    *
    * Es IDEMPOTENTE por caso: si ya hay una vigente, devuelve esa misma en vez
    * de crear otra. Sin eso, un despachador que refresca la pantalla generaba un
@@ -60,7 +77,9 @@ export class VideollamadaService {
     origenSolicitud?: string | null,
   ): Promise<{
     sesionId: string; token: string; enlace: string; expiraEn: Date;
-    smsEnviado: boolean; mensaje: string; reutilizada: boolean;
+    /** Si el enlace salió por algún lado, y por cuál. `null` = no salió. */
+    enviadoPor: 'whatsapp' | 'sms' | null;
+    mensaje: string; reutilizada: boolean;
   }> {
     if (!casoId) throw new BadRequestException('Falta el caso.');
 
@@ -74,7 +93,7 @@ export class VideollamadaService {
         { sesionId: vigente.id, casoId, tenant, despachador }, vigente.expiraEn);
       return {
         sesionId: vigente.id, token, enlace: this.enlace(await this.claveDe(vigente), origenSolicitud), expiraEn: vigente.expiraEn,
-        smsEnviado: false, reutilizada: true,
+        enviadoPor: null, reutilizada: true,
         mensaje: 'Ya había una videollamada en curso para este caso — se reutiliza el mismo enlace.',
       };
     }
@@ -115,25 +134,34 @@ export class VideollamadaService {
         'No se pudo determinar el dominio público: ni FRONTEND_URL está definida ni el ' +
         'proxy declaró el host de la petición. El enlace sale sin dominio y el SMS no se envía.');
       return {
-        sesionId: sesion.id, token, enlace, expiraEn, smsEnviado: false, reutilizada: false,
+        sesionId: sesion.id, token, enlace, expiraEn, enviadoPor: null, reutilizada: false,
         mensaje: 'No se pudo armar el enlace: el servidor no sabe con qué dominio público ' +
           'se le alcanza. Avise al administrador (FRONTEND_URL).',
       };
     }
 
-    // El SMS puede fallar y la llamada tiene que quedar abierta igual: el
-    // despachador ya tiene el enlace y puede dictarlo por teléfono.
-    const smsEnviado = numeroTelefono?.trim()
-      ? await this.sms.enviar(
-          numeroTelefono.trim(),
-          `FALCON CAD - Linea 123. Para atenderlo por video, abra este enlace: ${enlace}`)
-      : false;
+    // El envío puede fallar por los dos caminos y la llamada tiene que
+    // quedar abierta igual: el despachador ya tiene el enlace y puede
+    // dictarlo por teléfono.
+    const numero = numeroTelefono?.trim();
+    const texto = `FALCON CAD - Linea 123. Para atenderlo por video, abra este enlace: ${enlace}`;
+    let enviadoPor: 'whatsapp' | 'sms' | null = null;
+    if (numero) {
+      if (await this.whatsapp.enviarSiHayConversacion(tenant, numero, texto)) {
+        enviadoPor = 'whatsapp';
+      } else if (await this.sms.enviar(numero, texto)) {
+        enviadoPor = 'sms';
+      }
+    }
 
     return {
-      sesionId: sesion.id, token, enlace, expiraEn, smsEnviado, reutilizada: false,
-      mensaje: smsEnviado
-        ? 'Enlace enviado por SMS.'
-        : 'No se pudo enviar el SMS — copie el enlace o díctelo al ciudadano.',
+      sesionId: sesion.id, token, enlace, expiraEn, enviadoPor, reutilizada: false,
+      // Decir POR DÓNDE salió no es un detalle: si el despachador sabe que
+      // fue por WhatsApp, sabe también dónde mirar si el ciudadano no entra.
+      mensaje:
+        enviadoPor === 'whatsapp' ? 'Enlace enviado por WhatsApp.'
+        : enviadoPor === 'sms' ? 'Enlace enviado por SMS.'
+        : 'No se pudo enviar el enlace — cópielo o díctelo al ciudadano.',
     };
   }
 

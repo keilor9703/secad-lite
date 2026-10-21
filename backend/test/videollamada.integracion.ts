@@ -172,8 +172,8 @@ async function main(): Promise<number> {
     `el enlace es corto y dictable: ${creada.enlace}`);
   afirmar(creada.enlace.length <= 70,
     `y cabe en un SMS sin parecer un fraude (${creada.enlace.length} caracteres)`);
-  afirmar(creada.smsEnviado === false,
-    'sin proveedor configurado el SMS no sale, pero la llamada queda abierta igual');
+  afirmar(creada.enviadoPor === null,
+    'sin WhatsApp ni proveedor de SMS el enlace no sale, pero la llamada queda abierta igual');
 
   console.log('\n2) Es idempotente por caso');
   const otra = await video.crear('tunja', casoId, '3001234567', 'despachador1');

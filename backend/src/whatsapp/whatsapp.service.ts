@@ -17,6 +17,22 @@ interface InfobipEntrante {
   message?: { type?: string; text?: string; caption?: string };
 }
 
+/**
+ * Horas que WhatsApp deja contestar con texto libre, contadas desde el último
+ * mensaje del ciudadano. Fuera de esa ventana hace falta una plantilla
+ * aprobada por Meta, que es otro trámite y otro código.
+ */
+export const HORAS_VENTANA_WHATSAPP = 24;
+
+/**
+ * Cuántos dígitos finales identifican un teléfono.
+ *
+ * Diez son los de un móvil colombiano sin indicativo. Comparar por la cola
+ * admite las tres formas en que llega el mismo número; con diez dígitos, dos
+ * personas distintas que coincidan es algo que no pasa en un municipio.
+ */
+const LARGO_COLA_TELEFONO = 10;
+
 /** Versión de la Graph API de Meta para enviar respuestas. */
 const GRAPH_VERSION = 'v20.0';
 
@@ -381,6 +397,72 @@ export class WhatsappService {
       } catch (e) {
         this.log.warn(`No se pudo avisar del mensaje en el caso ${id}: ${(e as Error).message}`);
       }
+    }
+  }
+
+  /**
+   * Manda un texto por WhatsApp SOLO si hay una conversación abierta con ese
+   * número. Devuelve si salió; nunca lanza.
+   *
+   * ──────────────────────────────────────────────────────────────────────────
+   * POR QUÉ NO BASTA CON QUE EXISTA UN CASO
+   *
+   * WhatsApp solo deja escribir texto libre dentro de las 24 horas siguientes
+   * al último mensaje DEL CIUDADANO. Pasada esa ventana hace falta una
+   * plantilla aprobada por Meta, y un envío fuera de plazo no falla de forma
+   * obvia: lo rechaza el proveedor y el ciudadano no recibe nada.
+   *
+   * Un caso puede llevar abierto tres días con el último mensaje del
+   * ciudadano hace dos. Por eso lo que se mira es la hora de ese mensaje y no
+   * la del caso: si se mirara el caso, el enlace de la videollamada se daría
+   * por enviado y nadie lo recibiría — y el operador se quedaría esperando a
+   * alguien que nunca va a conectarse.
+   *
+   * ──────────────────────────────────────────────────────────────────────────
+   * EL NÚMERO SE COMPARA POR LA COLA
+   *
+   * El mismo teléfono llega escrito de tres formas: `573175882321` desde el
+   * webhook, `+57 317 588 2321` tecleado por un operador, `3175882321`
+   * dictado por el ciudadano. Comparar la cadena entera diría que son tres
+   * personas distintas, y el enlace se iría por SMS teniendo la conversación
+   * abierta delante. Se comparan los últimos dígitos, que es lo que no
+   * cambia.
+   */
+  async enviarSiHayConversacion(tenant: string, telefono: string, texto: string): Promise<boolean> {
+    const digitos = (telefono ?? '').replace(/\D/g, '');
+    if (!digitos || !texto?.trim()) return false;
+    const cola = digitos.slice(-LARGO_COLA_TELEFONO);
+
+    try {
+      const abierto = await this.rls.conTenant(tenant, async (manager) => {
+        const caso = await manager
+          .getRepository(CasoEntity)
+          .createQueryBuilder('c')
+          .where('c.tenant = :tenant', { tenant })
+          .andWhere('c.canal = :canal', { canal: 'whatsapp' })
+          .andWhere('c.estado <> :cerrado', { cerrado: 'cerrado' })
+          .andWhere('c.telefono LIKE :cola', { cola: `%${cola}` })
+          .orderBy('c."creadoEn"', 'DESC')
+          .getOne();
+        if (!caso) return false;
+
+        const ultimo = await manager.getRepository(MensajeChatEntity).findOne({
+          where: { tenant, casoId: caso.id, autorTipo: 'ciudadano' },
+          order: { creadoEn: 'DESC' },
+        });
+        if (!ultimo) return false;
+
+        const horas = (Date.now() - new Date(ultimo.creadoEn).getTime()) / 3_600_000;
+        return horas < HORAS_VENTANA_WHATSAPP;
+      });
+
+      if (!abierto) return false;
+      return await this.enviar(tenant, digitos, texto);
+    } catch (e) {
+      // Quien llama tiene un camino alterno (el SMS). Un fallo mirando la
+      // conversación no puede dejar al ciudadano sin enlace por ningún lado.
+      this.log.warn(`No se pudo comprobar la conversación de WhatsApp (${tenant}): ${(e as Error).message}`);
+      return false;
     }
   }
 

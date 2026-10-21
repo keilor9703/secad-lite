@@ -41,7 +41,14 @@ export interface VideollamadaCreada {
   token: string;
   enlace: string;
   expiraEn: string;
-  smsEnviado: boolean;
+  /**
+   * Por dónde salió el enlace, o `null` si no salió por ningún lado.
+   *
+   * WhatsApp cuando ya hay conversación abierta con el ciudadano —es
+   * gratis, el enlace es pulsable y se sabe si lo leyó—; SMS cuando no la
+   * hay, que es el caso de una emergencia que entró por teléfono.
+   */
+  enviadoPor: 'whatsapp' | 'sms' | null;
   mensaje: string;
   reutilizada: boolean;
 }

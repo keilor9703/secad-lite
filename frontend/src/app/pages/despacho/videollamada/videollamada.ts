@@ -216,9 +216,11 @@ export class VideollamadaComponent implements OnDestroy {
       this.casoEnLlamada = this.casoId();
       await this.video.iniciar(r.sesionId);
 
-      // El enlace se muestra SIEMPRE, haya salido el SMS o no: si no salió, el
+      // El enlace se muestra SIEMPRE, haya salido o no: si no salió, el
       // despachador puede dictarlo por teléfono y la atención no se detiene.
-      if (r.smsEnviado) this.toast.exito(r.mensaje);
+      // El mensaje dice POR DÓNDE fue, para que sepa dónde mirar si el
+      // ciudadano no entra.
+      if (r.enviadoPor) this.toast.exito(r.mensaje);
       else this.toast.error(r.mensaje);
     } catch {
       this.toast.error('No se pudo abrir la videollamada.');

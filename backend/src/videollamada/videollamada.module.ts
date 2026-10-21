@@ -9,6 +9,7 @@ import { VideollamadaGateway } from './videollamada.gateway';
 import { VideoTokenService } from './video-token.service';
 import { TurnService } from './turn.service';
 import { SmsModule } from '../sms/sms.module';
+import { WhatsappModule } from '../whatsapp/whatsapp.module';
 import { ArchivosModule } from '../archivos/archivos.module';
 import { AuthModule } from '../auth/auth.module';
 
@@ -21,6 +22,9 @@ import { AuthModule } from '../auth/auth.module';
   imports: [
     TypeOrmModule.forFeature([VideoSesionEntity, VideoChatMensajeEntity, CasoEntity]),
     SmsModule,
+    // Para mandar el enlace por WhatsApp cuando ya hay conversación abierta
+    // con el ciudadano. Ver `VideollamadaService.crear`.
+    WhatsappModule,
     ArchivosModule,
     // Por el JwtService que usa el gateway para identificar al despachador —
     // AuthModule exporta JwtModule, igual que lo toma CasosModule.
