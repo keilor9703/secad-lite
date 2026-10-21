@@ -22,12 +22,27 @@ import { CtiComponent } from './cti';
  * —que es de recepcionar casos— pasa a tener opinión sobre telefonía.
  *
  * ────────────────────────────────────────────────────────────────────────────
- * LO QUE HOY NO EXISTE SE DICE, NO SE SIMULA
+ * CON LA CENTRAL DE UN TERCERO NO SE PINTA NADA
  *
- * La barra de YACO la está construyendo el tercero y todavía no la tenemos.
- * Aquí no se dibuja una barra falsa que parezca la suya: se deja el sitio
- * reservado y se dice qué va a ir ahí y por qué todavía no está. Una maqueta
- * en producción es una promesa que alguien va a creerse.
+ * Aquí hubo una tarjeta que explicaba que la barra de YACO la construye el
+ * tercero y que todavía no la tenemos. Se quitó el 21/10/2026 porque en
+ * producción no informaba: le contaba al OPERADOR, en mitad de su pantalla de
+ * trabajo y en cada turno, un pendiente comercial que él no puede resolver, y
+ * a la alcaldía le daba a FALCON aire de producto a medio terminar.
+ *
+ * Que la barra del tercero no esté no es un estado que haya que leer: en esa
+ * instancia el operador contesta por el teléfono de YACO, y eso es lo normal,
+ * no una avería. Donde sí hace falta decirlo es en la hoja de ruta y en
+ * `docs/integracion-cti-yaco.md`, que es donde lo leen quienes pueden hacer
+ * algo al respecto.
+ *
+ * Sigue en pie lo que esa tarjeta protegía: aquí NO se dibuja una barra falsa
+ * que parezca la suya. Una maqueta en producción es una promesa que alguien
+ * va a creerse.
+ *
+ * La instancia SIN centralita sí conserva su aviso, y la diferencia importa:
+ * eso no es el pendiente de un tercero, es una configuración que falta y que
+ * alguien tiene que ir a arreglar.
  */
 @Component({
   selector: 'app-cti-host',
@@ -48,18 +63,9 @@ import { CtiComponent } from './cti';
         <app-cti />
       }
       @case ('yaco') {
-        <section class="cti-ajeno">
-          <h3>Teléfono de YACO</h3>
-          <p>
-            Esta instancia opera con la centralita de YACO, así que el teléfono
-            del operador es el de ellos. Su barra se integra aquí cuando la
-            entreguen.
-          </p>
-          <p class="cti-ajeno-nota">
-            Mientras tanto, las llamadas siguen llegando a FALCON y los casos se
-            crean igual: lo que falta es contestar desde esta pantalla.
-          </p>
-        </section>
+        <!-- Nada. El operador contesta por el teléfono de YACO; decírselo en
+             cada turno no le sirve de nada. Cuando el tercero entregue su
+             barra, se monta aquí. -->
       }
       @default {
         <section class="cti-ajeno">
@@ -101,7 +107,6 @@ import { CtiComponent } from './cti';
       }
     }
 
-    .cti-ajeno-nota { color: var(--muted) !important; }
   `,
 })
 export class CtiHostComponent {

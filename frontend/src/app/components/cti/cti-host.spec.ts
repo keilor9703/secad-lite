@@ -95,28 +95,39 @@ describe('CtiHostComponent', () => {
     });
   });
 
-  it('con la centralita del tercero, NO monta el nuestro y dice de quién es', () => {
-    capacidades.set({
-      proveedor: 'YACO', nombre: 'YACO', activo: true, capacidades: ['entrantes'],
+  describe('con la centralita del tercero', () => {
+    beforeEach(() => {
+      capacidades.set({
+        proveedor: 'YACO', nombre: 'YACO', activo: true, capacidades: ['entrantes'],
+      });
+      fixture.detectChanges();
     });
-    fixture.detectChanges();
 
-    expect(hayPanelPropio()).toBe(false);
-    expect(texto()).toContain('YACO');
-  });
-
-  it('la barra del tercero NO se simula mientras no exista', () => {
-    // Una maqueta en producción es una promesa que alguien se va a creer: un
-    // operador que ve botones de contestar que no contestan nada.
-    capacidades.set({
-      proveedor: 'YACO', nombre: 'YACO', activo: true, capacidades: ['entrantes'],
+    it('no monta el nuestro', () => {
+      expect(hayPanelPropio()).toBe(false);
     });
-    fixture.detectChanges();
 
-    expect(
-      (fixture.nativeElement as HTMLElement).querySelectorAll('.cti-ajeno button').length,
-    ).toBe(0);
-    expect(texto()).toContain('cuando la entreguen');
+    it('y no pinta NADA en el sitio del teléfono', () => {
+      // Hubo una tarjeta que anunciaba que el tercero entregaría su barra más
+      // adelante. En producción no informaba: le contaba al operador, en cada
+      // turno, un pendiente comercial que no puede resolver.
+      //
+      // Se afirma primero que el componente SÍ pintó algo —la cola—, porque
+      // si no se cayera en la trampa de siempre: una negación sobre una
+      // pantalla vacía pasa aunque se haya roto todo lo demás.
+      expect(hayCola()).toBe(true);
+
+      expect((fixture.nativeElement as HTMLElement).querySelector('.cti-ajeno')).toBeNull();
+      expect(texto()).not.toContain('YACO');
+      expect(texto()).not.toContain('entreguen');
+    });
+
+    it('y por supuesto tampoco se simula su barra', () => {
+      // Lo que protegía aquella tarjeta sigue en pie: una maqueta en
+      // producción es una promesa que alguien se va a creer — un operador que
+      // ve botones de contestar que no contestan nada.
+      expect((fixture.nativeElement as HTMLElement).querySelectorAll('button').length).toBe(0);
+    });
   });
 
   it('una planta propia APAGADA sigue siendo nuestra: se enseña el panel', () => {
