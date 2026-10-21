@@ -136,6 +136,47 @@ WhatsApp Calling para Colombia antes de prometerle nada a la alcaldía.]**
 
 ---
 
+## 3 bis. La llamada de WhatsApp: lo que se sabe al 22/10/2026
+
+Leída por fin la documentación de Meta, dos cosas cambian lo que creíamos.
+
+### Lo que nos bloquea de verdad
+
+Meta exige, **antes** de dejar activar las llamadas en un número:
+
+- Un **límite de mensajería de 2.000 destinatarios únicos al día**.
+- El webhook `calls` suscrito, **o** SIP configurado. Sin uno de los dos, el
+  interruptor «Permitir llamadas de voz» devuelve el error `2593151`.
+
+El segundo se resuelve configurando. **El primero no se compra ni se pide:**
+el nivel sube enviando a muchos destinatarios únicos con buena calidad, y una
+línea 123 sobre todo RECIBE. Es el muro real, y conviene decirlo antes de
+prometerle la llamada de WhatsApp a un municipio.
+
+Las cuentas *sandbox*, que se saltan ese límite, son solo para Tech Partners
+de Meta. Si esto importa, el camino es solicitar ese estatus.
+
+### La razón para pagar a Infobip por la voz caducó
+
+Elegimos Infobip porque Meta entregaba **solo Opus** y nuestra planta
+—aarch64, sin transcodificador— no podía grabar, que en una línea 123 es un
+requisito legal, no una preferencia.
+
+El **23/03/2026 Meta añadió G.711 (PCMA/PCMU)**, y en septiembre de 2025
+publicó una guía de integración **con Asterisk**. Así que el SIP directo con
+Meta es viable y se ahorra el minuto de Infobip.
+
+No es una decisión tomada: hay que comparar las dos con números delante
+—coste por minuto, quién opera el TLS y el SRTP, qué pasa si Meta cambia algo—
+y la comparación todavía no se ha hecho. Lo que **sí** está decidido es que la
+afirmación «Infobip es el único camino» ya no vale, y que no puede quedarse
+escrita como si valiera.
+
+Para los **mensajes**, Infobip sigue siendo el camino vivo y no está en
+discusión.
+
+---
+
 ## 4. El filtro de mensajes: el problema de verdad
 
 > **Hecho el 21/10/2026**, §4.1 a §4.4. Lo que sigue describe el problema y

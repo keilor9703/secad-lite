@@ -316,11 +316,23 @@ Cada una con su propia credencial; ninguna depende de la sesión institucional.
 
 > **WhatsApp tiene DOS entradas y no es un descuido.** Una línea puede estar
 > conectada a Meta directamente o a través de Infobip como proveedor oficial.
-> Se eligió Infobip para nuestras plantas por una razón que no tiene que ver
-> con los mensajes: es el único camino por el que la **llamada** de WhatsApp
-> llega como SIP a nuestro Asterisk. El precio es que los mensajes vienen en
+> Se eligió Infobip para nuestras plantas por una razón que no tenía que ver
+> con los mensajes: era el único camino por el que la **llamada** de WhatsApp
+> llegaba como SIP a nuestro Asterisk. El precio es que los mensajes vienen en
 > el formato de Infobip, y por eso hay un traductor. A partir de
 > `procesar()`, los dos caminos son el mismo código.
+>
+> ⚠️ **Esa razón caducó.** El 23/03/2026 Meta añadió G.711 (PCMA/PCMU) a su
+> API de llamadas, y en 09/2025 publicó una guía de integración con Asterisk.
+> El motivo para pagar a Infobip por minuto era que Meta solo entregaba Opus
+> y nuestra planta —aarch64, sin transcodificador— no podía grabar la llamada,
+> que en una línea 123 es un requisito legal. Con G.711 el SIP directo con
+> Meta es viable. **Antes de dar por sentado el camino de Infobip para la voz,
+> compare los dos.** Para los mensajes, Infobip sigue siendo el camino vivo.
+>
+> Lo que bloquea la voz hoy no es ninguno de los dos: Meta exige un **límite
+> de mensajería de 2.000 destinatarios únicos al día** antes de dejar activar
+> las llamadas, y una línea que sobre todo RECIBE no sube de nivel sola.
 >
 > Enrutan distinto: Meta por `phone_number_id`, Infobip por el **número de
 > destino** (`tenants.waNumero`). Los dos campos se configuran en

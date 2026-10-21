@@ -21,9 +21,13 @@ const catalogoDePrueba = [
  * EL TRADUCTOR DE INFOBIP.
  *
  * La línea de WhatsApp de FALCON no está conectada a Meta directamente sino a
- * Infobip, porque es el único camino por el que la LLAMADA de WhatsApp llega
- * como SIP a nuestro Asterisk. El precio de esa decisión es que los mensajes
- * vienen en el formato de Infobip, y estas pruebas cubren esa traducción.
+ * Infobip. El precio de esa decisión es que los mensajes vienen en el formato
+ * de Infobip, y estas pruebas cubren esa traducción.
+ *
+ * El motivo original —que era el único camino por el que la LLAMADA de
+ * WhatsApp llegaba como SIP a nuestro Asterisk— caducó: Meta añadió G.711 en
+ * marzo de 2026. Para los MENSAJES, que es lo que prueba este archivo, el
+ * camino de Infobip sigue siendo el vivo.
  *
  * Se escribió contra el formato documentado, ANTES de ver una entrega real.
  * Por eso lo que más se comprueba aquí no es el camino feliz: es qué pasa con
